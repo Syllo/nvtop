@@ -19,7 +19,7 @@
  *
  */
 
-#include "interface.h"
+#include "nvtop/interface.h"
 
 #include <stdlib.h>
 #include <string.h>

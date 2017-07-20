@@ -19,12 +19,12 @@
  *
  */
 
-#include "extract_gpuinfo.h"
+#include "nvtop/extract_gpuinfo.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "get_process_info.h"
+#include "nvtop/get_process_info.h"
 
 static bool nvml_initialized = false;
 

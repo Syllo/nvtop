@@ -75,8 +75,8 @@ add_subdirectory(src)
 #                             INSTALL                               #
 #///////////////////////////////////////////////////////////////////#
 
-install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include/"
-  DESTINATION include FILES_MATCHING PATTERN "*.h")
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
+  DESTINATION include FILES_MATCHING PATTERN "nvtop/*.h")
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"

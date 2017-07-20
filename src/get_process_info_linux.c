@@ -19,7 +19,7 @@
  *
  */
 
-#include "get_process_info.h"
+#include "nvtop/get_process_info.h"
 
 #include <pwd.h>
 #include <stdio.h>

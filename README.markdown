@@ -19,7 +19,7 @@ Three libraries are required:
 * The NVIDIA Management Library (NVML).
   * This queries the GPU for information.
 * The ncurses library driving the user interface.
-  * This drives the screen.
+  * This makes the screen look beautiful.
 
 Limitations
 -----------
@@ -58,6 +58,6 @@ None for the moment.
 License
 -------
 
-Nvtop is licensed under the GPLV3 licence or any later version.
+Nvtop is licensed under the GPLV3 license or any later version.
 You will find a copy of the license inside the COPYING file of the repository or
 at the gnu website <[www.gnu.org/licenses/](http://www.gnu.org/licenses/)>.

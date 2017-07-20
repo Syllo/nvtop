@@ -27,7 +27,7 @@
 
 #include <locale.h>
 
-#include "interface.h"
+#include "nvtop/interface.h"
 
 #define STOP_SIGNAL 0x1
 #define RESIZE_SIGNAL 0x2

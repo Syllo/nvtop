@@ -22,7 +22,7 @@
 #ifndef __INTERFACE_H_
 #define __INTERFACE_H_
 
-#include "extract_gpuinfo.h"
+#include "nvtop/extract_gpuinfo.h"
 
 enum sort_gpu_process_by {
   sort_pid,
