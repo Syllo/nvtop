@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.1)
 #///////////////////////////////////////////////////////////////////#
 
 set(NVTOP_VERSION_MAJOR 0)
-set(NVTOP_VERSION_MINOR 1)
+set(NVTOP_VERSION_MINOR 2)
 set(NVTOP_VERSION_PATCH 0)
 
 project(nvtop
@@ -74,9 +74,6 @@ add_subdirectory(src)
 #///////////////////////////////////////////////////////////////////#
 #                             INSTALL                               #
 #///////////////////////////////////////////////////////////////////#
-
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
-  DESTINATION include FILES_MATCHING PATTERN "nvtop/*.h")
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"

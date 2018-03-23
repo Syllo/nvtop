@@ -24,10 +24,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <ncurses.h>
+#include <getopt.h>
 
 #include <locale.h>
 
 #include "nvtop/interface.h"
+#include "nvtop/version.h"
 
 #define STOP_SIGNAL 0x1
 #define RESIZE_SIGNAL 0x2
@@ -44,11 +46,97 @@ static void resize_handler(int signum) {
   signal_bits |= RESIZE_SIGNAL;
 }
 
+static const char helpstring[] =
+"Available options:\n"
+"  -d --delay    : Select the refresh rate (1 == 0.1s)\n"
+"  -v --version  : Print the version and exit\n"
+"  -h --help     : Print help and exit\n";
+
+static const char versionString[] =
+"nvtop version " NVTOP_VERSION_STRING;
+
+static const struct option long_opts[] = {
+  {
+    .name = "delay",
+    .has_arg = required_argument,
+    .flag = NULL,
+    .val = 'd'
+  },
+  {
+    .name = "version",
+    .has_arg = no_argument,
+    .flag = NULL,
+    .val = 'v'
+  },
+  {
+    .name = "help",
+    .has_arg = no_argument,
+    .flag = NULL,
+    .val = 'h'
+  },
+  {
+    .name = "no-color",
+    .has_arg = no_argument,
+    .flag = NULL,
+    .val = 'C'
+  },
+  {
+    .name = "no-colour",
+    .has_arg = no_argument,
+    .flag = NULL,
+    .val = 'C'
+  },
+  {0,0,0,0},
+};
+
+static const char opts[] = "hvd:";
+
 int main (int argc, char **argv) {
-  (void) argc; (void) argv;
   (void) setlocale(LC_CTYPE, "");
 
+  opterr = 0;
   int refresh_interval = 1000;
+  while (true) {
+    char optchar = getopt_long(argc, argv, opts, long_opts, NULL);
+    if (optchar == -1)
+      break;
+    switch (optchar) {
+      case 'd':
+        {
+          char *endptr = NULL;
+          long int delay_val = strtol(optarg, &endptr, 0);
+          if (endptr == optarg) {
+            fprintf(stderr, "Error: The delay must be a positive value representing tenths of seconds\n");
+            exit(EXIT_FAILURE);
+          }
+          if (delay_val < 0) {
+            fprintf(stderr, "Error: A negative delay requires a time machine!\n");
+            exit(EXIT_FAILURE);
+          }
+          refresh_interval = (int) delay_val * 100u;
+        }
+        break;
+      case 'v':
+        printf("%s\n", versionString);
+        exit(EXIT_SUCCESS);
+      case 'h':
+        printf("%s\n%s", versionString, helpstring);
+        exit(EXIT_SUCCESS);
+      case ':':
+      case '?':
+        switch (optopt) {
+          case 'd':
+            fprintf(stderr, "Error: The delay option takes a positive value representing tenths of seconds\n");
+            break;
+          default:
+            fprintf(stderr, "Unhandled error in getopt missing argument\n");
+            exit(EXIT_FAILURE);
+            break;
+        }
+        exit(EXIT_FAILURE);
+    }
+  }
+
   setenv("ESCDELAY", "10", 1);
 
   struct sigaction siga;

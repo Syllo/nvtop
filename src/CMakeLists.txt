@@ -1,3 +1,7 @@
+configure_file(
+  "${PROJECT_SOURCE_DIR}/include/nvtop/version.h.in"
+  "${PROJECT_BINARY_DIR}/include/nvtop/version.h"
+  IMMEDIATE @ONLY)
 
 add_executable (nvtop
   nvtop.c
