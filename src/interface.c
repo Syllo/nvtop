@@ -678,10 +678,10 @@ static void print_processes_on_screen(
       wprintw(win, " %*s ", sizeof_process_field[process_type], "Compute");
       wattroff(win, COLOR_PAIR(magenta_color));
     }
-    wprintw(win, "%*s %s",
+    wprintw(win, "%*s ",
         sizeof_process_field[process_memory],
-        memory,
-        proc[i+offset].process_name);
+        memory);
+    wprintw(win, "%s", proc[i+offset].process_name);
   }
   wnoutrefresh(win);
 }
@@ -703,7 +703,6 @@ static void draw_processes(
   unsigned int offset = interface->process.offset;
   unsigned int rows, cols;
   getmaxyx(interface->process.process_win, rows, cols);
-  (void) cols;
   rows -= 1;
   unsigned int borne_max = rows + offset;
   if (borne_max > total_processes) {
@@ -714,6 +713,16 @@ static void draw_processes(
   }
   interface->process.offset = offset;
   sizeof_process_field[process_user] = interface->process.size_biggest_name;
+
+  int process_name_size = cols;
+  for (enum process_field i = process_pid; i <= process_type; ++i) {
+    process_name_size -= sizeof_process_field[i] + 1;
+  }
+  if (process_name_size < 0)
+    process_name_size = 0;
+  for (size_t i = 0; i < total_processes; ++i)
+    if (strlen(interface->process.all_process[i+interface->process.offset].process_name) > process_name_size)
+      interface->process.all_process[i+interface->process.offset].process_name[process_name_size] = '\0';
 
   print_processes_on_screen(total_processes, interface->process.all_process,
       interface->process.process_win, interface->process.offset);
