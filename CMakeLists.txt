@@ -76,6 +76,16 @@ add_subdirectory(src)
 #///////////////////////////////////////////////////////////////////#
 
 configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/manpage/nvtop.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/manpage/nvtop"
+  IMMEDIATE @ONLY)
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/manpage/nvtop"
+  DESTINATION share/man/man1/
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
+  RENAME nvtop.1)
+
+configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
   "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
   IMMEDIATE @ONLY)

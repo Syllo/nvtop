@@ -1,0 +1,32 @@
+." Manpage for nvtop
+." Contact maxime.schmitt91@gmail.com
+
+.TH nvtop 1 "March 2018" "Version @NVTOP_VERSION_MAJOR@.@NVTOP_VERSION_MINOR@.@NVTOP_VERSION_PATCH@" "nvtop command"
+
+.SH NAME
+nvtop - NVIDIA GPU top
+
+.SH SYNOPSIS
+.B nvtop
+\fR[\fB-h\fR]
+\fR[\fB-v\fR]
+\fR[\fB-d\fR \fIdelay\fR]
+
+.SH DESCRIPTION
+nvtop is a ncurses-based GPU status viewer for NVIDIA GPUs.
+
+.SH OPTIONS
+.TP
+.BR -d ", " --delay =\fIdelay\fR
+Delay between updates, in tenths of seconds (\fIdelay\fR * 0.1s).
+.TP
+.BR -h ", " --help
+Print the help and exit.
+.TP
+.BR -v ", " --version
+Print the version and exit.
+
+.SH BUGS
+No known bugs.
+.SH AUTHOR
+Written by Maxime Schmitt.
