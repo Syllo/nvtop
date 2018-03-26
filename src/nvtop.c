@@ -158,7 +158,8 @@ int main (int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  init_gpu_info_extraction();
+  if (!init_gpu_info_extraction())
+    return EXIT_FAILURE;
   size_t num_devices;
   struct device_info *dev_infos;
   num_devices = initialize_device_info(&dev_infos);
