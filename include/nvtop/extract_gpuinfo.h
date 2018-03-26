@@ -23,13 +23,48 @@
 #define __EXTRACT_GPUINFO_H_
 
 #include <stdbool.h>
+#include <limits.h>
 #include <nvml.h>
+
+#define IS_VALID(x,y)    ((y)[(x)/CHAR_BIT] & (1<<((x)%CHAR_BIT)))
+#define SET_VALID(x,y)   ((y)[(x)/CHAR_BIT] |= (1<<((x)%CHAR_BIT)))
+#define RESET_VALID(x,y) ((y)[(x)/CHAR_BIT] &= ~(1<<((x)%CHAR_BIT)))
 
 struct gpu_process {
   unsigned int pid;                // Process ID
   char process_name[64];           // Process Name
   char user_name[64];              // Process User Name
   unsigned long long used_memory;  // Memory used by process
+};
+
+enum dev_info_valid {
+  device_name_valid = 0,
+  gpu_clock_speed_valid,
+  gpu_clock_speed_max_valid,
+  mem_clock_speed_valid,
+  mem_clock_speed_max_valid,
+  gpu_util_rate_valid,
+  mem_util_rate_valid,
+  encoder_rate_valid,
+  encoder_sampling_valid,
+  decoder_rate_valid,
+  decoder_sampling_valid,
+  free_memory_valid,
+  total_memory_valid,
+  used_memory_valid,
+  cur_pcie_link_gen_valid,
+  max_pcie_link_gen_valid,
+  cur_pcie_link_width_valid,
+  max_pcie_link_width_valid,
+  pcie_rx_valid,
+  pcie_tx_valid,
+  fan_speed_valid,
+  gpu_temp_valid,
+  gpu_temp_slowdown_valid,
+  gpu_temp_shutdown_valid,
+  power_draw_valid,
+  power_draw_max_valid,
+  valid_max_val,
 };
 
 struct device_info {
@@ -66,6 +101,7 @@ struct device_info {
   struct gpu_process *graphic_procs; // Graphical process info
   struct gpu_process *compute_procs; // Compute processes info
   nvmlProcessInfo_t *process_infos;  // Internal use
+  unsigned char valid[valid_max_val/CHAR_BIT + 1];             // Validity bits
 };
 
 bool init_gpu_info_extraction(void);

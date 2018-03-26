@@ -399,60 +399,98 @@ static void draw_devices(
       wnoutrefresh(dev->name_win);
     }
     char buff[1024];
-    snprintf(buff, 1024, "%u%%", dinfo->gpu_util_rate);
-    draw_bare_percentage(dev->gpu_util, "GPU-Util", dinfo->gpu_util_rate, buff);
-
-    double total_mem = dinfo->total_memory;
-    double used_mem = dinfo->used_memory;
-    size_t prefix_off;
-    for (prefix_off = 0; prefix_off < 5 && total_mem >= 1000; ++prefix_off) {
-      total_mem /= 1000;
-      used_mem /= 1000;
+    if (IS_VALID(gpu_util_rate_valid, dinfo->valid)) {
+      snprintf(buff, 1024, "%u%%", dinfo->gpu_util_rate);
+      draw_bare_percentage(dev->gpu_util, "GPU-Util", dinfo->gpu_util_rate, buff);
+    } else {
+      snprintf(buff, 1024, "N/A");
+      draw_bare_percentage(dev->gpu_util, "GPU-Util", 0, buff);
     }
-    snprintf(buff, 1024, "%.1f%s/%.1f%s",
-        used_mem,  memory_prefix[prefix_off],
-        total_mem, memory_prefix[prefix_off]);
-    draw_bare_percentage(dev->mem_util, "MEM-Util",
-        (unsigned int)(100. * dinfo->used_memory / (double)dinfo->total_memory),
-        buff);
-    snprintf(buff, 1024, "%u%%", dinfo->encoder_rate);
-    draw_bare_percentage(dev->encode_util, "Encoder",
-        dinfo->encoder_rate,
-        buff);
-    snprintf(buff, 1024, "%u%%", dinfo->decoder_rate);
-    draw_bare_percentage(dev->decode_util, "Decoder",
-        dinfo->decoder_rate,
-        buff);
-    draw_temp_color(dev->temperature,
-        dinfo->gpu_temp,
-        dinfo->gpu_temp_slowdown);
+
+    if (IS_VALID(total_memory_valid, dinfo->valid) && IS_VALID(used_memory_valid, dinfo->valid)) {
+      double total_mem = dinfo->total_memory;
+      double used_mem = dinfo->used_memory;
+      size_t prefix_off;
+      for (prefix_off = 0; prefix_off < 5 && total_mem >= 1000; ++prefix_off) {
+        total_mem /= 1000;
+        used_mem /= 1000;
+      }
+      snprintf(buff, 1024, "%.1f%s/%.1f%s",
+          used_mem,  memory_prefix[prefix_off],
+          total_mem, memory_prefix[prefix_off]);
+      draw_bare_percentage(dev->mem_util, "MEM-Util",
+          (unsigned int)(100. * dinfo->used_memory / (double)dinfo->total_memory),
+          buff);
+    } else {
+      snprintf(buff, 1024, "N/A");
+      draw_bare_percentage(dev->mem_util, "MEM-Util", 0, buff);
+    }
+    if (IS_VALID(encoder_rate_valid, dinfo->valid)) {
+      snprintf(buff, 1024, "%u%%", dinfo->encoder_rate);
+      draw_bare_percentage(dev->encode_util, "Encoder",
+          dinfo->encoder_rate,
+          buff);
+    } else {
+      snprintf(buff, 1024, "N/A");
+      draw_bare_percentage(dev->encode_util, "Encoder", 0, buff);
+    }
+    if (IS_VALID(decoder_rate_valid, dinfo->valid)) {
+      snprintf(buff, 1024, "%u%%", dinfo->decoder_rate);
+      draw_bare_percentage(dev->decode_util, "Decoder",
+          dinfo->decoder_rate,
+          buff);
+    } else {
+      snprintf(buff, 1024, "N/A");
+      draw_bare_percentage(dev->decode_util, "Decoder", 0, buff);
+    }
+    if (IS_VALID(gpu_temp_valid         , dinfo->valid) &&
+        IS_VALID(gpu_temp_slowdown_valid, dinfo->valid))
+      draw_temp_color(dev->temperature,
+          dinfo->gpu_temp,
+          dinfo->gpu_temp_slowdown);
+    else
+      mvwprintw(dev->temperature, 0, 0, "TEMP N/A°C");
 
     // FAN
-    mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%", dinfo->fan_speed);
+    if (IS_VALID(fan_speed_valid, dinfo->valid))
+      mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%", dinfo->fan_speed);
+    else
+      mvwprintw(dev->fan_speed, 0, 0, "FAN N/A%%");
     mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->fan_speed);
 
     // GPU CLOCK
     werase(dev->gpu_clock_info);
-    mvwprintw(dev->gpu_clock_info, 0, 0,
-        "GPU %uMHz",
-        dinfo->gpu_clock_speed);
+    if (IS_VALID(gpu_clock_speed_valid, dinfo->valid))
+      mvwprintw(dev->gpu_clock_info, 0, 0,
+          "GPU %uMHz",
+          dinfo->gpu_clock_speed);
+    else
+      mvwprintw(dev->gpu_clock_info, 0, 0, "GPU N/A MHz");
+
     mvwchgat(dev->gpu_clock_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->gpu_clock_info);
 
     // MEM CLOCK
     werase(dev->mem_clock_info);
-    mvwprintw(dev->mem_clock_info, 0, 0,
-        "MEM %uMHz",
-        dinfo->mem_clock_speed);
+    if (IS_VALID(mem_clock_speed_valid, dinfo->valid))
+      mvwprintw(dev->mem_clock_info, 0, 0,
+          "MEM %uMHz",
+          dinfo->mem_clock_speed);
+    else
+      mvwprintw(dev->mem_clock_info, 0, 0, "MEM N/A MHz");
     mvwchgat(dev->mem_clock_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->mem_clock_info);
 
     // POWER
     werase(dev->power_info);
-    mvwprintw(dev->power_info, 0, 0,
-        "POW %3u / %3u W",
-        dinfo->power_draw / 1000, dinfo->power_draw_max / 1000);
+    if (IS_VALID(power_draw_valid    , dinfo->valid) &&
+        IS_VALID(power_draw_max_valid, dinfo->valid))
+      mvwprintw(dev->power_info, 0, 0,
+          "POW %3u / %3u W",
+          dinfo->power_draw / 1000, dinfo->power_draw_max / 1000);
+    else
+      mvwprintw(dev->power_info, 0, 0, "POW N/A W");
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->power_info);
 
@@ -464,16 +502,27 @@ static void draw_devices(
     wattron(dev->pcie_info, COLOR_PAIR(magenta_color));
     wprintw(dev->pcie_info, "GEN ");
     wattroff(dev->pcie_info, COLOR_PAIR(magenta_color));
-    wprintw(dev->pcie_info, "%u@%2ux", dinfo->cur_pcie_link_gen,
-        dinfo->cur_pcie_link_width);
+    if (IS_VALID(cur_pcie_link_gen_valid  , dinfo->valid) &&
+        IS_VALID(cur_pcie_link_width_valid, dinfo->valid))
+      wprintw(dev->pcie_info, "%u@%2ux", dinfo->cur_pcie_link_gen,
+          dinfo->cur_pcie_link_width);
+    else
+      wprintw(dev->pcie_info, "N/A");
+
     wattron(dev->pcie_info, COLOR_PAIR(magenta_color));
     wprintw(dev->pcie_info, " RX: ");
     wattroff(dev->pcie_info, COLOR_PAIR(magenta_color));
-    print_pcie_at_scale(dev->pcie_info, dinfo->pcie_rx);
+    if (IS_VALID(pcie_rx_valid, dinfo->valid))
+      print_pcie_at_scale(dev->pcie_info, dinfo->pcie_rx);
+    else
+      wprintw(dev->pcie_info, "N/A");
     wattron(dev->pcie_info, COLOR_PAIR(magenta_color));
     wprintw(dev->pcie_info, " TX: ");
     wattroff(dev->pcie_info, COLOR_PAIR(magenta_color));
-    print_pcie_at_scale(dev->pcie_info, dinfo->pcie_tx);
+    if (IS_VALID(pcie_tx_valid, dinfo->valid))
+      print_pcie_at_scale(dev->pcie_info, dinfo->pcie_tx);
+    else
+      wprintw(dev->pcie_info, "N/A");
 
     wnoutrefresh(dev->pcie_info);
   }
