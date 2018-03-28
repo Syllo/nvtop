@@ -176,20 +176,36 @@ int main (int argc, char **argv) {
 
     int input_char = getch();
     switch (input_char) {
-      case 27:
+      case 27: // ESC
         {
           timeout(0);
           int in = getch();
           timeout(refresh_interval);
-          if (in == ERR) {
-            signal_bits |= STOP_SIGNAL;
-          } else { // ALT key
-
+          if (in == ERR) { // ESC alone
+            if (is_escape_for_quit(interface))
+              signal_bits |= STOP_SIGNAL;
+            else
+              interface_key(27, interface);
           }
+          // else ALT key
         }
+        break;
+      case KEY_F(3) :
+        if (is_escape_for_quit(interface))
+          signal_bits |= STOP_SIGNAL;
         break;
       case 'q':
         signal_bits |= STOP_SIGNAL;
+        break;
+      case KEY_F(1) :
+      case KEY_F(2) :
+          interface_key(input_char, interface);
+          timeout(-1);
+        break;
+      case KEY_UP:
+      case KEY_DOWN:
+      case KEY_ENTER:
+        interface_key(input_char, interface);
         break;
       case ERR:
       default:

@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <ncurses.h>
+#include <signal.h>
 
 #define DEVICE_ID_SIZE 16
 
@@ -69,12 +70,23 @@ struct process_window {
   unsigned int offset;
   struct all_gpu_processes *all_process;
   WINDOW *process_win;
+  size_t row_selected;
 };
+
+struct option_window {
+  enum nvtop_option_window_state state;
+  size_t last_option_row;
+  size_t selected_row;
+  WINDOW *option_win;
+};
+
+static const unsigned int option_window_size = 13;
 
 struct nvtop_interface {
   size_t num_devices;
   struct device_window *devices_win;
   struct process_window process;
+  struct option_window option_window;
 };
 
 enum device_field {
@@ -240,13 +252,16 @@ static void initialize_interface(
   if (remaining_rows > 0) {
     dwin->process.size_processes_buffer =
       remaining_rows > 50 ? remaining_rows : 50;
-    dwin->process.process_win = newwin(remaining_rows, cols-2, num_devices*4, 1);
+    dwin->process.process_win = newwin(remaining_rows, cols, num_devices*4, 0);
     dwin->process.all_process = malloc(dwin->process.size_processes_buffer *
         sizeof(*dwin->process.all_process));
   } else {
     memset(&dwin->process, 0, sizeof(dwin->process));
   }
   dwin->process.offset = 0;
+  dwin->option_window.state = nvtop_option_state_hidden;
+  dwin->option_window.option_win = newwin(remaining_rows, option_window_size, num_devices*4, 0);
+  dwin->process.row_selected = 0;
 }
 
 static void clear_interface(
@@ -687,19 +702,21 @@ static void print_processes_on_screen(
     unsigned int num_process,
     struct all_gpu_processes *proc,
     WINDOW *win,
-    unsigned int offset) {
+    unsigned int offset,
+    size_t special_row) {
   werase(win);
   print_process_preamble(win);
 
   unsigned int rows, cols;
   getmaxyx(win, rows, cols);
-  (void) cols;
-
 
   char pid_str[sizeof_process_field[process_pid]+1];
   char guid_str[sizeof_process_field[process_gpu_id]+1];
   char memory[sizeof_process_field[process_memory]+1];
   for (unsigned int i = 0; i < rows-1 && i < num_process; ++i) {
+    if (i == special_row) {
+      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    }
     unsigned int write_at = i+1;
     size_t size = snprintf(pid_str, sizeof_process_field[process_pid]+1,
         "%u", proc[i+offset].pid);
@@ -719,18 +736,30 @@ static void print_processes_on_screen(
         sizeof_process_field[process_gpu_id],
         guid_str);
     if (proc[i+offset].is_graphical) {
-      wattron(win, COLOR_PAIR(yellow_color));
+      if (i != special_row)
+        wattron(win, COLOR_PAIR(yellow_color));
       wprintw(win, " %*s ", sizeof_process_field[process_type], "Graphic");
-      wattroff(win, COLOR_PAIR(yellow_color));
+      if (i != special_row)
+        wattroff(win, COLOR_PAIR(yellow_color));
     } else {
-      wattron(win, COLOR_PAIR(magenta_color));
+      if (i != special_row)
+        wattron(win, COLOR_PAIR(magenta_color));
       wprintw(win, " %*s ", sizeof_process_field[process_type], "Compute");
-      wattroff(win, COLOR_PAIR(magenta_color));
+      if (i != special_row)
+        wattroff(win, COLOR_PAIR(magenta_color));
     }
     wprintw(win, "%*s ",
         sizeof_process_field[process_memory],
         memory);
     wprintw(win, "%s", proc[i+offset].process_name);
+    if (i == special_row) {
+      unsigned int cur_row, cur_col;
+      getyx(win, cur_row, cur_col);
+      (void) cur_row;
+      for (unsigned int j = cur_col; j < cols; ++j)
+        wprintw(win, " ");
+      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    }
   }
   wnoutrefresh(win);
 }
@@ -743,7 +772,6 @@ static void draw_processes(
 
   if (interface->process.process_win == NULL)
     return;
-
   unsigned int total_processes = copy_processes_for_processing(num_devices,
       dev_info, interface);
   sort_process(interface->process.all_process, total_processes, sort_criterion);
@@ -777,9 +805,149 @@ static void draw_processes(
     if (strlen(interface->process.all_process[i+interface->process.offset].process_name) > process_name_size)
       interface->process.all_process[i+interface->process.offset].process_name[process_name_size] = '\0';
 
+  unsigned int last_row =
+    total_processes - 1 > interface->process.size_processes_buffer ?
+    interface->process.size_processes_buffer :
+    total_processes;
+  last_row -= 1;
+  if (interface->process.row_selected > last_row)
+    interface->process.row_selected = last_row;
   print_processes_on_screen(total_processes, interface->process.all_process,
-      interface->process.process_win, interface->process.offset);
+      interface->process.process_win, interface->process.offset, interface->process.row_selected);
+}
 
+static const char *signalsName[] = {
+"Cancel",
+"SIGABRT",
+"SIGALRM",
+"SIGBUS",
+"SIGCHLD",
+"SIGCONT",
+"SIGFPE",
+"SIGHUP",
+"SIGILL",
+"SIGINT",
+"SIGKILL",
+"SIGPIPE",
+"SIGQUIT",
+"SIGSEGV",
+"SIGSTOP",
+"SIGTERM",
+"SIGTSTP",
+"SIGTTIN",
+"SIGTTOU",
+"SIGUSR1",
+"SIGUSR2",
+"SIGPOLL",
+"SIGPROF",
+"SIGSYS",
+"SIGTRAP",
+"SIGURG",
+"SIGVTALRM",
+"SIGXCPU",
+"SIGXFSZ",
+};
+
+static const int signalsValues[] = {
+SIGABRT  ,
+SIGALRM  ,
+SIGBUS   ,
+SIGCHLD  ,
+SIGCONT  ,
+SIGFPE   ,
+SIGHUP   ,
+SIGILL   ,
+SIGINT   ,
+SIGKILL  ,
+SIGPIPE  ,
+SIGQUIT  ,
+SIGSEGV  ,
+SIGSTOP  ,
+SIGTERM  ,
+SIGTSTP  ,
+SIGTTIN  ,
+SIGTTOU  ,
+SIGUSR1  ,
+SIGUSR2  ,
+SIGPOLL  ,
+SIGPROF  ,
+SIGSYS   ,
+SIGTRAP  ,
+SIGURG   ,
+SIGVTALRM,
+SIGXCPU  ,
+SIGXFSZ  ,
+};
+
+static const size_t nvtop_num_signals = 28;
+
+static void draw_kill_option(struct nvtop_interface *interface) {
+  WINDOW *win = interface->option_window.option_win;
+  wattron(win, COLOR_PAIR(green_color) | A_REVERSE);
+  mvwprintw(win, 0, 0, "Send signal:");
+  wattroff(win, COLOR_PAIR(green_color) | A_REVERSE);
+  wprintw(win, " ");
+  for (size_t i = 0; i <= nvtop_num_signals; ++i) {
+    if (i == interface->option_window.selected_row) {
+      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    }
+    wprintw(win, "%*d %s", 2, i, signalsName[i]);
+    int rows, cols;
+    getyx(win, rows, cols);
+    for (unsigned int j = cols; j < option_window_size; ++j)
+      wprintw(win, " ");
+    if (i == interface->option_window.selected_row) {
+      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      mvwprintw(win, rows, option_window_size-1, " ");
+    }
+  }
+  wnoutrefresh(win);
+}
+
+static const char *sortName[] = {
+  "Cancel"
+  "PID",
+  "USER",
+  "COMMAND",
+  "MEM",
+  "GPU",
+};
+
+static void draw_sort_option(struct nvtop_interface *interface) {
+  WINDOW *win = interface->option_window.option_win;
+  wattron(win, COLOR_PAIR(green_color) | A_REVERSE);
+  mvwprintw(win, 0, 0, "Sort by     ");
+  wattroff(win, COLOR_PAIR(green_color) | A_REVERSE);
+  wprintw(win, " ");
+  for (size_t i = 0; i < sort_none; ++i) {
+    if (i == interface->option_window.selected_row) {
+      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    }
+    wprintw(win, "%*d %s", 2, i, sortName[i]);
+    int rows, cols;
+    getyx(win, rows, cols);
+    for (unsigned int j = cols; j < option_window_size; ++j)
+      wprintw(win, " ");
+    if (i == interface->option_window.selected_row) {
+      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      mvwprintw(win, rows, option_window_size-1, " ");
+    }
+  }
+  wnoutrefresh(win);
+}
+
+static void draw_options(struct nvtop_interface *interface) {
+  switch (interface->option_window.state) {
+    case nvtop_option_state_kill:
+      draw_kill_option(interface);
+      break;
+    case nvtop_option_state_sort_by:
+      draw_sort_option(interface);
+      break;
+    case nvtop_option_state_hidden:
+    default:
+      break;
+  }
 }
 
 void draw_gpu_info_ncurses(
@@ -800,6 +968,8 @@ void draw_gpu_info_ncurses(
 
   draw_devices(num_devices, dev_info, interface);
   draw_processes(num_devices, dev_info, interface, sort_mem_usage);
+  if (interface->option_window.state != nvtop_option_state_hidden)
+    draw_options(interface);
   doupdate();
   refresh();
 
@@ -811,4 +981,111 @@ void update_window_size_to_terminal_size(struct nvtop_interface *inter) {
   erase();
   refresh();
   refresh();
+}
+
+bool is_escape_for_quit(struct nvtop_interface *inter) {
+  if (inter->option_window.state == nvtop_option_state_hidden)
+    return true;
+  else
+    return false;
+}
+
+static void move_process_win_for_option(struct nvtop_interface *interface) {
+  int rows, cols;
+  getmaxyx(stdscr, rows, cols);
+  int remaining_rows = rows - interface->num_devices * 4 - 1;
+  if (remaining_rows > 0) {
+    delwin(interface->process.process_win);
+    interface->process.size_processes_buffer =
+      remaining_rows > 50 ? remaining_rows : 50;
+    interface->process.process_win =
+      newwin(remaining_rows, cols-option_window_size,
+          interface->num_devices*4, option_window_size);
+  } else {
+    interface->option_window.state = nvtop_option_state_hidden;
+  }
+}
+
+static void move_process_win_for_hidden_options(struct nvtop_interface *interface) {
+  int rows, cols;
+  getmaxyx(stdscr, rows, cols);
+  int remaining_rows = rows - interface->num_devices * 4 - 1;
+  if (remaining_rows > 0) {
+    delwin(interface->process.process_win);
+    interface->process.size_processes_buffer =
+      remaining_rows > 50 ? remaining_rows : 50;
+    interface->process.process_win =
+      newwin(remaining_rows, cols,
+          interface->num_devices*4, 0);
+  } else {
+    interface->option_window.state = nvtop_option_state_hidden;
+  }
+}
+
+void interface_key(int keyId, struct nvtop_interface *inter) {
+  switch(keyId) {
+      case KEY_F(1):
+        if (inter->option_window.state == nvtop_option_state_hidden) {
+          inter->option_window.state = nvtop_option_state_kill;
+          inter->option_window.selected_row = 0;
+          inter->option_window.last_option_row = nvtop_num_signals;
+          move_process_win_for_option(inter);
+        }
+        break;
+      case KEY_F(2):
+        if (inter->option_window.state == nvtop_option_state_hidden) {
+          inter->option_window.state = nvtop_option_state_sort_by;
+          inter->option_window.selected_row = 0;
+          inter->option_window.last_option_row = sort_none-1;
+          move_process_win_for_option(inter);
+        }
+        break;
+      case KEY_UP:
+        switch (inter->option_window.state) {
+          case nvtop_option_state_kill:
+          case nvtop_option_state_sort_by:
+            if (inter->option_window.selected_row != 0)
+              inter->option_window.selected_row --;
+            break;
+          case nvtop_option_state_hidden:
+            if (inter->process.row_selected != 0)
+              inter->process.row_selected --;
+            break;
+          default:
+            break;
+        }
+        break;
+      case KEY_DOWN:
+        switch (inter->option_window.state) {
+          case nvtop_option_state_kill:
+          case nvtop_option_state_sort_by:
+            if (inter->option_window.selected_row != inter->option_window.last_option_row)
+              inter->option_window.selected_row ++;
+            break;
+          case nvtop_option_state_hidden:
+            if (inter->process.row_selected < inter->process.size_processes_buffer)
+              inter->process.row_selected ++;
+            break;
+          default:
+            break;
+        }
+        break;
+      case KEY_ENTER:
+        switch (inter->option_window.state) {
+          case nvtop_option_state_kill:
+            break;
+          case nvtop_option_state_sort_by:
+            break;
+          case nvtop_option_state_hidden:
+          default:
+            break;
+        }
+        break;
+      case 27:
+        move_process_win_for_hidden_options(inter);
+        inter->option_window.state = nvtop_option_state_hidden;
+        break;
+      default:
+        break;
+  }
 }

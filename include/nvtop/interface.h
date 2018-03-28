@@ -25,12 +25,18 @@
 #include "nvtop/extract_gpuinfo.h"
 
 enum sort_gpu_process_by {
-  sort_pid,
+  sort_pid = 0,
   sort_username,
   sort_process_name,
   sort_mem_usage,
   sort_by_gpu,
   sort_none,
+};
+
+enum nvtop_option_window_state {
+  nvtop_option_state_hidden,
+  nvtop_option_state_kill,
+  nvtop_option_state_sort_by,
 };
 
 struct nvtop_interface;
@@ -49,5 +55,9 @@ void draw_gpu_info_ncurses(
     struct nvtop_interface *interface);
 
 void update_window_size_to_terminal_size(struct nvtop_interface *inter);
+
+void interface_key(int keyId, struct nvtop_interface *inter);
+
+bool is_escape_for_quit(struct nvtop_interface *inter);
 
 #endif // __INTERFACE_H_
