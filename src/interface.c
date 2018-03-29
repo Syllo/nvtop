@@ -117,7 +117,7 @@ static unsigned int sizeof_process_field[] = {
   [process_user] = 4,
   [process_gpu_id] = 3,
   [process_type] = 7,
-  [process_memory] = 6,
+  [process_memory] = 14,
   [process_command] = 0,
 };
 
@@ -823,7 +823,8 @@ static void print_processes_on_screen(
     if (size == sizeof_process_field[process_gpu_id]+1)
       pid_str[sizeof_process_field[process_gpu_id]] = '\0';
     size = snprintf(memory, sizeof_process_field[process_memory]+1,
-        "%.1f%%", proc[i+offset].mem_percentage);
+        "%lluMo %.1f%%", proc[i+offset].used_memory/1000000,
+        proc[i+offset].mem_percentage);
     mvwprintw(win, write_at, 0, "%*s %*s %*s",
         sizeof_process_field[process_pid],
         pid_str,
