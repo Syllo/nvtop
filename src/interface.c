@@ -1253,18 +1253,10 @@ void interface_key(int keyId, struct nvtop_interface *inter) {
         }
         break;
       case '+':
-        if (inter->option_window.state == nvtop_option_state_sort_by) {
-          inter->process.sort_asc = true;
-          inter->option_window.state = nvtop_option_state_hidden;
-          move_process_win_for_hidden_options(inter);
-        }
+        inter->process.sort_asc = true;
         break;
       case '-':
-        if (inter->option_window.state == nvtop_option_state_sort_by) {
-          inter->process.sort_asc = false;
-          inter->option_window.state = nvtop_option_state_hidden;
-          move_process_win_for_hidden_options(inter);
-        }
+        inter->process.sort_asc = false;
         break;
       case '\n':
       case KEY_ENTER:
