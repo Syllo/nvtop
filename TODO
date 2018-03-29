@@ -1,13 +1,3 @@
 What is in the pipeline:
 
-- Add command line option to configure the behaviour like
-    - Refresh interval
-    - Version
-    - Whatever
-
-- Instead of returning the value 0 when the NVML library errors, set an error
-  value instead and print it accordingly in the UI.
-
-- Add mouse and some keyboard shortcut for ncurses.
-
-- Do a manpage
+- Add mouse selection with ncurses.
