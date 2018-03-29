@@ -24,13 +24,14 @@
 
 #include "nvtop/extract_gpuinfo.h"
 
-enum sort_gpu_process_by {
-  sort_pid = 0,
-  sort_username,
-  sort_process_name,
-  sort_mem_usage,
-  sort_by_gpu,
-  sort_none,
+enum process_field {
+  process_pid = 0,
+  process_user,
+  process_gpu_id,
+  process_type,
+  process_memory,
+  process_command,
+  process_end,
 };
 
 enum nvtop_option_window_state {
@@ -45,12 +46,12 @@ void show_gpu_infos_ascii(
     unsigned int num_devices,
     struct device_info *dev_info);
 
-struct nvtop_interface* initialize_curses(void);
+struct nvtop_interface* initialize_curses(unsigned int num_devices,
+    unsigned int biggest_device_name);
 
 void clean_ncurses(struct nvtop_interface *interface);
 
 void draw_gpu_info_ncurses(
-    unsigned int num_devices,
     struct device_info *dev_info,
     struct nvtop_interface *interface);
 

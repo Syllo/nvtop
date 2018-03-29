@@ -25,6 +25,7 @@
 #include <unistd.h>
 #include <ncurses.h>
 #include <getopt.h>
+#include <string.h>
 
 #include <locale.h>
 
@@ -163,7 +164,14 @@ int main (int argc, char **argv) {
   size_t num_devices;
   struct device_info *dev_infos;
   num_devices = initialize_device_info(&dev_infos);
-  struct nvtop_interface *interface = initialize_curses();
+  size_t biggest_name = 0;
+  for (size_t i = 0; i < num_devices; ++i) {
+    size_t device_name_size = strlen(dev_infos->device_name);
+    if (device_name_size > biggest_name) {
+      biggest_name = device_name_size;
+    }
+  }
+  struct nvtop_interface *interface = initialize_curses(num_devices, biggest_name);
   timeout(refresh_interval);
 
   while (!(signal_bits & STOP_SIGNAL)) {
@@ -172,7 +180,7 @@ int main (int argc, char **argv) {
       update_window_size_to_terminal_size(interface);
       signal_bits &= ~RESIZE_SIGNAL;
     }
-    draw_gpu_info_ncurses(num_devices, dev_infos, interface);
+    draw_gpu_info_ncurses(dev_infos, interface);
 
     int input_char = getch();
     switch (input_char) {
@@ -199,12 +207,14 @@ int main (int argc, char **argv) {
         break;
       case KEY_F(1) :
       case KEY_F(2) :
+      case '+':
+      case '-':
           interface_key(input_char, interface);
-          timeout(-1);
         break;
       case KEY_UP:
       case KEY_DOWN:
       case KEY_ENTER:
+      case '\n':
         interface_key(input_char, interface);
         break;
       case ERR:
