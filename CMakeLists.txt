@@ -21,6 +21,10 @@ endif()
 #                           DEPENDENCIES                            #
 #///////////////////////////////////////////////////////////////////#
 
+if(NVML_RETRIEVE_HEADER_ONLINE)
+  file(DOWNLOAD "https://raw.githubusercontent.com/NVIDIA/nvidia-settings/master/src/nvml.h" ${PROJECT_BINARY_DIR}/include/nvml.h)
+endif()
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
 find_package(NVML REQUIRED)
