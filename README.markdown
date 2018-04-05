@@ -11,20 +11,36 @@ Because a picture is worth a thousand words:
 
 ![NVTOP interface](/screenshot/NVTOP_ex1.png)
 
-Dependencies
-------------
+Table of Contents
+-----------------
 
-Three libraries are required:
+1. [NVTOP Options and Interactive Commands](#nvtop-options-and-interactive-commands)
+1. [GPU Support](#gpu-support)
+1. [Build](#build)
+   1. [Ubuntu / Debian](#ubuntu--debian)
+   1. [Fedora / RedHat / CentOS](#fedora--redhat--centos)
+   1. [OpenSUSE](#opensuse)
+   1. [Archlinux](#archlinux)
+   1. [NVTOP Build](#nvtop-build)
+1. [License](#license)
 
-* The NVIDIA Management Library (NVML).
-  * This queries the GPU for information.
-* The ncurses library driving the user interface.
-  * This makes the screen look beautiful.
+NVTOP Options and Interactive Commands
+--------------------------------------
 
-Limitations
+NVTOP comes with a manpage!
+```bash
+man nvtop
+```
+For quick command line arguments help
+```bash
+nvtop -h
+nvtop --help
+```
+
+GPU Support
 -----------
 
-The NVML library does not support some of the queries for GPUs coming before the
+The *NVML library* does not support some of the queries for GPUs coming before the
 Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
@@ -32,28 +48,79 @@ take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/n
 Build
 -----
 
-CMAKE is used as build manager.
+Two libraries are required:
 
-To build the binary on Linux:
+* The *NVIDIA Management Library* (*NVML*) which comes with the GPU driver.
+  * This queries the GPU for information.
+* The *ncurses* library driving the user interface.
+  * This makes the screen look beautiful.
+
+
+## Distribution Specific Installation Process
+
+### Ubuntu / Debian
+
+- NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
+- CMake, ncurses and git
+  ```bash
+  sudo apt install cmake libncurses5-dev git
+  ```
+- NVTOP
+  - Follow the [NVTOP Build](#nvtop-build)
+
+### Fedora / RedHat / CentOS
+
+- NVIDIA drivers, **CUDA required for nvml libraries** (see [RPM Fusion](https://rpmfusion.org/Howto/NVIDIA))
+- CMake, ncurses and git
+  ```bash
+  sudo dnf install cmake ncurses-devel git
+  ```
+- NVTOP
+  - Follow the [NVTOP Build](#nvtop-build)
+
+### OpenSUSE
+
+- NVIDIA drivers (see [SUSE Support Database](https://en.opensuse.org/SDB:NVIDIA_drivers))
+- CMake, ncurses and git
+  ```bash
+  sudo zypper install cmake ncurses-devel git
+  ```
+- NVTOP
+  - Follow the [NVTOP Build](#nvtop-build)
+
+### Archlinux
+
+- NVIDIA drivers (see [Archlinux wiki](https://wiki.archlinux.org/index.php/NVIDIA))
+- CMake, ncurses and git
+  ```bash
+  sudo pacman -S cmake ncurses git
+  ```
+- NVTOP
+  - The `nvtop` AUR package
+  - Follow the [NVTOP Build](#nvtop-build)
+
+## NVTOP Build
 
 ```bash
-mkdir build && cd build
+git clone https://github.com/Syllo/nvtop.git
+mkdir -p nvtop/build && cd nvtop/build
 cmake ..
+
+# If it errors with "Could NOT find NVML (missing: NVML_INCLUDE_DIRS)"
+# try the following command instead, otherwise skip to the build with make.
+cmake .. -DNVML_RETRIEVE_HEADER_ONLINE=True
+
 make
 make install # You may need sufficent permission for that (root)
 ```
 
-The build system support multiple build type (-DCMAKE_BUILD_TYPE):
+The build system supports multiple build type (e.g. -DCMAKE_BUILD_TYPE=Optimized):
 
 * Release: Binary without debug information
 * RelWithDebInfo: Binary with debug information
 * Debug: Compile warning flags and address/undefined sanitizer (For development only)
 * Optimized: Build with architecture specific optimisations (May be not portable across machines with different processor)
 
-Build Options
--------------
-
-None for the moment.
 
 License
 -------
