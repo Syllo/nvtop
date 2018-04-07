@@ -24,7 +24,11 @@ find_path(NVML_INCLUDE_DIRS NAMES nvml.h
   PATHS ${nvml_header_path_hint} ${PROJECT_BINARY_DIR}/include)
 
 # library
-file(GLOB nvml_lib_path_hint /usr/lib*/nvidia*/)
+if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8") # 64bit
+  file(GLOB nvml_lib_path_hint /usr/lib64/nvidia*/ /usr/lib/nvidia*/)
+else() # assume 32bit
+  file(GLOB nvml_lib_path_hint /usr/lib32/nvidia*/ /usr/lib/nvidia*/)
+endif()
 find_library(NVML_LIBRARIES NAMES nvidia-ml libnvidia-ml.so.1
   PATHS ${nvml_lib_path_hint})
 
