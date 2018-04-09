@@ -211,203 +211,204 @@ void update_device_infos(
     unsigned int num_devs,
     struct device_info *dev_info) {
   for (unsigned int i = 0; i < num_devs; ++i) {
+    struct device_info *curr_dev_info = &dev_info[i];
 
     // GPU CLK
     nvmlReturn_t retval = nvmlDeviceGetClockInfo(
-        dev_info[i].device_handle,
+        curr_dev_info->device_handle,
         NVML_CLOCK_GRAPHICS,
-        &dev_info[i].gpu_clock_speed);
-    SET_VALID(gpu_clock_speed_valid, dev_info->valid);
+        &curr_dev_info->gpu_clock_speed);
+    SET_VALID(gpu_clock_speed_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].gpu_clock_speed = 0;
-      RESET_VALID(gpu_clock_speed_valid, dev_info->valid);
+      curr_dev_info->gpu_clock_speed = 0;
+      RESET_VALID(gpu_clock_speed_valid, curr_dev_info->valid);
     }
 
     // MEM CLK
     retval = nvmlDeviceGetClockInfo(
-        dev_info[i].device_handle,
+        curr_dev_info->device_handle,
         NVML_CLOCK_MEM,
-        &dev_info[i].mem_clock_speed);
-    SET_VALID(mem_clock_speed_valid, dev_info->valid);
+        &curr_dev_info->mem_clock_speed);
+    SET_VALID(mem_clock_speed_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].mem_clock_speed = 0;
-      RESET_VALID(mem_clock_speed_valid, dev_info->valid);
+      curr_dev_info->mem_clock_speed = 0;
+      RESET_VALID(mem_clock_speed_valid, curr_dev_info->valid);
     }
 
     // GPU CLK MAX
     retval = nvmlDeviceGetMaxClockInfo(
-        dev_info[i].device_handle,
+        curr_dev_info->device_handle,
         NVML_CLOCK_GRAPHICS,
-        &dev_info[i].gpu_clock_speed_max);
-    SET_VALID(gpu_clock_speed_max_valid, dev_info->valid);
+        &curr_dev_info->gpu_clock_speed_max);
+    SET_VALID(gpu_clock_speed_max_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].gpu_clock_speed_max = 0;
-      RESET_VALID(gpu_clock_speed_max_valid, dev_info->valid);
+      curr_dev_info->gpu_clock_speed_max = 0;
+      RESET_VALID(gpu_clock_speed_max_valid, curr_dev_info->valid);
     }
 
     // MEM CLK MAX
     retval = nvmlDeviceGetMaxClockInfo(
-        dev_info[i].device_handle,
+        curr_dev_info->device_handle,
         NVML_CLOCK_MEM,
-        &dev_info[i].mem_clock_speed_max);
-    SET_VALID(mem_clock_speed_max_valid, dev_info->valid);
+        &curr_dev_info->mem_clock_speed_max);
+    SET_VALID(mem_clock_speed_max_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].mem_clock_speed_max = 0;
-      RESET_VALID(mem_clock_speed_max_valid, dev_info->valid);
+      curr_dev_info->mem_clock_speed_max = 0;
+      RESET_VALID(mem_clock_speed_max_valid, curr_dev_info->valid);
     }
 
     // GPU / MEM UTIL RATE
     nvmlUtilization_t util_rate;
     retval = nvmlDeviceGetUtilizationRates(
-        dev_info[i].device_handle,
+        curr_dev_info->device_handle,
         &util_rate);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].gpu_util_rate = 0;
-      dev_info[i].mem_util_rate = 0;
-      RESET_VALID(gpu_util_rate_valid, dev_info->valid);
-      RESET_VALID(mem_util_rate_valid, dev_info->valid);
+      curr_dev_info->gpu_util_rate = 0;
+      curr_dev_info->mem_util_rate = 0;
+      RESET_VALID(gpu_util_rate_valid, curr_dev_info->valid);
+      RESET_VALID(mem_util_rate_valid, curr_dev_info->valid);
     } else {
-      dev_info[i].gpu_util_rate = util_rate.gpu;
-      dev_info[i].mem_util_rate = util_rate.memory;
-      SET_VALID(gpu_util_rate_valid, dev_info->valid);
-      SET_VALID(mem_util_rate_valid, dev_info->valid);
+      curr_dev_info->gpu_util_rate = util_rate.gpu;
+      curr_dev_info->mem_util_rate = util_rate.memory;
+      SET_VALID(gpu_util_rate_valid, curr_dev_info->valid);
+      SET_VALID(mem_util_rate_valid, curr_dev_info->valid);
     }
 
     // FREE / TOTAL / USED MEMORY
     nvmlMemory_t meminfo;
     retval = nvmlDeviceGetMemoryInfo(
-        dev_info[i].device_handle,
+        curr_dev_info->device_handle,
         &meminfo);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].free_memory = 0;
-      dev_info[i].total_memory = 0;
-      dev_info[i].used_memory = 0;
-      RESET_VALID(free_memory_valid, dev_info->valid);
-      RESET_VALID(total_memory_valid, dev_info->valid);
-      RESET_VALID(used_memory_valid, dev_info->valid);
+      curr_dev_info->free_memory = 0;
+      curr_dev_info->total_memory = 0;
+      curr_dev_info->used_memory = 0;
+      RESET_VALID(free_memory_valid, curr_dev_info->valid);
+      RESET_VALID(total_memory_valid, curr_dev_info->valid);
+      RESET_VALID(used_memory_valid, curr_dev_info->valid);
     } else {
-      dev_info[i].free_memory = meminfo.free;
-      dev_info[i].total_memory = meminfo.total;
-      dev_info[i].used_memory = meminfo.used;
-      SET_VALID(free_memory_valid, dev_info->valid);
-      SET_VALID(total_memory_valid, dev_info->valid);
-      SET_VALID(used_memory_valid, dev_info->valid);
+      curr_dev_info->free_memory = meminfo.free;
+      curr_dev_info->total_memory = meminfo.total;
+      curr_dev_info->used_memory = meminfo.used;
+      SET_VALID(free_memory_valid, curr_dev_info->valid);
+      SET_VALID(total_memory_valid, curr_dev_info->valid);
+      SET_VALID(used_memory_valid, curr_dev_info->valid);
     }
 
     // PCIe LINK GEN
     retval = nvmlDeviceGetCurrPcieLinkGeneration(
-        dev_info[i].device_handle,
-        &dev_info[i].cur_pcie_link_gen);
-    SET_VALID(cur_pcie_link_gen_valid, dev_info->valid);
+        curr_dev_info->device_handle,
+        &curr_dev_info->cur_pcie_link_gen);
+    SET_VALID(cur_pcie_link_gen_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].cur_pcie_link_gen = 0;
-      RESET_VALID(cur_pcie_link_gen_valid, dev_info->valid);
+      curr_dev_info->cur_pcie_link_gen = 0;
+      RESET_VALID(cur_pcie_link_gen_valid, curr_dev_info->valid);
     }
 
     // PCIe LINK WIDTH
     retval = nvmlDeviceGetCurrPcieLinkWidth(
-        dev_info[i].device_handle,
-        &dev_info[i].cur_pcie_link_width);
-    SET_VALID(cur_pcie_link_width_valid, dev_info->valid);
+        curr_dev_info->device_handle,
+        &curr_dev_info->cur_pcie_link_width);
+    SET_VALID(cur_pcie_link_width_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].cur_pcie_link_width = 0;
-      RESET_VALID(cur_pcie_link_width_valid, dev_info->valid);
+      curr_dev_info->cur_pcie_link_width = 0;
+      RESET_VALID(cur_pcie_link_width_valid, curr_dev_info->valid);
     }
 
     // PCIe TX THROUGHPUT
     retval = nvmlDeviceGetPcieThroughput(
-        dev_info[i].device_handle,
+        curr_dev_info->device_handle,
         NVML_PCIE_UTIL_TX_BYTES,
-        &dev_info[i].pcie_tx);
-    SET_VALID(pcie_tx_valid, dev_info->valid);
+        &curr_dev_info->pcie_tx);
+    SET_VALID(pcie_tx_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].pcie_tx = 0;
-      RESET_VALID(pcie_tx_valid, dev_info->valid);
+      curr_dev_info->pcie_tx = 0;
+      RESET_VALID(pcie_tx_valid, curr_dev_info->valid);
     }
 
     // PCIe RX THROUGHPUT
     retval = nvmlDeviceGetPcieThroughput(
-        dev_info[i].device_handle,
+        curr_dev_info->device_handle,
         NVML_PCIE_UTIL_RX_BYTES,
-        &dev_info[i].pcie_rx);
-    SET_VALID(pcie_rx_valid, dev_info->valid);
+        &curr_dev_info->pcie_rx);
+    SET_VALID(pcie_rx_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].pcie_rx = 0;
-      RESET_VALID(pcie_rx_valid, dev_info->valid);
+      curr_dev_info->pcie_rx = 0;
+      RESET_VALID(pcie_rx_valid, curr_dev_info->valid);
     }
 
     // FAN SPEED
     retval = nvmlDeviceGetFanSpeed(
-        dev_info[i].device_handle,
-        &dev_info[i].fan_speed);
-    SET_VALID(fan_speed_valid, dev_info->valid);
+        curr_dev_info->device_handle,
+        &curr_dev_info->fan_speed);
+    SET_VALID(fan_speed_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].fan_speed = 0;
-      RESET_VALID(fan_speed_valid, dev_info->valid);
+      curr_dev_info->fan_speed = 0;
+      RESET_VALID(fan_speed_valid, curr_dev_info->valid);
     }
 
     // GPU TEMP
     retval = nvmlDeviceGetTemperature(
-        dev_info[i].device_handle,
+        curr_dev_info->device_handle,
         NVML_TEMPERATURE_GPU,
-        &dev_info[i].gpu_temp);
-    SET_VALID(gpu_temp_valid, dev_info->valid);
+        &curr_dev_info->gpu_temp);
+    SET_VALID(gpu_temp_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].gpu_temp = 0;
-      RESET_VALID(gpu_temp_valid, dev_info->valid);
+      curr_dev_info->gpu_temp = 0;
+      RESET_VALID(gpu_temp_valid, curr_dev_info->valid);
     }
 
     // POWER DRAW
     retval = nvmlDeviceGetPowerUsage(
-        dev_info[i].device_handle,
-        &dev_info[i].power_draw);
-    SET_VALID(power_draw_valid, dev_info->valid);
+        curr_dev_info->device_handle,
+        &curr_dev_info->power_draw);
+    SET_VALID(power_draw_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].power_draw = 0;
-      RESET_VALID(power_draw_valid, dev_info->valid);
+      curr_dev_info->power_draw = 0;
+      RESET_VALID(power_draw_valid, curr_dev_info->valid);
     }
 
     // POWER MAX
     retval = nvmlDeviceGetEnforcedPowerLimit(
-        dev_info[i].device_handle,
-        &dev_info[i].power_draw_max);
-    SET_VALID(power_draw_max_valid, dev_info->valid);
+        curr_dev_info->device_handle,
+        &curr_dev_info->power_draw_max);
+    SET_VALID(power_draw_max_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].power_draw_max = 0;
-      RESET_VALID(power_draw_max_valid, dev_info->valid);
+      curr_dev_info->power_draw_max = 0;
+      RESET_VALID(power_draw_max_valid, curr_dev_info->valid);
     }
 
     // Encoder infos
     retval = nvmlDeviceGetEncoderUtilization(
-        dev_info[i].device_handle,
-        &dev_info[i].encoder_rate,
-        &dev_info[i].encoder_sampling);
-    SET_VALID(encoder_rate_valid, dev_info->valid);
-    SET_VALID(encoder_sampling_valid, dev_info->valid);
+        curr_dev_info->device_handle,
+        &curr_dev_info->encoder_rate,
+        &curr_dev_info->encoder_sampling);
+    SET_VALID(encoder_rate_valid, curr_dev_info->valid);
+    SET_VALID(encoder_sampling_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].encoder_rate = 0;
-      dev_info[i].encoder_sampling = 0;
-      RESET_VALID(encoder_rate_valid, dev_info->valid);
-      RESET_VALID(encoder_sampling_valid, dev_info->valid);
+      curr_dev_info->encoder_rate = 0;
+      curr_dev_info->encoder_sampling = 0;
+      RESET_VALID(encoder_rate_valid, curr_dev_info->valid);
+      RESET_VALID(encoder_sampling_valid, curr_dev_info->valid);
     }
 
     // Decoder infos
     retval = nvmlDeviceGetDecoderUtilization(
-        dev_info[i].device_handle,
-        &dev_info[i].decoder_rate,
-        &dev_info[i].decoder_sampling);
-    SET_VALID(decoder_rate_valid, dev_info->valid);
-    SET_VALID(decoder_sampling_valid, dev_info->valid);
+        curr_dev_info->device_handle,
+        &curr_dev_info->decoder_rate,
+        &curr_dev_info->decoder_sampling);
+    SET_VALID(decoder_rate_valid, curr_dev_info->valid);
+    SET_VALID(decoder_sampling_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
-      dev_info[i].decoder_rate = 0;
-      dev_info[i].decoder_sampling = 0;
-      RESET_VALID(decoder_rate_valid, dev_info->valid);
-      RESET_VALID(decoder_sampling_valid, dev_info->valid);
+      curr_dev_info->decoder_rate = 0;
+      curr_dev_info->decoder_sampling = 0;
+      RESET_VALID(decoder_rate_valid, curr_dev_info->valid);
+      RESET_VALID(decoder_sampling_valid, curr_dev_info->valid);
     }
 
     // Process informations
-    update_graphical_process(&dev_info[i]);
-    update_compute_process(&dev_info[i]);
+    update_graphical_process(curr_dev_info);
+    update_compute_process(curr_dev_info);
 
   } // Loop over devices
 }
