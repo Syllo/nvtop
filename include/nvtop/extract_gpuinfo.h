@@ -22,9 +22,10 @@
 #ifndef __EXTRACT_GPUINFO_H_
 #define __EXTRACT_GPUINFO_H_
 
-#include <stdbool.h>
 #include <limits.h>
 #include <nvml.h>
+#include <stdbool.h>
+#include <stddef.h>
 
 #define IS_VALID(x,y)    ((y)[(x)/CHAR_BIT] & (1<<((x)%CHAR_BIT)))
 #define SET_VALID(x,y)   ((y)[(x)/CHAR_BIT] |= (1<<((x)%CHAR_BIT)))
@@ -108,7 +109,9 @@ bool init_gpu_info_extraction(void);
 
 bool shutdown_gpu_info_extraction(void);
 
-unsigned int initialize_device_info(struct device_info **dev_info);
+unsigned int initialize_device_info(
+    struct device_info **dev_info,
+    size_t gpu_mask);
 
 void update_device_infos(
     unsigned int num_devs,

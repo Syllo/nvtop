@@ -49,9 +49,11 @@ static void resize_handler(int signum) {
 
 static const char helpstring[] =
 "Available options:\n"
-"  -d --delay    : Select the refresh rate (1 == 0.1s)\n"
-"  -v --version  : Print the version and exit\n"
-"  -h --help     : Print help and exit\n";
+"  -d --delay       : Select the refresh rate (1 == 0.1s)\n"
+"  -v --version     : Print the version and exit\n"
+"  -s --gpu-select  : Column separated list of GPU IDs to monitor\n"
+"  -i --gpu-ignore  : Column separated list of GPU IDs to ignore\n"
+"  -h --help        : Print help and exit\n";
 
 static const char versionString[] =
 "nvtop version " NVTOP_VERSION_STRING;
@@ -87,16 +89,58 @@ static const struct option long_opts[] = {
     .flag = NULL,
     .val = 'C'
   },
+  {
+    .name = "gpu-select",
+    .has_arg = required_argument,
+    .flag = NULL,
+    .val = 's'
+  },
+  {
+    .name = "gpu-ignore",
+    .has_arg = required_argument,
+    .flag = NULL,
+    .val = 'i'
+  },
   {0,0,0,0},
 };
 
-static const char opts[] = "hvd:";
+static const char opts[] = "hvd:s:i:";
+
+static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) {
+  char *saveptr;
+  char *option_copy = malloc((strlen(str) + 1) * sizeof(*option_copy));
+  strcpy(option_copy, str);
+  char *gpu_num = strtok_r(option_copy, ":", &saveptr);
+  while (gpu_num != NULL) {
+    char *endptr;
+    unsigned num_used = strtoul(gpu_num, &endptr, 0);
+    if (endptr == gpu_num) {
+      fprintf(stderr,
+          "Use GPU IDs (unsigned integer) to select GPU with option 's' or 'i'\n");
+      exit(EXIT_FAILURE);
+    }
+    if (num_used >= CHAR_BIT * sizeof(entry_mask)) {
+      fprintf(stderr, "Select GPU X with option 's' or 'i' where 0 <= X < %zu\n",
+          CHAR_BIT * sizeof(entry_mask));
+      exit(EXIT_FAILURE);
+    }
+    if (addTo)
+      entry_mask |= 1 << num_used;
+    else
+      entry_mask &= ~(1 << num_used);
+    gpu_num = strtok_r(NULL, ":", &saveptr);
+  }
+  free(option_copy);
+  return entry_mask;
+}
 
 int main (int argc, char **argv) {
   (void) setlocale(LC_CTYPE, "");
 
   opterr = 0;
   int refresh_interval = 1000;
+  char *selectedGPU = NULL;
+  char *ignoredGPU = NULL;
   while (true) {
     char optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -116,6 +160,12 @@ int main (int argc, char **argv) {
           }
           refresh_interval = (int) delay_val * 100u;
         }
+        break;
+      case 's':
+        selectedGPU = optarg;
+        break;
+      case 'i':
+        ignoredGPU = optarg;
         break;
       case 'v':
         printf("%s\n", versionString);
@@ -159,11 +209,27 @@ int main (int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
+  size_t gpu_mask;
+  if (selectedGPU != NULL) {
+    gpu_mask = 0;
+    gpu_mask = update_mask_value(selectedGPU, gpu_mask, true);
+  } else {
+    gpu_mask = UINT_MAX;
+  }
+  if (ignoredGPU != NULL) {
+    gpu_mask = update_mask_value(ignoredGPU, gpu_mask, false);
+  }
+
   if (!init_gpu_info_extraction())
     return EXIT_FAILURE;
   size_t num_devices;
   struct device_info *dev_infos;
-  num_devices = initialize_device_info(&dev_infos);
+  num_devices = initialize_device_info(&dev_infos, gpu_mask);
+  if (num_devices == 0) {
+    fprintf(stdout, "No GPU left to monitor.\n");
+    free(dev_infos);
+    return EXIT_SUCCESS;
+  }
   size_t biggest_name = 0;
   for (size_t i = 0; i < num_devices; ++i) {
     size_t device_name_size = strlen(dev_infos->device_name);

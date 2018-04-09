@@ -8,8 +8,8 @@ nvtop \- NVIDIA GPU top
 
 .SH SYNOPSIS
 .B nvtop
-\fR[\fB\-h\fR]
-\fR[\fB\-v\fR]
+\fR[\fB\-hv\fR]
+\fR[\fB\-si\fR \fIid1:id2:...\fR]
 \fR[\fB\-d\fR \fIdelay\fR]
 
 .SH DESCRIPTION
@@ -22,6 +22,12 @@ Delay between updates, in tenths of seconds (\fIdelay\fR * 0.1s).
 .TP
 .BR \-h ", " \-\-help
 Print the help and exit.
+.TP
+.BR \-s ", " \-\-gpu\-select =\fIid1:...\fR
+Coma separated list of GPU IDs to be monitored by nvtop.
+.TP
+.BR \-i ", " \-\-gpu\-ignore =\fIid1:...\fR
+Coma separated list of GPU IDs to be ignored by nvtop.
 .TP
 .BR \-v ", " \-\-version
 Print the version and exit.

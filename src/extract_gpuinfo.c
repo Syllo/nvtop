@@ -413,7 +413,7 @@ void update_device_infos(
   } // Loop over devices
 }
 
-unsigned int initialize_device_info(struct device_info **dev_info) {
+unsigned int initialize_device_info(struct device_info **dev_info, size_t gpu_mask) {
   unsigned int num_devices;
   nvmlReturn_t retval = nvmlDeviceGetCount(&num_devices);
   if (retval != NVML_SUCCESS) {
@@ -427,6 +427,8 @@ unsigned int initialize_device_info(struct device_info **dev_info) {
   for (unsigned int i = 0; i < num_devices; ++i) {
     retval =
       nvmlDeviceGetHandleByIndex(i, &devs[num_queriable].device_handle);
+    if (i < CHAR_BIT * sizeof(gpu_mask) && (gpu_mask & (1<<i)) == 0)
+      continue;
     if (retval != NVML_SUCCESS) {
       if (retval == NVML_ERROR_NO_PERMISSION) {
         continue;
