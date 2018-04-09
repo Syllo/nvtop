@@ -471,8 +471,10 @@ static void draw_devices(
       draw_temp_color(dev->temperature,
           dinfo->gpu_temp,
           dinfo->gpu_temp_slowdown);
-    else
+    else {
       mvwprintw(dev->temperature, 0, 0, "TEMP N/A°C");
+      wnoutrefresh(dev->temperature);
+    }
 
     // FAN
     if (IS_VALID(fan_speed_valid, dinfo->valid))
