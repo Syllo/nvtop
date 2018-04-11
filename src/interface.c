@@ -292,12 +292,13 @@ void show_gpu_infos_ascii(
 
 static void initialize_colors(void) {
   start_color();
-  init_pair(cyan_color,  COLOR_CYAN,  COLOR_BLACK);
-  init_pair(red_color,   COLOR_RED,   COLOR_BLACK);
-  init_pair(green_color, COLOR_GREEN, COLOR_BLACK);
-  init_pair(yellow_color, COLOR_YELLOW, COLOR_BLACK);
-  init_pair(blue_color, COLOR_BLUE, COLOR_BLACK);
-  init_pair(magenta_color, COLOR_MAGENTA, COLOR_BLACK);
+  use_default_colors();
+  init_pair(cyan_color,     COLOR_CYAN,     -1);
+  init_pair(red_color,      COLOR_RED,      -1);
+  init_pair(green_color,    COLOR_GREEN,    -1);
+  init_pair(yellow_color,   COLOR_YELLOW,   -1);
+  init_pair(blue_color,     COLOR_BLUE,     -1);
+  init_pair(magenta_color,  COLOR_MAGENTA,  -1);
 }
 
 struct nvtop_interface* initialize_curses(
