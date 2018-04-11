@@ -292,13 +292,21 @@ void show_gpu_infos_ascii(
 
 static void initialize_colors(void) {
   start_color();
-  use_default_colors();
-  init_pair(cyan_color,     COLOR_CYAN,     -1);
-  init_pair(red_color,      COLOR_RED,      -1);
-  init_pair(green_color,    COLOR_GREEN,    -1);
-  init_pair(yellow_color,   COLOR_YELLOW,   -1);
-  init_pair(blue_color,     COLOR_BLUE,     -1);
-  init_pair(magenta_color,  COLOR_MAGENTA,  -1);
+  short background_color;
+#ifdef NCURSES_VERSION
+  if (use_default_colors() == OK)
+    background_color = -1;
+  else
+    background_color = COLOR_BLACK;
+#else
+    background_color = COLOR_BLACK;
+#endif
+  init_pair(cyan_color,     COLOR_CYAN,     background_color);
+  init_pair(red_color,      COLOR_RED,      background_color);
+  init_pair(green_color,    COLOR_GREEN,    background_color);
+  init_pair(yellow_color,   COLOR_YELLOW,   background_color);
+  init_pair(blue_color,     COLOR_BLUE,     background_color);
+  init_pair(magenta_color,  COLOR_MAGENTA,  background_color);
 }
 
 struct nvtop_interface* initialize_curses(
