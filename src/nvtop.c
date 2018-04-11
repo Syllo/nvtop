@@ -53,6 +53,7 @@ static const char helpstring[] =
 "  -v --version     : Print the version and exit\n"
 "  -s --gpu-select  : Column separated list of GPU IDs to monitor\n"
 "  -i --gpu-ignore  : Column separated list of GPU IDs to ignore\n"
+"  -C --no-color    : No colors\n"
 "  -h --help        : Print help and exit\n";
 
 static const char versionString[] =
@@ -104,7 +105,7 @@ static const struct option long_opts[] = {
   {0,0,0,0},
 };
 
-static const char opts[] = "hvd:s:i:";
+static const char opts[] = "hvd:s:i:C";
 
 static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) {
   char *saveptr;
@@ -141,6 +142,7 @@ int main (int argc, char **argv) {
   int refresh_interval = 1000;
   char *selectedGPU = NULL;
   char *ignoredGPU = NULL;
+  bool use_color_if_available = true;
   while (true) {
     char optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -173,6 +175,9 @@ int main (int argc, char **argv) {
       case 'h':
         printf("%s\n%s", versionString, helpstring);
         exit(EXIT_SUCCESS);
+      case 'C':
+        use_color_if_available = false;
+        break;
       case ':':
       case '?':
         switch (optopt) {
@@ -237,7 +242,8 @@ int main (int argc, char **argv) {
       biggest_name = device_name_size;
     }
   }
-  struct nvtop_interface *interface = initialize_curses(num_devices, biggest_name);
+  struct nvtop_interface *interface =
+    initialize_curses(num_devices, biggest_name, use_color_if_available);
   timeout(refresh_interval);
 
   while (!(signal_bits & STOP_SIGNAL)) {

@@ -311,13 +311,14 @@ static void initialize_colors(void) {
 
 struct nvtop_interface* initialize_curses(
     unsigned int num_devices,
-    unsigned int biggest_device_name) {
+    unsigned int biggest_device_name,
+    bool use_color) {
   struct nvtop_interface *interface = calloc(1, sizeof(*interface));
   interface->devices_win = calloc(num_devices, sizeof(*interface->devices_win));
   interface->num_devices = num_devices;
   sizeof_device_field[device_name] = biggest_device_name + 11;
   initscr();
-  if (has_colors() == TRUE) {
+  if (use_color && has_colors() == TRUE) {
     initialize_colors();
   }
   cbreak();
