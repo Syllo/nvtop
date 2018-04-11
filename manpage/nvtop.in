@@ -24,10 +24,13 @@ Delay between updates, in tenths of seconds (\fIdelay\fR * 0.1s).
 Print the help and exit.
 .TP
 .BR \-s ", " \-\-gpu\-select =\fIid1:...\fR
-Coma separated list of GPU IDs to be monitored by nvtop.
+Colon separated list of GPU IDs to be monitored by nvtop.
 .TP
 .BR \-i ", " \-\-gpu\-ignore =\fIid1:...\fR
-Coma separated list of GPU IDs to be ignored by nvtop.
+Colon separated list of GPU IDs to be ignored by nvtop.
+.TP
+.BR \-C ", " \-\-no\-color
+Monochrome mode.
 .TP
 .BR \-v ", " \-\-version
 Print the version and exit.
