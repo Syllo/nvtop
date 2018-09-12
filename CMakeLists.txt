@@ -6,7 +6,7 @@ cmake_minimum_required(VERSION 3.1)
 
 set(NVTOP_VERSION_MAJOR 0)
 set(NVTOP_VERSION_MINOR 2)
-set(NVTOP_VERSION_PATCH 0)
+set(NVTOP_VERSION_PATCH 3)
 
 project(nvtop
   LANGUAGES C)
