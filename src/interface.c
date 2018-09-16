@@ -425,7 +425,9 @@ static const char* memory_prefix[] = { "B", "k", "M", "G", "T", "P" };
 static void draw_temp_color(WINDOW *win,
     unsigned int temp,
     unsigned int temp_slowdown) {
-  mvwprintw(win, 0, 0, "TEMP %3u°C", temp);
+  mvwprintw(win, 0, 0, "TEMP %3u", temp);
+  waddch(win, ACS_DEGREE);
+  waddch(win, 'C');
   if (temp >= temp_slowdown - 5) {
     if (temp >= temp_slowdown)
       mvwchgat(win, 0, 5, 3, 0, red_color, NULL);
