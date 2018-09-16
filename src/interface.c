@@ -92,6 +92,7 @@ struct nvtop_interface {
   struct device_window *devices_win;
   struct process_window process;
   struct option_window option_window;
+  bool use_fahrenheit;
 };
 
 enum device_field {
@@ -355,7 +356,8 @@ static void initialize_colors(void) {
 struct nvtop_interface* initialize_curses(
     unsigned int num_devices,
     unsigned int biggest_device_name,
-    bool use_color) {
+    bool use_color,
+    bool use_fahrenheit) {
   struct nvtop_interface *interface = calloc(1, sizeof(*interface));
   interface->devices_win = calloc(num_devices, sizeof(*interface->devices_win));
   interface->num_devices = num_devices;
@@ -368,6 +370,7 @@ struct nvtop_interface* initialize_curses(
   noecho();
   keypad(stdscr, TRUE);
   curs_set(0);
+  interface->use_fahrenheit = use_fahrenheit;
   interface->process.offset = 0;
   interface->option_window.offset = 0;
   interface->option_window.state = nvtop_option_state_hidden;
@@ -425,10 +428,19 @@ static const char* memory_prefix[] = { "B", "k", "M", "G", "T", "P" };
 
 static void draw_temp_color(WINDOW *win,
     unsigned int temp,
-    unsigned int temp_slowdown) {
-  mvwprintw(win, 0, 0, "TEMP %3u", temp);
+    unsigned int temp_slowdown,
+    bool celsius) {
+  unsigned int temp_convert;
+  if (celsius)
+    temp_convert = temp;
+  else
+    temp_convert = 32 + (unsigned int) (nearbyint(temp * 1.8));
+  mvwprintw(win, 0, 0, "TEMP %3u", temp_convert);
   waddch(win, ACS_DEGREE);
-  waddch(win, 'C');
+  if (celsius)
+    waddch(win, 'C');
+  else
+    waddch(win, 'F');
   if (temp >= temp_slowdown - 5) {
     if (temp >= temp_slowdown)
       mvwchgat(win, 0, 5, 3, 0, red_color, NULL);
@@ -526,7 +538,8 @@ static void draw_devices(
         IS_VALID(gpu_temp_slowdown_valid, dinfo->valid))
       draw_temp_color(dev->temperature,
           dinfo->gpu_temp,
-          dinfo->gpu_temp_slowdown);
+          dinfo->gpu_temp_slowdown,
+          !interface->use_fahrenheit);
     else {
       mvwprintw(dev->temperature, 0, 0, "TEMP N/A°C");
       wnoutrefresh(dev->temperature);

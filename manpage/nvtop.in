@@ -35,6 +35,9 @@ Monochrome mode.
 .BR \-N ", " \-\-no\-cache
 Disable the (process id, user name, command line) cache and query the system at each refresh.
 .TP
+.BR \-f ", " \-\-freedom\-unit
+Use fahrenheit as temperature scale.
+.TP
 .BR \-v ", " \-\-version
 Print the version and exit.
 

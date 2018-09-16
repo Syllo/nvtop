@@ -47,13 +47,14 @@ static void resize_handler(int signum) {
 
 static const char helpstring[] =
 "Available options:\n"
-"  -d --delay       : Select the refresh rate (1 == 0.1s)\n"
-"  -v --version     : Print the version and exit\n"
-"  -s --gpu-select  : Column separated list of GPU IDs to monitor\n"
-"  -i --gpu-ignore  : Column separated list of GPU IDs to ignore\n"
-"  -C --no-color    : No colors\n"
-"  -N --no-cache    : Always query the system for user names and command line information\n"
-"  -h --help        : Print help and exit\n";
+"  -d --delay        : Select the refresh rate (1 == 0.1s)\n"
+"  -v --version      : Print the version and exit\n"
+"  -s --gpu-select   : Column separated list of GPU IDs to monitor\n"
+"  -i --gpu-ignore   : Column separated list of GPU IDs to ignore\n"
+"  -C --no-color     : No colors\n"
+"  -N --no-cache     : Always query the system for user names and command line information\n"
+"  -f --freedom-unit : Use fahrenheit\n"
+"  -h --help         : Print help and exit\n";
 
 static const char versionString[] =
 "nvtop version " NVTOP_VERSION_STRING;
@@ -96,6 +97,12 @@ static const struct option long_opts[] = {
     .val = 'N'
   },
   {
+    .name = "freedom-unit",
+    .has_arg = no_argument,
+    .flag = NULL,
+    .val = 'f'
+  },
+  {
     .name = "gpu-select",
     .has_arg = required_argument,
     .flag = NULL,
@@ -110,7 +117,7 @@ static const struct option long_opts[] = {
   {0,0,0,0},
 };
 
-static const char opts[] = "hvd:s:i:CN";
+static const char opts[] = "hvd:s:i:CNf";
 
 static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) {
   char *saveptr;
@@ -149,6 +156,7 @@ int main (int argc, char **argv) {
   char *ignoredGPU = NULL;
   bool use_color_if_available = true;
   bool cache_pid_infos = true;
+  bool use_fahrenheit = false;
   while (true) {
     char optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -186,6 +194,9 @@ int main (int argc, char **argv) {
         break;
       case 'N':
         cache_pid_infos = false;
+        break;
+      case 'f':
+        use_fahrenheit = true;
         break;
       case ':':
       case '?':
@@ -252,7 +263,7 @@ int main (int argc, char **argv) {
     }
   }
   struct nvtop_interface *interface =
-    initialize_curses(num_devices, biggest_name, use_color_if_available);
+    initialize_curses(num_devices, biggest_name, use_color_if_available, use_fahrenheit);
   timeout(refresh_interval);
 
   while (!signal_exit) {
