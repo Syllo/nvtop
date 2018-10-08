@@ -20,7 +20,7 @@ Table of Contents
    1. [Ubuntu / Debian](#ubuntu--debian)
    1. [Fedora / RedHat / CentOS](#fedora--redhat--centos)
    1. [OpenSUSE](#opensuse)
-   1. [Archlinux](#archlinux)
+   1. [Arch Linux](#arch-linux)
    1. [NVTOP Build](#nvtop-build)
 1. [License](#license)
 
@@ -88,9 +88,9 @@ Two libraries are required:
 - NVTOP
   - Follow the [NVTOP Build](#nvtop-build)
 
-### Archlinux
+### Arch Linux
 
-- NVIDIA drivers (see [Archlinux wiki](https://wiki.archlinux.org/index.php/NVIDIA))
+- NVIDIA drivers (see [Arch Linux wiki](https://wiki.archlinux.org/index.php/NVIDIA))
 - CMake, ncurses and git
   ```bash
   sudo pacman -S cmake ncurses git
