@@ -111,7 +111,7 @@ cmake ..
 cmake .. -DNVML_RETRIEVE_HEADER_ONLINE=True
 
 make
-make install # You may need sufficent permission for that (root)
+make install # You may need sufficient permission for that (root)
 ```
 
 The build system supports multiple build type (e.g. -DCMAKE_BUILD_TYPE=Optimized):
