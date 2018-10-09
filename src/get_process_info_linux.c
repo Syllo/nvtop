@@ -27,11 +27,12 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <inttypes.h>
 
 static char pid_path[64];
 
 void get_username_from_pid(pid_t pid, size_t size_buffer, char *buffer) {
-  size_t written = snprintf(pid_path, 64, "/proc/%d", pid);
+  size_t written = snprintf(pid_path, 64, "/proc/%" PRIdMAX, (intmax_t) pid);
   if (written == 64) {
     buffer[0] = '\0';
     return;
@@ -49,4 +50,26 @@ void get_username_from_pid(pid_t pid, size_t size_buffer, char *buffer) {
     return;
   }
   strncpy(buffer, user_info->pw_name, size_buffer);
+}
+
+void get_pid_command_line(pid_t pid, size_t size_buffer, char *buffer) {
+  size_t written = snprintf(pid_path, 64, "/proc/%" PRIdMAX "/cmdline", (intmax_t) pid);
+  if (written == 64) {
+    buffer[0] = '\0';
+    return;
+  }
+  FILE *pid_file = fopen(pid_path, "r");
+  if (!pid_file) {
+    buffer[0] = '\0';
+    return;
+  }
+  size_t read = fread(buffer, sizeof(*buffer), size_buffer, pid_file);
+  if (read == size_buffer) {
+    read -= 1;
+  }
+  buffer[read] = '\0';
+  for (size_t i = 0; i < read; ++i) {
+    if (buffer[i] == '\0')
+      buffer[i] = ' ';
+  }
 }

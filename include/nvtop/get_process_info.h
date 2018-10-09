@@ -26,4 +26,6 @@
 
 void get_username_from_pid(pid_t pid, size_t size_buffer, char *buffer);
 
+void get_pid_command_line(pid_t pid, size_t size_buffer, char *buffer);
+
 #endif // __GET_PROCESS_INFO_H_

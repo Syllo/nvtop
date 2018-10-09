@@ -122,14 +122,9 @@ static void update_gpu_process_from_process_info(
     nvmlProcessInfo_t *p_info,
     struct gpu_process *gpu_proc_info) {
 
-  nvmlReturn_t retval;
   for (unsigned int i = 0; i < num_process; ++i) {
     gpu_proc_info[i].pid = p_info[i].pid;
-    retval =
-      nvmlSystemGetProcessName(p_info[i].pid, gpu_proc_info[i].process_name, 64);
-    if (retval != NVML_SUCCESS) {
-      memcpy(gpu_proc_info[i].process_name, "N/A", 4);
-    }
+    get_pid_command_line(p_info[i].pid, 64, gpu_proc_info[i].process_name);
     gpu_proc_info[i].used_memory = p_info[i].usedGpuMemory;
     get_username_from_pid(gpu_proc_info[i].pid, 64, gpu_proc_info[i].user_name);
     if (gpu_proc_info[i].user_name[0] == '\0')
