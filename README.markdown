@@ -118,8 +118,8 @@ The build system supports multiple build type (e.g. -DCMAKE_BUILD_TYPE=Optimized
 
 * Release: Binary without debug information
 * RelWithDebInfo: Binary with debug information
-* Debug: Compile warning flags and address/undefined sanitizer (For development only)
-* Optimized: Build with architecture specific optimisations (May be not portable across machines with different processor)
+* Debug: Compile with warning flags and address/undefined sanitizers enabled (for development purposes)
+* Optimized: Build with architecture specific optimizations enabled (may not be portable across processor architectures)
 
 
 License
