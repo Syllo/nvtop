@@ -247,11 +247,12 @@ int main (int argc, char **argv) {
   timeout(refresh_interval);
 
   while (!(signal_bits & STOP_SIGNAL)) {
-    update_device_infos(num_devices, dev_infos);
     if (signal_bits & RESIZE_SIGNAL) {
       update_window_size_to_terminal_size(interface);
       signal_bits &= ~RESIZE_SIGNAL;
+      clean_pid_cache();
     }
+    update_device_infos(num_devices, dev_infos);
     draw_gpu_info_ncurses(dev_infos, interface);
 
     int input_char = getch();

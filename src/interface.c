@@ -27,6 +27,7 @@
 #include <math.h>
 #include <ncurses.h>
 #include <signal.h>
+#include <inttypes.h>
 
 #define DEVICE_ID_SIZE 16
 
@@ -55,9 +56,9 @@ struct device_window {
 };
 
 struct all_gpu_processes {
-  unsigned int pid;
-  char process_name[64];
-  char user_name[64];
+  intmax_t pid;
+  char *process_name;
+  char *user_name;
   unsigned long long used_memory;
   double mem_percentage;
   unsigned int gpu_id;
@@ -635,12 +636,8 @@ static unsigned int copy_processes_for_processing(
       interface->process.all_process[offset+j].gpu_id = i;
       interface->process.all_process[offset+j].pid =
         dev_info[i].compute_procs[j].pid;
-      memcpy(interface->process.all_process[offset+j].process_name,
-          dev_info[i].compute_procs[j].process_name,
-          sizeof(interface->process.all_process[offset+j].process_name));
-      memcpy(interface->process.all_process[offset+j].user_name,
-          dev_info[i].compute_procs[j].user_name,
-          sizeof(interface->process.all_process[offset+j].user_name));
+      interface->process.all_process[offset+j].process_name = dev_info[i].compute_procs[j].process_name;
+      interface->process.all_process[offset+j].user_name = dev_info[i].compute_procs[j].user_name;
       interface->process.all_process[offset+j].used_memory =
         dev_info[i].compute_procs[j].used_memory;
       maximum_name_length = max_val(maximum_name_length,
@@ -655,12 +652,8 @@ static unsigned int copy_processes_for_processing(
       interface->process.all_process[offset+j].gpu_id = i;
       interface->process.all_process[offset+j].pid =
         dev_info[i].graphic_procs[j].pid;
-      memcpy(interface->process.all_process[offset+j].process_name,
-          dev_info[i].graphic_procs[j].process_name,
-          sizeof(interface->process.all_process[offset+j].process_name));
-      memcpy(interface->process.all_process[offset+j].user_name,
-          dev_info[i].graphic_procs[j].user_name,
-          sizeof(interface->process.all_process[offset+j].user_name));
+      interface->process.all_process[offset+j].process_name = dev_info[i].graphic_procs[j].process_name;
+      interface->process.all_process[offset+j].user_name = dev_info[i].graphic_procs[j].user_name;
       interface->process.all_process[offset+j].used_memory =
         dev_info[i].graphic_procs[j].used_memory;
       maximum_name_length = max_val(maximum_name_length,
@@ -695,7 +688,7 @@ static int compare_username_desc(
     const void *pp2) {
   const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
   const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
-  return -strncmp(p1->user_name, p2->user_name, sizeof(p1->user_name));
+  return -strcmp(p1->user_name, p2->user_name);
 }
 
 static int compare_username_asc(
@@ -904,7 +897,7 @@ static void print_processes_on_screen(
     }
     unsigned int write_at = i+1-start_at_process;
     size_t size = snprintf(pid_str, sizeof_process_field[process_pid]+1,
-        "%u", proc[i].pid);
+        "%" PRIdMAX, proc[i].pid);
     if (size == sizeof_process_field[process_pid]+1)
       pid_str[sizeof_process_field[process_pid]] = '\0';
     size = snprintf(guid_str, sizeof_process_field[process_gpu_id]+1,

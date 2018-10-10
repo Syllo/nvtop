@@ -19,12 +19,23 @@
  *
  */
 
-#include "nvtop/extract_gpuinfo.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
+
+#include "nvtop/extract_gpuinfo.h"
 #include "nvtop/get_process_info.h"
+#include "uthash.h"
+
+#define HASH_FIND_PID(head,pidfield,out)\
+  HASH_FIND(hh,head,pidfield,sizeof(intmax_t),out)
+
+#define HASH_ADD_PID(head,pidfield,add)\
+  HASH_ADD(hh,head,pidfield,sizeof(intmax_t),add)
+
+#define HASH_REPLACE_PID(head,pidfield,replaced)\
+  HASH_REPLACE(hh,head,pidfield,sizeof(intmax_t),replaced)
 
 static bool nvml_initialized = false;
 
@@ -114,7 +125,30 @@ static void populate_static_device_infos(struct device_info *dev_info) {
     dev_info->gpu_temp_slowdown = 0;
     RESET_VALID(gpu_temp_slowdown_valid, dev_info->valid);
   }
+}
 
+struct pid_infos {
+  intmax_t pid;
+  char *process_name;
+  char *user_name;
+  UT_hash_handle hh;
+};
+
+static struct pid_infos *saved_pid_infos = NULL; // Hash table saved pid info
+static struct pid_infos *current_used_infos = NULL; // Hash table saved pid info
+
+static void populate_infos(intmax_t pid, struct pid_infos *infos) {
+  infos->pid = pid;
+  get_command_from_pid(pid, &infos->process_name);
+  if (infos->process_name == NULL) {
+    infos->process_name = malloc(4*sizeof(*infos->process_name));
+    memcpy(infos->process_name, "N/A", 4);
+  }
+  get_username_from_pid(pid, &infos->user_name);
+  if (infos->user_name == NULL) {
+    infos->user_name = malloc(4*sizeof(*infos->user_name));
+    memcpy(infos->user_name, "N/A", 4);
+  }
 }
 
 static void update_gpu_process_from_process_info(
@@ -124,11 +158,22 @@ static void update_gpu_process_from_process_info(
 
   for (unsigned int i = 0; i < num_process; ++i) {
     gpu_proc_info[i].pid = p_info[i].pid;
-    get_pid_command_line(p_info[i].pid, 64, gpu_proc_info[i].process_name);
+    struct pid_infos *infos;
+    HASH_FIND_PID(saved_pid_infos, &gpu_proc_info[i].pid, infos);
+    if (!infos) { // getting information from the system
+      HASH_FIND_PID(current_used_infos, &gpu_proc_info[i].pid, infos);
+      if (!infos) {
+        infos = malloc(sizeof(*infos));
+        populate_infos(gpu_proc_info[i].pid, infos);
+        HASH_ADD_PID(current_used_infos, pid, infos);
+      }
+    } else {
+      HASH_DEL(saved_pid_infos, infos);
+      HASH_ADD_PID(current_used_infos, pid, infos);
+    }
+    gpu_proc_info[i].process_name = infos->process_name;
+    gpu_proc_info[i].user_name = infos->user_name;
     gpu_proc_info[i].used_memory = p_info[i].usedGpuMemory;
-    get_username_from_pid(gpu_proc_info[i].pid, 64, gpu_proc_info[i].user_name);
-    if (gpu_proc_info[i].user_name[0] == '\0')
-      memcpy(gpu_proc_info[i].user_name, "N/A", 4);
   }
 }
 
@@ -406,6 +451,17 @@ void update_device_infos(
     update_compute_process(curr_dev_info);
 
   } // Loop over devices
+
+  // Now delete the (pid,username,command) cache entries that are not in use anymore
+  struct pid_infos *old_info, *tmp;
+  HASH_ITER(hh, saved_pid_infos, old_info, tmp) {
+    HASH_DEL(saved_pid_infos, old_info);
+    free(old_info->process_name);
+    free(old_info->user_name);
+    free(old_info);
+  }
+  saved_pid_infos = current_used_infos;
+  current_used_infos = NULL;
 }
 
 unsigned int initialize_device_info(struct device_info **dev_info, size_t gpu_mask) {
@@ -451,6 +507,18 @@ unsigned int initialize_device_info(struct device_info **dev_info, size_t gpu_ma
   return num_queriable;
 }
 
+void clean_pid_cache(void) {
+  struct pid_infos *old_info, *tmp;
+  // The current_used_infos should be NULL here
+  assert(current_used_infos == NULL);
+  HASH_ITER(hh, saved_pid_infos, old_info, tmp) {
+    HASH_DEL(saved_pid_infos, old_info);
+    free(old_info->process_name);
+    free(old_info->user_name);
+    free(old_info);
+  }
+}
+
 void clean_device_info(unsigned int num_devs, struct device_info *dev_info) {
   for (unsigned int i = 0; i < num_devs; ++i) {
     free(dev_info[i].graphic_procs);
@@ -458,4 +526,5 @@ void clean_device_info(unsigned int num_devs, struct device_info *dev_info) {
     free(dev_info[i].process_infos);
   }
   free(dev_info);
+  clean_pid_cache();
 }

@@ -26,15 +26,16 @@
 #include <nvml.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define IS_VALID(x,y)    ((y)[(x)/CHAR_BIT] & (1<<((x)%CHAR_BIT)))
 #define SET_VALID(x,y)   ((y)[(x)/CHAR_BIT] |= (1<<((x)%CHAR_BIT)))
 #define RESET_VALID(x,y) ((y)[(x)/CHAR_BIT] &= ~(1<<((x)%CHAR_BIT)))
 
 struct gpu_process {
-  unsigned int pid;                // Process ID
-  char process_name[64];           // Process Name
-  char user_name[64];              // Process User Name
+  intmax_t pid;                    // Process ID
+  char *process_name;              // Process Name
+  char *user_name;                 // Process User Name
   unsigned long long used_memory;  // Memory used by process
 };
 
@@ -118,5 +119,7 @@ void update_device_infos(
     struct device_info *dev_info);
 
 void clean_device_info(unsigned int num_devs, struct device_info *dev_info);
+
+void clean_pid_cache(void);
 
 #endif // __EXTRACT_GPUINFO_H_
