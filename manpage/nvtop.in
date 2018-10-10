@@ -32,6 +32,9 @@ Colon separated list of GPU IDs to be ignored by nvtop.
 .BR \-C ", " \-\-no\-color
 Monochrome mode.
 .TP
+.BR \-N ", " \-\-no\-cache
+Disable the (process id, user name, command line) cache and query the system at each refresh.
+.TP
 .BR \-v ", " \-\-version
 Print the version and exit.
 

@@ -54,6 +54,7 @@ static const char helpstring[] =
 "  -s --gpu-select  : Column separated list of GPU IDs to monitor\n"
 "  -i --gpu-ignore  : Column separated list of GPU IDs to ignore\n"
 "  -C --no-color    : No colors\n"
+"  -N --no-cache    : Always query the system for user names and command line information\n"
 "  -h --help        : Print help and exit\n";
 
 static const char versionString[] =
@@ -91,6 +92,12 @@ static const struct option long_opts[] = {
     .val = 'C'
   },
   {
+    .name = "no-cache",
+    .has_arg = no_argument,
+    .flag = NULL,
+    .val = 'N'
+  },
+  {
     .name = "gpu-select",
     .has_arg = required_argument,
     .flag = NULL,
@@ -105,7 +112,7 @@ static const struct option long_opts[] = {
   {0,0,0,0},
 };
 
-static const char opts[] = "hvd:s:i:C";
+static const char opts[] = "hvd:s:i:CN";
 
 static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) {
   char *saveptr;
@@ -143,6 +150,7 @@ int main (int argc, char **argv) {
   char *selectedGPU = NULL;
   char *ignoredGPU = NULL;
   bool use_color_if_available = true;
+  bool cache_pid_infos = true;
   while (true) {
     char optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -177,6 +185,9 @@ int main (int argc, char **argv) {
         exit(EXIT_SUCCESS);
       case 'C':
         use_color_if_available = false;
+        break;
+      case 'N':
+        cache_pid_infos = false;
         break;
       case ':':
       case '?':
@@ -252,6 +263,8 @@ int main (int argc, char **argv) {
       signal_bits &= ~RESIZE_SIGNAL;
       clean_pid_cache();
     }
+    if (!cache_pid_infos)
+      clean_pid_cache();
     update_device_infos(num_devices, dev_infos);
     draw_gpu_info_ncurses(dev_infos, interface);
 
