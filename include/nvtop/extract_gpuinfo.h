@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef __EXTRACT_GPUINFO_H_
-#define __EXTRACT_GPUINFO_H_
+#ifndef EXTRACT_GPUINFO_H_
+#define EXTRACT_GPUINFO_H_
 
 #include <limits.h>
 #include <nvml.h>
@@ -122,4 +122,4 @@ void clean_device_info(unsigned int num_devs, struct device_info *dev_info);
 
 void clean_pid_cache(void);
 
-#endif // __EXTRACT_GPUINFO_H_
+#endif // EXTRACT_GPUINFO_H_

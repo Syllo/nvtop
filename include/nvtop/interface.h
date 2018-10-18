@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef __INTERFACE_H_
-#define __INTERFACE_H_
+#ifndef INTERFACE_H_
+#define INTERFACE_H_
 
 #include "nvtop/extract_gpuinfo.h"
 
@@ -61,4 +61,4 @@ void interface_key(int keyId, struct nvtop_interface *inter);
 
 bool is_escape_for_quit(struct nvtop_interface *inter);
 
-#endif // __INTERFACE_H_
+#endif // INTERFACE_H_

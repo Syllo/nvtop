@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef __GET_PROCESS_INFO_H_
-#define __GET_PROCESS_INFO_H_
+#ifndef GET_PROCESS_INFO_H_
+#define GET_PROCESS_INFO_H_
 
 #include <stdlib.h>
 
@@ -28,4 +28,4 @@ void get_username_from_pid(pid_t pid, char **buffer);
 
 void get_command_from_pid(pid_t pid, char **buffer);
 
-#endif // __GET_PROCESS_INFO_H_
+#endif // GET_PROCESS_INFO_H_
