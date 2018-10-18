@@ -32,19 +32,17 @@
 #include "nvtop/interface.h"
 #include "nvtop/version.h"
 
-#define STOP_SIGNAL 0x1
-#define RESIZE_SIGNAL 0x2
-
-static volatile unsigned char signal_bits = 0;
+static volatile sig_atomic_t signal_exit = 0;
+static volatile sig_atomic_t signal_resize_win = 0;
 
 static void exit_handler(int signum) {
   (void) signum;
-  signal_bits |= STOP_SIGNAL;
+  signal_exit = 1;
 }
 
 static void resize_handler(int signum) {
   (void) signum;
-  signal_bits |= RESIZE_SIGNAL;
+  signal_resize_win = 1;
 }
 
 static const char helpstring[] =
@@ -221,7 +219,7 @@ int main (int argc, char **argv) {
   }
   siga.sa_handler = resize_handler;
   if (sigaction(SIGWINCH, &siga, NULL) != 0) {
-    perror("Impossible to set signal handler for SIGQUIT: ");
+    perror("Impossible to set signal handler for SIGWINCH: ");
     exit(EXIT_FAILURE);
   }
 
@@ -257,10 +255,10 @@ int main (int argc, char **argv) {
     initialize_curses(num_devices, biggest_name, use_color_if_available);
   timeout(refresh_interval);
 
-  while (!(signal_bits & STOP_SIGNAL)) {
-    if (signal_bits & RESIZE_SIGNAL) {
+  while (!signal_exit) {
+    if (signal_resize_win) {
       update_window_size_to_terminal_size(interface);
-      signal_bits &= ~RESIZE_SIGNAL;
+      signal_resize_win = 0;
       clean_pid_cache();
     }
     if (!cache_pid_infos)
@@ -277,7 +275,7 @@ int main (int argc, char **argv) {
           timeout(refresh_interval);
           if (in == ERR) { // ESC alone
             if (is_escape_for_quit(interface))
-              signal_bits |= STOP_SIGNAL;
+              signal_exit = 1;
             else
               interface_key(27, interface);
           }
@@ -286,10 +284,10 @@ int main (int argc, char **argv) {
         break;
       case KEY_F(3) :
         if (is_escape_for_quit(interface))
-          signal_bits |= STOP_SIGNAL;
+          signal_exit = 1;
         break;
       case 'q':
-        signal_bits |= STOP_SIGNAL;
+        signal_exit = 1;
         break;
       case KEY_F(1) :
       case KEY_F(2) :
