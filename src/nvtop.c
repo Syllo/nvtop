@@ -158,7 +158,7 @@ int main (int argc, char **argv) {
   bool cache_pid_infos = true;
   bool use_fahrenheit = false;
   while (true) {
-    char optchar = getopt_long(argc, argv, opts, long_opts, NULL);
+    int optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
       break;
     switch (optchar) {
