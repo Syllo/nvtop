@@ -23,7 +23,7 @@
 
 extern inline void nvtop_get_current_time(nvtop_time *time);
 extern inline double nvtop_difftime(nvtop_time t0, nvtop_time t1);
-extern inline bool nvtop_has_elapsed_time(
-    nvtop_time less,
-    nvtop_time more,
-    nvtop_time elapsed);
+inline nvtop_time nvtop_add_time(nvtop_time t0, nvtop_time t1);
+inline nvtop_time nvtop_substract_time(nvtop_time t0, nvtop_time t1);
+inline nvtop_time nvtop_hmns_to_time(unsigned hour, unsigned minutes,
+                                     unsigned long nanosec);

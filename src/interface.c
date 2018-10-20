@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2017 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2017-2018 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -46,8 +46,12 @@ enum interface_color {
 struct device_window {
   char *device_name;
   WINDOW *name_win;   // Name of the GPU
-  WINDOW* gpu_util;
-  WINDOW* mem_util;
+  WINDOW* gpu_util_enc_dec;
+  WINDOW* gpu_util_no_enc_or_dec;
+  WINDOW* gpu_util_no_enc_and_dec;
+  WINDOW* mem_util_enc_dec;
+  WINDOW* mem_util_no_enc_or_dec;
+  WINDOW* mem_util_no_enc_and_dec;
   WINDOW* encode_util;
   WINDOW* decode_util;
   WINDOW* fan_speed;
@@ -56,6 +60,8 @@ struct device_window {
   WINDOW* gpu_clock_info;
   WINDOW* mem_clock_info;
   WINDOW* pcie_info;
+  nvtop_time last_decode_seen;
+  nvtop_time last_encode_seen;
 };
 
 struct all_gpu_processes {
@@ -116,6 +122,7 @@ struct nvtop_interface {
   struct plot_window *plots;
   bool use_fahrenheit;
   bool center_device_info;
+  double encode_decode_hide_time;
 };
 
 enum device_field {
@@ -243,13 +250,13 @@ static void alloc_device_window(
     size_encode += 1;
   size_encode /= 2;
 
-  dwin->gpu_util = newwin(1, size_gpu, start_row+2, start_col);
-  if (dwin->gpu_util == NULL)
+  dwin->gpu_util_enc_dec = newwin(1, size_gpu, start_row+2, start_col);
+  if (dwin->gpu_util_enc_dec == NULL)
     goto alloc_error;
-  dwin->mem_util = newwin(1, size_mem,
+  dwin->mem_util_enc_dec = newwin(1, size_mem,
       start_row+2,
       start_col+spacer + size_gpu);
-  if (dwin->mem_util == NULL)
+  if (dwin->mem_util_enc_dec == NULL)
     goto alloc_error;
   dwin->encode_util = newwin(1, size_encode,
       start_row+2,
@@ -261,6 +268,25 @@ static void alloc_device_window(
       start_col+spacer * 3 + size_gpu + size_mem + size_encode);
   if (dwin->decode_util == NULL)
     goto alloc_error;
+  // For auto-hide encode / decode window
+  dwin->gpu_util_no_enc_or_dec =
+      newwin(1, size_gpu + size_encode / 2 + 1, start_row + 2, start_col);
+  if (dwin->gpu_util_no_enc_or_dec == NULL)
+    goto alloc_error;
+  dwin->mem_util_no_enc_or_dec =
+      newwin(1, size_mem + size_encode / 2, start_row + 2,
+             start_col + spacer + size_gpu + size_encode / 2 + 1);
+  if (dwin->mem_util_no_enc_or_dec == NULL)
+    goto alloc_error;
+  dwin->gpu_util_no_enc_and_dec =
+      newwin(1, size_gpu + size_encode + 1, start_row + 2, start_col);
+  if (dwin->gpu_util_no_enc_and_dec == NULL)
+    goto alloc_error;
+  dwin->mem_util_no_enc_and_dec =
+      newwin(1, size_mem + size_encode + 1, start_row + 2,
+             start_col + spacer + size_gpu + size_encode + 1);
+  if (dwin->mem_util_no_enc_and_dec == NULL)
+    goto alloc_error;
 
   return;
 alloc_error:
@@ -271,8 +297,12 @@ alloc_error:
 
 static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->name_win);
-  delwin(dwin->gpu_util);
-  delwin(dwin->mem_util);
+  delwin(dwin->gpu_util_enc_dec);
+  delwin(dwin->mem_util_enc_dec);
+  delwin(dwin->gpu_util_no_enc_or_dec);
+  delwin(dwin->mem_util_no_enc_or_dec);
+  delwin(dwin->gpu_util_no_enc_and_dec);
+  delwin(dwin->mem_util_no_enc_and_dec);
   delwin(dwin->encode_util);
   delwin(dwin->decode_util);
   delwin(dwin->gpu_clock_info);
@@ -528,7 +558,8 @@ struct nvtop_interface* initialize_curses(
     unsigned int num_devices,
     unsigned int biggest_device_name,
     bool use_color,
-    bool use_fahrenheit) {
+    bool use_fahrenheit,
+    double encode_decode_hide_time) {
   struct nvtop_interface *interface = calloc(1, sizeof(*interface));
   interface->devices_win = calloc(num_devices, sizeof(*interface->devices_win));
   interface->num_devices = num_devices;
@@ -541,6 +572,7 @@ struct nvtop_interface* initialize_curses(
   noecho();
   keypad(stdscr, TRUE);
   curs_set(0);
+  interface->encode_decode_hide_time = encode_decode_hide_time < 0. ? 1e20 : encode_decode_hide_time;
   interface->center_device_info = false;
   interface->use_fahrenheit = use_fahrenheit;
   interface->process.offset = 0;
@@ -552,6 +584,19 @@ struct nvtop_interface* initialize_curses(
   interface->process.size_processes_buffer = 50;
   interface->process.all_process = malloc(interface->process.size_processes_buffer *
       sizeof(*interface->process.all_process));
+  // Hide decode and encode if not active for more than some given seconds
+  nvtop_time time_now, some_time_in_past;
+  if (encode_decode_hide_time > 0.)
+    some_time_in_past = nvtop_hmns_to_time(0,(unsigned int)(encode_decode_hide_time/60.) + 1,0);
+  else
+    some_time_in_past = nvtop_hmns_to_time(0,0,0);
+  nvtop_get_current_time(&time_now);
+  some_time_in_past = nvtop_substract_time(time_now, some_time_in_past);
+  for (size_t i = 0; i < num_devices; ++i) {
+    interface->devices_win[i].last_encode_seen = some_time_in_past;
+    interface->devices_win[i].last_decode_seen = some_time_in_past;
+  }
+
   initialize_all_windows(interface);
   refresh();
   return interface;
@@ -642,6 +687,11 @@ static void print_pcie_at_scale(WINDOW *win, unsigned int value) {
   wprintw(win, " %sB/s", memory_prefix[prefix_off]);
 }
 
+static inline void werase_and_wnoutrefresh(WINDOW *w) {
+  werase(w);
+  wnoutrefresh(w);
+}
+
 static void draw_devices(
     struct device_info *dev_info,
     struct nvtop_interface *interface) {
@@ -661,12 +711,96 @@ static void draw_devices(
       wnoutrefresh(dev->name_win);
     }
     char buff[1024];
+    nvtop_time tnow;
+    nvtop_get_current_time(&tnow);
+    static bool has_encode_in_last_min = true;
+    if (IS_VALID(encoder_rate_valid, dinfo->valid)) {
+      if (dinfo->encoder_rate > 0) {
+        if (!has_encode_in_last_min) {
+          werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
+          werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
+          werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+          werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+        }
+        has_encode_in_last_min = true;
+        dev->last_encode_seen = tnow;
+      } else {
+        if(nvtop_difftime(dev->last_encode_seen, tnow) > interface->encode_decode_hide_time) {
+          if (has_encode_in_last_min) {
+            werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
+            werase_and_wnoutrefresh(dev->mem_util_enc_dec);
+            werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+            werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+          }
+          has_encode_in_last_min = false;
+        }
+      }
+    }
+    static bool has_decode_in_last_min = true;
+    if (IS_VALID(decoder_rate_valid, dinfo->valid)) {
+      if (dinfo->decoder_rate > 0) {
+        if (!has_decode_in_last_min) {
+          werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
+          werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
+          werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+          werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+        }
+        has_decode_in_last_min = true;
+        dev->last_decode_seen = tnow;
+      } else {
+        if(nvtop_difftime(dev->last_decode_seen, tnow) > interface->encode_decode_hide_time) {
+          if (has_decode_in_last_min) {
+            werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
+            werase_and_wnoutrefresh(dev->mem_util_enc_dec);
+            werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+            werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+          }
+          has_decode_in_last_min = false;
+        }
+      }
+    }
+    WINDOW *gpu_util_win;
+    WINDOW *mem_util_win;
+    WINDOW *encode_win = dev->encode_util;
+    WINDOW *decode_win = dev->decode_util;
+    if (has_encode_in_last_min && has_decode_in_last_min) {
+      gpu_util_win = dev->gpu_util_enc_dec;
+      mem_util_win = dev->mem_util_enc_dec;
+    } else {
+      if (has_encode_in_last_min || has_decode_in_last_min) {
+        if (has_encode_in_last_min)
+          encode_win = dev->decode_util;
+        gpu_util_win = dev->gpu_util_no_enc_or_dec;
+        mem_util_win = dev->mem_util_no_enc_or_dec;
+      } else {
+        gpu_util_win = dev->gpu_util_no_enc_and_dec;
+        mem_util_win = dev->mem_util_no_enc_and_dec;
+      }
+    }
+    if (has_encode_in_last_min) {
+      if (IS_VALID(encoder_rate_valid, dinfo->valid)) {
+        snprintf(buff, 1024, "%u%%", dinfo->encoder_rate);
+        draw_bare_percentage(encode_win, "ENC", dinfo->encoder_rate, buff);
+      } else {
+        snprintf(buff, 1024, "N/A");
+        draw_bare_percentage(encode_win, "ENC", 0, buff);
+      }
+    }
+    if (has_decode_in_last_min) {
+      if (IS_VALID(decoder_rate_valid, dinfo->valid)) {
+        snprintf(buff, 1024, "%u%%", dinfo->decoder_rate);
+        draw_bare_percentage(decode_win, "DEC", dinfo->decoder_rate, buff);
+      } else {
+        snprintf(buff, 1024, "N/A");
+        draw_bare_percentage(decode_win, "DEC", 0, buff);
+      }
+    }
     if (IS_VALID(gpu_util_rate_valid, dinfo->valid)) {
       snprintf(buff, 1024, "%u%%", dinfo->gpu_util_rate);
-      draw_bare_percentage(dev->gpu_util, "GPU", dinfo->gpu_util_rate, buff);
+      draw_bare_percentage(gpu_util_win, "GPU", dinfo->gpu_util_rate, buff);
     } else {
       snprintf(buff, 1024, "N/A");
-      draw_bare_percentage(dev->gpu_util, "GPU", 0, buff);
+      draw_bare_percentage(gpu_util_win, "GPU", 0, buff);
     }
 
     if (IS_VALID(total_memory_valid, dinfo->valid) && IS_VALID(used_memory_valid, dinfo->valid)) {
@@ -680,30 +814,12 @@ static void draw_devices(
       snprintf(buff, 1024, "%.1f%s/%.1f%s",
           used_mem,  memory_prefix[prefix_off],
           total_mem, memory_prefix[prefix_off]);
-      draw_bare_percentage(dev->mem_util, "MEM",
+      draw_bare_percentage(mem_util_win, "MEM",
           (unsigned int)(100. * dinfo->used_memory / (double)dinfo->total_memory),
           buff);
     } else {
       snprintf(buff, 1024, "N/A");
-      draw_bare_percentage(dev->mem_util, "MEM", 0, buff);
-    }
-    if (IS_VALID(encoder_rate_valid, dinfo->valid)) {
-      snprintf(buff, 1024, "%u%%", dinfo->encoder_rate);
-      draw_bare_percentage(dev->encode_util, "Enc",
-          dinfo->encoder_rate,
-          buff);
-    } else {
-      snprintf(buff, 1024, "N/A");
-      draw_bare_percentage(dev->encode_util, "Enc", 0, buff);
-    }
-    if (IS_VALID(decoder_rate_valid, dinfo->valid)) {
-      snprintf(buff, 1024, "%u%%", dinfo->decoder_rate);
-      draw_bare_percentage(dev->decode_util, "Dec",
-          dinfo->decoder_rate,
-          buff);
-    } else {
-      snprintf(buff, 1024, "N/A");
-      draw_bare_percentage(dev->decode_util, "Dec", 0, buff);
+      draw_bare_percentage(mem_util_win, "MEM", 0, buff);
     }
     if (IS_VALID(gpu_temp_valid         , dinfo->valid) &&
         IS_VALID(gpu_temp_slowdown_valid, dinfo->valid))

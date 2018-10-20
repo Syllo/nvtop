@@ -55,6 +55,7 @@ static const char helpstring[] =
 "  -C --no-color     : No colors\n"
 "  -N --no-cache     : Always query the system for user names and command line information\n"
 "  -f --freedom-unit : Use fahrenheit\n"
+"  -E --encode-hide  : Set encode/decode auto hide time in seconds (default 30s, negative = always on screen)\n"
 "  -h --help         : Print help and exit\n";
 
 static const char versionString[] =
@@ -115,10 +116,16 @@ static const struct option long_opts[] = {
     .flag = NULL,
     .val = 'i'
   },
+  {
+    .name = "encode-hide",
+    .has_arg = required_argument,
+    .flag = NULL,
+    .val = 'E'
+  },
   {0,0,0,0},
 };
 
-static const char opts[] = "hvd:s:i:CNf";
+static const char opts[] = "hvd:s:i:CNfE:";
 
 static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) {
   char *saveptr;
@@ -158,6 +165,7 @@ int main (int argc, char **argv) {
   bool use_color_if_available = true;
   bool cache_pid_infos = true;
   bool use_fahrenheit = false;
+  double encode_decode_hide_time = 30.;
   while (true) {
     int optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -198,6 +206,14 @@ int main (int argc, char **argv) {
         break;
       case 'f':
         use_fahrenheit = true;
+        break;
+      case 'E':
+        {
+          if (sscanf(optarg, "%lf", &encode_decode_hide_time) == EOF) {
+            fprintf(stderr, "Invalid format for encode/decode hide time: %s\n", optarg);
+            exit(EXIT_FAILURE);
+          }
+        }
         break;
       case ':':
       case '?':
@@ -264,7 +280,8 @@ int main (int argc, char **argv) {
     }
   }
   struct nvtop_interface *interface =
-    initialize_curses(num_devices, biggest_name, use_color_if_available, use_fahrenheit);
+      initialize_curses(num_devices, biggest_name, use_color_if_available,
+                        use_fahrenheit, encode_decode_hide_time);
   timeout(refresh_interval);
 
   double time_slept = refresh_interval;

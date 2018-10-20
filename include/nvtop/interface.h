@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2017 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2017-2018 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -47,7 +47,8 @@ void show_gpu_infos_ascii(
     struct device_info *dev_info);
 
 struct nvtop_interface* initialize_curses(unsigned int num_devices,
-    unsigned int biggest_device_name, bool use_color, bool use_fahrenheit);
+    unsigned int biggest_device_name, bool use_color, bool use_fahrenheit,
+    double encode_decode_hide_time);
 
 void clean_ncurses(struct nvtop_interface *interface);
 

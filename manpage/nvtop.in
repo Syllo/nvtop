@@ -38,6 +38,9 @@ Disable the (process id, user name, command line) cache and query the system at 
 .BR \-f ", " \-\-freedom\-unit
 Use fahrenheit as temperature scale.
 .TP
+.BR \-E ", " \-\-encode\-hide =\fIseconds\fR
+Modify the setting for the encode/decode auto-hide timer. Always visible if negative. Default to 30 seconds.
+.TP
 .BR \-v ", " \-\-version
 Print the version and exit.
 

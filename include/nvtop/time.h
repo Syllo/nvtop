@@ -22,6 +22,7 @@
 #ifndef NVTOP_TIME_H_
 #define NVTOP_TIME_H_
 
+#include <stdbool.h>
 #include <time.h>
 
 #ifdef CLOCK_MONOTONIC_RAW
@@ -48,8 +49,29 @@ inline double nvtop_difftime(nvtop_time t0, nvtop_time t1) {
   return secdiff;
 }
 
-inline bool nvtop_has_elapsed_time(
-    nvtop_time less, nvtop_time more, nvtop_time elapsed) {
+inline nvtop_time nvtop_hmns_to_time(unsigned hour, unsigned minutes,
+                                     unsigned long nanosec) {
+  nvtop_time t = {hour * 60 * 60 + 60 * minutes + nanosec / 1000000,
+                  nanosec % 1000000};
+  return t;
+}
+
+inline nvtop_time nvtop_substract_time(nvtop_time t0, nvtop_time t1) {
+  nvtop_time t =
+      t0.tv_nsec - t1.tv_nsec < 0
+          ? (nvtop_time){t0.tv_sec - t1.tv_sec - 1,
+                         t0.tv_nsec - t1.tv_nsec + 1000000}
+          : (nvtop_time){t0.tv_sec - t1.tv_sec, t0.tv_nsec - t1.tv_nsec};
+  return t;
+}
+
+inline nvtop_time nvtop_add_time(nvtop_time t0, nvtop_time t1) {
+  nvtop_time t =
+      t0.tv_nsec + t1.tv_nsec > 1000000
+          ? (nvtop_time){t0.tv_sec + t1.tv_sec + 1,
+                         t0.tv_nsec + t1.tv_nsec - 1000000}
+          : (nvtop_time){t0.tv_sec + t1.tv_sec, t0.tv_nsec + t1.tv_nsec};
+  return t;
 }
 
 #endif // NVTOP_TIME_H_
