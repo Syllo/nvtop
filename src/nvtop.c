@@ -270,7 +270,6 @@ int main (int argc, char **argv) {
     if (signal_resize_win) {
       update_window_size_to_terminal_size(interface);
       signal_resize_win = 0;
-      clean_pid_cache();
     }
     if (!cache_pid_infos)
       clean_pid_cache();
