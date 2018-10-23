@@ -36,11 +36,11 @@
 
 enum interface_color {
   cyan_color = 1,
+  yellow_color,
+  magenta_color,
   red_color,
   green_color,
-  yellow_color,
   blue_color,
-  magenta_color,
 };
 
 struct device_window {
@@ -74,11 +74,6 @@ struct all_gpu_processes {
   bool is_graphical;
 };
 
-enum window_type {
-  window_type_process,
-  window_type_plot,
-};
-
 static const unsigned int option_window_size = 13;
 struct option_window {
   enum nvtop_option_window_state state;
@@ -89,7 +84,6 @@ struct option_window {
 };
 
 struct process_window {
-  enum window_type type;
   unsigned int size_biggest_name;
   unsigned int size_processes_buffer;
   unsigned int num_processes;
@@ -103,9 +97,15 @@ struct process_window {
   struct option_window option_window;
 };
 
+enum plot_type {
+  plot_avg_gpu_mem,
+};
+
 struct plot_window {
-  enum window_type type;
-  unsigned num_minutes;
+  enum plot_type type;
+  nvtop_time max_data_retain_time;
+  nvtop_time time_between_data_collection;
+  nvtop_time last_time_collected;
   size_t num_data;
   double *data;
   WINDOW *win;
@@ -115,14 +115,26 @@ struct window_position {
   int posX, posY, sizeX, sizeY;
 };
 
+// Keep gpu information every 1 second for 10 minutes
+struct retained_data {
+  unsigned collect_interval;
+  size_t size_data_buffer;
+  size_t num_collected_data;
+  unsigned *gpu_util;
+  unsigned *mem_util;
+  nvtop_time last_collect;
+};
+
 struct nvtop_interface {
   size_t num_devices;
   struct device_window *devices_win;
   struct process_window process;
+  size_t num_plots;
   struct plot_window *plots;
   bool use_fahrenheit;
   bool center_device_info;
   double encode_decode_hide_time;
+  struct retained_data past_data;
 };
 
 enum device_field {
@@ -332,10 +344,30 @@ static void alloc_process_with_option(struct nvtop_interface *interface,
   }
 }
 
-/*static void alloc_plot_window(struct nvtop_interface *interface,*/
-                               /*bool alloc_place_for_option) {*/
+static void alloc_plot_window(struct nvtop_interface *interface,
+                              struct window_position *plot_positions) {
+  if (!plot_positions) {
+    interface->plots = NULL;
+    return;
+  }
+  srand(time(NULL));
+  interface->plots = malloc(interface->num_plots * sizeof(*interface->plots));
+  for (size_t i = 0; i < interface->num_plots; ++i) {
+    interface->plots[i].type = plot_avg_gpu_mem;
+    interface->plots[i].win =
+        newwin(plot_positions[i].sizeY, plot_positions[i].sizeX,
+               plot_positions[i].posY, plot_positions[i].posX);
 
-/*}*/
+    interface->plots[i].data =
+        calloc(plot_positions[i].sizeX, sizeof(*interface->plots[i].data));
+
+    interface->plots[i].num_data = plot_positions[i].sizeX;
+
+    for (size_t j = 0; j < interface->plots[i].num_data; ++j) {
+      interface->plots[i].data[j] = 1 + random() / (double)RAND_MAX * 14.;
+    }
+  }
+}
 
 static unsigned device_length(void) {
   return max(sizeof_device_field[device_name] +
@@ -358,26 +390,59 @@ static unsigned auto_device_num(unsigned cols, unsigned device_size,
 }
 
 /*
- * Interface layout grammar: (D+N)*((P|C+)N)*
+ * Interface layout grammar: (D+N)?((P|C+)N)*
  * where  D = Device column
  *        N = New block
  *        P = Process block
  *        C = Chart block
  */
 
+static bool is_grammar_ok(const char interfaceLayout[]) {
+  size_t pos_in_string = 0;
+  unsigned state = 0;
+  for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
+       layoutC = interfaceLayout[++pos_in_string]) {
+    switch(layoutC) {
+      case 'D':
+        if (state != 0 && state != 2)
+          return false;
+        state = 2;
+        break;
+      case 'P':
+        if (state != 2 && state != 1)
+          return false;
+        state = 3;
+        break;
+      case 'C':
+        if (state != 0 && state != 1 && state != 4)
+          return false;
+        state = 4;
+        break;
+      case 'N':
+        if (state != 2 && state != 3 && state != 4)
+          return false;
+        state = 1;
+        break;
+    }
+  }
+  return state == 0 || state == 1;
+}
+
 static void compute_sizes_from_layout(const struct nvtop_interface *interface,
                                       struct window_position *device_positions,
                                       struct window_position *process_position,
                                       struct window_position **plot_position,
+                                      size_t *num_plots,
                                       const char interfaceLayout[]) {
 
   (void) plot_position;
   // Vertical layout
+  if (interfaceLayout == NULL || !is_grammar_ok(interfaceLayout)) {
+    interfaceLayout = "DNCNPN";
+  }
 
-  char on_top = '\0';
   unsigned num_device_columns = 0;
-  unsigned num_separators = 0;
-  unsigned num_plot_blocks = 0;
+  unsigned num_separators = 1;
   unsigned num_plot_windows = 0;
   size_t pos_in_string = 0;
   bool previous_was_new_line = true;
@@ -385,6 +450,7 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
        layoutC = interfaceLayout[++pos_in_string]) {
     switch(layoutC) {
       case 'D':
+        num_separators--;
         num_device_columns++;
         break;
       case 'N':
@@ -392,27 +458,23 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
         break;
       case 'P':
         if (previous_was_new_line) {
-          if(on_top != 'P')
-            num_separators++;
+          num_separators++;
           previous_was_new_line = false;
         }
-        on_top = 'P';
         break;
       case 'C':
         if (previous_was_new_line) {
-          if(on_top != 'C') {
-            num_separators++;
-            num_plot_blocks++;
-          }
+          num_separators++;
           previous_was_new_line = false;
         }
         num_plot_windows++;
-        on_top = 'C';
         break;
       default:
         break;
     }
   }
+  if (num_separators == 0)
+    num_separators = 1;
 
   unsigned rows, cols;
   getmaxyx(stdscr, rows, cols);
@@ -463,12 +525,59 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
   if (current_in_line != 0)
       current_posY += window_height + 1;
 
-  // After devices current_posY is good
+  unsigned
+      sizeBoxY = rows > current_posY + num_separators
+                     ? (rows - current_posY - num_separators) / num_separators
+                     : 0;
   current_posX = 0;
-  process_position->posX = current_posX;
-  process_position->posY = current_posY;
-  process_position->sizeX = cols;
-  process_position->sizeY = rows - 1 > current_posY ? rows - current_posY - 1 : 0;
+
+  unsigned current_plot_id = 0;
+  *plot_position = malloc(num_plot_windows * sizeof(**plot_position));
+  *num_plots = num_plot_windows;
+  pos_in_string = 0;
+  for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
+       layoutC = interfaceLayout[++pos_in_string]) {
+    switch(layoutC) {
+      case 'D':
+        break;
+      case 'N':
+        current_posX = 0;
+        break;
+      case 'P':
+        {
+          process_position->posX = current_posX;
+          process_position->posY = current_posY;
+          process_position->sizeX = cols;
+          process_position->sizeY = sizeBoxY;
+          current_posY += sizeBoxY + 1;
+          current_posX = 0;
+        }
+        break;
+      case 'C':
+        {
+          unsigned num_plot_on_line = 0;
+          char currC = interfaceLayout[pos_in_string];
+          while (currC == 'C') {
+            num_plot_on_line++;
+            currC = interfaceLayout[++pos_in_string];
+          }
+          pos_in_string --;
+          unsigned sizePlotX = cols > num_plot_on_line + 1 ? cols - num_plot_on_line - 1 : 0;
+          sizePlotX /= num_plot_on_line;
+          for (unsigned i = 0; i < num_plot_on_line; ++i) {
+            (*plot_position)[current_plot_id].posX = current_posX;
+            (*plot_position)[current_plot_id].posY = current_posY;
+            (*plot_position)[current_plot_id].sizeX = sizePlotX;
+            (*plot_position)[current_plot_id].sizeY = sizeBoxY;
+            current_posX += sizePlotX + 1;
+          }
+          current_posY += sizeBoxY + 1;
+        }
+        break;
+      default:
+        break;
+    }
+  }
 }
 
 static void initialize_all_windows(struct nvtop_interface *dwin) {
@@ -479,8 +588,12 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
 
   struct window_position device_positions[num_devices];
   struct window_position process_position;
+  struct window_position *plot_positions = NULL;
 
-  compute_sizes_from_layout(dwin, device_positions, &process_position, NULL, "");
+  compute_sizes_from_layout(dwin, device_positions, &process_position,
+                            &plot_positions, &dwin->num_plots, NULL);
+  alloc_plot_window(dwin, plot_positions);
+  free(plot_positions);
 
   for (unsigned int i = 0; i < num_devices; ++i) {
     alloc_device_window(i, device_positions[i].posY,
@@ -495,7 +608,6 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
 
   dwin->process.option_window.option_selection_window =
     newwin(1, cols, rows-1, 0);
-  /*alloc_plot_window(dwin, dwin->process.option_window.state != nvtop_option_state_hidden);*/
 }
 
 static void delete_all_windows(
@@ -509,6 +621,11 @@ static void delete_all_windows(
   dwin->process.process_with_option_win = NULL;
   delwin(dwin->process.option_window.option_selection_window);
   delwin(dwin->process.option_window.option_win);
+  for (size_t i = 0; i < dwin->num_plots; ++i) {
+    delwin(dwin->plots[i].win);
+    free(dwin->plots[i].data);
+  }
+  free(dwin->plots);
 }
 
 void show_gpu_infos_ascii(
@@ -559,7 +676,8 @@ struct nvtop_interface* initialize_curses(
     unsigned int biggest_device_name,
     bool use_color,
     bool use_fahrenheit,
-    double encode_decode_hide_time) {
+    double encode_decode_hide_time,
+    unsigned collect_interval) {
   struct nvtop_interface *interface = calloc(1, sizeof(*interface));
   interface->devices_win = calloc(num_devices, sizeof(*interface->devices_win));
   interface->num_devices = num_devices;
@@ -592,9 +710,18 @@ struct nvtop_interface* initialize_curses(
     some_time_in_past = nvtop_hmns_to_time(0,0,0);
   nvtop_get_current_time(&time_now);
   some_time_in_past = nvtop_substract_time(time_now, some_time_in_past);
+  interface->past_data.size_data_buffer = 10 * 60 * 1000;
+  interface->past_data.num_collected_data = 0;
+  interface->past_data.collect_interval = collect_interval > 1000 ? collect_interval : 1000;
+  nvtop_get_current_time(&interface->past_data.last_collect);
+
   for (size_t i = 0; i < num_devices; ++i) {
     interface->devices_win[i].last_encode_seen = some_time_in_past;
     interface->devices_win[i].last_decode_seen = some_time_in_past;
+    interface->past_data.gpu_util =
+        malloc(sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
+    interface->past_data.mem_util =
+        malloc(sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
   }
 
   initialize_all_windows(interface);
@@ -609,6 +736,8 @@ void clean_ncurses(struct nvtop_interface *interface) {
     free(interface->devices_win[i].device_name);
   free(interface->devices_win);
   free(interface->process.all_process);
+  free(interface->past_data.gpu_util);
+  free(interface->past_data.mem_util);
   free(interface);
 }
 
@@ -1517,15 +1646,86 @@ static void draw_option_selection(struct nvtop_interface *interface) {
   wnoutrefresh(win);
 }
 
+static void update_retained_data(struct device_info *dev_info,
+                                 struct nvtop_interface *interface) {
+  nvtop_time time_now;
+  nvtop_get_current_time(&time_now);
+  double time_diff =
+      nvtop_difftime(interface->past_data.last_collect, time_now) * 1000;
+  if (time_diff >= interface->past_data.collect_interval) {
+    interface->past_data.last_collect = time_now;
+    for (size_t i = 0; i < interface->num_devices; ++i) {
+      ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
+           .gpu_util)[i][interface->past_data.num_collected_data %
+                         interface->past_data.size_data_buffer] =
+          dev_info->gpu_util_rate;
+      ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
+           .mem_util)[i][interface->past_data.num_collected_data %
+                         interface->past_data.size_data_buffer] =
+          100 * dev_info->used_memory / dev_info->total_memory;
+    }
+    interface->past_data.num_collected_data++;
+  }
+}
+
+static void draw_avg_gpu_mem(struct nvtop_interface *interface,
+                             struct plot_window *plot) {
+  // Populate data
+  werase(plot->win);
+  memset(plot->data, 0, plot->num_data * sizeof(double));
+  unsigned upper_bound =
+      plot->num_data / 2 > interface->past_data.num_collected_data
+          ? interface->past_data.num_collected_data
+          : plot->num_data / 2;
+  for (unsigned k = 0; k < interface->num_devices; ++k) {
+    for (unsigned i = 0; i < upper_bound; ++i) {
+      unsigned(*gpudata)[interface->past_data.size_data_buffer] =
+          (unsigned(*)[interface->past_data.size_data_buffer])
+              interface->past_data.gpu_util;
+      unsigned(*memdata)[interface->past_data.size_data_buffer] =
+          (unsigned(*)[interface->past_data.size_data_buffer])
+              interface->past_data.mem_util;
+      plot->data[i * 2] +=
+          gpudata[k][(interface->past_data.size_data_buffer +
+                      interface->past_data.num_collected_data - i - 1) %
+                     interface->past_data.size_data_buffer];
+      plot->data[i * 2 + 1] +=
+          memdata[k][(interface->past_data.size_data_buffer +
+                      interface->past_data.num_collected_data - i - 1) %
+                     interface->past_data.size_data_buffer];
+    }
+  }
+  for (unsigned i = 0; i < upper_bound; ++i) {
+    plot->data[i] /= interface->num_devices;
+    plot->data[i + 1] /= interface->num_devices;
+  }
+  nvtop_line_plot(plot->win, plot->num_data, plot->data, 0., 100., 2);
+  wnoutrefresh(plot->win);
+}
+
+static void draw_plots(struct nvtop_interface *interface) {
+  for (unsigned i = 0; i < interface->num_plots; ++i) {
+    switch (interface->plots[i].type) {
+      case plot_avg_gpu_mem:
+        draw_avg_gpu_mem(interface, &interface->plots[i]);
+        break;
+      default:
+        break;
+    }
+  }
+}
+
 void draw_gpu_info_ncurses(
     struct device_info *dev_info,
     struct nvtop_interface *interface) {
 
+  update_retained_data(dev_info, interface);
   draw_devices(dev_info, interface);
   draw_processes(dev_info, interface);
   if (interface->process.option_window.state != nvtop_option_state_hidden)
     draw_options(interface);
   draw_option_selection(interface);
+  draw_plots(interface);
   doupdate();
   refresh();
 

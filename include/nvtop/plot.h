@@ -26,7 +26,7 @@
 #include <stddef.h>
 
 void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
-                     double min, double max);
+                     double min, double max, unsigned num_plots);
 
 void nvtop_bar_plot(WINDOW *win, size_t num_data, const double *data,
                      double min, double max);

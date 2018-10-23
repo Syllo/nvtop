@@ -48,7 +48,7 @@ void show_gpu_infos_ascii(
 
 struct nvtop_interface* initialize_curses(unsigned int num_devices,
     unsigned int biggest_device_name, bool use_color, bool use_fahrenheit,
-    double encode_decode_hide_time);
+    double encode_decode_hide_time, unsigned refresh_interval);
 
 void clean_ncurses(struct nvtop_interface *interface);
 

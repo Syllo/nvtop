@@ -281,7 +281,7 @@ int main (int argc, char **argv) {
   }
   struct nvtop_interface *interface =
       initialize_curses(num_devices, biggest_name, use_color_if_available,
-                        use_fahrenheit, encode_decode_hide_time);
+                        use_fahrenheit, encode_decode_hide_time, refresh_interval);
   timeout(refresh_interval);
 
   double time_slept = refresh_interval;
