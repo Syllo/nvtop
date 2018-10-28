@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef __NVTOP_TIME_H
-#define __NVTOP_TIME_H
+#ifndef NVTOP_TIME_H_
+#define NVTOP_TIME_H_
 
 #include <time.h>
 
@@ -52,4 +52,4 @@ inline bool nvtop_has_elapsed_time(
     nvtop_time less, nvtop_time more, nvtop_time elapsed) {
 }
 
-#endif // __NVTOP_TIME_H
+#endif // NVTOP_TIME_H_

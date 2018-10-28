@@ -31,6 +31,7 @@
 
 #include "nvtop/interface.h"
 #include "nvtop/version.h"
+#include "nvtop/time.h"
 
 static volatile sig_atomic_t signal_exit = 0;
 static volatile sig_atomic_t signal_resize_win = 0;
@@ -266,6 +267,7 @@ int main (int argc, char **argv) {
     initialize_curses(num_devices, biggest_name, use_color_if_available, use_fahrenheit);
   timeout(refresh_interval);
 
+  double time_slept = refresh_interval;
   while (!signal_exit) {
     if (signal_resize_win) {
       update_window_size_to_terminal_size(interface);
@@ -273,16 +275,26 @@ int main (int argc, char **argv) {
     }
     if (!cache_pid_infos)
       clean_pid_cache();
-    update_device_infos(num_devices, dev_infos);
+    if (time_slept >= refresh_interval) {
+      update_device_infos(num_devices, dev_infos);
+      timeout(refresh_interval);
+      time_slept = 0.;
+    } else {
+      int next_sleep = (int)((refresh_interval - time_slept));
+      timeout(next_sleep);
+    }
     draw_gpu_info_ncurses(dev_infos, interface);
 
+    nvtop_time time_before_sleep, time_after_sleep;
+    nvtop_get_current_time(&time_before_sleep);
     int input_char = getch();
+    nvtop_get_current_time(&time_after_sleep);
+    time_slept += nvtop_difftime(time_before_sleep, time_after_sleep) * 1000;
     switch (input_char) {
       case 27: // ESC
         {
           timeout(0);
           int in = getch();
-          timeout(refresh_interval);
           if (in == ERR) { // ESC alone
             if (is_escape_for_quit(interface))
               signal_exit = 1;

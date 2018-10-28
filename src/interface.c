@@ -20,6 +20,8 @@
  */
 
 #include "nvtop/interface.h"
+#include "nvtop/time.h"
+#include "nvtop/plot.h"
 
 #include <stdlib.h>
 #include <string.h>
