@@ -1,4 +1,5 @@
 #include <tgmath.h>
+#include <string.h>
 
 #include "nvtop/plot.h"
 
@@ -7,7 +8,8 @@ static inline int data_level(double rows, double data, double increment) {
 }
 
 void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
-                     double min, double max, unsigned num_plots) {
+                     double min, double max, unsigned num_plots,
+                     const char *legend[]) {
   if (num_data == 0)
     return;
   int rows, cols;
@@ -81,6 +83,23 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
       level_previous = level_current;
     }
     wattroff(win, COLOR_PAIR(1 + k % 5));
+  }
+  int plot_y_position = 0;
+  for (unsigned i = 0; i < num_plots && plot_y_position < rows; ++i) {
+    if (legend[i]) {
+      size_t length = strlen(legend[i]);
+      wattron(win, COLOR_PAIR(1 + i % 5));
+      if (length < (size_t)cols) {
+        mvwprintw(win, plot_y_position, cols-length, "%s", legend[i]);
+      } else {
+        wmove(win, plot_y_position, 0);
+        for (int j = 0; j < cols; ++j) {
+          waddch(win, legend[i][j]);
+        }
+      }
+      wattroff(win, COLOR_PAIR(1 + i % 5));
+      plot_y_position++;
+    }
   }
 }
 

@@ -1699,7 +1699,7 @@ static void update_retained_data(struct device_info *dev_info,
   }
 }
 
-static void draw_avg_gpu_mem(struct nvtop_interface *interface,
+static void draw_max_gpu_mem(struct nvtop_interface *interface,
                              struct plot_window *plot) {
   // Populate data
   werase(plot->plot_window);
@@ -1716,21 +1716,18 @@ static void draw_avg_gpu_mem(struct nvtop_interface *interface,
       unsigned(*memdata)[interface->past_data.size_data_buffer] =
           (unsigned(*)[interface->past_data.size_data_buffer])
               interface->past_data.mem_util;
-      plot->data[i * 2] +=
+      plot->data[i * 2] = max(plot->data[i * 2],
           gpudata[k][(interface->past_data.size_data_buffer +
                       interface->past_data.num_collected_data - i - 1) %
-                     interface->past_data.size_data_buffer];
-      plot->data[i * 2 + 1] +=
+                     interface->past_data.size_data_buffer]);;
+      plot->data[i * 2 + 1] = max(plot->data[i * 2 + 1],
           memdata[k][(interface->past_data.size_data_buffer +
                       interface->past_data.num_collected_data - i - 1) %
-                     interface->past_data.size_data_buffer];
+                     interface->past_data.size_data_buffer]);
     }
   }
-  for (unsigned i = 0; i < upper_bound; ++i) {
-    plot->data[i] /= interface->num_devices;
-    plot->data[i + 1] /= interface->num_devices;
-  }
-  nvtop_line_plot(plot->plot_window, plot->num_data, plot->data, 0., 100., 2);
+  nvtop_line_plot(plot->plot_window, plot->num_data, plot->data, 0., 100., 2,
+                  (const char *[2]){"MAX GPU", "MAX MEM"});
   wnoutrefresh(plot->plot_window);
 }
 
@@ -1739,7 +1736,7 @@ static void draw_plots(struct nvtop_interface *interface) {
     wnoutrefresh(interface->plots[i].win);
     switch (interface->plots[i].type) {
       case plot_avg_gpu_mem:
-        draw_avg_gpu_mem(interface, &interface->plots[i]);
+        draw_max_gpu_mem(interface, &interface->plots[i]);
         break;
       default:
         break;
