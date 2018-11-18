@@ -41,6 +41,9 @@ Use fahrenheit as temperature scale.
 .BR \-E ", " \-\-encode\-hide =\fIseconds\fR
 Modify the setting for the encode/decode auto-hide timer. Always visible if negative. Default to 30 seconds.
 .TP
+.BR \-p ", " \-\-no\-plot
+Disable the maximum line plotting.
+.TP
 .BR \-v ", " \-\-version
 Print the version and exit.
 

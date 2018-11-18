@@ -122,10 +122,16 @@ static const struct option long_opts[] = {
     .flag = NULL,
     .val = 'E'
   },
+  {
+    .name = "no-plot",
+    .has_arg = required_argument,
+    .flag = NULL,
+    .val = 'p'
+  },
   {0,0,0,0},
 };
 
-static const char opts[] = "hvd:s:i:CNfE:";
+static const char opts[] = "hvd:s:i:CNfE:p";
 
 static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) {
   char *saveptr;
@@ -166,6 +172,7 @@ int main (int argc, char **argv) {
   bool cache_pid_infos = true;
   bool use_fahrenheit = false;
   double encode_decode_hide_time = 30.;
+  char *interface_layout = "DNCNPN";
   while (true) {
     int optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -214,6 +221,9 @@ int main (int argc, char **argv) {
             exit(EXIT_FAILURE);
           }
         }
+        break;
+      case 'p':
+        interface_layout = "DNPN";
         break;
       case ':':
       case '?':
@@ -279,9 +289,9 @@ int main (int argc, char **argv) {
       biggest_name = device_name_size;
     }
   }
-  struct nvtop_interface *interface =
-      initialize_curses(num_devices, biggest_name, use_color_if_available,
-                        use_fahrenheit, encode_decode_hide_time, refresh_interval);
+  struct nvtop_interface *interface = initialize_curses(
+      num_devices, biggest_name, use_color_if_available, use_fahrenheit,
+      encode_decode_hide_time, refresh_interval, interface_layout);
   timeout(refresh_interval);
 
   double time_slept = refresh_interval;

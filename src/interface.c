@@ -136,6 +136,7 @@ struct nvtop_interface {
   bool center_device_info;
   double encode_decode_hide_time;
   struct retained_data past_data;
+  char *interface_layout;
 };
 
 enum device_field {
@@ -612,7 +613,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position *plot_positions = NULL;
 
   compute_sizes_from_layout(dwin, device_positions, &process_position,
-                            &plot_positions, &dwin->num_plots, NULL);
+                            &plot_positions, &dwin->num_plots, dwin->interface_layout);
   alloc_plot_window(dwin, plot_positions);
   free(plot_positions);
 
@@ -698,7 +699,8 @@ struct nvtop_interface* initialize_curses(
     bool use_color,
     bool use_fahrenheit,
     double encode_decode_hide_time,
-    unsigned collect_interval) {
+    unsigned collect_interval,
+    const char interfaceLayout[]) {
   struct nvtop_interface *interface = calloc(1, sizeof(*interface));
   interface->devices_win = calloc(num_devices, sizeof(*interface->devices_win));
   interface->num_devices = num_devices;
@@ -739,10 +741,17 @@ struct nvtop_interface* initialize_curses(
   for (size_t i = 0; i < num_devices; ++i) {
     interface->devices_win[i].last_encode_seen = some_time_in_past;
     interface->devices_win[i].last_decode_seen = some_time_in_past;
-    interface->past_data.gpu_util =
-        malloc(sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
-    interface->past_data.mem_util =
-        malloc(sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
+  }
+  interface->past_data.gpu_util =
+      malloc(sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
+  interface->past_data.mem_util =
+      malloc(sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
+  if (interfaceLayout == NULL)
+    interface->interface_layout = NULL;
+  else {
+    interface->interface_layout = malloc((1 + strlen(interfaceLayout)) *
+                                         sizeof(*interface->interface_layout));
+    strcpy(interface->interface_layout, interfaceLayout);
   }
 
   initialize_all_windows(interface);
@@ -759,6 +768,7 @@ void clean_ncurses(struct nvtop_interface *interface) {
   free(interface->process.all_process);
   free(interface->past_data.gpu_util);
   free(interface->past_data.mem_util);
+  free(interface->interface_layout);
   free(interface);
 }
 
