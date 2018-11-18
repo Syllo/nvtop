@@ -29,6 +29,9 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
                      double min, double max, unsigned num_plots);
 
 void nvtop_bar_plot(WINDOW *win, size_t num_data, const double *data,
-                     double min, double max);
+                    double min, double max);
+
+void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY,
+                    unsigned sizeX, unsigned sizeY);
 
 #endif // __PLOT_H_

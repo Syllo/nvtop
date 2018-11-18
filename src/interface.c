@@ -109,6 +109,7 @@ struct plot_window {
   size_t num_data;
   double *data;
   WINDOW *win;
+  WINDOW *plot_window;
 };
 
 struct window_position {
@@ -344,13 +345,34 @@ static void alloc_process_with_option(struct nvtop_interface *interface,
   }
 }
 
+static void initialize_avg_gpu_mem_plot(struct plot_window *plot, struct window_position *position) {
+  unsigned rows = position->sizeY;
+  unsigned cols = position->sizeX;
+  if (cols > 5 && rows > 2) {
+    cols -= 5;
+    rows -= 2;
+    cols = cols / 2 * 2;
+    plot->plot_window = newwin(rows, cols, position->posY + 1, position->posX + 4);
+    draw_rectangle(plot->win, 3, 0, cols + 2, rows + 2);
+    mvwprintw(plot->win, 1+rows * 3 / 4, 0, "25%%");
+    mvwprintw(plot->win, 1+rows / 4, 0, "75%%");
+    mvwprintw(plot->win, 1+rows / 2, 0, "50%%");
+    mvwprintw(plot->win, 1, 0, "100");
+    mvwprintw(plot->win, rows, 0, " 0%%");
+  } else {
+    cols = cols / 2 * 2;
+    plot->plot_window = newwin(rows, cols, position->posY, position->posX);
+  }
+  plot->data = calloc(cols, sizeof(*plot->data));
+  plot->num_data = cols;
+}
+
 static void alloc_plot_window(struct nvtop_interface *interface,
                               struct window_position *plot_positions) {
   if (!plot_positions) {
     interface->plots = NULL;
     return;
   }
-  srand(time(NULL));
   interface->plots = malloc(interface->num_plots * sizeof(*interface->plots));
   for (size_t i = 0; i < interface->num_plots; ++i) {
     interface->plots[i].type = plot_avg_gpu_mem;
@@ -358,13 +380,12 @@ static void alloc_plot_window(struct nvtop_interface *interface,
         newwin(plot_positions[i].sizeY, plot_positions[i].sizeX,
                plot_positions[i].posY, plot_positions[i].posX);
 
-    interface->plots[i].data =
-        calloc(plot_positions[i].sizeX, sizeof(*interface->plots[i].data));
-
-    interface->plots[i].num_data = plot_positions[i].sizeX;
-
-    for (size_t j = 0; j < interface->plots[i].num_data; ++j) {
-      interface->plots[i].data[j] = 1 + random() / (double)RAND_MAX * 14.;
+    switch (interface->plots[i].type) {
+    case plot_avg_gpu_mem:
+      initialize_avg_gpu_mem_plot(&interface->plots[i], &plot_positions[i]);
+      break;
+    default:
+      break;
     }
   }
 }
@@ -1671,7 +1692,7 @@ static void update_retained_data(struct device_info *dev_info,
 static void draw_avg_gpu_mem(struct nvtop_interface *interface,
                              struct plot_window *plot) {
   // Populate data
-  werase(plot->win);
+  werase(plot->plot_window);
   memset(plot->data, 0, plot->num_data * sizeof(double));
   unsigned upper_bound =
       plot->num_data / 2 > interface->past_data.num_collected_data
@@ -1699,12 +1720,13 @@ static void draw_avg_gpu_mem(struct nvtop_interface *interface,
     plot->data[i] /= interface->num_devices;
     plot->data[i + 1] /= interface->num_devices;
   }
-  nvtop_line_plot(plot->win, plot->num_data, plot->data, 0., 100., 2);
-  wnoutrefresh(plot->win);
+  nvtop_line_plot(plot->plot_window, plot->num_data, plot->data, 0., 100., 2);
+  wnoutrefresh(plot->plot_window);
 }
 
 static void draw_plots(struct nvtop_interface *interface) {
   for (unsigned i = 0; i < interface->num_plots; ++i) {
+    wnoutrefresh(interface->plots[i].win);
     switch (interface->plots[i].type) {
       case plot_avg_gpu_mem:
         draw_avg_gpu_mem(interface, &interface->plots[i]);
@@ -1728,7 +1750,6 @@ void draw_gpu_info_ncurses(
   draw_plots(interface);
   doupdate();
   refresh();
-
 }
 
 void update_window_size_to_terminal_size(struct nvtop_interface *inter) {

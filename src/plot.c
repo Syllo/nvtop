@@ -100,3 +100,18 @@ void nvtop_bar_plot(WINDOW *win, size_t num_data, const double *data,
     }
   }
 }
+
+void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY, unsigned sizeX, unsigned sizeY) {
+  for (unsigned i = 0; i < sizeX - 2; ++i) {
+    mvwaddch(win, startY, startX + 1 + i, ACS_HLINE);
+    mvwaddch(win, startY + sizeY - 1, startX + 1 + i, ACS_HLINE);
+  }
+  for (unsigned i = 0; i < sizeY - 2; ++i) {
+    mvwaddch(win, startY + 1 + i, startX, ACS_VLINE);
+    mvwaddch(win, startY + 1 + i, startX + sizeX - 1, ACS_VLINE);
+  }
+  mvwaddch(win, startY, startX, ACS_ULCORNER);
+  mvwaddch(win, startY, startX + sizeX - 1, ACS_URCORNER);
+  mvwaddch(win, startY + sizeY - 1, startX, ACS_LLCORNER);
+  mvwaddch(win, startY + sizeY - 1, startX + sizeX - 1, ACS_LRCORNER);
+}
