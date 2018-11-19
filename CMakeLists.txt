@@ -4,18 +4,18 @@ cmake_minimum_required(VERSION 3.1)
 #                              PROJECT                              #
 #///////////////////////////////////////////////////////////////////#
 
-set(NVTOP_VERSION_MAJOR 0)
-set(NVTOP_VERSION_MINOR 2)
-set(NVTOP_VERSION_PATCH 3)
-
-project(nvtop
+project(nvtop VERSION 0.2.3
   LANGUAGES C)
 
+set(default_build_type "Release")
 # Default build type
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
-  message(STATUS "No building type advertised, default to Release")
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to '${default_build_type}' as none was specified.")
+  set(CMAKE_BUILD_TYPE "${default_build_type}" CACHE
+    STRING "Choose the type of build." FORCE)
 endif()
+set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+  "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 
 #///////////////////////////////////////////////////////////////////#
 #                           DEPENDENCIES                            #
@@ -25,7 +25,7 @@ if(NVML_RETRIEVE_HEADER_ONLINE)
   file(DOWNLOAD "https://raw.githubusercontent.com/NVIDIA/nvidia-settings/master/src/nvml.h" ${PROJECT_BINARY_DIR}/include/nvml.h)
 endif()
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 find_package(NVML REQUIRED)
 
@@ -47,15 +47,6 @@ set_property(TARGET ncurses PROPERTY
 #///////////////////////////////////////////////////////////////////#
 #                        COMPILATION OPTIONS                        #
 #///////////////////////////////////////////////////////////////////#
-
-include(cmake/compiler-flags.cmake)
-
-set(CMAKE_C_FLAGS_RELEASE "-O3 -mtune=generic")
-set(CMAKE_C_FLAGS_DEBUG
-  "${COMPILER_AVALIABLE_WARNINGS} ${COMPILER_ADDRESS_SANITIZER_FLAG} ${COMPILER_UNDEFINED_SANITIZER_FLAG} -Og -g")
-set(CMAKE_C_FLAGS_OPTIMIZED
-  "${COMPILER_LTO_FLAG} ${COMPILER_MARCH_NATIVE} -O3")
-set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELEASE} -g")
 
 # Use full RPATH on build tree
 set(CMAKE_SKIP_BUILD_RPATH FALSE)
@@ -96,3 +87,40 @@ configure_file(
 add_custom_target(uninstall
   COMMAND ${CMAKE_COMMAND} -P
   ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake)
+
+
+#///////////////////////////////////////////////////////////////////#
+#                            PACKAGING                              #
+#///////////////////////////////////////////////////////////////////#
+
+#set(CPACK_PACKAGE_NAME "nvtop")
+#set(CPACK_PACKAGE_VENDOR "Maxime Schmitt")
+#set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "NVIDIA GPU monitoring tool")
+#set(CPACK_PACKAGE_DESCRIPTION
+  #"Nvtop is a htop-like monitoring tool for NVIDIA GPUs. It can print GPUs information such as GPU and memory usage, temperature and active processes.")
+#set(CPACK_PACKAGE_DESCRIPTION_FILE "${PROJECT_SOURCE_DIR}/README.markdown")
+#set(CPACK_PACKAGE_EXECUTABLES "nvtop")
+#set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+#set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+#set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+
+#set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "x86-64")
+#set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
+#set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Maxime Schmitt <maxime.schmitt@gmail.com>")
+#set(CPACK_DEBIAN_PACKAGE_SECTION "Utilities")
+#set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
+
+#set(CPACK_RPM_PACKAGE_ARCHITECTURE "amd64")
+#set(CPACK_RPM_PACKAGE_RELEASE 1)
+#set(CPACK_RPM_PACKAGE_LICENSE "GPL3+")
+#set(CPACK_RPM_PACKAGE_REQUIRES "")
+
+#set(CPACK_GENERATOR "TGZ;TBZ2")
+#list(APPEND CPACK_GENERATOR "DEB") # .deb package build
+#list(APPEND CPACK_GENERATOR "RPM") # .rpm package build
+#set(CPACK_SOURCE_GENERATOR "TGZ;TBZ2;ZIP")
+#set(CPACK_SOURCE_IGNORE_FILES
+  #.git*
+  #/.*build.*
+  #)
+#include(CPack)
