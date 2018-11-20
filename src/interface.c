@@ -405,7 +405,7 @@ static unsigned auto_device_num(unsigned cols, unsigned device_size,
                                 unsigned spacing) {
   unsigned num = 1;
   unsigned size_taken = device_size;
-  for (; size_taken + device_size + spacing < cols;
+  for (; size_taken + device_size + spacing <= cols;
        size_taken += device_size + spacing, num += 1)
     ;
   return num;
@@ -494,7 +494,7 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
   unsigned num_device_rows_needed = interface->num_devices / max_devices_per_row;
   if (interface->num_devices % max_devices_per_row > 0)
     num_device_rows_needed++;
-  unsigned num_devices_in_row =  interface->num_devices / num_device_rows_needed;
+  unsigned num_devices_in_row = interface->num_devices / num_device_rows_needed;
   if (interface->num_devices % num_device_rows_needed > 0)
     num_devices_in_row++;
 
