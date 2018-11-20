@@ -981,14 +981,20 @@ static void draw_devices(
       snprintf(buff, 1024, "N/A");
       draw_bare_percentage(mem_util_win, "MEM", 0, buff);
     }
-    if (IS_VALID(gpu_temp_valid         , dinfo->valid) &&
-        IS_VALID(gpu_temp_slowdown_valid, dinfo->valid))
+    if (IS_VALID(gpu_temp_valid , dinfo->valid)) {
+      if (!IS_VALID(gpu_temp_slowdown_valid, dinfo->valid))
+        dinfo->gpu_temp_slowdown = 0;
       draw_temp_color(dev->temperature,
           dinfo->gpu_temp,
           dinfo->gpu_temp_slowdown,
           !interface->use_fahrenheit);
-    else {
-      mvwprintw(dev->temperature, 0, 0, "TEMP N/A°C");
+    } else {
+      mvwprintw(dev->temperature, 0, 0, "TEMP N/A");
+      waddch(dev->temperature, ACS_DEGREE);
+      if(interface->use_fahrenheit)
+        waddch(dev->temperature, 'F');
+      else
+        waddch(dev->temperature, 'C');
       wnoutrefresh(dev->temperature);
     }
 
