@@ -36,7 +36,14 @@ set_property(TARGET nvml PROPERTY
   INTERFACE_LINK_LIBRARIES ${NVML_LIBRARIES})
 
 set(CURSES_NEED_NCURSES TRUE)
-find_package(Curses REQUIRED)
+# Try to find ncurses with unicode support first
+set(CURSES_NEED_WIDE TRUE)
+find_package(Curses QUIET)
+if (NOT CURSE_FOUND)
+  # Fallback to regular ncurses library, which may also support unicode!
+  set(CURSES_NEED_WIDE FALSE)
+  find_package(Curses REQUIRED)
+endif()
 
 add_library(ncurses INTERFACE IMPORTED)
 set_property(TARGET ncurses PROPERTY
