@@ -505,7 +505,7 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
   unsigned device_cols = device_length();
   unsigned expected_size =
       num_device_columns == 0
-          ? device_cols
+          ? cols+1
           : num_device_columns * device_cols + num_device_columns - 1;
   if (expected_size > cols) {
     num_device_columns = auto_device_num(cols, device_cols, 1);

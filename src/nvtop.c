@@ -172,7 +172,7 @@ int main (int argc, char **argv) {
   bool cache_pid_infos = true;
   bool use_fahrenheit = false;
   double encode_decode_hide_time = 30.;
-  char *interface_layout = "DNCNPN";
+  char *interface_layout = "CNPN";
   while (true) {
     int optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -223,7 +223,7 @@ int main (int argc, char **argv) {
         }
         break;
       case 'p':
-        interface_layout = "DNPN";
+        interface_layout = "PN";
         break;
       case ':':
       case '?':
