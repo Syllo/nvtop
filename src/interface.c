@@ -895,6 +895,14 @@ static void draw_devices(
           has_encode_in_last_min = false;
         }
       }
+    } else {
+      has_encode_in_last_min = false;
+      werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+      werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+      werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
+      werase_and_wnoutrefresh(dev->mem_util_enc_dec);
+      werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
+      werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
     }
     static bool has_decode_in_last_min = true;
     if (IS_VALID(decoder_rate_valid, dinfo->valid)) {
@@ -918,6 +926,14 @@ static void draw_devices(
           has_decode_in_last_min = false;
         }
       }
+    } else {
+      has_decode_in_last_min = false;
+      werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+      werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+      werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
+      werase_and_wnoutrefresh(dev->mem_util_enc_dec);
+      werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
+      werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
     }
     WINDOW *gpu_util_win;
     WINDOW *mem_util_win;
@@ -941,18 +957,12 @@ static void draw_devices(
       if (IS_VALID(encoder_rate_valid, dinfo->valid)) {
         snprintf(buff, 1024, "%u%%", dinfo->encoder_rate);
         draw_bare_percentage(encode_win, "ENC", dinfo->encoder_rate, buff);
-      } else {
-        snprintf(buff, 1024, "N/A");
-        draw_bare_percentage(encode_win, "ENC", 0, buff);
       }
     }
     if (has_decode_in_last_min) {
       if (IS_VALID(decoder_rate_valid, dinfo->valid)) {
         snprintf(buff, 1024, "%u%%", dinfo->decoder_rate);
         draw_bare_percentage(decode_win, "DEC", dinfo->decoder_rate, buff);
-      } else {
-        snprintf(buff, 1024, "N/A");
-        draw_bare_percentage(decode_win, "DEC", 0, buff);
       }
     }
     if (IS_VALID(gpu_util_rate_valid, dinfo->valid)) {
