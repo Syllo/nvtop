@@ -412,9 +412,8 @@ static unsigned auto_device_num(unsigned cols, unsigned device_size,
 }
 
 /*
- * Interface layout grammar: (D+N)?((P|C+)N)*
- * where  D = Device column
- *        N = New block
+ * Interface layout grammar: ((P|C+)N)*
+ * where  N = New block
  *        P = Process block
  *        C = Chart block
  */
@@ -425,13 +424,8 @@ static bool is_grammar_ok(const char interfaceLayout[]) {
   for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
        layoutC = interfaceLayout[++pos_in_string]) {
     switch(layoutC) {
-      case 'D':
-        if (state != 0 && state != 2)
-          return false;
-        state = 2;
-        break;
       case 'P':
-        if (state != 2 && state != 1)
+        if (state != 0 && state != 1)
           return false;
         state = 3;
         break;
@@ -460,21 +454,16 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
   (void) plot_position;
   // Vertical layout
   if (interfaceLayout == NULL || !is_grammar_ok(interfaceLayout)) {
-    interfaceLayout = "DNCNPN";
+    interfaceLayout = "CNPN";
   }
 
-  unsigned num_device_columns = 0;
-  unsigned num_separators = 1;
+  unsigned num_separators = 0;
   unsigned num_plot_windows = 0;
   size_t pos_in_string = 0;
   bool previous_was_new_line = true;
   for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
        layoutC = interfaceLayout[++pos_in_string]) {
     switch(layoutC) {
-      case 'D':
-        num_separators--;
-        num_device_columns++;
-        break;
       case 'N':
         previous_was_new_line = true;
         break;
@@ -495,31 +484,28 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
         break;
     }
   }
-  if (num_separators == 0)
-    num_separators = 1;
 
   unsigned rows, cols;
   getmaxyx(stdscr, rows, cols);
 
   // Device positions
   unsigned device_cols = device_length();
-  unsigned expected_size =
-      num_device_columns == 0
-          ? cols+1
-          : num_device_columns * device_cols + num_device_columns - 1;
-  if (expected_size > cols) {
-    num_device_columns = auto_device_num(cols, device_cols, 1);
-  }
-  num_device_columns = num_device_columns == 0 ? 1 : num_device_columns;
+  unsigned max_devices_per_row = auto_device_num(cols, device_cols, 1);
+  unsigned num_device_rows_needed = interface->num_devices / max_devices_per_row;
+  if (interface->num_devices % max_devices_per_row > 0)
+    num_device_rows_needed++;
+  unsigned num_devices_in_row =  interface->num_devices / num_device_rows_needed;
+  if (interface->num_devices % num_device_rows_needed > 0)
+    num_devices_in_row++;
 
-  unsigned unused_space = cols - (num_device_columns * device_cols) - (num_device_columns - 1);
+  unsigned left_space_in_column = cols - (num_devices_in_row * device_cols) - (num_devices_in_row - 1);
   unsigned spacing_left, spacing_between;
   if (interface->center_device_info) {
-    spacing_between = spacing_left = unused_space / (num_device_columns + 1);
+    spacing_between = spacing_left = left_space_in_column / (num_devices_in_row + 1);
     if (spacing_between == 0)
       spacing_between = 1;
   } else {
-    if (unused_space > 0)
+    if (left_space_in_column > 0)
       spacing_left = 1;
     else
       spacing_left = 0;
@@ -535,7 +521,7 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
     device_positions[i].posY = current_posY;
     device_positions[i].sizeX = device_cols;
     device_positions[i].sizeY = window_height;
-    if (current_in_line + 1 == num_device_columns) {
+    if (current_in_line + 1 == num_devices_in_row) {
       current_posX = spacing_left;
       current_posY += window_height + 1;
       current_in_line = 0;
@@ -560,8 +546,6 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
   for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
        layoutC = interfaceLayout[++pos_in_string]) {
     switch(layoutC) {
-      case 'D':
-        break;
       case 'N':
         current_posX = 0;
         break;
