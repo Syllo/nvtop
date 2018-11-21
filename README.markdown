@@ -63,7 +63,7 @@ Two libraries are required:
 - NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
 - CMake, ncurses and git
   ```bash
-  sudo apt install cmake libncurses5-dev git
+  sudo apt install cmake libncurses5-dev libncursesw5-dev git
   ```
 - NVTOP
   - Follow the [NVTOP Build](#nvtop-build)
