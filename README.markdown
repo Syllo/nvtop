@@ -22,6 +22,7 @@ Table of Contents
    1. [OpenSUSE](#opensuse)
    1. [Arch Linux](#arch-linux)
    1. [NVTOP Build](#nvtop-build)
+1. [Troubleshoot](#troubleshoot)
 1. [License](#license)
 
 NVTOP Options and Interactive Commands
@@ -120,6 +121,12 @@ The build system supports multiple build type (e.g. -DCMAKE_BUILD_TYPE=RelWithDe
 * RelWithDebInfo: Binary with debug information
 * Debug: Compile with warning flags and address/undefined sanitizers enabled (for development purposes)
 
+Troubleshoot
+------------
+
+- The plot looks bad
+  - Verify that you installed the wide character version of the NCurses library (libncurses**w**5-dev for Debian / Ubuntu), clean the build directory
+    and restart the build process
 
 License
 -------
