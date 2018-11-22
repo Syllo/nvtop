@@ -1689,11 +1689,11 @@ static void update_retained_data(struct device_info *dev_info,
       ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
            .gpu_util)[i][interface->past_data.num_collected_data %
                          interface->past_data.size_data_buffer] =
-          dev_info->gpu_util_rate;
+          dev_info[i].gpu_util_rate;
       ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
            .mem_util)[i][interface->past_data.num_collected_data %
                          interface->past_data.size_data_buffer] =
-          100 * dev_info->used_memory / dev_info->total_memory;
+          100 * dev_info[i].used_memory / dev_info[i].total_memory;
     }
     interface->past_data.num_collected_data++;
   }
