@@ -575,6 +575,7 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
             (*plot_position)[current_plot_id].posY = current_posY;
             (*plot_position)[current_plot_id].sizeX = sizePlotX;
             (*plot_position)[current_plot_id].sizeY = sizeBoxY;
+            current_plot_id++;
             current_posX += sizePlotX + 1;
           }
           current_posY += sizeBoxY + 1;
