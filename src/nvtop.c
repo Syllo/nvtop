@@ -52,6 +52,8 @@ static const char helpstring[] =
 "  -v --version      : Print the version and exit\n"
 "  -s --gpu-select   : Column separated list of GPU IDs to monitor\n"
 "  -i --gpu-ignore   : Column separated list of GPU IDs to ignore\n"
+"  -p --max-gpu-plot : Show only one bar plot corespondong to the maximum of all GPUs\n"
+"  -P --no-plot      : Disable bar plot"
 "  -C --no-color     : No colors\n"
 "  -N --no-cache     : Always query the system for user names and command line information\n"
 "  -f --freedom-unit : Use fahrenheit\n"
@@ -123,15 +125,21 @@ static const struct option long_opts[] = {
     .val = 'E'
   },
   {
-    .name = "no-plot",
+    .name = "max-gpu-plot",
     .has_arg = required_argument,
     .flag = NULL,
     .val = 'p'
   },
+  {
+    .name = "no-plot",
+    .has_arg = required_argument,
+    .flag = NULL,
+    .val = 'P'
+  },
   {0,0,0,0},
 };
 
-static const char opts[] = "hvd:s:i:CNfE:p";
+static const char opts[] = "hvd:s:i:CNfE:pP";
 
 static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) {
   char *saveptr;
@@ -171,6 +179,7 @@ int main (int argc, char **argv) {
   bool use_color_if_available = true;
   bool cache_pid_infos = true;
   bool use_fahrenheit = false;
+  bool show_per_gpu_plot = true;
   double encode_decode_hide_time = 30.;
   char *interface_layout = "CNPN";
   while (true) {
@@ -222,8 +231,12 @@ int main (int argc, char **argv) {
           }
         }
         break;
-      case 'p':
+      case 'P':
         interface_layout = "PN";
+        show_per_gpu_plot = false;
+        break;
+      case 'p':
+        show_per_gpu_plot = false;
         break;
       case ':':
       case '?':
@@ -291,7 +304,8 @@ int main (int argc, char **argv) {
   }
   struct nvtop_interface *interface = initialize_curses(
       num_devices, biggest_name, use_color_if_available, use_fahrenheit,
-      encode_decode_hide_time, refresh_interval, interface_layout);
+      show_per_gpu_plot, encode_decode_hide_time, refresh_interval,
+      interface_layout);
   timeout(refresh_interval);
 
   double time_slept = refresh_interval;

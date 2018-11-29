@@ -33,6 +33,7 @@
 #include <assert.h>
 
 #define max(a,b) ((a) > (b) ? (a) : (b))
+#define min(a,b) ((a) < (b) ? (a) : (b))
 
 enum interface_color {
   cyan_color = 1,
@@ -99,6 +100,7 @@ struct process_window {
 
 enum plot_type {
   plot_avg_gpu_mem,
+  plot_specific_gpu,
 };
 
 struct plot_window {
@@ -110,6 +112,7 @@ struct plot_window {
   double *data;
   WINDOW *win;
   WINDOW *plot_window;
+  size_t gpu_id;
 };
 
 struct window_position {
@@ -134,6 +137,7 @@ struct nvtop_interface {
   struct plot_window *plots;
   bool use_fahrenheit;
   bool center_device_info;
+  bool show_per_gpu_plot;
   double encode_decode_hide_time;
   struct retained_data past_data;
   char *interface_layout;
@@ -346,7 +350,7 @@ static void alloc_process_with_option(struct nvtop_interface *interface,
   }
 }
 
-static void initialize_avg_gpu_mem_plot(struct plot_window *plot, struct window_position *position) {
+static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_position *position) {
   unsigned rows = position->sizeY;
   unsigned cols = position->sizeX;
   if (cols > 5 && rows > 2) {
@@ -376,14 +380,20 @@ static void alloc_plot_window(struct nvtop_interface *interface,
   }
   interface->plots = malloc(interface->num_plots * sizeof(*interface->plots));
   for (size_t i = 0; i < interface->num_plots; ++i) {
-    interface->plots[i].type = plot_avg_gpu_mem;
+    if (interface->show_per_gpu_plot)
+      interface->plots[i].type = plot_specific_gpu;
+    else
+      interface->plots[i].type = plot_avg_gpu_mem;
     interface->plots[i].win =
         newwin(plot_positions[i].sizeY, plot_positions[i].sizeX,
                plot_positions[i].posY, plot_positions[i].posX);
 
+    initialize_gpu_mem_plot(&interface->plots[i], &plot_positions[i]);
     switch (interface->plots[i].type) {
     case plot_avg_gpu_mem:
-      initialize_avg_gpu_mem_plot(&interface->plots[i], &plot_positions[i]);
+      break;
+    case plot_specific_gpu:
+      interface->plots[i].gpu_id = i;
       break;
     default:
       break;
@@ -457,34 +467,6 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
     interfaceLayout = "CNPN";
   }
 
-  unsigned num_separators = 0;
-  unsigned num_plot_windows = 0;
-  size_t pos_in_string = 0;
-  bool previous_was_new_line = true;
-  for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
-       layoutC = interfaceLayout[++pos_in_string]) {
-    switch(layoutC) {
-      case 'N':
-        previous_was_new_line = true;
-        break;
-      case 'P':
-        if (previous_was_new_line) {
-          num_separators++;
-          previous_was_new_line = false;
-        }
-        break;
-      case 'C':
-        if (previous_was_new_line) {
-          num_separators++;
-          previous_was_new_line = false;
-        }
-        num_plot_windows++;
-        break;
-      default:
-        break;
-    }
-  }
-
   unsigned rows, cols;
   getmaxyx(stdscr, rows, cols);
 
@@ -532,6 +514,60 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
   }
   if (current_in_line != 0)
       current_posY += window_height + 1;
+
+  char tmpInterfaceLayout[200];
+  memset(tmpInterfaceLayout, 0, sizeof(tmpInterfaceLayout));
+  if (interface->show_per_gpu_plot) {
+    const char *interfaceSave = interfaceLayout;
+    interfaceLayout = tmpInterfaceLayout;
+    size_t num_char_written = 0;
+    size_t num_gpu_affected = 0;
+    while (num_gpu_affected < interface->num_devices) {
+      if (num_char_written + min(num_devices_in_row, interface->num_devices - num_gpu_affected) + 1 < 199) {
+        for (size_t i = 0; i < num_devices_in_row && num_gpu_affected < interface->num_devices; ++i) {
+          tmpInterfaceLayout[num_char_written++] = 'C';
+          num_gpu_affected += 1;
+        }
+        tmpInterfaceLayout[num_char_written++] = 'N';
+      } else {
+        interfaceLayout = interfaceSave;
+        break;
+      }
+      if (num_char_written + 3 < 200) {
+        tmpInterfaceLayout[num_char_written++] = 'P';
+        tmpInterfaceLayout[num_char_written++] = 'N';
+        tmpInterfaceLayout[num_char_written++] = '\0';
+      }
+    }
+  }
+
+  unsigned num_separators = 0;
+  unsigned num_plot_windows = 0;
+  size_t pos_in_string = 0;
+  bool previous_was_new_line = true;
+  for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
+       layoutC = interfaceLayout[++pos_in_string]) {
+    switch(layoutC) {
+      case 'N':
+        previous_was_new_line = true;
+        break;
+      case 'P':
+        if (previous_was_new_line) {
+          num_separators++;
+          previous_was_new_line = false;
+        }
+        break;
+      case 'C':
+        if (previous_was_new_line) {
+          num_separators++;
+          previous_was_new_line = false;
+        }
+        num_plot_windows++;
+        break;
+      default:
+        break;
+    }
+  }
 
   unsigned
       sizeBoxY = rows > current_posY + num_separators
@@ -599,6 +635,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
 
   compute_sizes_from_layout(dwin, device_positions, &process_position,
                             &plot_positions, &dwin->num_plots, dwin->interface_layout);
+
   alloc_plot_window(dwin, plot_positions);
   free(plot_positions);
 
@@ -683,6 +720,7 @@ struct nvtop_interface* initialize_curses(
     unsigned int biggest_device_name,
     bool use_color,
     bool use_fahrenheit,
+    bool show_per_gpu_plot,
     double encode_decode_hide_time,
     unsigned collect_interval,
     const char interfaceLayout[]) {
@@ -699,6 +737,7 @@ struct nvtop_interface* initialize_curses(
   keypad(stdscr, TRUE);
   curs_set(0);
   interface->encode_decode_hide_time = encode_decode_hide_time < 0. ? 1e20 : encode_decode_hide_time;
+  interface->show_per_gpu_plot = show_per_gpu_plot;
   interface->center_device_info = false;
   interface->use_fahrenheit = use_fahrenheit;
   interface->process.offset = 0;
@@ -1700,10 +1739,37 @@ static void update_retained_data(struct device_info *dev_info,
   }
 }
 
-static void draw_max_gpu_mem(struct nvtop_interface *interface,
-                             struct plot_window *plot) {
+static void
+populate_plot_data_specific_gpu_mem(struct nvtop_interface *interface,
+                                    struct plot_window *plot) {
+  memset(plot->data, 0, plot->num_data * sizeof(double));
+  unsigned upper_bound =
+      plot->num_data / 2 > interface->past_data.num_collected_data
+          ? interface->past_data.num_collected_data
+          : plot->num_data / 2;
+  for (unsigned i = 0; i < upper_bound; ++i) {
+    unsigned(*gpudata)[interface->past_data.size_data_buffer] =
+        (unsigned(*)[interface->past_data.size_data_buffer])
+            interface->past_data.gpu_util;
+    unsigned(*memdata)[interface->past_data.size_data_buffer] =
+        (unsigned(*)[interface->past_data.size_data_buffer])
+            interface->past_data.mem_util;
+    plot->data[i * 2] =
+        gpudata[plot->gpu_id]
+               [(interface->past_data.size_data_buffer +
+                 interface->past_data.num_collected_data - i - 1) %
+                interface->past_data.size_data_buffer];
+    plot->data[i * 2 + 1] =
+        memdata[plot->gpu_id]
+               [(interface->past_data.size_data_buffer +
+                 interface->past_data.num_collected_data - i - 1) %
+                interface->past_data.size_data_buffer];
+  }
+}
+
+static void populate_plot_data_max_gpu_mem(struct nvtop_interface *interface,
+                                           struct plot_window *plot) {
   // Populate data
-  werase(plot->plot_window);
   memset(plot->data, 0, plot->num_data * sizeof(double));
   unsigned upper_bound =
       plot->num_data / 2 > interface->past_data.num_collected_data
@@ -1717,31 +1783,43 @@ static void draw_max_gpu_mem(struct nvtop_interface *interface,
       unsigned(*memdata)[interface->past_data.size_data_buffer] =
           (unsigned(*)[interface->past_data.size_data_buffer])
               interface->past_data.mem_util;
-      plot->data[i * 2] = max(plot->data[i * 2],
-          gpudata[k][(interface->past_data.size_data_buffer +
-                      interface->past_data.num_collected_data - i - 1) %
-                     interface->past_data.size_data_buffer]);;
-      plot->data[i * 2 + 1] = max(plot->data[i * 2 + 1],
-          memdata[k][(interface->past_data.size_data_buffer +
-                      interface->past_data.num_collected_data - i - 1) %
-                     interface->past_data.size_data_buffer]);
+      plot->data[i * 2] =
+          max(plot->data[i * 2],
+              gpudata[k][(interface->past_data.size_data_buffer +
+                          interface->past_data.num_collected_data - i - 1) %
+                         interface->past_data.size_data_buffer]);
+      plot->data[i * 2 + 1] =
+          max(plot->data[i * 2 + 1],
+              memdata[k][(interface->past_data.size_data_buffer +
+                          interface->past_data.num_collected_data - i - 1) %
+                         interface->past_data.size_data_buffer]);
     }
   }
-  nvtop_line_plot(plot->plot_window, plot->num_data, plot->data, 0., 100., 2,
-                  (const char *[2]){"MAX GPU", "MAX MEM"});
-  wnoutrefresh(plot->plot_window);
 }
 
 static void draw_plots(struct nvtop_interface *interface) {
   for (unsigned i = 0; i < interface->num_plots; ++i) {
     wnoutrefresh(interface->plots[i].win);
+    werase(interface->plots[i].plot_window);
     switch (interface->plots[i].type) {
-      case plot_avg_gpu_mem:
-        draw_max_gpu_mem(interface, &interface->plots[i]);
-        break;
-      default:
-        break;
+    case plot_avg_gpu_mem:
+      populate_plot_data_max_gpu_mem(interface, &interface->plots[i]);
+      nvtop_line_plot(interface->plots[i].plot_window,
+                      interface->plots[i].num_data, interface->plots[i].data,
+                      0., 100., 2, (const char * [2]){"MAX GPU", "MAX MEM"});
+      break;
+    case plot_specific_gpu: {
+      populate_plot_data_specific_gpu_mem(interface, &interface->plots[i]);
+      char gpuNum[8];
+      snprintf(gpuNum, 8, "GPU %zu", interface->plots[i].gpu_id);
+      nvtop_line_plot(interface->plots[i].plot_window,
+                      interface->plots[i].num_data, interface->plots[i].data,
+                      0., 100., 2, (const char * [2]){gpuNum, "MEM"});
     }
+    default:
+      break;
+    }
+    wnoutrefresh(interface->plots[i].plot_window);
   }
 }
 

@@ -49,6 +49,7 @@ void show_gpu_infos_ascii(
 struct nvtop_interface *initialize_curses(unsigned int num_devices,
                                           unsigned int biggest_device_name,
                                           bool use_color, bool use_fahrenheit,
+                                          bool show_per_gpu_plot,
                                           double encode_decode_hide_time,
                                           unsigned collect_interval,
                                           const char interfaceLayout[]);

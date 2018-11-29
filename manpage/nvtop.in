@@ -41,7 +41,10 @@ Use fahrenheit as temperature scale.
 .BR \-E ", " \-\-encode\-hide =\fIseconds\fR
 Modify the setting for the encode/decode auto-hide timer. Always visible if negative. Default to 30 seconds.
 .TP
-.BR \-p ", " \-\-no\-plot
+.BR \-p ", " \-\-max\-gpu\-plot
+Show only one bar plot corresponding to the maximum of all GPUs.
+.TP
+.BR \-P ", " \-\-no\-plot
 Disable the maximum line plotting.
 .TP
 .BR \-v ", " \-\-version
