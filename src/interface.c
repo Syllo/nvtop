@@ -533,11 +533,11 @@ static void compute_sizes_from_layout(const struct nvtop_interface *interface,
         interfaceLayout = interfaceSave;
         break;
       }
-      if (num_char_written + 3 < 200) {
-        tmpInterfaceLayout[num_char_written++] = 'P';
-        tmpInterfaceLayout[num_char_written++] = 'N';
-        tmpInterfaceLayout[num_char_written++] = '\0';
-      }
+    }
+    if (num_char_written + 3 < 200) {
+      tmpInterfaceLayout[num_char_written++] = 'P';
+      tmpInterfaceLayout[num_char_written++] = 'N';
+      tmpInterfaceLayout[num_char_written++] = '\0';
     }
   }
 
