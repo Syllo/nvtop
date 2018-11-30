@@ -56,6 +56,7 @@ static const char helpstring[] =
 "  -N --no-cache     : Always query the system for user names and command line information\n"
 "  -f --freedom-unit : Use fahrenheit\n"
 "  -E --encode-hide  : Set encode/decode auto hide time in seconds (default 30s, negative = always on screen)\n"
+"  -p --no-plot      : Disable the maximum line plotting\n"
 "  -h --help         : Print help and exit\n";
 
 static const char versionString[] =
