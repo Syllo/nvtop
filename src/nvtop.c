@@ -126,13 +126,13 @@ static const struct option long_opts[] = {
   },
   {
     .name = "max-gpu-plot",
-    .has_arg = required_argument,
+    .has_arg = no_argument,
     .flag = NULL,
     .val = 'p'
   },
   {
     .name = "no-plot",
-    .has_arg = required_argument,
+    .has_arg = no_argument,
     .flag = NULL,
     .val = 'P'
   },
