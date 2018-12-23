@@ -23,6 +23,7 @@
 
 #include <inttypes.h>
 #include <pwd.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -33,7 +34,7 @@
 static char pid_path[pid_path_size];
 
 void get_username_from_pid(pid_t pid, char **buffer) {
-  size_t written =
+  int written =
       snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX, (intmax_t)pid);
   if (written == pid_path_size) {
     *buffer = NULL;
@@ -60,8 +61,8 @@ void get_username_from_pid(pid_t pid, char **buffer) {
 #define command_line_increment 32
 
 void get_command_from_pid(pid_t pid, char **buffer) {
-  size_t written = snprintf(pid_path, pid_path_size,
-                            "/proc/%" PRIdMAX "/cmdline", (intmax_t)pid);
+  int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX "/cmdline",
+                         (intmax_t)pid);
   if (written == pid_path_size) {
     *buffer = NULL;
     return;
@@ -99,4 +100,114 @@ void get_command_from_pid(pid_t pid, char **buffer) {
     if ((*buffer)[i] == '\0')
       (*buffer)[i] = ' ';
   }
+}
+
+
+/*
+ *
+ * From man 5 proc of /proc/<pid>/stat
+ * For clock ticks per second use sysconf(_SC_CLK_TCK)
+ *
+ *  enum process_state {
+ *   process_running = 'R',
+ *   process_sleeping = 'S',
+ *   process_sleeping_disk = 'D',
+ *   process_zombie = 'Z',
+ *   process_stopped = 'T',
+ *   process_stopped_tracing = 't',
+ *   process_dead = 'X',
+ *   process_dead2 = 'x',
+ *   process_wake_kill = 'K',
+ *   process_waking = 'W',
+ *   process_parked = 'P',
+ * };
+ *
+ * struct stat_parse {
+ *   int process_id;
+ *   char *executable_filename;
+ *   enum process_state process_state;
+ *   int parent_pid;
+ *   int process_group_id;
+ *   int process_session_id;
+ *   int process_tty;
+ *   int foreground_process_group_id;
+ *   unsigned kernel_flag;
+ *   unsigned long num_minor_fault;
+ *   unsigned long num_minor_fault_children;
+ *   unsigned long num_major_fault;
+ *   unsigned long num_major_fault_children;
+ *   unsigned long user_time;           // in clock ticks
+ *   unsigned long kernel_time;         // in clock ticks
+ *   long children_user_time;   // in clock ticks
+ *   long children_kernel_time; // in clock ticks
+ *   long process_priority;
+ *   long process_niceness;
+ *   long process_num_threads;
+ *   long next_sigalarm_time;
+ *   unsigned long long process_start_time;
+ *   unsigned long process_virt_mem_usage;
+ *   long process_resident_mem_usage;
+ *   long process_resident_mem_limit;
+ *   unsigned long process_text_address_start;
+ *   unsigned long process_text_address_end;
+ *   unsigned long process_stack_address_start;
+ *   unsigned long process_stack_address_current;
+ *   unsigned long process_instruction_pointer;
+ *   unsigned long process_signals; // Obsolete
+ *   unsigned long process_signals_blocked; // Obsolete
+ *   unsigned long process_signals_ignored; // Obsolete
+ *   unsigned long process_signals_caught; // Obsolete
+ *   unsigned long wait_channel_id;
+ *   unsigned long process_num_page_swapped;
+ *   unsigned long process_and_child_num_page_swapped;
+ *   int process_exit_signal_to_parent;
+ *   int process_processor;
+ *   unsigned process_real_time_priority;
+ *   unsigned policy;
+ *   long long unsigned total_io_delays;
+ *   long unsigned process_guest_time;
+ *   long process_children_guest_time;
+ *   unsigned long process_data_address_start;
+ *   unsigned long process_data_address_end;
+ *   unsigned long process_brk_start;
+ *   unsigned long process_arguments_address_start;
+ *   unsigned long process_arguments_address_end;
+ *   unsigned long process_env_vars_address_start;
+ *   unsigned long process_env_vars_address_end;
+ *   int thread_exit_code;
+ * };
+ *
+ */
+
+bool get_process_info(pid_t pid, struct process_cpu_usage *usage) {
+  double clock_ticks_per_second = sysconf(_SC_CLK_TCK);
+  size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
+  int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX "/stat",
+                         (intmax_t)pid);
+  if (written == pid_path_size) {
+    return false;
+  }
+  FILE *stat_file = fopen(pid_path, "r");
+  if (!stat_file) {
+    return false;
+  }
+  nvtop_get_current_time(&usage->time);
+  unsigned long total_user_time;   // in clock_ticks
+  unsigned long total_kernel_time; // in clock_ticks
+  unsigned long virtual_memory;    // In bytes
+  long resident_memory;            // In page number?
+
+  int retval = fscanf(stat_file,
+                      "%*d %*[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u "
+                      "%*u %lu %lu %*d %*d %*d %*d %*d %*d %*u %lu %ld",
+                      &total_user_time, &total_kernel_time, &virtual_memory,
+                      &resident_memory);
+  fclose(stat_file);
+  if (retval != 4)
+    return false;
+  usage->total_user_time = total_user_time / clock_ticks_per_second;
+  usage->total_kernel_time = total_kernel_time / clock_ticks_per_second;
+  usage->virtual_memory = virtual_memory;
+  usage->resident_memory = (size_t)resident_memory * page_size;
+  return true;
 }

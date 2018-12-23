@@ -131,6 +131,8 @@ struct pid_infos {
   intmax_t pid;
   char *process_name;
   char *user_name;
+  double cpu_elapsed_time;
+  nvtop_time last_measurement;
   UT_hash_handle hh;
 };
 
@@ -139,15 +141,23 @@ static struct pid_infos *current_used_infos = NULL; // Hash table saved pid info
 
 static void populate_infos(intmax_t pid, struct pid_infos *infos) {
   infos->pid = pid;
-  get_command_from_pid(pid, &infos->process_name);
+  get_command_from_pid((pid_t)pid, &infos->process_name);
   if (infos->process_name == NULL) {
     infos->process_name = malloc(4*sizeof(*infos->process_name));
     memcpy(infos->process_name, "N/A", 4);
   }
-  get_username_from_pid(pid, &infos->user_name);
+  get_username_from_pid((pid_t)pid, &infos->user_name);
   if (infos->user_name == NULL) {
     infos->user_name = malloc(4*sizeof(*infos->user_name));
     memcpy(infos->user_name, "N/A", 4);
+  }
+  struct process_cpu_usage cpu_usage;
+  if (get_process_info((pid_t)pid, &cpu_usage)) {
+    infos->cpu_elapsed_time =
+        cpu_usage.total_kernel_time + cpu_usage.total_user_time;
+    infos->last_measurement = cpu_usage.time;
+  } else {
+    infos->cpu_elapsed_time = -1.;
   }
 }
 
@@ -160,9 +170,9 @@ static void update_gpu_process_from_process_info(
     gpu_proc_info[i].pid = p_info[i].pid;
     struct pid_infos *infos;
     HASH_FIND_PID(saved_pid_infos, &gpu_proc_info[i].pid, infos);
-    if (!infos) { // getting information from the system
+    if (!infos) {
       HASH_FIND_PID(current_used_infos, &gpu_proc_info[i].pid, infos);
-      if (!infos) {
+      if (!infos) { // getting information from the system
         infos = malloc(sizeof(*infos));
         populate_infos(gpu_proc_info[i].pid, infos);
         HASH_ADD_PID(current_used_infos, pid, infos);
@@ -171,6 +181,31 @@ static void update_gpu_process_from_process_info(
       HASH_DEL(saved_pid_infos, infos);
       HASH_ADD_PID(current_used_infos, pid, infos);
     }
+    struct process_cpu_usage cpu_usage;
+    if (get_process_info((pid_t)p_info[i].pid, &cpu_usage)) {
+      if (infos->cpu_elapsed_time != -1.) {
+        gpu_proc_info[i].cpu_usage =
+            100. *
+            (cpu_usage.total_user_time + cpu_usage.total_kernel_time -
+             infos->cpu_elapsed_time) /
+            nvtop_difftime(infos->last_measurement, cpu_usage.time);
+      } else {
+        gpu_proc_info[i].cpu_usage = 0.;
+      }
+      gpu_proc_info[i].cpu_memory_virt = cpu_usage.virtual_memory;
+      gpu_proc_info[i].cpu_memory_res = cpu_usage.resident_memory;
+      infos->last_measurement = cpu_usage.time;
+      infos->cpu_elapsed_time =
+          cpu_usage.total_user_time + cpu_usage.total_kernel_time;
+    } else {
+      gpu_proc_info[i].cpu_memory_virt = 0;
+      gpu_proc_info[i].cpu_memory_res = 0;
+      gpu_proc_info[i].cpu_usage = 0.;
+      infos->cpu_elapsed_time = -1.;
+    }
+    /*fprintf(stderr, "PID %d cpu usage %f virt %zu res %zu\n", (int)p_info[i].pid,*/
+            /*gpu_proc_info[i].cpu_usage, gpu_proc_info[i].cpu_memory_virt,*/
+            /*gpu_proc_info[i].cpu_memory_res);*/
     gpu_proc_info[i].process_name = infos->process_name;
     gpu_proc_info[i].user_name = infos->user_name;
     gpu_proc_info[i].used_memory = p_info[i].usedGpuMemory;

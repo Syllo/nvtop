@@ -37,6 +37,9 @@ struct gpu_process {
   char *process_name;              // Process Name
   char *user_name;                 // Process User Name
   unsigned long long used_memory;  // Memory used by process
+  size_t cpu_memory_virt;
+  size_t cpu_memory_res;
+  double cpu_usage;
 };
 
 enum dev_info_valid {
