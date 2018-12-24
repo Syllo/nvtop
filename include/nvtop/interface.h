@@ -24,22 +24,6 @@
 
 #include "nvtop/extract_gpuinfo.h"
 
-enum process_field {
-  process_pid = 0,
-  process_user,
-  process_gpu_id,
-  process_type,
-  process_memory,
-  process_command,
-  process_end,
-};
-
-enum nvtop_option_window_state {
-  nvtop_option_state_hidden,
-  nvtop_option_state_kill,
-  nvtop_option_state_sort_by,
-};
-
 struct nvtop_interface;
 
 void show_gpu_infos_ascii(

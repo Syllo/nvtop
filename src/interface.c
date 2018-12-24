@@ -35,6 +35,24 @@
 #define max(a,b) ((a) > (b) ? (a) : (b))
 #define min(a,b) ((a) < (b) ? (a) : (b))
 
+enum process_field {
+  process_pid = 0,
+  process_user,
+  process_gpu_id,
+  process_type,
+  process_memory,
+  process_cpu_usage,
+  process_cpu_mem_usage,
+  process_command,
+  process_end,
+};
+
+enum nvtop_option_window_state {
+  nvtop_option_state_hidden,
+  nvtop_option_state_kill,
+  nvtop_option_state_sort_by,
+};
+
 enum interface_color {
   cyan_color = 1,
   yellow_color,
@@ -42,6 +60,8 @@ enum interface_color {
   red_color,
   green_color,
   blue_color,
+  magenta_cyan,
+  yellow_cyan,
 };
 
 struct device_window {
@@ -71,6 +91,8 @@ struct all_gpu_processes {
   char *user_name;
   unsigned long long used_memory;
   double mem_percentage;
+  double cpu_percent;
+  size_t cpu_memory;
   unsigned int gpu_id;
   bool is_graphical;
 };
@@ -167,7 +189,9 @@ static unsigned int sizeof_process_field[] = {
   [process_user] = 4,
   [process_gpu_id] = 3,
   [process_type] = 7,
-  [process_memory] = 14,
+  [process_memory] = 13, // 8 for mem 5 for %
+  [process_cpu_usage] = 6,
+  [process_cpu_mem_usage] = 9,
   [process_command] = 0,
 };
 
@@ -713,6 +737,8 @@ static void initialize_colors(void) {
   init_pair(yellow_color,   COLOR_YELLOW,   background_color);
   init_pair(blue_color,     COLOR_BLUE,     background_color);
   init_pair(magenta_color,  COLOR_MAGENTA,  background_color);
+  init_pair(magenta_cyan,   COLOR_CYAN,     COLOR_MAGENTA);
+  init_pair(yellow_cyan,    COLOR_CYAN,     COLOR_YELLOW);
 }
 
 struct nvtop_interface* initialize_curses(
@@ -1145,6 +1171,10 @@ static unsigned int copy_processes_for_processing(
       interface->process.all_process[offset+j].mem_percentage =
         interface->process.all_process[offset+j].used_memory * 100. /
         (double) dev_info[i].total_memory;
+      interface->process.all_process[offset + j].cpu_percent =
+          dev_info[i].compute_procs[j].cpu_usage;
+      interface->process.all_process[offset + j].cpu_memory =
+          dev_info[i].compute_procs[j].cpu_memory_res;
     }
     offset += dev_info[i].num_compute_procs;
     for (unsigned int j = 0; j < dev_info[i].num_graphical_procs; ++j) {
@@ -1161,6 +1191,10 @@ static unsigned int copy_processes_for_processing(
       interface->process.all_process[offset+j].mem_percentage =
         interface->process.all_process[offset+j].used_memory * 100. /
         (double) dev_info[i].total_memory;
+      interface->process.all_process[offset + j].cpu_percent =
+          dev_info[i].graphic_procs[j].cpu_usage;
+      interface->process.all_process[offset + j].cpu_memory =
+          dev_info[i].graphic_procs[j].cpu_memory_res;
     }
     offset += dev_info[i].num_graphical_procs;
   }
@@ -1309,6 +1343,8 @@ static const char *columnName[] = {
   "GPU",
   "TYPE",
   "MEM",
+  "CPU",
+  "CPU MEM",
   "Command",
 };
 
@@ -1388,7 +1424,9 @@ static void print_processes_on_screen(
 
   char pid_str[sizeof_process_field[process_pid]+1];
   char guid_str[sizeof_process_field[process_gpu_id]+1];
-  char memory[sizeof_process_field[process_memory]+1];
+  char memory[sizeof_process_field[process_memory] + 1];
+  char cpu_percent[sizeof_process_field[process_cpu_usage] + 1];
+  char cpu_mem[sizeof_process_field[process_cpu_mem_usage] + 1];
 
   unsigned int start_at_process = process->offset;
   unsigned int end_at_process = start_at_process + rows;
@@ -1406,9 +1444,6 @@ static void print_processes_on_screen(
         "%u", proc[i].gpu_id);
     if (size == sizeof_process_field[process_gpu_id]+1)
       pid_str[sizeof_process_field[process_gpu_id]] = '\0';
-    size = snprintf(memory, sizeof_process_field[process_memory]+1,
-        "%lluMB %.1f%%", proc[i].used_memory/1000000,
-        proc[i].mem_percentage);
     mvwprintw(win, write_at, 0, "%*s %*s %*s",
         sizeof_process_field[process_pid],
         pid_str,
@@ -1417,21 +1452,42 @@ static void print_processes_on_screen(
         sizeof_process_field[process_gpu_id],
         guid_str);
     if (proc[i].is_graphical) {
-      if (i != special_row)
+      if (i == special_row)
+        wattron(win, COLOR_PAIR(yellow_cyan));
+      else
         wattron(win, COLOR_PAIR(yellow_color));
       wprintw(win, " %*s ", sizeof_process_field[process_type], "Graphic");
-      if (i != special_row)
+      if (i == special_row) {
+        wattron(win, COLOR_PAIR(cyan_color));
+      } else
         wattroff(win, COLOR_PAIR(yellow_color));
     } else {
-      if (i != special_row)
+      if (i == special_row)
+        wattron(win, COLOR_PAIR(magenta_cyan));
+      else
         wattron(win, COLOR_PAIR(magenta_color));
       wprintw(win, " %*s ", sizeof_process_field[process_type], "Compute");
-      if (i != special_row)
+      if (i == special_row) {
+        wattron(win, COLOR_PAIR(cyan_color));
+      } else
         wattroff(win, COLOR_PAIR(magenta_color));
     }
+    snprintf(memory, 9, "%6lluMB", proc[i].used_memory / 1048576);
+    snprintf(memory + 8, sizeof_process_field[process_memory] - 7, " %3.0f%%",
+             proc[i].mem_percentage);
     wprintw(win, "%*s ",
         sizeof_process_field[process_memory],
         memory);
+    snprintf(cpu_percent, sizeof_process_field[process_cpu_usage]+1,
+        "%.f%%", proc[i].cpu_percent);
+    wprintw(win, "%*s ",
+        sizeof_process_field[process_cpu_usage],
+        cpu_percent);
+    snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage]+1,
+        "%zuMB", proc[i].cpu_memory/1048576);
+    wprintw(win, "%*s ",
+        sizeof_process_field[process_cpu_mem_usage],
+        cpu_mem);
     unsigned posX, posY;
     getyx(win, posY, posX);
     int size_print = posX < cols ? cols - posX : 0;
