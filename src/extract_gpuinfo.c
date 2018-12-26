@@ -183,7 +183,7 @@ static void update_gpu_process_from_process_info(
     }
     struct process_cpu_usage cpu_usage;
     if (get_process_info((pid_t)p_info[i].pid, &cpu_usage)) {
-      if (infos->cpu_elapsed_time != -1.) {
+      if (infos->cpu_elapsed_time > -1.) {
         gpu_proc_info[i].cpu_usage =
             100. *
             (cpu_usage.total_user_time + cpu_usage.total_kernel_time -

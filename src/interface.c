@@ -1407,7 +1407,7 @@ static void update_selected_offset_with_window_size(
 }
 
 #define process_buffer_line_size 8192
-static char process_print_buffer[1024][process_buffer_line_size];
+static char process_print_buffer[process_buffer_line_size];
 
 static void set_attribute_between(WINDOW *win, int startY, int startX, int endX,
                                   attr_t attr, short pair) {
@@ -1463,20 +1463,26 @@ static void print_processes_on_screen(
                             ? process_buffer_line_size - 4
                             : column_sort_start + sizeof_process_field[i];
     }
-    printed += snprintf(&process_print_buffer[0][printed],
+    printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed, "%*s ",
                         sizeof_process_field[i], columnName[i]);
   }
 
   mvwprintw(win, 0, 0, "%.*s", cols,
-              &process_print_buffer[0][process->offset_column]);
+              &process_print_buffer[process->offset_column]);
   mvwchgat(win, 0, 0, -1, A_STANDOUT, green_color, NULL);
   set_attribute_between(win, 0, column_sort_start - (int)process->offset_column,
                         column_sort_end - (int)process->offset_column, A_STANDOUT,
                         cyan_color);
 
-  memset(process_print_buffer, 0, sizeof(process_print_buffer));
+  int start_type = 0;
+  for (unsigned int i = 0; i < process_type; ++i) {
+    start_type += sizeof_process_field[i] + 1;
+  }
+  int end_type = start_type + sizeof_process_field[process_type];
+
   for (unsigned int i = start_at_process; i < end_at_process && i < num_process; ++i) {
+    memset(process_print_buffer, 0, sizeof(process_print_buffer));
     size_t size = snprintf(pid_str, sizeof_process_field[process_pid]+1,
         "%" PRIdMAX, proc[i].pid);
     if (size == sizeof_process_field[process_pid]+1)
@@ -1485,7 +1491,7 @@ static void print_processes_on_screen(
         "%u", proc[i].gpu_id);
     if (size == sizeof_process_field[process_gpu_id]+1)
       pid_str[sizeof_process_field[process_gpu_id]] = '\0';
-    printed = snprintf(process_print_buffer[i-start_at_process+1], process_buffer_line_size, "%*s %*s %*s",
+    printed = snprintf(process_print_buffer, process_buffer_line_size, "%*s %*s %*s",
         sizeof_process_field[process_pid],
         pid_str,
         sizeof_process_field[process_user],
@@ -1493,44 +1499,36 @@ static void print_processes_on_screen(
         sizeof_process_field[process_gpu_id],
         guid_str);
     if (proc[i].is_graphical) {
-      printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+      printed += snprintf(&process_print_buffer[printed],
                           process_buffer_line_size - printed, " %*s ",
                           sizeof_process_field[process_type], "Graphic");
     } else {
-      printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+      printed += snprintf(&process_print_buffer[printed],
                           process_buffer_line_size - printed, " %*s ",
                           sizeof_process_field[process_type], "Compute");
     }
     snprintf(memory, 9, "%6lluMB", proc[i].used_memory / 1048576);
     snprintf(memory + 8, sizeof_process_field[process_memory] - 7, " %3.0f%%",
              proc[i].mem_percentage);
-    printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+    printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed,
                         "%*s ", sizeof_process_field[process_memory], memory);
     snprintf(cpu_percent, sizeof_process_field[process_cpu_usage]+1,
         "%.f%%", proc[i].cpu_percent);
-    printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+    printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed, "%*s ",
                         sizeof_process_field[process_cpu_usage], cpu_percent);
     snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage]+1,
         "%zuMB", proc[i].cpu_memory/1048576);
-    printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+    printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed, "%*s ",
                         sizeof_process_field[process_cpu_mem_usage], cpu_mem);
-    snprintf(&process_print_buffer[i-start_at_process+1][printed],
+    snprintf(&process_print_buffer[printed],
              process_buffer_line_size - printed, "%.*s",
              process_buffer_line_size - printed, proc[i].process_name);
-  }
-  int start_type = 0;
-  for (unsigned int i = 0; i < process_type; ++i) {
-    start_type += sizeof_process_field[i] + 1;
-  }
-  int end_type = start_type + sizeof_process_field[process_type];
-
-  for (unsigned int i = start_at_process; i < end_at_process && i < num_process; ++i) {
     unsigned int write_at = i - start_at_process + 1;
     mvwprintw(win, write_at, 0, "%.*s", cols,
-              &process_print_buffer[i-start_at_process+1][process->offset_column]);
+              &process_print_buffer[process->offset_column]);
     if (i == special_row) {
       mvwchgat(win, write_at, 0, -1, A_STANDOUT, cyan_color, NULL);
     } else {
