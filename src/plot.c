@@ -4,7 +4,7 @@
 #include "nvtop/plot.h"
 
 static inline int data_level(double rows, double data, double increment) {
-  return (int)(rows - floor(data / increment));
+  return (int)(rows - round(data / increment));
 }
 
 void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
