@@ -60,8 +60,6 @@ enum interface_color {
   red_color,
   green_color,
   blue_color,
-  magenta_cyan,
-  yellow_cyan,
 };
 
 struct device_window {
@@ -111,6 +109,7 @@ struct process_window {
   unsigned int size_processes_buffer;
   unsigned int num_processes;
   unsigned int offset;
+  unsigned int offset_column;
   struct all_gpu_processes *all_process;
   WINDOW *process_win;
   WINDOW *process_with_option_win;
@@ -737,8 +736,6 @@ static void initialize_colors(void) {
   init_pair(yellow_color,   COLOR_YELLOW,   background_color);
   init_pair(blue_color,     COLOR_BLUE,     background_color);
   init_pair(magenta_color,  COLOR_MAGENTA,  background_color);
-  init_pair(magenta_cyan,   COLOR_CYAN,     COLOR_MAGENTA);
-  init_pair(yellow_cyan,    COLOR_CYAN,     COLOR_YELLOW);
 }
 
 struct nvtop_interface* initialize_curses(
@@ -767,6 +764,7 @@ struct nvtop_interface* initialize_curses(
   interface->center_device_info = false;
   interface->use_fahrenheit = use_fahrenheit;
   interface->process.offset = 0;
+  interface->process.offset_column = 0;
   interface->process.option_window.offset = 0;
   interface->process.option_window.state = nvtop_option_state_hidden;
   interface->process.selected_row = 0;
@@ -1214,7 +1212,7 @@ static int compare_pid_desc(
 static int compare_pid_asc(
     const void *pp1,
     const void *pp2) {
-  return -compare_pid_desc(pp1, pp2);
+  return compare_pid_desc(pp2, pp1);
 }
 
 static int compare_username_desc(
@@ -1228,7 +1226,7 @@ static int compare_username_desc(
 static int compare_username_asc(
     const void *pp1,
     const void *pp2) {
-  return -compare_username_desc(pp1, pp2);
+  return compare_username_desc(pp2, pp1);
 }
 
 static int compare_process_name_desc(
@@ -1242,7 +1240,7 @@ static int compare_process_name_desc(
 static int compare_process_name_asc(
     const void *pp1,
     const void *pp2) {
-  return -compare_process_name_desc(pp1, pp2);
+  return compare_process_name_desc(pp2, pp1);
 }
 
 static int compare_mem_usage_desc(
@@ -1256,7 +1254,35 @@ static int compare_mem_usage_desc(
 static int compare_mem_usage_asc(
     const void *pp1,
     const void *pp2) {
-  return -compare_mem_usage_desc(pp1, pp2);
+  return compare_mem_usage_desc(pp2, pp1);
+}
+
+static int compare_cpu_usage_desc(
+    const void *pp1,
+    const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
+  return p1->cpu_percent >= p2->cpu_percent ? -1 : 1;
+}
+
+static int compare_cpu_usage_asc(
+    const void *pp1,
+    const void *pp2) {
+  return compare_cpu_usage_desc(pp2,pp1);
+}
+
+static int compare_cpu_mem_usage_desc(
+    const void *pp1,
+    const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
+  return - (int)p1->cpu_memory + (int)p2->cpu_memory;
+}
+
+static int compare_cpu_mem_usage_asc(
+    const void *pp1,
+    const void *pp2) {
+  return compare_cpu_mem_usage_desc(pp2, pp1);
 }
 
 static int compare_gpu_desc(
@@ -1330,6 +1356,18 @@ static void sort_process(
       else
         sort_fun = compare_process_name_desc;
       break;
+    case process_cpu_usage:
+      if (asc_sort)
+        sort_fun = compare_cpu_usage_asc;
+      else
+        sort_fun = compare_cpu_usage_desc;
+      break;
+    case process_cpu_mem_usage:
+      if (asc_sort)
+        sort_fun = compare_cpu_mem_usage_asc;
+      else
+        sort_fun = compare_cpu_mem_usage_desc;
+      break;
     case process_end:
     default:
       return;
@@ -1342,43 +1380,11 @@ static const char *columnName[] = {
   "USER",
   "GPU",
   "TYPE",
-  "MEM",
+  "GPU MEM",
   "CPU",
-  "CPU MEM",
+  "HOST MEM",
   "Command",
 };
-
-static void print_process_preamble(WINDOW *win,
-    unsigned int sorted_by) {
-  // PID | Username | GPU id | GPU_TYPE | Mem usage | Process name
-  /*wmove(win, 0, 0);*/
-  for (unsigned int i = 0; i < process_command; ++i) {
-    if (sorted_by == i)
-      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-    else
-      wattron(win, COLOR_PAIR(green_color) | A_STANDOUT);
-
-    wprintw(win, "%*s ", sizeof_process_field[i], columnName[i]);
-
-    if (sorted_by == i)
-      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-    else
-      wattroff(win, COLOR_PAIR(green_color) | A_STANDOUT);
-  }
-  if (sorted_by == process_command)
-    wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-  else
-    wattron(win, COLOR_PAIR(green_color) | A_STANDOUT);
-
-  wprintw(win, "Command");
-
-  if (sorted_by == process_command)
-    wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-  else
-    wattroff(win, COLOR_PAIR(green_color) | A_STANDOUT);
-  wchgat(win, -1, A_STANDOUT, green_color, NULL);
-  wnoutrefresh(win);
-}
 
 static void update_selected_offset_with_window_size(
     unsigned int *selected_row,
@@ -1400,6 +1406,22 @@ static void update_selected_offset_with_window_size(
     *offset -= 1;
 }
 
+#define process_buffer_line_size 8192
+static char process_print_buffer[1024][process_buffer_line_size];
+
+static void set_attribute_between(WINDOW *win, int startY, int startX, int endX,
+                                  attr_t attr, short pair) {
+  int rows, cols;
+  getmaxyx(win, rows, cols);
+  (void) rows;
+  if (startX >= cols || endX < 0)
+    return;
+  startX = startX < 0 ? 0 : startX;
+  endX = endX > cols ? cols : endX;
+  int size = endX - startX;
+  mvwchgat(win, startY, startX, size, attr, pair, NULL);
+}
+
 static void print_processes_on_screen(
     unsigned int num_process, struct process_window *process) {
   WINDOW *win = process->option_window.state == nvtop_option_state_hidden
@@ -1408,7 +1430,6 @@ static void print_processes_on_screen(
   struct all_gpu_processes *proc = process->all_process;
 
   werase(win);
-  print_process_preamble(win, process->sort_criterion);
 
   unsigned int rows, cols;
   getmaxyx(win, rows, cols);
@@ -1419,6 +1440,8 @@ static void print_processes_on_screen(
       &process->offset,
       rows,
       num_process);
+  if (process->offset_column + cols >= process_buffer_line_size)
+    process->offset_column = process_buffer_line_size - cols - 1;
 
   size_t special_row = process->selected_row;
 
@@ -1431,11 +1454,29 @@ static void print_processes_on_screen(
   unsigned int start_at_process = process->offset;
   unsigned int end_at_process = start_at_process + rows;
 
-  for (unsigned int i = start_at_process; i < end_at_process && i < num_process; ++i) {
-    if (i == special_row) {
-      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+  int printed = 0;
+  int column_sort_start = 0, column_sort_end = sizeof_process_field[0];
+  for (unsigned int i = 0; i < process_end; ++i) {
+    if (i == process->sort_criterion) {
+      column_sort_start = printed;
+      column_sort_end = i == process_command
+                            ? process_buffer_line_size - 4
+                            : column_sort_start + sizeof_process_field[i];
     }
-    unsigned int write_at = i+1-start_at_process;
+    printed += snprintf(&process_print_buffer[0][printed],
+                        process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[i], columnName[i]);
+  }
+
+  mvwprintw(win, 0, 0, "%.*s", cols,
+              &process_print_buffer[0][process->offset_column]);
+  mvwchgat(win, 0, 0, -1, A_STANDOUT, green_color, NULL);
+  set_attribute_between(win, 0, column_sort_start - (int)process->offset_column,
+                        column_sort_end - (int)process->offset_column, A_STANDOUT,
+                        cyan_color);
+
+  memset(process_print_buffer, 0, sizeof(process_print_buffer));
+  for (unsigned int i = start_at_process; i < end_at_process && i < num_process; ++i) {
     size_t size = snprintf(pid_str, sizeof_process_field[process_pid]+1,
         "%" PRIdMAX, proc[i].pid);
     if (size == sizeof_process_field[process_pid]+1)
@@ -1444,7 +1485,7 @@ static void print_processes_on_screen(
         "%u", proc[i].gpu_id);
     if (size == sizeof_process_field[process_gpu_id]+1)
       pid_str[sizeof_process_field[process_gpu_id]] = '\0';
-    mvwprintw(win, write_at, 0, "%*s %*s %*s",
+    printed = snprintf(process_print_buffer[i-start_at_process+1], process_buffer_line_size, "%*s %*s %*s",
         sizeof_process_field[process_pid],
         pid_str,
         sizeof_process_field[process_user],
@@ -1452,53 +1493,56 @@ static void print_processes_on_screen(
         sizeof_process_field[process_gpu_id],
         guid_str);
     if (proc[i].is_graphical) {
-      if (i == special_row)
-        wattron(win, COLOR_PAIR(yellow_cyan));
-      else
-        wattron(win, COLOR_PAIR(yellow_color));
-      wprintw(win, " %*s ", sizeof_process_field[process_type], "Graphic");
-      if (i == special_row) {
-        wattron(win, COLOR_PAIR(cyan_color));
-      } else
-        wattroff(win, COLOR_PAIR(yellow_color));
+      printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+                          process_buffer_line_size - printed, " %*s ",
+                          sizeof_process_field[process_type], "Graphic");
     } else {
-      if (i == special_row)
-        wattron(win, COLOR_PAIR(magenta_cyan));
-      else
-        wattron(win, COLOR_PAIR(magenta_color));
-      wprintw(win, " %*s ", sizeof_process_field[process_type], "Compute");
-      if (i == special_row) {
-        wattron(win, COLOR_PAIR(cyan_color));
-      } else
-        wattroff(win, COLOR_PAIR(magenta_color));
+      printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+                          process_buffer_line_size - printed, " %*s ",
+                          sizeof_process_field[process_type], "Compute");
     }
     snprintf(memory, 9, "%6lluMB", proc[i].used_memory / 1048576);
     snprintf(memory + 8, sizeof_process_field[process_memory] - 7, " %3.0f%%",
              proc[i].mem_percentage);
-    wprintw(win, "%*s ",
-        sizeof_process_field[process_memory],
-        memory);
+    printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+                        process_buffer_line_size - printed,
+                        "%*s ", sizeof_process_field[process_memory], memory);
     snprintf(cpu_percent, sizeof_process_field[process_cpu_usage]+1,
         "%.f%%", proc[i].cpu_percent);
-    wprintw(win, "%*s ",
-        sizeof_process_field[process_cpu_usage],
-        cpu_percent);
+    printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+                        process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[process_cpu_usage], cpu_percent);
     snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage]+1,
         "%zuMB", proc[i].cpu_memory/1048576);
-    wprintw(win, "%*s ",
-        sizeof_process_field[process_cpu_mem_usage],
-        cpu_mem);
-    unsigned posX, posY;
-    getyx(win, posY, posX);
-    int size_print = posX < cols ? cols - posX : 0;
-    wprintw(win, "%.*s", size_print, proc[i].process_name);
-    if (i == special_row) { // End of the row in color
-      unsigned int cur_row, cur_col;
-      getyx(win, cur_row, cur_col);
-      if (cur_row == posY)
-        for (unsigned int j = cur_col; j < cols; ++j)
-          wprintw(win, " ");
-      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    printed += snprintf(&process_print_buffer[i-start_at_process+1][printed],
+                        process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[process_cpu_mem_usage], cpu_mem);
+    snprintf(&process_print_buffer[i-start_at_process+1][printed],
+             process_buffer_line_size - printed, "%.*s",
+             process_buffer_line_size - printed, proc[i].process_name);
+  }
+  int start_type = 0;
+  for (unsigned int i = 0; i < process_type; ++i) {
+    start_type += sizeof_process_field[i] + 1;
+  }
+  int end_type = start_type + sizeof_process_field[process_type];
+
+  for (unsigned int i = start_at_process; i < end_at_process && i < num_process; ++i) {
+    unsigned int write_at = i - start_at_process + 1;
+    mvwprintw(win, write_at, 0, "%.*s", cols,
+              &process_print_buffer[i-start_at_process+1][process->offset_column]);
+    if (i == special_row) {
+      mvwchgat(win, write_at, 0, -1, A_STANDOUT, cyan_color, NULL);
+    } else {
+      if (proc[i].is_graphical) {
+        set_attribute_between(win, write_at, start_type - (int)process->offset_column,
+                              end_type - (int)process->offset_column, 0,
+                              yellow_color);
+      } else {
+        set_attribute_between(win, write_at, start_type - (int)process->offset_column,
+                              end_type - (int)process->offset_column, 0,
+                              magenta_color);
+      }
     }
   }
   wnoutrefresh(win);
@@ -1940,6 +1984,15 @@ void interface_key(int keyId, struct nvtop_interface *inter) {
           inter->process.option_window.state = nvtop_option_state_sort_by;
           inter->process.option_window.selected_row = 0;
         }
+        break;
+      case KEY_RIGHT:
+        if (inter->process.option_window.state == nvtop_option_state_hidden)
+          inter->process.offset_column += 4;
+        break;
+      case KEY_LEFT:
+        if (inter->process.option_window.state == nvtop_option_state_hidden &&
+            inter->process.offset_column >= 4)
+          inter->process.offset_column -= 4;
         break;
       case KEY_UP:
         switch (inter->process.option_window.state) {

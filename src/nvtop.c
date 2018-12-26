@@ -358,6 +358,8 @@ int main (int argc, char **argv) {
       case '-':
           interface_key(input_char, interface);
         break;
+      case KEY_LEFT:
+      case KEY_RIGHT:
       case KEY_UP:
       case KEY_DOWN:
       case KEY_ENTER:
