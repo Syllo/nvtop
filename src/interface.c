@@ -20,20 +20,21 @@
  */
 
 #include "nvtop/interface.h"
-#include "nvtop/time.h"
+#include "nvtop/interface_layout_selection.h"
 #include "nvtop/plot.h"
+#include "nvtop/time.h"
 
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <tgmath.h>
+#include <assert.h>
+#include <inttypes.h>
 #include <ncurses.h>
 #include <signal.h>
-#include <inttypes.h>
-#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <tgmath.h>
 
-#define max(a,b) ((a) > (b) ? (a) : (b))
-#define min(a,b) ((a) < (b) ? (a) : (b))
+#define max(a, b) ((a) > (b) ? (a) : (b))
+#define min(a, b) ((a) < (b) ? (a) : (b))
 
 enum process_field {
   process_pid = 0,
@@ -64,21 +65,21 @@ enum interface_color {
 
 struct device_window {
   char *device_name;
-  WINDOW *name_win;   // Name of the GPU
-  WINDOW* gpu_util_enc_dec;
-  WINDOW* gpu_util_no_enc_or_dec;
-  WINDOW* gpu_util_no_enc_and_dec;
-  WINDOW* mem_util_enc_dec;
-  WINDOW* mem_util_no_enc_or_dec;
-  WINDOW* mem_util_no_enc_and_dec;
-  WINDOW* encode_util;
-  WINDOW* decode_util;
-  WINDOW* fan_speed;
-  WINDOW* temperature;
-  WINDOW* power_info;
-  WINDOW* gpu_clock_info;
-  WINDOW* mem_clock_info;
-  WINDOW* pcie_info;
+  WINDOW *name_win; // Name of the GPU
+  WINDOW *gpu_util_enc_dec;
+  WINDOW *gpu_util_no_enc_or_dec;
+  WINDOW *gpu_util_no_enc_and_dec;
+  WINDOW *mem_util_enc_dec;
+  WINDOW *mem_util_no_enc_or_dec;
+  WINDOW *mem_util_no_enc_and_dec;
+  WINDOW *encode_util;
+  WINDOW *decode_util;
+  WINDOW *fan_speed;
+  WINDOW *temperature;
+  WINDOW *power_info;
+  WINDOW *gpu_clock_info;
+  WINDOW *mem_clock_info;
+  WINDOW *pcie_info;
   nvtop_time last_decode_seen;
   nvtop_time last_encode_seen;
 };
@@ -119,25 +120,16 @@ struct process_window {
   struct option_window option_window;
 };
 
-enum plot_type {
-  plot_avg_gpu_mem,
-  plot_specific_gpu,
-};
-
 struct plot_window {
   enum plot_type type;
-  nvtop_time max_data_retain_time;
-  nvtop_time time_between_data_collection;
-  nvtop_time last_time_collected;
+  /*nvtop_time max_data_retain_time;*/
+  /*nvtop_time time_between_data_collection;*/
+  /*nvtop_time last_time_collected;*/
   size_t num_data;
   double *data;
   WINDOW *win;
   WINDOW *plot_window;
-  size_t gpu_id;
-};
-
-struct window_position {
-  int posX, posY, sizeX, sizeY;
+  size_t gpu_ids[2];
 };
 
 // Keep gpu information every 1 second for 10 minutes
@@ -154,14 +146,12 @@ struct nvtop_interface {
   size_t num_devices;
   struct device_window *devices_win;
   struct process_window process;
-  size_t num_plots;
+  unsigned num_plots;
   struct plot_window *plots;
   bool use_fahrenheit;
-  bool center_device_info;
-  bool show_per_gpu_plot;
+  bool show_plot;
   double encode_decode_hide_time;
   struct retained_data past_data;
-  char *interface_layout;
 };
 
 enum device_field {
@@ -175,83 +165,68 @@ enum device_field {
 };
 
 static unsigned int sizeof_device_field[] = {
-  [device_name] = 11,
-  [device_fan_speed] = 8,
-  [device_temperature] = 10,
-  [device_power] = 15,
-  [device_clock] = 11,
-  [device_pcie] = 44,
+    [device_name] = 11,  [device_fan_speed] = 8, [device_temperature] = 10,
+    [device_power] = 15, [device_clock] = 11,    [device_pcie] = 44,
 };
 
 static unsigned int sizeof_process_field[] = {
-  [process_pid] = 5,
-  [process_user] = 4,
-  [process_gpu_id] = 3,
-  [process_type] = 7,
-  [process_memory] = 13, // 8 for mem 5 for %
-  [process_cpu_usage] = 6,
-  [process_cpu_mem_usage] = 9,
-  [process_command] = 0,
+    [process_pid] = 5,       [process_user] = 4,          [process_gpu_id] = 3,
+    [process_type] = 7,
+    [process_memory] = 13, // 8 for mem 5 for %
+    [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9, [process_command] = 0,
 };
 
-static void alloc_device_window(
-    unsigned int device_id,
-    unsigned int start_row,
-    unsigned int start_col,
-    unsigned int totalcol,
-    struct device_window *dwin) {
+static void alloc_device_window(unsigned int device_id, unsigned int start_row,
+                                unsigned int start_col, unsigned int totalcol,
+                                struct device_window *dwin) {
 
   const unsigned int spacer = 1;
 
   // Line 1 = Name | PCIe info
 
-  dwin->name_win = newwin(1, sizeof_device_field[device_name],
-      start_row,
-      start_col);
+  dwin->name_win =
+      newwin(1, sizeof_device_field[device_name], start_row, start_col);
   if (dwin->name_win == NULL)
     goto alloc_error;
   if (dwin->device_name != NULL) {
-      wattron(dwin->name_win, COLOR_PAIR(cyan_color));
-      mvwprintw(dwin->name_win, 0, 0, "Device %-2u", device_id);
-      wattroff(dwin->name_win, COLOR_PAIR(cyan_color));
-      wprintw(dwin->name_win, "[%s]", dwin->device_name);
-      wnoutrefresh(dwin->name_win);
+    wattron(dwin->name_win, COLOR_PAIR(cyan_color));
+    mvwprintw(dwin->name_win, 0, 0, "Device %-2u", device_id);
+    wattroff(dwin->name_win, COLOR_PAIR(cyan_color));
+    wprintw(dwin->name_win, "[%s]", dwin->device_name);
+    wnoutrefresh(dwin->name_win);
   }
-  dwin->pcie_info = newwin(1, sizeof_device_field[device_pcie],
-      start_row,
-      start_col+spacer + sizeof_device_field[device_name]);
+  dwin->pcie_info =
+      newwin(1, sizeof_device_field[device_pcie], start_row,
+             start_col + spacer + sizeof_device_field[device_name]);
   if (dwin->pcie_info == NULL)
     goto alloc_error;
 
   // Line 2 = GPU clk | MEM clk | Temp | Fan | Power
-  dwin->gpu_clock_info  = newwin(1, sizeof_device_field[device_clock],
-      start_row+1,
-      start_col);
+  dwin->gpu_clock_info =
+      newwin(1, sizeof_device_field[device_clock], start_row + 1, start_col);
   if (dwin->gpu_clock_info == NULL)
     goto alloc_error;
-  dwin->mem_clock_info  = newwin(1, sizeof_device_field[device_clock],
-      start_row+1,
-      start_col+spacer + sizeof_device_field[device_clock]);
+  dwin->mem_clock_info =
+      newwin(1, sizeof_device_field[device_clock], start_row + 1,
+             start_col + spacer + sizeof_device_field[device_clock]);
   if (dwin->mem_clock_info == NULL)
     goto alloc_error;
-  dwin->temperature  = newwin(1, sizeof_device_field[device_temperature],
-      start_row+1,
-      start_col+spacer * 2 + sizeof_device_field[device_clock] * 2);
+  dwin->temperature =
+      newwin(1, sizeof_device_field[device_temperature], start_row + 1,
+             start_col + spacer * 2 + sizeof_device_field[device_clock] * 2);
   if (dwin->temperature == NULL)
     goto alloc_error;
-  dwin->fan_speed  = newwin(1, sizeof_device_field[device_fan_speed],
-      start_row+1,
-      start_col+spacer * 3 +
-      sizeof_device_field[device_clock] * 2 +
-      sizeof_device_field[device_temperature]);
+  dwin->fan_speed =
+      newwin(1, sizeof_device_field[device_fan_speed], start_row + 1,
+             start_col + spacer * 3 + sizeof_device_field[device_clock] * 2 +
+                 sizeof_device_field[device_temperature]);
   if (dwin->fan_speed == NULL)
     goto alloc_error;
-  dwin->power_info  = newwin(1, sizeof_device_field[device_power],
-      start_row+1,
-      start_col+spacer * 4 +
-      sizeof_device_field[device_clock] * 2 +
-      sizeof_device_field[device_temperature] +
-      sizeof_device_field[device_fan_speed]);
+  dwin->power_info =
+      newwin(1, sizeof_device_field[device_power], start_row + 1,
+             start_col + spacer * 4 + sizeof_device_field[device_clock] * 2 +
+                 sizeof_device_field[device_temperature] +
+                 sizeof_device_field[device_fan_speed]);
   if (dwin->power_info == NULL)
     goto alloc_error;
 
@@ -264,15 +239,15 @@ static void alloc_device_window(
   rem = remaining_cols % 3;
   size_gpu = size_mem = size_encode = quot;
   switch (rem) {
-    case 2:
-      if (size_encode % 2 == 1)
-        size_encode += 1;
-      else
-        size_mem += 1;
-      /* Falls through */
-    case 1:
-      size_gpu += 1;
-      break;
+  case 2:
+    if (size_encode % 2 == 1)
+      size_encode += 1;
+    else
+      size_mem += 1;
+    /* Falls through */
+  case 1:
+    size_gpu += 1;
+    break;
   }
 
   if (size_encode % 2 == 1) {
@@ -291,22 +266,20 @@ static void alloc_device_window(
     size_encode += 1;
   size_encode /= 2;
 
-  dwin->gpu_util_enc_dec = newwin(1, size_gpu, start_row+2, start_col);
+  dwin->gpu_util_enc_dec = newwin(1, size_gpu, start_row + 2, start_col);
   if (dwin->gpu_util_enc_dec == NULL)
     goto alloc_error;
-  dwin->mem_util_enc_dec = newwin(1, size_mem,
-      start_row+2,
-      start_col+spacer + size_gpu);
+  dwin->mem_util_enc_dec =
+      newwin(1, size_mem, start_row + 2, start_col + spacer + size_gpu);
   if (dwin->mem_util_enc_dec == NULL)
     goto alloc_error;
-  dwin->encode_util = newwin(1, size_encode,
-      start_row+2,
-      start_col+spacer * 2 + size_gpu + size_mem);
+  dwin->encode_util = newwin(1, size_encode, start_row + 2,
+                             start_col + spacer * 2 + size_gpu + size_mem);
   if (dwin->encode_util == NULL)
     goto alloc_error;
-  dwin->decode_util = newwin(1, size_decode,
-      start_row+2,
-      start_col+spacer * 3 + size_gpu + size_mem + size_encode);
+  dwin->decode_util =
+      newwin(1, size_decode, start_row + 2,
+             start_col + spacer * 3 + size_gpu + size_mem + size_encode);
   if (dwin->decode_util == NULL)
     goto alloc_error;
   // For auto-hide encode / decode window
@@ -373,54 +346,67 @@ static void alloc_process_with_option(struct nvtop_interface *interface,
   }
 }
 
-static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_position *position) {
+static void initialize_gpu_mem_plot(struct plot_window *plot,
+                                    struct window_position *position) {
   unsigned rows = position->sizeY;
   unsigned cols = position->sizeX;
-  if (cols > 5 && rows > 2) {
-    cols -= 5;
-    rows -= 2;
-    cols = cols / 2 * 2;
-    plot->plot_window = newwin(rows, cols, position->posY + 1, position->posX + 4);
-    draw_rectangle(plot->win, 3, 0, cols + 2, rows + 2);
-    mvwprintw(plot->win, 1+rows * 3 / 4, 0, "25%%");
-    mvwprintw(plot->win, 1+rows / 4, 0, "75%%");
-    mvwprintw(plot->win, 1+rows / 2, 0, "50%%");
-    mvwprintw(plot->win, 1, 0, "100");
-    mvwprintw(plot->win, rows, 0, " 0%%");
-  } else {
-    cols = cols / 2 * 2;
-    plot->plot_window = newwin(rows, cols, position->posY, position->posX);
-  }
+  cols -= 5;
+  rows -= 2;
+  cols = cols / 2 * 2;
+  plot->plot_window =
+      newwin(rows, cols, position->posY + 1, position->posX + 4);
+  draw_rectangle(plot->win, 3, 0, cols + 2, rows + 2);
+  mvwprintw(plot->win, 1 + rows * 3 / 4, 0, "25%%");
+  mvwprintw(plot->win, 1 + rows / 4, 0, "75%%");
+  mvwprintw(plot->win, 1 + rows / 2, 0, "50%%");
+  mvwprintw(plot->win, 1, 0, "100");
+  mvwprintw(plot->win, rows, 0, " 0%%");
   plot->data = calloc(cols, sizeof(*plot->data));
   plot->num_data = cols;
 }
 
 static void alloc_plot_window(struct nvtop_interface *interface,
-                              struct window_position *plot_positions) {
+                              struct window_position *plot_positions,
+                              enum plot_type plot_type) {
   if (!plot_positions) {
     interface->plots = NULL;
     return;
   }
   interface->plots = malloc(interface->num_plots * sizeof(*interface->plots));
+  unsigned num_device_to_attribute;
+  unsigned max_device_per_plot;
+  switch (plot_type) {
+  case plot_gpu_solo:
+    num_device_to_attribute = interface->num_devices;
+    max_device_per_plot = 1;
+    break;
+  case plot_gpu_duo:
+    num_device_to_attribute = interface->num_devices;
+    max_device_per_plot = 2;
+    break;
+  case plot_gpu_max:
+    num_device_to_attribute = 1;
+    max_device_per_plot = 1;
+    break;
+  }
+  unsigned current_gpu_id = 0;
   for (size_t i = 0; i < interface->num_plots; ++i) {
-    if (interface->show_per_gpu_plot)
-      interface->plots[i].type = plot_specific_gpu;
-    else
-      interface->plots[i].type = plot_avg_gpu_mem;
+    interface->plots[i].gpu_ids[0] = current_gpu_id++;
+    if (num_device_to_attribute > 1 && max_device_per_plot > 1) {
+      interface->plots[i].type = plot_gpu_duo;
+      num_device_to_attribute -= 2;
+      interface->plots[i].gpu_ids[1] = current_gpu_id++;
+    } else {
+      if (plot_type == plot_gpu_max)
+        interface->plots[i].type = plot_gpu_max;
+      else
+        interface->plots[i].type = plot_gpu_solo;
+      num_device_to_attribute -= 1;
+    }
     interface->plots[i].win =
         newwin(plot_positions[i].sizeY, plot_positions[i].sizeX,
                plot_positions[i].posY, plot_positions[i].posX);
-
     initialize_gpu_mem_plot(&interface->plots[i], &plot_positions[i]);
-    switch (interface->plots[i].type) {
-    case plot_avg_gpu_mem:
-      break;
-    case plot_specific_gpu:
-      interface->plots[i].gpu_id = i;
-      break;
-    default:
-      break;
-    }
   }
 }
 
@@ -434,218 +420,6 @@ static unsigned device_length(void) {
                  sizeof_device_field[device_power] + 4);
 }
 
-static unsigned auto_device_num(unsigned cols, unsigned device_size,
-                                unsigned spacing) {
-  unsigned num = 1;
-  unsigned size_taken = device_size;
-  for (; size_taken + device_size + spacing <= cols;
-       size_taken += device_size + spacing, num += 1)
-    ;
-  return num;
-}
-
-/*
- * Interface layout grammar: ((P|C+)N)*
- * where  N = New block
- *        P = Process block
- *        C = Chart block
- */
-
-static bool is_grammar_ok(const char interfaceLayout[]) {
-  size_t pos_in_string = 0;
-  unsigned state = 0;
-  for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
-       layoutC = interfaceLayout[++pos_in_string]) {
-    switch(layoutC) {
-      case 'P':
-        if (state != 0 && state != 1)
-          return false;
-        state = 3;
-        break;
-      case 'C':
-        if (state != 0 && state != 1 && state != 4)
-          return false;
-        state = 4;
-        break;
-      case 'N':
-        if (state != 2 && state != 3 && state != 4)
-          return false;
-        state = 1;
-        break;
-    }
-  }
-  return state == 0 || state == 1;
-}
-
-static void compute_sizes_from_layout(const struct nvtop_interface *interface,
-                                      struct window_position *device_positions,
-                                      struct window_position *process_position,
-                                      struct window_position **plot_position,
-                                      size_t *num_plots,
-                                      const char interfaceLayout[]) {
-
-  (void) plot_position;
-  // Vertical layout
-  if (interfaceLayout == NULL || !is_grammar_ok(interfaceLayout)) {
-    interfaceLayout = "CNPN";
-  }
-
-  unsigned rows, cols;
-  getmaxyx(stdscr, rows, cols);
-
-  // Device positions
-  unsigned device_cols = device_length();
-  unsigned max_devices_per_row = auto_device_num(cols, device_cols, 1);
-  unsigned num_device_rows_needed = interface->num_devices / max_devices_per_row;
-  if (interface->num_devices % max_devices_per_row > 0)
-    num_device_rows_needed++;
-  unsigned num_devices_in_row = interface->num_devices / num_device_rows_needed;
-  if (interface->num_devices % num_device_rows_needed > 0)
-    num_devices_in_row++;
-
-  unsigned left_space_in_column = cols - (num_devices_in_row * device_cols) - (num_devices_in_row - 1);
-  unsigned spacing_left, spacing_between;
-  if (interface->center_device_info) {
-    spacing_between = spacing_left = left_space_in_column / (num_devices_in_row + 1);
-    if (spacing_between == 0)
-      spacing_between = 1;
-  } else {
-    if (left_space_in_column > 0)
-      spacing_left = 1;
-    else
-      spacing_left = 0;
-    spacing_between = 1;
-  }
-  unsigned window_height = 3; // Stay with 3 lines per window for the moment
-
-  unsigned current_in_line = 0;
-  unsigned current_posX = spacing_left;
-  unsigned current_posY = 0;
-  for (unsigned i = 0; i < interface->num_devices; ++i) {
-    device_positions[i].posX = current_posX;
-    device_positions[i].posY = current_posY;
-    device_positions[i].sizeX = device_cols;
-    device_positions[i].sizeY = window_height;
-    if (current_in_line + 1 == num_devices_in_row) {
-      current_posX = spacing_left;
-      current_posY += window_height + 1;
-      current_in_line = 0;
-    } else {
-      current_posX += device_cols + spacing_between;
-      current_in_line++;
-    }
-  }
-  if (current_in_line != 0)
-      current_posY += window_height + 1;
-
-  char tmpInterfaceLayout[200];
-  memset(tmpInterfaceLayout, 0, sizeof(tmpInterfaceLayout));
-  if (interface->show_per_gpu_plot) {
-    const char *interfaceSave = interfaceLayout;
-    interfaceLayout = tmpInterfaceLayout;
-    size_t num_char_written = 0;
-    size_t num_gpu_affected = 0;
-    while (num_gpu_affected < interface->num_devices) {
-      if (num_char_written + min(num_devices_in_row, interface->num_devices - num_gpu_affected) + 1 < 199) {
-        for (size_t i = 0; i < num_devices_in_row && num_gpu_affected < interface->num_devices; ++i) {
-          tmpInterfaceLayout[num_char_written++] = 'C';
-          num_gpu_affected += 1;
-        }
-        tmpInterfaceLayout[num_char_written++] = 'N';
-      } else {
-        interfaceLayout = interfaceSave;
-        break;
-      }
-    }
-    if (num_char_written + 3 < 200) {
-      tmpInterfaceLayout[num_char_written++] = 'P';
-      tmpInterfaceLayout[num_char_written++] = 'N';
-      tmpInterfaceLayout[num_char_written++] = '\0';
-    }
-  }
-
-  unsigned num_separators = 0;
-  unsigned num_plot_windows = 0;
-  size_t pos_in_string = 0;
-  bool previous_was_new_line = true;
-  for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
-       layoutC = interfaceLayout[++pos_in_string]) {
-    switch(layoutC) {
-      case 'N':
-        previous_was_new_line = true;
-        break;
-      case 'P':
-        if (previous_was_new_line) {
-          num_separators++;
-          previous_was_new_line = false;
-        }
-        break;
-      case 'C':
-        if (previous_was_new_line) {
-          num_separators++;
-          previous_was_new_line = false;
-        }
-        num_plot_windows++;
-        break;
-      default:
-        break;
-    }
-  }
-
-  unsigned
-      sizeBoxY = rows > current_posY + num_separators
-                     ? (rows - current_posY - num_separators) / num_separators
-                     : 0;
-  current_posX = 0;
-
-  unsigned current_plot_id = 0;
-  *plot_position = malloc(num_plot_windows * sizeof(**plot_position));
-  *num_plots = num_plot_windows;
-  pos_in_string = 0;
-  for (char layoutC = interfaceLayout[pos_in_string]; layoutC != '\0';
-       layoutC = interfaceLayout[++pos_in_string]) {
-    switch(layoutC) {
-      case 'N':
-        current_posX = 0;
-        break;
-      case 'P':
-        {
-          process_position->posX = current_posX;
-          process_position->posY = current_posY;
-          process_position->sizeX = cols;
-          process_position->sizeY = sizeBoxY;
-          current_posY += sizeBoxY + 1;
-          current_posX = 0;
-        }
-        break;
-      case 'C':
-        {
-          unsigned num_plot_on_line = 0;
-          char currC = interfaceLayout[pos_in_string];
-          while (currC == 'C') {
-            num_plot_on_line++;
-            currC = interfaceLayout[++pos_in_string];
-          }
-          pos_in_string --;
-          unsigned sizePlotX = cols > num_plot_on_line + 1 ? cols - num_plot_on_line - 1 : 0;
-          sizePlotX /= num_plot_on_line;
-          for (unsigned i = 0; i < num_plot_on_line; ++i) {
-            (*plot_position)[current_plot_id].posX = current_posX;
-            (*plot_position)[current_plot_id].posY = current_posY;
-            (*plot_position)[current_plot_id].sizeX = sizePlotX;
-            (*plot_position)[current_plot_id].sizeY = sizeBoxY;
-            current_plot_id++;
-            current_posX += sizePlotX + 1;
-          }
-          current_posY += sizeBoxY + 1;
-        }
-        break;
-      default:
-        break;
-    }
-  }
-}
-
 static void initialize_all_windows(struct nvtop_interface *dwin) {
   int rows, cols;
   getmaxyx(stdscr, rows, cols);
@@ -656,29 +430,31 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position process_position;
   struct window_position *plot_positions = NULL;
 
-  compute_sizes_from_layout(dwin, device_positions, &process_position,
-                            &plot_positions, &dwin->num_plots, dwin->interface_layout);
+  enum plot_type plot_type;
+  compute_sizes_from_layout(dwin->show_plot, true, true, dwin->num_devices, 2, 3,
+                            device_length(), rows - 1, cols, device_positions,
+                            &process_position, &dwin->num_plots, &plot_positions,
+                            &plot_type);
 
-  alloc_plot_window(dwin, plot_positions);
+  alloc_plot_window(dwin, plot_positions, plot_type);
   free(plot_positions);
 
   for (unsigned int i = 0; i < num_devices; ++i) {
-    alloc_device_window(i, device_positions[i].posY,
-        device_positions[i].posX, device_positions[i].sizeX, &dwin->devices_win[i]);
+    alloc_device_window(i, device_positions[i].posY, device_positions[i].posX,
+                        device_positions[i].sizeX, &dwin->devices_win[i]);
   }
 
   alloc_process_with_option(dwin, process_position.posX, process_position.posY,
-      process_position.sizeX, process_position.sizeY);
+                            process_position.sizeX, process_position.sizeY);
   dwin->process.option_window.option_win =
-    newwin(process_position.sizeY, option_window_size,
-        process_position.posY, process_position.posX);
+      newwin(process_position.sizeY, option_window_size, process_position.posY,
+             process_position.posX);
 
   dwin->process.option_window.option_selection_window =
-    newwin(1, cols, rows-1, 0);
+      newwin(1, cols, rows - 1, 0);
 }
 
-static void delete_all_windows(
-    struct nvtop_interface *dwin) {
+static void delete_all_windows(struct nvtop_interface *dwin) {
   for (unsigned int i = 0; i < dwin->num_devices; ++i) {
     free_device_windows(&dwin->devices_win[i]);
   }
@@ -695,27 +471,20 @@ static void delete_all_windows(
   free(dwin->plots);
 }
 
-void show_gpu_infos_ascii(
-    unsigned int num_devices,
-    struct device_info *dev_info) {
+void show_gpu_infos_ascii(unsigned int num_devices,
+                          struct device_info *dev_info) {
 
   for (unsigned int i = 0; i < num_devices; ++i) {
-    printf(
-        "GPU %u: %s @ (%uMHz,%uMHz),"
-        " Util. (%u%% , %u%%),"
-        " FAN %u%%,"
-        " TEMP %u°c,"
-        " POWER %uW / %uW\n",
-        i,
-        dev_info[i].device_name,
-        dev_info[i].gpu_clock_speed,
-        dev_info[i].mem_clock_speed,
-        dev_info[i].gpu_util_rate,
-        dev_info[i].mem_util_rate,
-        dev_info[i].fan_speed,
-        dev_info[i].gpu_temp,
-        dev_info[i].power_draw/1000,
-        dev_info[i].power_draw_max/1000);
+    printf("GPU %u: %s @ (%uMHz,%uMHz),"
+           " Util. (%u%% , %u%%),"
+           " FAN %u%%,"
+           " TEMP %u°c,"
+           " POWER %uW / %uW\n",
+           i, dev_info[i].device_name, dev_info[i].gpu_clock_speed,
+           dev_info[i].mem_clock_speed, dev_info[i].gpu_util_rate,
+           dev_info[i].mem_util_rate, dev_info[i].fan_speed,
+           dev_info[i].gpu_temp, dev_info[i].power_draw / 1000,
+           dev_info[i].power_draw_max / 1000);
   }
 }
 
@@ -728,25 +497,20 @@ static void initialize_colors(void) {
   else
     background_color = COLOR_BLACK;
 #else
-    background_color = COLOR_BLACK;
+  background_color = COLOR_BLACK;
 #endif
-  init_pair(cyan_color,     COLOR_CYAN,     background_color);
-  init_pair(red_color,      COLOR_RED,      background_color);
-  init_pair(green_color,    COLOR_GREEN,    background_color);
-  init_pair(yellow_color,   COLOR_YELLOW,   background_color);
-  init_pair(blue_color,     COLOR_BLUE,     background_color);
-  init_pair(magenta_color,  COLOR_MAGENTA,  background_color);
+  init_pair(cyan_color, COLOR_CYAN, background_color);
+  init_pair(red_color, COLOR_RED, background_color);
+  init_pair(green_color, COLOR_GREEN, background_color);
+  init_pair(yellow_color, COLOR_YELLOW, background_color);
+  init_pair(blue_color, COLOR_BLUE, background_color);
+  init_pair(magenta_color, COLOR_MAGENTA, background_color);
 }
 
-struct nvtop_interface* initialize_curses(
-    unsigned int num_devices,
-    unsigned int biggest_device_name,
-    bool use_color,
-    bool use_fahrenheit,
-    bool show_per_gpu_plot,
-    double encode_decode_hide_time,
-    unsigned collect_interval,
-    const char interfaceLayout[]) {
+struct nvtop_interface *
+initialize_curses(unsigned int num_devices, unsigned int biggest_device_name,
+                  bool use_color, bool use_fahrenheit, bool show_per_gpu_plot,
+                  double encode_decode_hide_time, unsigned collect_interval) {
   struct nvtop_interface *interface = calloc(1, sizeof(*interface));
   interface->devices_win = calloc(num_devices, sizeof(*interface->devices_win));
   interface->num_devices = num_devices;
@@ -759,9 +523,9 @@ struct nvtop_interface* initialize_curses(
   noecho();
   keypad(stdscr, TRUE);
   curs_set(0);
-  interface->encode_decode_hide_time = encode_decode_hide_time < 0. ? 1e20 : encode_decode_hide_time;
-  interface->show_per_gpu_plot = show_per_gpu_plot;
-  interface->center_device_info = false;
+  interface->encode_decode_hide_time =
+      encode_decode_hide_time < 0. ? 1e20 : encode_decode_hide_time;
+  interface->show_plot = show_per_gpu_plot;
   interface->use_fahrenheit = use_fahrenheit;
   interface->process.offset = 0;
   interface->process.offset_column = 0;
@@ -771,37 +535,32 @@ struct nvtop_interface* initialize_curses(
   interface->process.sort_criterion = process_memory;
   interface->process.sort_asc = false;
   interface->process.size_processes_buffer = 50;
-  interface->process.all_process = malloc(interface->process.size_processes_buffer *
-      sizeof(*interface->process.all_process));
+  interface->process.all_process =
+      malloc(interface->process.size_processes_buffer *
+             sizeof(*interface->process.all_process));
   // Hide decode and encode if not active for more than some given seconds
   nvtop_time time_now, some_time_in_past;
   if (encode_decode_hide_time > 0.)
-    some_time_in_past = nvtop_hmns_to_time(0,(unsigned int)(encode_decode_hide_time/60.) + 1,0);
+    some_time_in_past = nvtop_hmns_to_time(
+        0, (unsigned int)(encode_decode_hide_time / 60.) + 1, 0);
   else
-    some_time_in_past = nvtop_hmns_to_time(0,0,0);
+    some_time_in_past = nvtop_hmns_to_time(0, 0, 0);
   nvtop_get_current_time(&time_now);
   some_time_in_past = nvtop_substract_time(time_now, some_time_in_past);
   interface->past_data.size_data_buffer = 10 * 60 * 1000;
   interface->past_data.num_collected_data = 0;
-  interface->past_data.collect_interval = collect_interval > 1000 ? collect_interval : 1000;
+  interface->past_data.collect_interval =
+      collect_interval > 1000 ? collect_interval : 1000;
   nvtop_get_current_time(&interface->past_data.last_collect);
 
   for (size_t i = 0; i < num_devices; ++i) {
     interface->devices_win[i].last_encode_seen = some_time_in_past;
     interface->devices_win[i].last_decode_seen = some_time_in_past;
   }
-  interface->past_data.gpu_util =
-      malloc(sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
-  interface->past_data.mem_util =
-      malloc(sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
-  if (interfaceLayout == NULL)
-    interface->interface_layout = NULL;
-  else {
-    interface->interface_layout = malloc((1 + strlen(interfaceLayout)) *
-                                         sizeof(*interface->interface_layout));
-    strcpy(interface->interface_layout, interfaceLayout);
-  }
-
+  interface->past_data.gpu_util = malloc(
+      sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
+  interface->past_data.mem_util = malloc(
+      sizeof(unsigned[num_devices][interface->past_data.size_data_buffer]));
   initialize_all_windows(interface);
   refresh();
   return interface;
@@ -816,17 +575,15 @@ void clean_ncurses(struct nvtop_interface *interface) {
   free(interface->process.all_process);
   free(interface->past_data.gpu_util);
   free(interface->past_data.mem_util);
-  free(interface->interface_layout);
   free(interface);
 }
 
-static void draw_bare_percentage(
-    WINDOW *win,
-    const char *prelude, unsigned int new_percentage,
-    const char inside_braces_right[1024]) {
+static void draw_bare_percentage(WINDOW *win, const char *prelude,
+                                 unsigned int new_percentage,
+                                 const char inside_braces_right[1024]) {
   int rows, cols;
   getmaxyx(win, rows, cols);
-  (void) rows;
+  (void)rows;
   size_t size_prelude = strlen(prelude);
   wattron(win, COLOR_PAIR(cyan_color));
   mvwprintw(win, 0, 0, "%s", prelude);
@@ -836,10 +593,11 @@ static void draw_bare_percentage(
   curx = getcurx(win);
   cury = getcury(win);
   int between_sbraces = cols - size_prelude - 2;
-  float usage = round((float) between_sbraces *  new_percentage / 100.f);
-  int represent_usage = (int) usage;
+  float usage = round((float)between_sbraces * new_percentage / 100.f);
+  int represent_usage = (int)usage;
   whline(win, '|', (int)represent_usage);
-  mvwhline(win, cury, curx+represent_usage, ' ', between_sbraces - represent_usage);
+  mvwhline(win, cury, curx + represent_usage, ' ',
+           between_sbraces - represent_usage);
   mvwaddch(win, cury, curx + between_sbraces, ']');
   unsigned int right_side_braces_space_required = strlen(inside_braces_right);
   wmove(win, cury, curx + between_sbraces - right_side_braces_space_required);
@@ -848,12 +606,10 @@ static void draw_bare_percentage(
   wnoutrefresh(win);
 }
 
-static const char* memory_prefix[] = { "B", "k", "M", "G", "T", "P" };
+static const char *memory_prefix[] = {"B", "k", "M", "G", "T", "P"};
 
-static void draw_temp_color(WINDOW *win,
-    unsigned int temp,
-    unsigned int temp_slowdown,
-    bool celsius) {
+static void draw_temp_color(WINDOW *win, unsigned int temp,
+                            unsigned int temp_slowdown, bool celsius) {
   unsigned int temp_convert;
   if (celsius)
     temp_convert = temp;
@@ -900,9 +656,8 @@ static inline void werase_and_wnoutrefresh(WINDOW *w) {
   wnoutrefresh(w);
 }
 
-static void draw_devices(
-    struct device_info *dev_info,
-    struct nvtop_interface *interface) {
+static void draw_devices(struct device_info *dev_info,
+                         struct nvtop_interface *interface) {
 
   unsigned int num_devices = interface->num_devices;
   for (unsigned int i = 0; i < num_devices; ++i) {
@@ -933,7 +688,8 @@ static void draw_devices(
         has_encode_in_last_min = true;
         dev->last_encode_seen = tnow;
       } else {
-        if(nvtop_difftime(dev->last_encode_seen, tnow) > interface->encode_decode_hide_time) {
+        if (nvtop_difftime(dev->last_encode_seen, tnow) >
+            interface->encode_decode_hide_time) {
           if (has_encode_in_last_min) {
             werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
             werase_and_wnoutrefresh(dev->mem_util_enc_dec);
@@ -964,7 +720,8 @@ static void draw_devices(
         has_decode_in_last_min = true;
         dev->last_decode_seen = tnow;
       } else {
-        if(nvtop_difftime(dev->last_decode_seen, tnow) > interface->encode_decode_hide_time) {
+        if (nvtop_difftime(dev->last_decode_seen, tnow) >
+            interface->encode_decode_hide_time) {
           if (has_decode_in_last_min) {
             werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
             werase_and_wnoutrefresh(dev->mem_util_enc_dec);
@@ -1021,7 +778,8 @@ static void draw_devices(
       draw_bare_percentage(gpu_util_win, "GPU", 0, buff);
     }
 
-    if (IS_VALID(total_memory_valid, dinfo->valid) && IS_VALID(used_memory_valid, dinfo->valid)) {
+    if (IS_VALID(total_memory_valid, dinfo->valid) &&
+        IS_VALID(used_memory_valid, dinfo->valid)) {
       double total_mem = dinfo->total_memory;
       double used_mem = dinfo->used_memory;
       size_t prefix_off;
@@ -1029,27 +787,25 @@ static void draw_devices(
         total_mem /= 1000;
         used_mem /= 1000;
       }
-      snprintf(buff, 1024, "%.1f%s/%.1f%s",
-          used_mem,  memory_prefix[prefix_off],
-          total_mem, memory_prefix[prefix_off]);
+      snprintf(buff, 1024, "%.1f%s/%.1f%s", used_mem, memory_prefix[prefix_off],
+               total_mem, memory_prefix[prefix_off]);
       draw_bare_percentage(mem_util_win, "MEM",
-          (unsigned int)(100. * dinfo->used_memory / (double)dinfo->total_memory),
-          buff);
+                           (unsigned int)(100. * dinfo->used_memory /
+                                          (double)dinfo->total_memory),
+                           buff);
     } else {
       snprintf(buff, 1024, "N/A");
       draw_bare_percentage(mem_util_win, "MEM", 0, buff);
     }
-    if (IS_VALID(gpu_temp_valid , dinfo->valid)) {
+    if (IS_VALID(gpu_temp_valid, dinfo->valid)) {
       if (!IS_VALID(gpu_temp_slowdown_valid, dinfo->valid))
         dinfo->gpu_temp_slowdown = 0;
-      draw_temp_color(dev->temperature,
-          dinfo->gpu_temp,
-          dinfo->gpu_temp_slowdown,
-          !interface->use_fahrenheit);
+      draw_temp_color(dev->temperature, dinfo->gpu_temp,
+                      dinfo->gpu_temp_slowdown, !interface->use_fahrenheit);
     } else {
       mvwprintw(dev->temperature, 0, 0, "TEMP N/A");
       waddch(dev->temperature, ACS_DEGREE);
-      if(interface->use_fahrenheit)
+      if (interface->use_fahrenheit)
         waddch(dev->temperature, 'F');
       else
         waddch(dev->temperature, 'C');
@@ -1067,9 +823,7 @@ static void draw_devices(
     // GPU CLOCK
     werase(dev->gpu_clock_info);
     if (IS_VALID(gpu_clock_speed_valid, dinfo->valid))
-      mvwprintw(dev->gpu_clock_info, 0, 0,
-          "GPU %uMHz",
-          dinfo->gpu_clock_speed);
+      mvwprintw(dev->gpu_clock_info, 0, 0, "GPU %uMHz", dinfo->gpu_clock_speed);
     else
       mvwprintw(dev->gpu_clock_info, 0, 0, "GPU N/A MHz");
 
@@ -1079,9 +833,7 @@ static void draw_devices(
     // MEM CLOCK
     werase(dev->mem_clock_info);
     if (IS_VALID(mem_clock_speed_valid, dinfo->valid))
-      mvwprintw(dev->mem_clock_info, 0, 0,
-          "MEM %uMHz",
-          dinfo->mem_clock_speed);
+      mvwprintw(dev->mem_clock_info, 0, 0, "MEM %uMHz", dinfo->mem_clock_speed);
     else
       mvwprintw(dev->mem_clock_info, 0, 0, "MEM N/A MHz");
     mvwchgat(dev->mem_clock_info, 0, 0, 3, 0, cyan_color, NULL);
@@ -1089,11 +841,10 @@ static void draw_devices(
 
     // POWER
     werase(dev->power_info);
-    if (IS_VALID(power_draw_valid    , dinfo->valid) &&
+    if (IS_VALID(power_draw_valid, dinfo->valid) &&
         IS_VALID(power_draw_max_valid, dinfo->valid))
-      mvwprintw(dev->power_info, 0, 0,
-          "POW %3u / %3u W",
-          dinfo->power_draw / 1000, dinfo->power_draw_max / 1000);
+      mvwprintw(dev->power_info, 0, 0, "POW %3u / %3u W",
+                dinfo->power_draw / 1000, dinfo->power_draw_max / 1000);
     else
       mvwprintw(dev->power_info, 0, 0, "POW N/A W");
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
@@ -1107,10 +858,10 @@ static void draw_devices(
     wattron(dev->pcie_info, COLOR_PAIR(magenta_color));
     wprintw(dev->pcie_info, "GEN ");
     wattroff(dev->pcie_info, COLOR_PAIR(magenta_color));
-    if (IS_VALID(cur_pcie_link_gen_valid  , dinfo->valid) &&
+    if (IS_VALID(cur_pcie_link_gen_valid, dinfo->valid) &&
         IS_VALID(cur_pcie_link_width_valid, dinfo->valid))
       wprintw(dev->pcie_info, "%u@%2ux", dinfo->cur_pcie_link_gen,
-          dinfo->cur_pcie_link_width);
+              dinfo->cur_pcie_link_width);
     else
       wprintw(dev->pcie_info, "N/A");
 
@@ -1137,38 +888,42 @@ static inline unsigned int max_val(unsigned int a, unsigned int b) {
   return a > b ? a : b;
 }
 
-static unsigned int copy_processes_for_processing(
-    unsigned int num_devices,
-    struct device_info *dev_info,
-    struct nvtop_interface *interface) {
+static unsigned int
+copy_processes_for_processing(unsigned int num_devices,
+                              struct device_info *dev_info,
+                              struct nvtop_interface *interface) {
 
   unsigned int maximum_name_length = 0;
   unsigned int total_processes = 0;
   for (unsigned int i = 0; i < num_devices; ++i) {
-    total_processes += dev_info[i].num_compute_procs + dev_info[i].num_graphical_procs;
+    total_processes +=
+        dev_info[i].num_compute_procs + dev_info[i].num_graphical_procs;
   }
   while (total_processes > interface->process.size_processes_buffer) {
     interface->process.size_processes_buffer *= 2;
-    interface->process.all_process = realloc(interface->process.all_process,
-        interface->process.size_processes_buffer *
-        sizeof(*interface->process.all_process));
+    interface->process.all_process =
+        realloc(interface->process.all_process,
+                interface->process.size_processes_buffer *
+                    sizeof(*interface->process.all_process));
   }
   unsigned int offset = 0;
   for (unsigned int i = 0; i < num_devices; ++i) {
     for (unsigned int j = 0; j < dev_info[i].num_compute_procs; ++j) {
-      interface->process.all_process[offset+j].is_graphical = false;
-      interface->process.all_process[offset+j].gpu_id = i;
-      interface->process.all_process[offset+j].pid =
-        dev_info[i].compute_procs[j].pid;
-      interface->process.all_process[offset+j].process_name = dev_info[i].compute_procs[j].process_name;
-      interface->process.all_process[offset+j].user_name = dev_info[i].compute_procs[j].user_name;
-      interface->process.all_process[offset+j].used_memory =
-        dev_info[i].compute_procs[j].used_memory;
-      maximum_name_length = max_val(maximum_name_length,
-            strlen(dev_info[i].compute_procs[j].user_name));
-      interface->process.all_process[offset+j].mem_percentage =
-        interface->process.all_process[offset+j].used_memory * 100. /
-        (double) dev_info[i].total_memory;
+      interface->process.all_process[offset + j].is_graphical = false;
+      interface->process.all_process[offset + j].gpu_id = i;
+      interface->process.all_process[offset + j].pid =
+          dev_info[i].compute_procs[j].pid;
+      interface->process.all_process[offset + j].process_name =
+          dev_info[i].compute_procs[j].process_name;
+      interface->process.all_process[offset + j].user_name =
+          dev_info[i].compute_procs[j].user_name;
+      interface->process.all_process[offset + j].used_memory =
+          dev_info[i].compute_procs[j].used_memory;
+      maximum_name_length = max_val(
+          maximum_name_length, strlen(dev_info[i].compute_procs[j].user_name));
+      interface->process.all_process[offset + j].mem_percentage =
+          interface->process.all_process[offset + j].used_memory * 100. /
+          (double)dev_info[i].total_memory;
       interface->process.all_process[offset + j].cpu_percent =
           dev_info[i].compute_procs[j].cpu_usage;
       interface->process.all_process[offset + j].cpu_memory =
@@ -1176,19 +931,21 @@ static unsigned int copy_processes_for_processing(
     }
     offset += dev_info[i].num_compute_procs;
     for (unsigned int j = 0; j < dev_info[i].num_graphical_procs; ++j) {
-      interface->process.all_process[offset+j].is_graphical = true;
-      interface->process.all_process[offset+j].gpu_id = i;
-      interface->process.all_process[offset+j].pid =
-        dev_info[i].graphic_procs[j].pid;
-      interface->process.all_process[offset+j].process_name = dev_info[i].graphic_procs[j].process_name;
-      interface->process.all_process[offset+j].user_name = dev_info[i].graphic_procs[j].user_name;
-      interface->process.all_process[offset+j].used_memory =
-        dev_info[i].graphic_procs[j].used_memory;
-      maximum_name_length = max_val(maximum_name_length,
-            strlen(dev_info[i].graphic_procs[j].user_name));
-      interface->process.all_process[offset+j].mem_percentage =
-        interface->process.all_process[offset+j].used_memory * 100. /
-        (double) dev_info[i].total_memory;
+      interface->process.all_process[offset + j].is_graphical = true;
+      interface->process.all_process[offset + j].gpu_id = i;
+      interface->process.all_process[offset + j].pid =
+          dev_info[i].graphic_procs[j].pid;
+      interface->process.all_process[offset + j].process_name =
+          dev_info[i].graphic_procs[j].process_name;
+      interface->process.all_process[offset + j].user_name =
+          dev_info[i].graphic_procs[j].user_name;
+      interface->process.all_process[offset + j].used_memory =
+          dev_info[i].graphic_procs[j].used_memory;
+      maximum_name_length = max_val(
+          maximum_name_length, strlen(dev_info[i].graphic_procs[j].user_name));
+      interface->process.all_process[offset + j].mem_percentage =
+          interface->process.all_process[offset + j].used_memory * 100. /
+          (double)dev_info[i].total_memory;
       interface->process.all_process[offset + j].cpu_percent =
           dev_info[i].graphic_procs[j].cpu_usage;
       interface->process.all_process[offset + j].cpu_memory =
@@ -1196,201 +953,159 @@ static unsigned int copy_processes_for_processing(
     }
     offset += dev_info[i].num_graphical_procs;
   }
-  interface->process.size_biggest_name = max_val(interface->process.size_biggest_name, maximum_name_length);
+  interface->process.size_biggest_name =
+      max_val(interface->process.size_biggest_name, maximum_name_length);
 
   return total_processes;
 }
 
-static int compare_pid_desc(
-    const void *pp1,
-    const void *pp2) {
-  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
-  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
-  return - p1->pid + p2->pid;
+static int compare_pid_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
+  return -p1->pid + p2->pid;
 }
 
-static int compare_pid_asc(
-    const void *pp1,
-    const void *pp2) {
+static int compare_pid_asc(const void *pp1, const void *pp2) {
   return compare_pid_desc(pp2, pp1);
 }
 
-static int compare_username_desc(
-    const void *pp1,
-    const void *pp2) {
-  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
-  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
+static int compare_username_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
   return -strcmp(p1->user_name, p2->user_name);
 }
 
-static int compare_username_asc(
-    const void *pp1,
-    const void *pp2) {
+static int compare_username_asc(const void *pp1, const void *pp2) {
   return compare_username_desc(pp2, pp1);
 }
 
-static int compare_process_name_desc(
-    const void *pp1,
-    const void *pp2) {
-  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
-  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
+static int compare_process_name_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
   return -strncmp(p1->process_name, p2->process_name, sizeof(p1->user_name));
 }
 
-static int compare_process_name_asc(
-    const void *pp1,
-    const void *pp2) {
+static int compare_process_name_asc(const void *pp1, const void *pp2) {
   return compare_process_name_desc(pp2, pp1);
 }
 
-static int compare_mem_usage_desc(
-    const void *pp1,
-    const void *pp2) {
-  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
-  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
-  return - p1->used_memory + p2->used_memory;
+static int compare_mem_usage_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
+  return -p1->used_memory + p2->used_memory;
 }
 
-static int compare_mem_usage_asc(
-    const void *pp1,
-    const void *pp2) {
+static int compare_mem_usage_asc(const void *pp1, const void *pp2) {
   return compare_mem_usage_desc(pp2, pp1);
 }
 
-static int compare_cpu_usage_desc(
-    const void *pp1,
-    const void *pp2) {
-  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
-  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
+static int compare_cpu_usage_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
   return p1->cpu_percent >= p2->cpu_percent ? -1 : 1;
 }
 
-static int compare_cpu_usage_asc(
-    const void *pp1,
-    const void *pp2) {
-  return compare_cpu_usage_desc(pp2,pp1);
+static int compare_cpu_usage_asc(const void *pp1, const void *pp2) {
+  return compare_cpu_usage_desc(pp2, pp1);
 }
 
-static int compare_cpu_mem_usage_desc(
-    const void *pp1,
-    const void *pp2) {
-  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
-  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
-  return - (int)p1->cpu_memory + (int)p2->cpu_memory;
+static int compare_cpu_mem_usage_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
+  return -(int)p1->cpu_memory + (int)p2->cpu_memory;
 }
 
-static int compare_cpu_mem_usage_asc(
-    const void *pp1,
-    const void *pp2) {
+static int compare_cpu_mem_usage_asc(const void *pp1, const void *pp2) {
   return compare_cpu_mem_usage_desc(pp2, pp1);
 }
 
-static int compare_gpu_desc(
-    const void *pp1,
-    const void *pp2) {
-  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
-  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
-  return - p1->gpu_id + p2->gpu_id;
+static int compare_gpu_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
+  return -p1->gpu_id + p2->gpu_id;
 }
 
-static int compare_gpu_asc(
-    const void *pp1,
-    const void *pp2) {
+static int compare_gpu_asc(const void *pp1, const void *pp2) {
   return -compare_gpu_desc(pp1, pp2);
 }
 
-static int compare_process_type_desc(
-    const void *pp1,
-    const void *pp2) {
-  const struct all_gpu_processes *p1 = (const struct all_gpu_processes*) pp1;
-  const struct all_gpu_processes *p2 = (const struct all_gpu_processes*) pp2;
+static int compare_process_type_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
   return p1->is_graphical != p2->is_graphical;
 }
 
-static int compare_process_type_asc(
-    const void *pp1,
-    const void *pp2) {
+static int compare_process_type_asc(const void *pp1, const void *pp2) {
   return -compare_process_name_desc(pp1, pp2);
 }
 
-static void sort_process(
-    struct all_gpu_processes *proc,
-    unsigned int total_process,
-    enum process_field criterion,
-    bool asc_sort) {
-  int (*sort_fun)(const void*, const void*);
+static void sort_process(struct all_gpu_processes *proc,
+                         unsigned int total_process,
+                         enum process_field criterion, bool asc_sort) {
+  int (*sort_fun)(const void *, const void *);
   switch (criterion) {
-    case process_pid:
-      if (asc_sort)
-        sort_fun = compare_pid_asc;
-      else
-        sort_fun = compare_pid_desc;
-      break;
-    case process_user:
-      if (asc_sort)
-        sort_fun = compare_username_asc;
-      else
-        sort_fun = compare_username_desc;
-      break;
-    case process_gpu_id:
-      if (asc_sort)
-        sort_fun = compare_gpu_asc;
-      else
-        sort_fun = compare_gpu_desc;
-      break;
-    case process_type:
-      if (asc_sort)
-        sort_fun = compare_process_type_asc;
-      else
-        sort_fun = compare_process_type_desc;
-      break;
-    case process_memory:
-      if (asc_sort)
-        sort_fun = compare_mem_usage_asc;
-      else
-        sort_fun = compare_mem_usage_desc;
-      break;
-    case process_command:
-      if (asc_sort)
-        sort_fun = compare_process_name_asc;
-      else
-        sort_fun = compare_process_name_desc;
-      break;
-    case process_cpu_usage:
-      if (asc_sort)
-        sort_fun = compare_cpu_usage_asc;
-      else
-        sort_fun = compare_cpu_usage_desc;
-      break;
-    case process_cpu_mem_usage:
-      if (asc_sort)
-        sort_fun = compare_cpu_mem_usage_asc;
-      else
-        sort_fun = compare_cpu_mem_usage_desc;
-      break;
-    case process_end:
-    default:
-      return;
+  case process_pid:
+    if (asc_sort)
+      sort_fun = compare_pid_asc;
+    else
+      sort_fun = compare_pid_desc;
+    break;
+  case process_user:
+    if (asc_sort)
+      sort_fun = compare_username_asc;
+    else
+      sort_fun = compare_username_desc;
+    break;
+  case process_gpu_id:
+    if (asc_sort)
+      sort_fun = compare_gpu_asc;
+    else
+      sort_fun = compare_gpu_desc;
+    break;
+  case process_type:
+    if (asc_sort)
+      sort_fun = compare_process_type_asc;
+    else
+      sort_fun = compare_process_type_desc;
+    break;
+  case process_memory:
+    if (asc_sort)
+      sort_fun = compare_mem_usage_asc;
+    else
+      sort_fun = compare_mem_usage_desc;
+    break;
+  case process_command:
+    if (asc_sort)
+      sort_fun = compare_process_name_asc;
+    else
+      sort_fun = compare_process_name_desc;
+    break;
+  case process_cpu_usage:
+    if (asc_sort)
+      sort_fun = compare_cpu_usage_asc;
+    else
+      sort_fun = compare_cpu_usage_desc;
+    break;
+  case process_cpu_mem_usage:
+    if (asc_sort)
+      sort_fun = compare_cpu_mem_usage_asc;
+    else
+      sort_fun = compare_cpu_mem_usage_desc;
+    break;
+  case process_end:
+  default:
+    return;
   }
   qsort(proc, total_process, sizeof(*proc), sort_fun);
 }
 
 static const char *columnName[] = {
-  "PID",
-  "USER",
-  "GPU",
-  "TYPE",
-  "GPU MEM",
-  "CPU",
-  "HOST MEM",
-  "Command",
+    "PID", "USER", "GPU", "TYPE", "GPU MEM", "CPU", "HOST MEM", "Command",
 };
 
 static void update_selected_offset_with_window_size(
-    unsigned int *selected_row,
-    unsigned int *offset,
-    unsigned int row_available_to_draw,
-    unsigned int num_to_draw) {
+    unsigned int *selected_row, unsigned int *offset,
+    unsigned int row_available_to_draw, unsigned int num_to_draw) {
 
   if (*selected_row > num_to_draw - 1)
     *selected_row = num_to_draw - 1;
@@ -1401,8 +1116,7 @@ static void update_selected_offset_with_window_size(
   if (*offset + row_available_to_draw - 1 < *selected_row)
     *offset = *selected_row - row_available_to_draw + 1;
 
-  while (row_available_to_draw > num_to_draw - *offset &&
-      *offset != 0)
+  while (row_available_to_draw > num_to_draw - *offset && *offset != 0)
     *offset -= 1;
 }
 
@@ -1413,7 +1127,7 @@ static void set_attribute_between(WINDOW *win, int startY, int startX, int endX,
                                   attr_t attr, short pair) {
   int rows, cols;
   getmaxyx(win, rows, cols);
-  (void) rows;
+  (void)rows;
   if (startX >= cols || endX < 0)
     return;
   startX = startX < 0 ? 0 : startX;
@@ -1422,8 +1136,8 @@ static void set_attribute_between(WINDOW *win, int startY, int startX, int endX,
   mvwchgat(win, startY, startX, size, attr, pair, NULL);
 }
 
-static void print_processes_on_screen(
-    unsigned int num_process, struct process_window *process) {
+static void print_processes_on_screen(unsigned int num_process,
+                                      struct process_window *process) {
   WINDOW *win = process->option_window.state == nvtop_option_state_hidden
                     ? process->process_win
                     : process->process_with_option_win;
@@ -1435,18 +1149,15 @@ static void print_processes_on_screen(
   getmaxyx(win, rows, cols);
   rows -= 1;
 
-  update_selected_offset_with_window_size(
-      &process->selected_row,
-      &process->offset,
-      rows,
-      num_process);
+  update_selected_offset_with_window_size(&process->selected_row,
+                                          &process->offset, rows, num_process);
   if (process->offset_column + cols >= process_buffer_line_size)
     process->offset_column = process_buffer_line_size - cols - 1;
 
   size_t special_row = process->selected_row;
 
-  char pid_str[sizeof_process_field[process_pid]+1];
-  char guid_str[sizeof_process_field[process_gpu_id]+1];
+  char pid_str[sizeof_process_field[process_pid] + 1];
+  char guid_str[sizeof_process_field[process_gpu_id] + 1];
   char memory[sizeof_process_field[process_memory] + 1];
   char cpu_percent[sizeof_process_field[process_cpu_usage] + 1];
   char cpu_mem[sizeof_process_field[process_cpu_mem_usage] + 1];
@@ -1469,11 +1180,11 @@ static void print_processes_on_screen(
   }
 
   mvwprintw(win, 0, 0, "%.*s", cols,
-              &process_print_buffer[process->offset_column]);
+            &process_print_buffer[process->offset_column]);
   mvwchgat(win, 0, 0, -1, A_STANDOUT, green_color, NULL);
   set_attribute_between(win, 0, column_sort_start - (int)process->offset_column,
-                        column_sort_end - (int)process->offset_column, A_STANDOUT,
-                        cyan_color);
+                        column_sort_end - (int)process->offset_column,
+                        A_STANDOUT, cyan_color);
 
   int start_type = 0;
   for (unsigned int i = 0; i < process_type; ++i) {
@@ -1481,23 +1192,22 @@ static void print_processes_on_screen(
   }
   int end_type = start_type + sizeof_process_field[process_type];
 
-  for (unsigned int i = start_at_process; i < end_at_process && i < num_process; ++i) {
+  for (unsigned int i = start_at_process; i < end_at_process && i < num_process;
+       ++i) {
     memset(process_print_buffer, 0, sizeof(process_print_buffer));
-    size_t size = snprintf(pid_str, sizeof_process_field[process_pid]+1,
-        "%" PRIdMAX, proc[i].pid);
-    if (size == sizeof_process_field[process_pid]+1)
+    size_t size = snprintf(pid_str, sizeof_process_field[process_pid] + 1,
+                           "%" PRIdMAX, proc[i].pid);
+    if (size == sizeof_process_field[process_pid] + 1)
       pid_str[sizeof_process_field[process_pid]] = '\0';
-    size = snprintf(guid_str, sizeof_process_field[process_gpu_id]+1,
-        "%u", proc[i].gpu_id);
-    if (size == sizeof_process_field[process_gpu_id]+1)
+    size = snprintf(guid_str, sizeof_process_field[process_gpu_id] + 1, "%u",
+                    proc[i].gpu_id);
+    if (size == sizeof_process_field[process_gpu_id] + 1)
       pid_str[sizeof_process_field[process_gpu_id]] = '\0';
-    printed = snprintf(process_print_buffer, process_buffer_line_size, "%*s %*s %*s",
-        sizeof_process_field[process_pid],
-        pid_str,
-        sizeof_process_field[process_user],
-        proc[i].user_name,
-        sizeof_process_field[process_gpu_id],
-        guid_str);
+    printed =
+        snprintf(process_print_buffer, process_buffer_line_size, "%*s %*s %*s",
+                 sizeof_process_field[process_pid], pid_str,
+                 sizeof_process_field[process_user], proc[i].user_name,
+                 sizeof_process_field[process_gpu_id], guid_str);
     if (proc[i].is_graphical) {
       printed += snprintf(&process_print_buffer[printed],
                           process_buffer_line_size - printed, " %*s ",
@@ -1511,21 +1221,20 @@ static void print_processes_on_screen(
     snprintf(memory + 8, sizeof_process_field[process_memory] - 7, " %3.0f%%",
              proc[i].mem_percentage);
     printed += snprintf(&process_print_buffer[printed],
-                        process_buffer_line_size - printed,
-                        "%*s ", sizeof_process_field[process_memory], memory);
-    snprintf(cpu_percent, sizeof_process_field[process_cpu_usage]+1,
-        "%.f%%", proc[i].cpu_percent);
+                        process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[process_memory], memory);
+    snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1, "%.f%%",
+             proc[i].cpu_percent);
     printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed, "%*s ",
                         sizeof_process_field[process_cpu_usage], cpu_percent);
-    snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage]+1,
-        "%zuMB", proc[i].cpu_memory/1048576);
+    snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "%zuMB",
+             proc[i].cpu_memory / 1048576);
     printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed, "%*s ",
                         sizeof_process_field[process_cpu_mem_usage], cpu_mem);
-    snprintf(&process_print_buffer[printed],
-             process_buffer_line_size - printed, "%.*s",
-             process_buffer_line_size - printed, proc[i].process_name);
+    snprintf(&process_print_buffer[printed], process_buffer_line_size - printed,
+             "%.*s", process_buffer_line_size - printed, proc[i].process_name);
     unsigned int write_at = i - start_at_process + 1;
     mvwprintw(win, write_at, 0, "%.*s", cols,
               &process_print_buffer[process->offset_column]);
@@ -1533,33 +1242,33 @@ static void print_processes_on_screen(
       mvwchgat(win, write_at, 0, -1, A_STANDOUT, cyan_color, NULL);
     } else {
       if (proc[i].is_graphical) {
-        set_attribute_between(win, write_at, start_type - (int)process->offset_column,
-                              end_type - (int)process->offset_column, 0,
-                              yellow_color);
+        set_attribute_between(
+            win, write_at, start_type - (int)process->offset_column,
+            end_type - (int)process->offset_column, 0, yellow_color);
       } else {
-        set_attribute_between(win, write_at, start_type - (int)process->offset_column,
-                              end_type - (int)process->offset_column, 0,
-                              magenta_color);
+        set_attribute_between(
+            win, write_at, start_type - (int)process->offset_column,
+            end_type - (int)process->offset_column, 0, magenta_color);
       }
     }
   }
   wnoutrefresh(win);
 }
 
-static void draw_processes(
-    struct device_info *dev_info,
-    struct nvtop_interface *interface) {
+static void draw_processes(struct device_info *dev_info,
+                           struct nvtop_interface *interface) {
 
   if (interface->process.process_win == NULL)
     return;
   unsigned int num_devices = interface->num_devices;
   unsigned int total_processes = 0;
   if (interface->process.option_window.state == nvtop_option_state_hidden) {
-    total_processes = copy_processes_for_processing(num_devices,
-        dev_info, interface);
+    total_processes =
+        copy_processes_for_processing(num_devices, dev_info, interface);
     interface->process.num_processes = total_processes;
     sort_process(interface->process.all_process, total_processes,
-        interface->process.sort_criterion, interface->process.sort_asc);
+                 interface->process.sort_criterion,
+                 interface->process.sort_asc);
   } else {
     total_processes = interface->process.num_processes;
   }
@@ -1570,66 +1279,18 @@ static void draw_processes(
 }
 
 static const char *signalsName[] = {
-"Cancel",
-"SIGABRT",
-"SIGALRM",
-"SIGBUS",
-"SIGCHLD",
-"SIGCONT",
-"SIGFPE",
-"SIGHUP",
-"SIGILL",
-"SIGINT",
-"SIGKILL",
-"SIGPIPE",
-"SIGQUIT",
-"SIGSEGV",
-"SIGSTOP",
-"SIGTERM",
-"SIGTSTP",
-"SIGTTIN",
-"SIGTTOU",
-"SIGUSR1",
-"SIGUSR2",
-"SIGPOLL",
-"SIGPROF",
-"SIGSYS",
-"SIGTRAP",
-"SIGURG",
-"SIGVTALRM",
-"SIGXCPU",
-"SIGXFSZ",
+    "Cancel",  "SIGABRT", "SIGALRM",   "SIGBUS",  "SIGCHLD", "SIGCONT",
+    "SIGFPE",  "SIGHUP",  "SIGILL",    "SIGINT",  "SIGKILL", "SIGPIPE",
+    "SIGQUIT", "SIGSEGV", "SIGSTOP",   "SIGTERM", "SIGTSTP", "SIGTTIN",
+    "SIGTTOU", "SIGUSR1", "SIGUSR2",   "SIGPOLL", "SIGPROF", "SIGSYS",
+    "SIGTRAP", "SIGURG",  "SIGVTALRM", "SIGXCPU", "SIGXFSZ",
 };
 
 static const int signalsValues[] = {
-SIGABRT  ,
-SIGALRM  ,
-SIGBUS   ,
-SIGCHLD  ,
-SIGCONT  ,
-SIGFPE   ,
-SIGHUP   ,
-SIGILL   ,
-SIGINT   ,
-SIGKILL  ,
-SIGPIPE  ,
-SIGQUIT  ,
-SIGSEGV  ,
-SIGSTOP  ,
-SIGTERM  ,
-SIGTSTP  ,
-SIGTTIN  ,
-SIGTTOU  ,
-SIGUSR1  ,
-SIGUSR2  ,
-SIGPOLL  ,
-SIGPROF  ,
-SIGSYS   ,
-SIGTRAP  ,
-SIGURG   ,
-SIGVTALRM,
-SIGXCPU  ,
-SIGXFSZ  ,
+    SIGABRT, SIGALRM, SIGBUS,  SIGCHLD, SIGCONT,   SIGFPE,  SIGHUP,
+    SIGILL,  SIGINT,  SIGKILL, SIGPIPE, SIGQUIT,   SIGSEGV, SIGSTOP,
+    SIGTERM, SIGTSTP, SIGTTIN, SIGTTOU, SIGUSR1,   SIGUSR2, SIGPOLL,
+    SIGPROF, SIGSYS,  SIGTRAP, SIGURG,  SIGVTALRM, SIGXCPU, SIGXFSZ,
 };
 
 static const size_t nvtop_num_signals = 28;
@@ -1646,7 +1307,8 @@ static void draw_kill_option(struct nvtop_interface *interface) {
   size_t start_at_option = interface->process.option_window.offset;
   size_t end_at_option = start_at_option + rows - 1;
 
-  for (size_t i = start_at_option; i < end_at_option && i <= nvtop_num_signals; ++i) {
+  for (size_t i = start_at_option; i < end_at_option && i <= nvtop_num_signals;
+       ++i) {
     if (i == interface->process.option_window.selected_row) {
       wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
     }
@@ -1657,7 +1319,7 @@ static void draw_kill_option(struct nvtop_interface *interface) {
       wprintw(win, " ");
     if (i == interface->process.option_window.selected_row) {
       wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      mvwprintw(win, rows, option_window_size-1, " ");
+      mvwprintw(win, rows, option_window_size - 1, " ");
     }
   }
   wnoutrefresh(win);
@@ -1680,31 +1342,29 @@ static void draw_sort_option(struct nvtop_interface *interface) {
       wprintw(win, " ");
     if (interface->process.option_window.selected_row == 0) {
       wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      mvwprintw(win, rows, option_window_size-1, " ");
+      mvwprintw(win, rows, option_window_size - 1, " ");
     }
   }
   getmaxyx(win, rows, cols);
 
-  size_t start_at_option =
-    interface->process.option_window.offset == 0 ?
-    interface->process.option_window.offset :
-    interface->process.option_window.offset- 1;
-  size_t end_at_option =
-    interface->process.option_window.offset == 0 ?
-    start_at_option + rows - 2 :
-    start_at_option + rows - 1;
+  size_t start_at_option = interface->process.option_window.offset == 0
+                               ? interface->process.option_window.offset
+                               : interface->process.option_window.offset - 1;
+  size_t end_at_option = interface->process.option_window.offset == 0
+                             ? start_at_option + rows - 2
+                             : start_at_option + rows - 1;
 
   for (size_t i = start_at_option; i < end_at_option && i < process_end; ++i) {
-    if (i+1 == interface->process.option_window.selected_row) {
+    if (i + 1 == interface->process.option_window.selected_row) {
       wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
     }
     wprintw(win, "%s", columnName[i]);
     getyx(win, rows, cols);
     for (unsigned int j = cols; j < option_window_size; ++j)
       wprintw(win, " ");
-    if (i+1 == interface->process.option_window.selected_row) {
+    if (i + 1 == interface->process.option_window.selected_row) {
       wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      mvwprintw(win, rows, option_window_size-1, " ");
+      mvwprintw(win, rows, option_window_size - 1, " ");
     }
   }
   wnoutrefresh(win);
@@ -1714,55 +1374,53 @@ static void draw_options(struct nvtop_interface *interface) {
   unsigned int rows, cols;
   getmaxyx(interface->process.option_window.option_win, rows, cols);
   rows -= 1;
-  (void) cols;
+  (void)cols;
   unsigned int num_options = 0;
   switch (interface->process.option_window.state) {
-    case nvtop_option_state_kill:
-      num_options = nvtop_num_signals + 1; // Option + Cancel
-      break;
-    case nvtop_option_state_sort_by:
-      num_options = process_end + 1; // Option + Cancel
-      break;
-    case nvtop_option_state_hidden:
-    default:
-      break;
+  case nvtop_option_state_kill:
+    num_options = nvtop_num_signals + 1; // Option + Cancel
+    break;
+  case nvtop_option_state_sort_by:
+    num_options = process_end + 1; // Option + Cancel
+    break;
+  case nvtop_option_state_hidden:
+  default:
+    break;
   }
 
   update_selected_offset_with_window_size(
       &interface->process.option_window.selected_row,
-      &interface->process.option_window.offset,
-      rows,
-      num_options);
+      &interface->process.option_window.offset, rows, num_options);
 
   switch (interface->process.option_window.state) {
-    case nvtop_option_state_kill:
-      draw_kill_option(interface);
-      break;
-    case nvtop_option_state_sort_by:
-      draw_sort_option(interface);
-      break;
-    case nvtop_option_state_hidden:
-    default:
-      break;
+  case nvtop_option_state_kill:
+    draw_kill_option(interface);
+    break;
+  case nvtop_option_state_sort_by:
+    draw_sort_option(interface);
+    break;
+  case nvtop_option_state_hidden:
+  default:
+    break;
   }
 }
 
 static const char *option_selection_hidden[] = {
-  "Kill",
-  "Sort",
-  "Quit",
+    "Kill",
+    "Sort",
+    "Quit",
 };
 
 static const char *option_selection_sort[][2] = {
-  {"Enter", "Sort"},
-  {"ESC", "Cancel"},
-  {"+", "Ascending"},
-  {"-", "Descending"},
+    {"Enter", "Sort"},
+    {"ESC", "Cancel"},
+    {"+", "Ascending"},
+    {"-", "Descending"},
 };
 
 static const char *option_selection_kill[][2] = {
-  {"Enter", "Send"},
-  {"ESC", "Cancel"},
+    {"Enter", "Send"},
+    {"ESC", "Cancel"},
 };
 
 static const unsigned int option_selection_width = 8;
@@ -1770,44 +1428,47 @@ static const unsigned int option_selection_width = 8;
 static void draw_option_selection(struct nvtop_interface *interface) {
   WINDOW *win = interface->process.option_window.option_selection_window;
   wmove(win, 0, 0);
-  switch(interface->process.option_window.state) {
-    case nvtop_option_state_hidden:
-      for (size_t i = 0; i < 3; ++i) {
-        wprintw(win, "F%zu", i+1);
-        wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-        wprintw(win, "%s", option_selection_hidden[i]);
-        for (size_t j = strlen(option_selection_hidden[i]); j < option_selection_width; ++j)
-          wprintw(win, " ");
-        wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      }
-      break;
-    case nvtop_option_state_kill:
-      for (size_t i = 0; i < 2; ++i) {
-        wprintw(win, "%s", option_selection_kill[i][0]);
-        wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-        wprintw(win, "%s", option_selection_kill[i][1]);
-        for (size_t j = strlen(option_selection_kill[i][1]); j < option_selection_width; ++j)
-          wprintw(win, " ");
-        wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      }
-      break;
-    case nvtop_option_state_sort_by:
-      for (size_t i = 0; i < 4; ++i) {
-        wprintw(win, "%s", option_selection_sort[i][0]);
-        wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-        wprintw(win, "%s", option_selection_sort[i][1]);
-        for (size_t j = strlen(option_selection_sort[i][1]); j < option_selection_width; ++j)
-          wprintw(win, " ");
-        wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      }
-      break;
-    default:
-      break;
+  switch (interface->process.option_window.state) {
+  case nvtop_option_state_hidden:
+    for (size_t i = 0; i < 3; ++i) {
+      wprintw(win, "F%zu", i + 1);
+      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      wprintw(win, "%s", option_selection_hidden[i]);
+      for (size_t j = strlen(option_selection_hidden[i]);
+           j < option_selection_width; ++j)
+        wprintw(win, " ");
+      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    }
+    break;
+  case nvtop_option_state_kill:
+    for (size_t i = 0; i < 2; ++i) {
+      wprintw(win, "%s", option_selection_kill[i][0]);
+      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      wprintw(win, "%s", option_selection_kill[i][1]);
+      for (size_t j = strlen(option_selection_kill[i][1]);
+           j < option_selection_width; ++j)
+        wprintw(win, " ");
+      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    }
+    break;
+  case nvtop_option_state_sort_by:
+    for (size_t i = 0; i < 4; ++i) {
+      wprintw(win, "%s", option_selection_sort[i][0]);
+      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      wprintw(win, "%s", option_selection_sort[i][1]);
+      for (size_t j = strlen(option_selection_sort[i][1]);
+           j < option_selection_width; ++j)
+        wprintw(win, " ");
+      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    }
+    break;
+  default:
+    break;
   }
   unsigned int cur_col, maxcols, tmp;
   getmaxyx(stdscr, tmp, maxcols);
   getyx(win, tmp, cur_col);
-  (void) tmp;
+  (void)tmp;
   wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
   for (unsigned int j = cur_col; j < maxcols; ++j)
     wprintw(win, " ");
@@ -1837,14 +1498,14 @@ static void update_retained_data(struct device_info *dev_info,
   }
 }
 
-static void
-populate_plot_data_specific_gpu_mem(struct nvtop_interface *interface,
-                                    struct plot_window *plot) {
+static void populate_plot_data_gpu_mem(struct nvtop_interface *interface,
+                                       struct plot_window *plot) {
   memset(plot->data, 0, plot->num_data * sizeof(double));
+  unsigned num_cols = plot->type == plot_gpu_duo ? 4 : 2;
   unsigned upper_bound =
-      plot->num_data / 2 > interface->past_data.num_collected_data
+      plot->num_data / num_cols > interface->past_data.num_collected_data
           ? interface->past_data.num_collected_data
-          : plot->num_data / 2;
+          : plot->num_data / num_cols;
   for (unsigned i = 0; i < upper_bound; ++i) {
     unsigned(*gpudata)[interface->past_data.size_data_buffer] =
         (unsigned(*)[interface->past_data.size_data_buffer])
@@ -1852,16 +1513,28 @@ populate_plot_data_specific_gpu_mem(struct nvtop_interface *interface,
     unsigned(*memdata)[interface->past_data.size_data_buffer] =
         (unsigned(*)[interface->past_data.size_data_buffer])
             interface->past_data.mem_util;
-    plot->data[i * 2] =
-        gpudata[plot->gpu_id]
+    plot->data[i * num_cols] =
+        gpudata[plot->gpu_ids[0]]
                [(interface->past_data.size_data_buffer +
                  interface->past_data.num_collected_data - i - 1) %
                 interface->past_data.size_data_buffer];
-    plot->data[i * 2 + 1] =
-        memdata[plot->gpu_id]
+    plot->data[i * num_cols + 1] =
+        memdata[plot->gpu_ids[0]]
                [(interface->past_data.size_data_buffer +
                  interface->past_data.num_collected_data - i - 1) %
                 interface->past_data.size_data_buffer];
+    if (plot->type == plot_gpu_duo) {
+      plot->data[i * num_cols + 2] =
+          gpudata[plot->gpu_ids[1]]
+                 [(interface->past_data.size_data_buffer +
+                   interface->past_data.num_collected_data - i - 1) %
+                  interface->past_data.size_data_buffer];
+      plot->data[i * num_cols + 3] =
+          memdata[plot->gpu_ids[1]]
+                 [(interface->past_data.size_data_buffer +
+                   interface->past_data.num_collected_data - i - 1) %
+                  interface->past_data.size_data_buffer];
+    }
   }
 }
 
@@ -1900,20 +1573,33 @@ static void draw_plots(struct nvtop_interface *interface) {
     wnoutrefresh(interface->plots[i].win);
     werase(interface->plots[i].plot_window);
     switch (interface->plots[i].type) {
-    case plot_avg_gpu_mem:
+    case plot_gpu_max:
       populate_plot_data_max_gpu_mem(interface, &interface->plots[i]);
       nvtop_line_plot(interface->plots[i].plot_window,
                       interface->plots[i].num_data, interface->plots[i].data,
                       0., 100., 2, (const char * [2]){"MAX GPU", "MAX MEM"});
       break;
-    case plot_specific_gpu: {
-      populate_plot_data_specific_gpu_mem(interface, &interface->plots[i]);
+    case plot_gpu_solo: {
+      populate_plot_data_gpu_mem(interface, &interface->plots[i]);
       char gpuNum[8];
-      snprintf(gpuNum, 8, "GPU %zu", interface->plots[i].gpu_id);
+      snprintf(gpuNum, 8, "GPU %zu", interface->plots[i].gpu_ids[0]);
       nvtop_line_plot(interface->plots[i].plot_window,
                       interface->plots[i].num_data, interface->plots[i].data,
                       0., 100., 2, (const char * [2]){gpuNum, "MEM"});
-    }
+    } break;
+    case plot_gpu_duo: {
+      populate_plot_data_gpu_mem(interface, &interface->plots[i]);
+      char gpuNum[2][8];
+      char memNum[2][8];
+      snprintf(gpuNum[0], 8, "GPU %zu", interface->plots[i].gpu_ids[0]);
+      snprintf(gpuNum[1], 8, "GPU %zu", interface->plots[i].gpu_ids[1]);
+      snprintf(gpuNum[0], 8, "MEM %zu", interface->plots[i].gpu_ids[0]);
+      snprintf(gpuNum[1], 8, "MEM %zu", interface->plots[i].gpu_ids[1]);
+      nvtop_line_plot(
+          interface->plots[i].plot_window, interface->plots[i].num_data,
+          interface->plots[i].data, 0., 100., 4,
+          (const char * [4]){gpuNum[0], memNum[0], gpuNum[1], memNum[1]});
+    } break;
     default:
       break;
     }
@@ -1921,9 +1607,8 @@ static void draw_plots(struct nvtop_interface *interface) {
   }
 }
 
-void draw_gpu_info_ncurses(
-    struct device_info *dev_info,
-    struct nvtop_interface *interface) {
+void draw_gpu_info_ncurses(struct device_info *dev_info,
+                           struct nvtop_interface *interface) {
 
   update_retained_data(dev_info, interface);
   draw_devices(dev_info, interface);
@@ -1959,93 +1644,94 @@ static void option_do_kill(struct nvtop_interface *inter) {
   if (inter->process.option_window.selected_row == 0)
     return;
   pid_t pid = inter->process.all_process[inter->process.selected_row].pid;
-  int sig = signalsValues[inter->process.option_window.selected_row-1];
-  kill(pid,sig);
+  int sig = signalsValues[inter->process.option_window.selected_row - 1];
+  kill(pid, sig);
 }
 
 static void option_change_sort(struct nvtop_interface *inter) {
   if (inter->process.option_window.selected_row == 0)
     return;
-  inter->process.sort_criterion = process_pid + inter->process.option_window.selected_row - 1;
+  inter->process.sort_criterion =
+      process_pid + inter->process.option_window.selected_row - 1;
 }
 
 void interface_key(int keyId, struct nvtop_interface *inter) {
-  switch(keyId) {
-      case KEY_F(1):
-        if (inter->process.option_window.state == nvtop_option_state_hidden) {
-          inter->process.option_window.state = nvtop_option_state_kill;
-          inter->process.option_window.selected_row = 0;
-        }
-        break;
-      case KEY_F(2):
-        if (inter->process.option_window.state == nvtop_option_state_hidden) {
-          inter->process.option_window.state = nvtop_option_state_sort_by;
-          inter->process.option_window.selected_row = 0;
-        }
-        break;
-      case KEY_RIGHT:
-        if (inter->process.option_window.state == nvtop_option_state_hidden)
-          inter->process.offset_column += 4;
-        break;
-      case KEY_LEFT:
-        if (inter->process.option_window.state == nvtop_option_state_hidden &&
-            inter->process.offset_column >= 4)
-          inter->process.offset_column -= 4;
-        break;
-      case KEY_UP:
-        switch (inter->process.option_window.state) {
-          case nvtop_option_state_kill:
-          case nvtop_option_state_sort_by:
-            if (inter->process.option_window.selected_row != 0)
-              inter->process.option_window.selected_row --;
-            break;
-          case nvtop_option_state_hidden:
-            if (inter->process.selected_row != 0)
-              inter->process.selected_row --;
-            break;
-          default:
-            break;
-        }
-        break;
-      case KEY_DOWN:
-        switch (inter->process.option_window.state) {
-          case nvtop_option_state_kill:
-          case nvtop_option_state_sort_by:
-              inter->process.option_window.selected_row ++;
-            break;
-          case nvtop_option_state_hidden:
-              inter->process.selected_row ++;
-            break;
-          default:
-            break;
-        }
-        break;
-      case '+':
-        inter->process.sort_asc = true;
-        break;
-      case '-':
-        inter->process.sort_asc = false;
-        break;
-      case '\n':
-      case KEY_ENTER:
-        switch (inter->process.option_window.state) {
-          case nvtop_option_state_kill:
-            option_do_kill(inter);
-            inter->process.option_window.state = nvtop_option_state_hidden;
-            break;
-          case nvtop_option_state_sort_by:
-            option_change_sort(inter);
-            inter->process.option_window.state = nvtop_option_state_hidden;
-            break;
-          case nvtop_option_state_hidden:
-          default:
-            break;
-        }
-        break;
-      case 27:
-        inter->process.option_window.state = nvtop_option_state_hidden;
-        break;
-      default:
-        break;
+  switch (keyId) {
+  case KEY_F(1):
+    if (inter->process.option_window.state == nvtop_option_state_hidden) {
+      inter->process.option_window.state = nvtop_option_state_kill;
+      inter->process.option_window.selected_row = 0;
+    }
+    break;
+  case KEY_F(2):
+    if (inter->process.option_window.state == nvtop_option_state_hidden) {
+      inter->process.option_window.state = nvtop_option_state_sort_by;
+      inter->process.option_window.selected_row = 0;
+    }
+    break;
+  case KEY_RIGHT:
+    if (inter->process.option_window.state == nvtop_option_state_hidden)
+      inter->process.offset_column += 4;
+    break;
+  case KEY_LEFT:
+    if (inter->process.option_window.state == nvtop_option_state_hidden &&
+        inter->process.offset_column >= 4)
+      inter->process.offset_column -= 4;
+    break;
+  case KEY_UP:
+    switch (inter->process.option_window.state) {
+    case nvtop_option_state_kill:
+    case nvtop_option_state_sort_by:
+      if (inter->process.option_window.selected_row != 0)
+        inter->process.option_window.selected_row--;
+      break;
+    case nvtop_option_state_hidden:
+      if (inter->process.selected_row != 0)
+        inter->process.selected_row--;
+      break;
+    default:
+      break;
+    }
+    break;
+  case KEY_DOWN:
+    switch (inter->process.option_window.state) {
+    case nvtop_option_state_kill:
+    case nvtop_option_state_sort_by:
+      inter->process.option_window.selected_row++;
+      break;
+    case nvtop_option_state_hidden:
+      inter->process.selected_row++;
+      break;
+    default:
+      break;
+    }
+    break;
+  case '+':
+    inter->process.sort_asc = true;
+    break;
+  case '-':
+    inter->process.sort_asc = false;
+    break;
+  case '\n':
+  case KEY_ENTER:
+    switch (inter->process.option_window.state) {
+    case nvtop_option_state_kill:
+      option_do_kill(inter);
+      inter->process.option_window.state = nvtop_option_state_hidden;
+      break;
+    case nvtop_option_state_sort_by:
+      option_change_sort(inter);
+      inter->process.option_window.state = nvtop_option_state_hidden;
+      break;
+    case nvtop_option_state_hidden:
+    default:
+      break;
+    }
+    break;
+  case 27:
+    inter->process.option_window.state = nvtop_option_state_hidden;
+    break;
+  default:
+    break;
   }
 }

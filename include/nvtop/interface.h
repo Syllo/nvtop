@@ -26,23 +26,18 @@
 
 struct nvtop_interface;
 
-void show_gpu_infos_ascii(
-    unsigned int num_devices,
-    struct device_info *dev_info);
+void show_gpu_infos_ascii(unsigned int num_devices,
+                          struct device_info *dev_info);
 
-struct nvtop_interface *initialize_curses(unsigned int num_devices,
-                                          unsigned int biggest_device_name,
-                                          bool use_color, bool use_fahrenheit,
-                                          bool show_per_gpu_plot,
-                                          double encode_decode_hide_time,
-                                          unsigned collect_interval,
-                                          const char interfaceLayout[]);
+struct nvtop_interface *
+initialize_curses(unsigned int num_devices, unsigned int biggest_device_name,
+                  bool use_color, bool use_fahrenheit, bool show_per_gpu_plot,
+                  double encode_decode_hide_time, unsigned collect_interval);
 
 void clean_ncurses(struct nvtop_interface *interface);
 
-void draw_gpu_info_ncurses(
-    struct device_info *dev_info,
-    struct nvtop_interface *interface);
+void draw_gpu_info_ncurses(struct device_info *dev_info,
+                           struct nvtop_interface *interface);
 
 void update_window_size_to_terminal_size(struct nvtop_interface *inter);
 

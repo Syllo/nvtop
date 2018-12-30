@@ -6,6 +6,7 @@ configure_file(
 add_executable (nvtop
   nvtop.c
   interface.c
+  interface_layout_selection.c
   get_process_info_linux.c
   extract_gpuinfo.c
   time.c
