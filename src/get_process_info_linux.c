@@ -102,7 +102,6 @@ void get_command_from_pid(pid_t pid, char **buffer) {
   }
 }
 
-
 /*
  *
  * From man 5 proc of /proc/<pid>/stat

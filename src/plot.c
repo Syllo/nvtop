@@ -1,5 +1,5 @@
-#include <tgmath.h>
 #include <string.h>
+#include <tgmath.h>
 
 #include "nvtop/plot.h"
 
@@ -90,7 +90,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
       size_t length = strlen(legend[i]);
       wattron(win, COLOR_PAIR(1 + i % 5));
       if (length < (size_t)cols) {
-        mvwprintw(win, plot_y_position, cols-length, "%s", legend[i]);
+        mvwprintw(win, plot_y_position, cols - length, "%s", legend[i]);
       } else {
         wmove(win, plot_y_position, 0);
         for (int j = 0; j < cols; ++j) {
@@ -120,7 +120,8 @@ void nvtop_bar_plot(WINDOW *win, size_t num_data, const double *data,
   }
 }
 
-void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY, unsigned sizeX, unsigned sizeY) {
+void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY,
+                    unsigned sizeX, unsigned sizeY) {
   for (unsigned i = 0; i < sizeX - 2; ++i) {
     mvwaddch(win, startY, startX + 1 + i, ACS_HLINE);
     mvwaddch(win, startY + sizeY - 1, startX + 1 + i, ACS_HLINE);

@@ -19,23 +19,23 @@
  *
  */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/get_process_info.h"
 #include "uthash.h"
 
-#define HASH_FIND_PID(head,pidfield,out)\
-  HASH_FIND(hh,head,pidfield,sizeof(intmax_t),out)
+#define HASH_FIND_PID(head, pidfield, out)                                     \
+  HASH_FIND(hh, head, pidfield, sizeof(intmax_t), out)
 
-#define HASH_ADD_PID(head,pidfield,add)\
-  HASH_ADD(hh,head,pidfield,sizeof(intmax_t),add)
+#define HASH_ADD_PID(head, pidfield, add)                                      \
+  HASH_ADD(hh, head, pidfield, sizeof(intmax_t), add)
 
-#define HASH_REPLACE_PID(head,pidfield,replaced)\
-  HASH_REPLACE(hh,head,pidfield,sizeof(intmax_t),replaced)
+#define HASH_REPLACE_PID(head, pidfield, replaced)                             \
+  HASH_REPLACE(hh, head, pidfield, sizeof(intmax_t), replaced)
 
 static bool nvml_initialized = false;
 
@@ -44,7 +44,7 @@ bool init_gpu_info_extraction(void) {
     nvmlReturn_t retval = nvmlInit();
     if (retval != NVML_SUCCESS) {
       fprintf(stderr, "Impossible to initialize nvidia nvml : %s\n",
-          nvmlErrorString(retval));
+              nvmlErrorString(retval));
       return false;
     }
     nvml_initialized = true;
@@ -57,7 +57,7 @@ bool shutdown_gpu_info_extraction(void) {
     nvmlReturn_t retval = nvmlShutdown();
     if (retval != NVML_SUCCESS) {
       fprintf(stderr, "Impossible to shutdown nvidia nvml : %s\n",
-          nvmlErrorString(retval));
+              nvmlErrorString(retval));
       return false;
     }
     nvml_initialized = false;
@@ -71,31 +71,26 @@ bool shutdown_gpu_info_extraction(void) {
 static void populate_static_device_infos(struct device_info *dev_info) {
 
   // GPU NAME
-  nvmlReturn_t retval = nvmlDeviceGetName(
-      dev_info->device_handle,
-      dev_info->device_name,
-      NVML_DEVICE_NAME_BUFFER_SIZE);
+  nvmlReturn_t retval =
+      nvmlDeviceGetName(dev_info->device_handle, dev_info->device_name,
+                        NVML_DEVICE_NAME_BUFFER_SIZE);
   SET_VALID(device_name_valid, dev_info->valid);
   if (retval != NVML_SUCCESS) {
-    memcpy(dev_info->device_name, "UNKNOWN", strlen("UNKNOWN")+1);
+    memcpy(dev_info->device_name, "UNKNOWN", strlen("UNKNOWN") + 1);
     RESET_VALID(device_name_valid, dev_info->valid);
   }
 
   // PCIe LINK GEN MAX
-  retval = nvmlDeviceGetMaxPcieLinkGeneration(
-      dev_info->device_handle,
-      &dev_info->max_pcie_link_gen
-      );
+  retval = nvmlDeviceGetMaxPcieLinkGeneration(dev_info->device_handle,
+                                              &dev_info->max_pcie_link_gen);
   SET_VALID(max_pcie_link_gen_valid, dev_info->valid);
   if (retval != NVML_SUCCESS) {
     dev_info->max_pcie_link_gen = 0;
     RESET_VALID(max_pcie_link_gen_valid, dev_info->valid);
   }
   // PCIe LINK WIDTH MAX
-  retval = nvmlDeviceGetMaxPcieLinkWidth(
-      dev_info->device_handle,
-      &dev_info->max_pcie_link_width
-      );
+  retval = nvmlDeviceGetMaxPcieLinkWidth(dev_info->device_handle,
+                                         &dev_info->max_pcie_link_width);
   SET_VALID(max_pcie_link_width_valid, dev_info->valid);
   if (retval != NVML_SUCCESS) {
     dev_info->max_pcie_link_width = 0;
@@ -104,10 +99,8 @@ static void populate_static_device_infos(struct device_info *dev_info) {
 
   // GPU TEMP SHUTDOWN
   retval = nvmlDeviceGetTemperatureThreshold(
-      dev_info->device_handle,
-      NVML_TEMPERATURE_THRESHOLD_SHUTDOWN,
-      &dev_info->gpu_temp_shutdown
-      );
+      dev_info->device_handle, NVML_TEMPERATURE_THRESHOLD_SHUTDOWN,
+      &dev_info->gpu_temp_shutdown);
   SET_VALID(gpu_temp_shutdown_valid, dev_info->valid);
   if (retval != NVML_SUCCESS) {
     dev_info->gpu_temp_shutdown = 0;
@@ -116,10 +109,8 @@ static void populate_static_device_infos(struct device_info *dev_info) {
 
   // GPU TEMP SLOWDOWN
   retval = nvmlDeviceGetTemperatureThreshold(
-      dev_info->device_handle,
-      NVML_TEMPERATURE_THRESHOLD_SLOWDOWN,
-      &dev_info->gpu_temp_slowdown
-      );
+      dev_info->device_handle, NVML_TEMPERATURE_THRESHOLD_SLOWDOWN,
+      &dev_info->gpu_temp_slowdown);
   SET_VALID(gpu_temp_slowdown_valid, dev_info->valid);
   if (retval != NVML_SUCCESS) {
     dev_info->gpu_temp_slowdown = 0;
@@ -136,19 +127,19 @@ struct pid_infos {
   UT_hash_handle hh;
 };
 
-static struct pid_infos *saved_pid_infos = NULL; // Hash table saved pid info
+static struct pid_infos *saved_pid_infos = NULL;    // Hash table saved pid info
 static struct pid_infos *current_used_infos = NULL; // Hash table saved pid info
 
 static void populate_infos(intmax_t pid, struct pid_infos *infos) {
   infos->pid = pid;
   get_command_from_pid((pid_t)pid, &infos->process_name);
   if (infos->process_name == NULL) {
-    infos->process_name = malloc(4*sizeof(*infos->process_name));
+    infos->process_name = malloc(4 * sizeof(*infos->process_name));
     memcpy(infos->process_name, "N/A", 4);
   }
   get_username_from_pid((pid_t)pid, &infos->user_name);
   if (infos->user_name == NULL) {
-    infos->user_name = malloc(4*sizeof(*infos->user_name));
+    infos->user_name = malloc(4 * sizeof(*infos->user_name));
     memcpy(infos->user_name, "N/A", 4);
   }
   struct process_cpu_usage cpu_usage;
@@ -161,10 +152,10 @@ static void populate_infos(intmax_t pid, struct pid_infos *infos) {
   }
 }
 
-static void update_gpu_process_from_process_info(
-    unsigned int num_process,
-    nvmlProcessInfo_t *p_info,
-    struct gpu_process *gpu_proc_info) {
+static void
+update_gpu_process_from_process_info(unsigned int num_process,
+                                     nvmlProcessInfo_t *p_info,
+                                     struct gpu_process *gpu_proc_info) {
 
   for (unsigned int i = 0; i < num_process; ++i) {
     gpu_proc_info[i].pid = p_info[i].pid;
@@ -203,9 +194,10 @@ static void update_gpu_process_from_process_info(
       gpu_proc_info[i].cpu_usage = 0.;
       infos->cpu_elapsed_time = -1.;
     }
-    /*fprintf(stderr, "PID %d cpu usage %f virt %zu res %zu\n", (int)p_info[i].pid,*/
-            /*gpu_proc_info[i].cpu_usage, gpu_proc_info[i].cpu_memory_virt,*/
-            /*gpu_proc_info[i].cpu_memory_res);*/
+    /*fprintf(stderr, "PID %d cpu usage %f virt %zu res %zu\n",
+     * (int)p_info[i].pid,*/
+    /*gpu_proc_info[i].cpu_usage, gpu_proc_info[i].cpu_memory_virt,*/
+    /*gpu_proc_info[i].cpu_memory_res);*/
     gpu_proc_info[i].process_name = infos->process_name;
     gpu_proc_info[i].user_name = infos->user_name;
     gpu_proc_info[i].used_memory = p_info[i].usedGpuMemory;
@@ -219,21 +211,20 @@ static void update_graphical_process(struct device_info *dinfo) {
 retry_querry_graphical:
   array_size = dinfo->size_proc_buffers;
   unsigned int prev_array_size = array_size;
-  retval = nvmlDeviceGetGraphicsRunningProcesses(dinfo->device_handle, &array_size, dinfo->process_infos);
+  retval = nvmlDeviceGetGraphicsRunningProcesses(
+      dinfo->device_handle, &array_size, dinfo->process_infos);
   if (retval != NVML_SUCCESS) {
     if (retval == NVML_ERROR_INSUFFICIENT_SIZE) {
-      unsigned int new_size = prev_array_size * 2 > array_size * 2 ?
-        prev_array_size * 2 : array_size * 2;
+      unsigned int new_size = prev_array_size * 2 > array_size * 2
+                                  ? prev_array_size * 2
+                                  : array_size * 2;
       dinfo->size_proc_buffers = new_size;
-      dinfo->graphic_procs =
-        realloc(dinfo->graphic_procs,
-            new_size * sizeof(*dinfo->graphic_procs));
-      dinfo->compute_procs =
-        realloc(dinfo->compute_procs,
-            new_size * sizeof(*dinfo->compute_procs));
-      dinfo->process_infos =
-        realloc(dinfo->process_infos,
-            new_size * sizeof(*dinfo->process_infos));
+      dinfo->graphic_procs = realloc(dinfo->graphic_procs,
+                                     new_size * sizeof(*dinfo->graphic_procs));
+      dinfo->compute_procs = realloc(dinfo->compute_procs,
+                                     new_size * sizeof(*dinfo->compute_procs));
+      dinfo->process_infos = realloc(dinfo->process_infos,
+                                     new_size * sizeof(*dinfo->process_infos));
       goto retry_querry_graphical;
     } else {
       dinfo->num_graphical_procs = 0;
@@ -242,9 +233,7 @@ retry_querry_graphical:
     dinfo->num_graphical_procs = array_size;
   }
   update_gpu_process_from_process_info(
-      dinfo->num_graphical_procs,
-      dinfo->process_infos,
-      dinfo->graphic_procs);
+      dinfo->num_graphical_procs, dinfo->process_infos, dinfo->graphic_procs);
 }
 
 static void update_compute_process(struct device_info *dinfo) {
@@ -254,21 +243,20 @@ static void update_compute_process(struct device_info *dinfo) {
 retry_querry_compute:
   array_size = dinfo->size_proc_buffers;
   unsigned int prev_array_size = array_size;
-  retval = nvmlDeviceGetComputeRunningProcesses(dinfo->device_handle, &array_size, dinfo->process_infos);
+  retval = nvmlDeviceGetComputeRunningProcesses(
+      dinfo->device_handle, &array_size, dinfo->process_infos);
   if (retval != NVML_SUCCESS) {
     if (retval == NVML_ERROR_INSUFFICIENT_SIZE) {
-      unsigned int new_size = prev_array_size * 2 > array_size * 2 ?
-        prev_array_size * 2 : array_size * 2;
+      unsigned int new_size = prev_array_size * 2 > array_size * 2
+                                  ? prev_array_size * 2
+                                  : array_size * 2;
       dinfo->size_proc_buffers = new_size;
-      dinfo->graphic_procs =
-        realloc(dinfo->graphic_procs,
-            new_size * sizeof(*dinfo->graphic_procs));
-      dinfo->compute_procs =
-        realloc(dinfo->compute_procs,
-            new_size * sizeof(*dinfo->compute_procs));
-      dinfo->process_infos =
-        realloc(dinfo->process_infos,
-            new_size * sizeof(*dinfo->process_infos));
+      dinfo->graphic_procs = realloc(dinfo->graphic_procs,
+                                     new_size * sizeof(*dinfo->graphic_procs));
+      dinfo->compute_procs = realloc(dinfo->compute_procs,
+                                     new_size * sizeof(*dinfo->compute_procs));
+      dinfo->process_infos = realloc(dinfo->process_infos,
+                                     new_size * sizeof(*dinfo->process_infos));
       goto retry_querry_compute;
     } else {
       dinfo->num_compute_procs = 0;
@@ -277,21 +265,16 @@ retry_querry_compute:
     dinfo->num_compute_procs = array_size;
   }
   update_gpu_process_from_process_info(
-      dinfo->num_compute_procs,
-      dinfo->process_infos,
-      dinfo->compute_procs);
+      dinfo->num_compute_procs, dinfo->process_infos, dinfo->compute_procs);
 }
 
-void update_device_infos(
-    unsigned int num_devs,
-    struct device_info *dev_info) {
+void update_device_infos(unsigned int num_devs, struct device_info *dev_info) {
   for (unsigned int i = 0; i < num_devs; ++i) {
     struct device_info *curr_dev_info = &dev_info[i];
 
     // GPU CLK
     nvmlReturn_t retval = nvmlDeviceGetClockInfo(
-        curr_dev_info->device_handle,
-        NVML_CLOCK_GRAPHICS,
+        curr_dev_info->device_handle, NVML_CLOCK_GRAPHICS,
         &curr_dev_info->gpu_clock_speed);
     SET_VALID(gpu_clock_speed_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
@@ -300,10 +283,9 @@ void update_device_infos(
     }
 
     // MEM CLK
-    retval = nvmlDeviceGetClockInfo(
-        curr_dev_info->device_handle,
-        NVML_CLOCK_MEM,
-        &curr_dev_info->mem_clock_speed);
+    retval =
+        nvmlDeviceGetClockInfo(curr_dev_info->device_handle, NVML_CLOCK_MEM,
+                               &curr_dev_info->mem_clock_speed);
     SET_VALID(mem_clock_speed_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->mem_clock_speed = 0;
@@ -311,10 +293,9 @@ void update_device_infos(
     }
 
     // GPU CLK MAX
-    retval = nvmlDeviceGetMaxClockInfo(
-        curr_dev_info->device_handle,
-        NVML_CLOCK_GRAPHICS,
-        &curr_dev_info->gpu_clock_speed_max);
+    retval = nvmlDeviceGetMaxClockInfo(curr_dev_info->device_handle,
+                                       NVML_CLOCK_GRAPHICS,
+                                       &curr_dev_info->gpu_clock_speed_max);
     SET_VALID(gpu_clock_speed_max_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->gpu_clock_speed_max = 0;
@@ -322,10 +303,9 @@ void update_device_infos(
     }
 
     // MEM CLK MAX
-    retval = nvmlDeviceGetMaxClockInfo(
-        curr_dev_info->device_handle,
-        NVML_CLOCK_MEM,
-        &curr_dev_info->mem_clock_speed_max);
+    retval =
+        nvmlDeviceGetMaxClockInfo(curr_dev_info->device_handle, NVML_CLOCK_MEM,
+                                  &curr_dev_info->mem_clock_speed_max);
     SET_VALID(mem_clock_speed_max_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->mem_clock_speed_max = 0;
@@ -334,9 +314,8 @@ void update_device_infos(
 
     // GPU / MEM UTIL RATE
     nvmlUtilization_t util_rate;
-    retval = nvmlDeviceGetUtilizationRates(
-        curr_dev_info->device_handle,
-        &util_rate);
+    retval =
+        nvmlDeviceGetUtilizationRates(curr_dev_info->device_handle, &util_rate);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->gpu_util_rate = 0;
       curr_dev_info->mem_util_rate = 0;
@@ -351,9 +330,7 @@ void update_device_infos(
 
     // FREE / TOTAL / USED MEMORY
     nvmlMemory_t meminfo;
-    retval = nvmlDeviceGetMemoryInfo(
-        curr_dev_info->device_handle,
-        &meminfo);
+    retval = nvmlDeviceGetMemoryInfo(curr_dev_info->device_handle, &meminfo);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->free_memory = 0;
       curr_dev_info->total_memory = 0;
@@ -372,8 +349,7 @@ void update_device_infos(
 
     // PCIe LINK GEN
     retval = nvmlDeviceGetCurrPcieLinkGeneration(
-        curr_dev_info->device_handle,
-        &curr_dev_info->cur_pcie_link_gen);
+        curr_dev_info->device_handle, &curr_dev_info->cur_pcie_link_gen);
     SET_VALID(cur_pcie_link_gen_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->cur_pcie_link_gen = 0;
@@ -382,8 +358,7 @@ void update_device_infos(
 
     // PCIe LINK WIDTH
     retval = nvmlDeviceGetCurrPcieLinkWidth(
-        curr_dev_info->device_handle,
-        &curr_dev_info->cur_pcie_link_width);
+        curr_dev_info->device_handle, &curr_dev_info->cur_pcie_link_width);
     SET_VALID(cur_pcie_link_width_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->cur_pcie_link_width = 0;
@@ -391,10 +366,9 @@ void update_device_infos(
     }
 
     // PCIe TX THROUGHPUT
-    retval = nvmlDeviceGetPcieThroughput(
-        curr_dev_info->device_handle,
-        NVML_PCIE_UTIL_TX_BYTES,
-        &curr_dev_info->pcie_tx);
+    retval = nvmlDeviceGetPcieThroughput(curr_dev_info->device_handle,
+                                         NVML_PCIE_UTIL_TX_BYTES,
+                                         &curr_dev_info->pcie_tx);
     SET_VALID(pcie_tx_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->pcie_tx = 0;
@@ -402,10 +376,9 @@ void update_device_infos(
     }
 
     // PCIe RX THROUGHPUT
-    retval = nvmlDeviceGetPcieThroughput(
-        curr_dev_info->device_handle,
-        NVML_PCIE_UTIL_RX_BYTES,
-        &curr_dev_info->pcie_rx);
+    retval = nvmlDeviceGetPcieThroughput(curr_dev_info->device_handle,
+                                         NVML_PCIE_UTIL_RX_BYTES,
+                                         &curr_dev_info->pcie_rx);
     SET_VALID(pcie_rx_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->pcie_rx = 0;
@@ -413,9 +386,8 @@ void update_device_infos(
     }
 
     // FAN SPEED
-    retval = nvmlDeviceGetFanSpeed(
-        curr_dev_info->device_handle,
-        &curr_dev_info->fan_speed);
+    retval = nvmlDeviceGetFanSpeed(curr_dev_info->device_handle,
+                                   &curr_dev_info->fan_speed);
     SET_VALID(fan_speed_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->fan_speed = 0;
@@ -423,10 +395,9 @@ void update_device_infos(
     }
 
     // GPU TEMP
-    retval = nvmlDeviceGetTemperature(
-        curr_dev_info->device_handle,
-        NVML_TEMPERATURE_GPU,
-        &curr_dev_info->gpu_temp);
+    retval = nvmlDeviceGetTemperature(curr_dev_info->device_handle,
+                                      NVML_TEMPERATURE_GPU,
+                                      &curr_dev_info->gpu_temp);
     SET_VALID(gpu_temp_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->gpu_temp = 0;
@@ -434,9 +405,8 @@ void update_device_infos(
     }
 
     // POWER DRAW
-    retval = nvmlDeviceGetPowerUsage(
-        curr_dev_info->device_handle,
-        &curr_dev_info->power_draw);
+    retval = nvmlDeviceGetPowerUsage(curr_dev_info->device_handle,
+                                     &curr_dev_info->power_draw);
     SET_VALID(power_draw_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->power_draw = 0;
@@ -444,9 +414,8 @@ void update_device_infos(
     }
 
     // POWER MAX
-    retval = nvmlDeviceGetEnforcedPowerLimit(
-        curr_dev_info->device_handle,
-        &curr_dev_info->power_draw_max);
+    retval = nvmlDeviceGetEnforcedPowerLimit(curr_dev_info->device_handle,
+                                             &curr_dev_info->power_draw_max);
     SET_VALID(power_draw_max_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
       curr_dev_info->power_draw_max = 0;
@@ -454,10 +423,9 @@ void update_device_infos(
     }
 
     // Encoder infos
-    retval = nvmlDeviceGetEncoderUtilization(
-        curr_dev_info->device_handle,
-        &curr_dev_info->encoder_rate,
-        &curr_dev_info->encoder_sampling);
+    retval = nvmlDeviceGetEncoderUtilization(curr_dev_info->device_handle,
+                                             &curr_dev_info->encoder_rate,
+                                             &curr_dev_info->encoder_sampling);
     SET_VALID(encoder_rate_valid, curr_dev_info->valid);
     SET_VALID(encoder_sampling_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
@@ -468,10 +436,9 @@ void update_device_infos(
     }
 
     // Decoder infos
-    retval = nvmlDeviceGetDecoderUtilization(
-        curr_dev_info->device_handle,
-        &curr_dev_info->decoder_rate,
-        &curr_dev_info->decoder_sampling);
+    retval = nvmlDeviceGetDecoderUtilization(curr_dev_info->device_handle,
+                                             &curr_dev_info->decoder_rate,
+                                             &curr_dev_info->decoder_sampling);
     SET_VALID(decoder_rate_valid, curr_dev_info->valid);
     SET_VALID(decoder_sampling_valid, curr_dev_info->valid);
     if (retval != NVML_SUCCESS) {
@@ -487,7 +454,8 @@ void update_device_infos(
 
   } // Loop over devices
 
-  // Now delete the (pid,username,command) cache entries that are not in use anymore
+  // Now delete the (pid,username,command) cache entries that are not in use
+  // anymore
   struct pid_infos *old_info, *tmp;
   HASH_ITER(hh, saved_pid_infos, old_info, tmp) {
     HASH_DEL(saved_pid_infos, old_info);
@@ -499,29 +467,28 @@ void update_device_infos(
   current_used_infos = NULL;
 }
 
-unsigned int initialize_device_info(struct device_info **dev_info, size_t gpu_mask) {
+unsigned int initialize_device_info(struct device_info **dev_info,
+                                    size_t gpu_mask) {
   unsigned int num_devices;
   nvmlReturn_t retval = nvmlDeviceGetCount(&num_devices);
   if (retval != NVML_SUCCESS) {
     fprintf(stderr, "Impossible to get the number of devices : %s\n",
-        nvmlErrorString(retval));
+            nvmlErrorString(retval));
     return 0;
   }
   *dev_info = malloc(num_devices * sizeof(**dev_info));
   struct device_info *devs = *dev_info;
   unsigned int num_queriable = 0;
   for (unsigned int i = 0; i < num_devices; ++i) {
-    retval =
-      nvmlDeviceGetHandleByIndex(i, &devs[num_queriable].device_handle);
-    if (i < CHAR_BIT * sizeof(gpu_mask) && (gpu_mask & (1<<i)) == 0)
+    retval = nvmlDeviceGetHandleByIndex(i, &devs[num_queriable].device_handle);
+    if (i < CHAR_BIT * sizeof(gpu_mask) && (gpu_mask & (1 << i)) == 0)
       continue;
     if (retval != NVML_SUCCESS) {
       if (retval == NVML_ERROR_NO_PERMISSION) {
         continue;
       } else {
-        fprintf(stderr,
-            "Impossible to get handle for device number %u : %s\n",
-            i, nvmlErrorString(retval));
+        fprintf(stderr, "Impossible to get handle for device number %u : %s\n",
+                i, nvmlErrorString(retval));
         free(*dev_info);
         return 0;
       }
@@ -530,11 +497,11 @@ unsigned int initialize_device_info(struct device_info **dev_info, size_t gpu_ma
 #define DEF_PROC_NUM 25
       devs[num_queriable].size_proc_buffers = DEF_PROC_NUM;
       devs[num_queriable].compute_procs =
-        malloc(DEF_PROC_NUM * sizeof(*devs[num_queriable].compute_procs));
+          malloc(DEF_PROC_NUM * sizeof(*devs[num_queriable].compute_procs));
       devs[num_queriable].graphic_procs =
-        malloc(DEF_PROC_NUM * sizeof(*devs[num_queriable].graphic_procs));
+          malloc(DEF_PROC_NUM * sizeof(*devs[num_queriable].graphic_procs));
       devs[num_queriable].process_infos =
-        malloc(DEF_PROC_NUM * sizeof(*devs[num_queriable].process_infos));
+          malloc(DEF_PROC_NUM * sizeof(*devs[num_queriable].process_infos));
 #undef DEF_PROC_NUM
       num_queriable += 1;
     }

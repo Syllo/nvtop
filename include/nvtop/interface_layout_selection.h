@@ -18,10 +18,10 @@ struct window_position {
 char *layout_as_string(struct layout_selection *layout);
 
 void compute_sizes_from_layout(
-    bool show_graphs, bool show_header, bool show_process,
-    size_t num_devices, unsigned num_info_per_device,
-    unsigned device_header_rows, unsigned device_header_cols, unsigned rows,
-    unsigned cols, struct window_position *device_position,
+    bool show_graphs, bool show_header, bool show_process, size_t num_devices,
+    unsigned num_info_per_device, unsigned device_header_rows,
+    unsigned device_header_cols, unsigned rows, unsigned cols,
+    struct window_position *device_position,
     struct window_position *process_position, unsigned *num_plots,
     struct window_position **plot_positions, enum plot_type *plot_types);
 

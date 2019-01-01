@@ -19,122 +19,78 @@
  *
  */
 
+#include <getopt.h>
+#include <ncurses.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <ncurses.h>
-#include <getopt.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <locale.h>
 
 #include "nvtop/interface.h"
-#include "nvtop/version.h"
 #include "nvtop/time.h"
+#include "nvtop/version.h"
 
 static volatile sig_atomic_t signal_exit = 0;
 static volatile sig_atomic_t signal_resize_win = 0;
 
 static void exit_handler(int signum) {
-  (void) signum;
+  (void)signum;
   signal_exit = 1;
 }
 
 static void resize_handler(int signum) {
-  (void) signum;
+  (void)signum;
   signal_resize_win = 1;
 }
 
 static const char helpstring[] =
-"Available options:\n"
-"  -d --delay        : Select the refresh rate (1 == 0.1s)\n"
-"  -v --version      : Print the version and exit\n"
-"  -s --gpu-select   : Column separated list of GPU IDs to monitor\n"
-"  -i --gpu-ignore   : Column separated list of GPU IDs to ignore\n"
-"  -p --no-plot      : Disable bar plot\n"
-"  -C --no-color     : No colors\n"
-"  -N --no-cache     : Always query the system for user names and command line information\n"
-"  -f --freedom-unit : Use fahrenheit\n"
-"  -E --encode-hide  : Set encode/decode auto hide time in seconds (default 30s, negative = always on screen)\n"
-"  -h --help         : Print help and exit\n";
+    "Available options:\n"
+    "  -d --delay        : Select the refresh rate (1 == 0.1s)\n"
+    "  -v --version      : Print the version and exit\n"
+    "  -s --gpu-select   : Column separated list of GPU IDs to monitor\n"
+    "  -i --gpu-ignore   : Column separated list of GPU IDs to ignore\n"
+    "  -p --no-plot      : Disable bar plot\n"
+    "  -C --no-color     : No colors\n"
+    "  -N --no-cache     : Always query the system for user names and command "
+    "line information\n"
+    "  -f --freedom-unit : Use fahrenheit\n"
+    "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
+    "(default 30s, negative = always on screen)\n"
+    "  -h --help         : Print help and exit\n";
 
-static const char versionString[] =
-"nvtop version " NVTOP_VERSION_STRING;
+static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
 static const struct option long_opts[] = {
-  {
-    .name = "delay",
-    .has_arg = required_argument,
-    .flag = NULL,
-    .val = 'd'
-  },
-  {
-    .name = "version",
-    .has_arg = no_argument,
-    .flag = NULL,
-    .val = 'v'
-  },
-  {
-    .name = "help",
-    .has_arg = no_argument,
-    .flag = NULL,
-    .val = 'h'
-  },
-  {
-    .name = "no-color",
-    .has_arg = no_argument,
-    .flag = NULL,
-    .val = 'C'
-  },
-  {
-    .name = "no-colour",
-    .has_arg = no_argument,
-    .flag = NULL,
-    .val = 'C'
-  },
-  {
-    .name = "no-cache",
-    .has_arg = no_argument,
-    .flag = NULL,
-    .val = 'N'
-  },
-  {
-    .name = "freedom-unit",
-    .has_arg = no_argument,
-    .flag = NULL,
-    .val = 'f'
-  },
-  {
-    .name = "gpu-select",
-    .has_arg = required_argument,
-    .flag = NULL,
-    .val = 's'
-  },
-  {
-    .name = "gpu-ignore",
-    .has_arg = required_argument,
-    .flag = NULL,
-    .val = 'i'
-  },
-  {
-    .name = "encode-hide",
-    .has_arg = required_argument,
-    .flag = NULL,
-    .val = 'E'
-  },
-  {
-    .name = "no-plot",
-    .has_arg = no_argument,
-    .flag = NULL,
-    .val = 'p'
-  },
-  {0,0,0,0},
+    {.name = "delay", .has_arg = required_argument, .flag = NULL, .val = 'd'},
+    {.name = "version", .has_arg = no_argument, .flag = NULL, .val = 'v'},
+    {.name = "help", .has_arg = no_argument, .flag = NULL, .val = 'h'},
+    {.name = "no-color", .has_arg = no_argument, .flag = NULL, .val = 'C'},
+    {.name = "no-colour", .has_arg = no_argument, .flag = NULL, .val = 'C'},
+    {.name = "no-cache", .has_arg = no_argument, .flag = NULL, .val = 'N'},
+    {.name = "freedom-unit", .has_arg = no_argument, .flag = NULL, .val = 'f'},
+    {.name = "gpu-select",
+     .has_arg = required_argument,
+     .flag = NULL,
+     .val = 's'},
+    {.name = "gpu-ignore",
+     .has_arg = required_argument,
+     .flag = NULL,
+     .val = 'i'},
+    {.name = "encode-hide",
+     .has_arg = required_argument,
+     .flag = NULL,
+     .val = 'E'},
+    {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
+    {0, 0, 0, 0},
 };
 
 static const char opts[] = "hvd:s:i:CNfE:p";
 
-static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) {
+static size_t update_mask_value(const char *str, size_t entry_mask,
+                                bool addTo) {
   char *saveptr;
   char *option_copy = malloc((strlen(str) + 1) * sizeof(*option_copy));
   strcpy(option_copy, str);
@@ -143,13 +99,14 @@ static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) 
     char *endptr;
     unsigned num_used = strtoul(gpu_num, &endptr, 0);
     if (endptr == gpu_num) {
-      fprintf(stderr,
-          "Use GPU IDs (unsigned integer) to select GPU with option 's' or 'i'\n");
+      fprintf(stderr, "Use GPU IDs (unsigned integer) to select GPU with "
+                      "option 's' or 'i'\n");
       exit(EXIT_FAILURE);
     }
     if (num_used >= CHAR_BIT * sizeof(entry_mask)) {
-      fprintf(stderr, "Select GPU X with option 's' or 'i' where 0 <= X < %zu\n",
-          CHAR_BIT * sizeof(entry_mask));
+      fprintf(stderr,
+              "Select GPU X with option 's' or 'i' where 0 <= X < %zu\n",
+              CHAR_BIT * sizeof(entry_mask));
       exit(EXIT_FAILURE);
     }
     if (addTo)
@@ -162,8 +119,8 @@ static size_t update_mask_value(const char *str, size_t entry_mask, bool addTo) 
   return entry_mask;
 }
 
-int main (int argc, char **argv) {
-  (void) setlocale(LC_CTYPE, "");
+int main(int argc, char **argv) {
+  (void)setlocale(LC_CTYPE, "");
 
   opterr = 0;
   int refresh_interval = 1000;
@@ -179,65 +136,64 @@ int main (int argc, char **argv) {
     if (optchar == -1)
       break;
     switch (optchar) {
-      case 'd':
-        {
-          char *endptr = NULL;
-          long int delay_val = strtol(optarg, &endptr, 0);
-          if (endptr == optarg) {
-            fprintf(stderr, "Error: The delay must be a positive value representing tenths of seconds\n");
-            exit(EXIT_FAILURE);
-          }
-          if (delay_val < 0) {
-            fprintf(stderr, "Error: A negative delay requires a time machine!\n");
-            exit(EXIT_FAILURE);
-          }
-          refresh_interval = (int) delay_val * 100u;
-        }
-        break;
-      case 's':
-        selectedGPU = optarg;
-        break;
-      case 'i':
-        ignoredGPU = optarg;
-        break;
-      case 'v':
-        printf("%s\n", versionString);
-        exit(EXIT_SUCCESS);
-      case 'h':
-        printf("%s\n%s", versionString, helpstring);
-        exit(EXIT_SUCCESS);
-      case 'C':
-        use_color_if_available = false;
-        break;
-      case 'N':
-        cache_pid_infos = false;
-        break;
-      case 'f':
-        use_fahrenheit = true;
-        break;
-      case 'E':
-        {
-          if (sscanf(optarg, "%lf", &encode_decode_hide_time) == EOF) {
-            fprintf(stderr, "Invalid format for encode/decode hide time: %s\n", optarg);
-            exit(EXIT_FAILURE);
-          }
-        }
-        break;
-      case 'p':
-        show_plot = false;
-        break;
-      case ':':
-      case '?':
-        switch (optopt) {
-          case 'd':
-            fprintf(stderr, "Error: The delay option takes a positive value representing tenths of seconds\n");
-            break;
-          default:
-            fprintf(stderr, "Unhandled error in getopt missing argument\n");
-            exit(EXIT_FAILURE);
-            break;
-        }
+    case 'd': {
+      char *endptr = NULL;
+      long int delay_val = strtol(optarg, &endptr, 0);
+      if (endptr == optarg) {
+        fprintf(stderr, "Error: The delay must be a positive value "
+                        "representing tenths of seconds\n");
         exit(EXIT_FAILURE);
+      }
+      if (delay_val < 0) {
+        fprintf(stderr, "Error: A negative delay requires a time machine!\n");
+        exit(EXIT_FAILURE);
+      }
+      refresh_interval = (int)delay_val * 100u;
+    } break;
+    case 's':
+      selectedGPU = optarg;
+      break;
+    case 'i':
+      ignoredGPU = optarg;
+      break;
+    case 'v':
+      printf("%s\n", versionString);
+      exit(EXIT_SUCCESS);
+    case 'h':
+      printf("%s\n%s", versionString, helpstring);
+      exit(EXIT_SUCCESS);
+    case 'C':
+      use_color_if_available = false;
+      break;
+    case 'N':
+      cache_pid_infos = false;
+      break;
+    case 'f':
+      use_fahrenheit = true;
+      break;
+    case 'E': {
+      if (sscanf(optarg, "%lf", &encode_decode_hide_time) == EOF) {
+        fprintf(stderr, "Invalid format for encode/decode hide time: %s\n",
+                optarg);
+        exit(EXIT_FAILURE);
+      }
+    } break;
+    case 'p':
+      show_plot = false;
+      break;
+    case ':':
+    case '?':
+      switch (optopt) {
+      case 'd':
+        fprintf(stderr, "Error: The delay option takes a positive value "
+                        "representing tenths of seconds\n");
+        break;
+      default:
+        fprintf(stderr, "Unhandled error in getopt missing argument\n");
+        exit(EXIT_FAILURE);
+        break;
+      }
+      exit(EXIT_FAILURE);
     }
   }
 
@@ -319,43 +275,42 @@ int main (int argc, char **argv) {
     nvtop_get_current_time(&time_after_sleep);
     time_slept += nvtop_difftime(time_before_sleep, time_after_sleep) * 1000;
     switch (input_char) {
-      case 27: // ESC
-        {
-          timeout(0);
-          int in = getch();
-          if (in == ERR) { // ESC alone
-            if (is_escape_for_quit(interface))
-              signal_exit = 1;
-            else
-              interface_key(27, interface);
-          }
-          // else ALT key
-        }
-        break;
-      case KEY_F(3) :
+    case 27: // ESC
+    {
+      timeout(0);
+      int in = getch();
+      if (in == ERR) { // ESC alone
         if (is_escape_for_quit(interface))
           signal_exit = 1;
-        break;
-      case 'q':
+        else
+          interface_key(27, interface);
+      }
+      // else ALT key
+    } break;
+    case KEY_F(3):
+      if (is_escape_for_quit(interface))
         signal_exit = 1;
-        break;
-      case KEY_F(1) :
-      case KEY_F(2) :
-      case '+':
-      case '-':
-          interface_key(input_char, interface);
-        break;
-      case KEY_LEFT:
-      case KEY_RIGHT:
-      case KEY_UP:
-      case KEY_DOWN:
-      case KEY_ENTER:
-      case '\n':
-        interface_key(input_char, interface);
-        break;
-      case ERR:
-      default:
-        break;
+      break;
+    case 'q':
+      signal_exit = 1;
+      break;
+    case KEY_F(1):
+    case KEY_F(2):
+    case '+':
+    case '-':
+      interface_key(input_char, interface);
+      break;
+    case KEY_LEFT:
+    case KEY_RIGHT:
+    case KEY_UP:
+    case KEY_DOWN:
+    case KEY_ENTER:
+    case '\n':
+      interface_key(input_char, interface);
+      break;
+    case ERR:
+    default:
+      break;
     }
   }
 

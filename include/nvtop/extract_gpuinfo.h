@@ -28,15 +28,15 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define IS_VALID(x,y)    ((y)[(x)/CHAR_BIT] & (1<<((x)%CHAR_BIT)))
-#define SET_VALID(x,y)   ((y)[(x)/CHAR_BIT] |= (1<<((x)%CHAR_BIT)))
-#define RESET_VALID(x,y) ((y)[(x)/CHAR_BIT] &= ~(1<<((x)%CHAR_BIT)))
+#define IS_VALID(x, y) ((y)[(x) / CHAR_BIT] & (1 << ((x) % CHAR_BIT)))
+#define SET_VALID(x, y) ((y)[(x) / CHAR_BIT] |= (1 << ((x) % CHAR_BIT)))
+#define RESET_VALID(x, y) ((y)[(x) / CHAR_BIT] &= ~(1 << ((x) % CHAR_BIT)))
 
 struct gpu_process {
-  intmax_t pid;                    // Process ID
-  char *process_name;              // Process Name
-  char *user_name;                 // Process User Name
-  unsigned long long used_memory;  // Memory used by process
+  intmax_t pid;                   // Process ID
+  char *process_name;             // Process Name
+  char *user_name;                // Process User Name
+  unsigned long long used_memory; // Memory used by process
   size_t cpu_memory_virt;
   size_t cpu_memory_res;
   double cpu_usage;
@@ -73,14 +73,14 @@ enum dev_info_valid {
 };
 
 struct device_info {
-  nvmlDevice_t device_handle;        // Used to query device
+  nvmlDevice_t device_handle;                     // Used to query device
   char device_name[NVML_DEVICE_NAME_BUFFER_SIZE]; // Device Name
-  unsigned int gpu_clock_speed;      // Device clock speed in MHz
-  unsigned int gpu_clock_speed_max;  // Maximum clock speed in MHz
-  unsigned int mem_clock_speed;      // Device clock speed in MHz
-  unsigned int mem_clock_speed_max;  // Maximum clock speed in MHz
-  unsigned int gpu_util_rate;        // GPU utilization rate in %
-  unsigned int mem_util_rate;        // MEM utilization rate in %
+  unsigned int gpu_clock_speed;                   // Device clock speed in MHz
+  unsigned int gpu_clock_speed_max;               // Maximum clock speed in MHz
+  unsigned int mem_clock_speed;                   // Device clock speed in MHz
+  unsigned int mem_clock_speed_max;               // Maximum clock speed in MHz
+  unsigned int gpu_util_rate;                     // GPU utilization rate in %
+  unsigned int mem_util_rate;                     // MEM utilization rate in %
   unsigned int encoder_rate;         // Encoder utilization rate in %
   unsigned int encoder_sampling;     // Encoder sampling period in micro sec
   unsigned int decoder_rate;         // Decoder utilization rate in %
@@ -106,20 +106,17 @@ struct device_info {
   struct gpu_process *graphic_procs; // Graphical process info
   struct gpu_process *compute_procs; // Compute processes info
   nvmlProcessInfo_t *process_infos;  // Internal use
-  unsigned char valid[valid_max_val/CHAR_BIT + 1];             // Validity bits
+  unsigned char valid[valid_max_val / CHAR_BIT + 1]; // Validity bits
 };
 
 bool init_gpu_info_extraction(void);
 
 bool shutdown_gpu_info_extraction(void);
 
-unsigned int initialize_device_info(
-    struct device_info **dev_info,
-    size_t gpu_mask);
+unsigned int initialize_device_info(struct device_info **dev_info,
+                                    size_t gpu_mask);
 
-void update_device_infos(
-    unsigned int num_devs,
-    struct device_info *dev_info);
+void update_device_infos(unsigned int num_devs, struct device_info *dev_info);
 
 void clean_device_info(unsigned int num_devs, struct device_info *dev_info);
 
