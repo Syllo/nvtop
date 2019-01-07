@@ -176,8 +176,12 @@ void compute_sizes_from_layout(
     for (unsigned i = 0; i < num_plot_stacks; ++i) {
       unsigned plot_in_this_row = min(*num_plots - num_plot_done, plot_per_row);
       unsigned cols_per_plot = cols / plot_in_this_row;
-      cols_per_plot -=
-          (cols_per_plot - cols_needed_box_drawing) % num_info_per_device;
+      if (*plot_types == plot_gpu_duo)
+        cols_per_plot -= (cols_per_plot - cols_needed_box_drawing) %
+                         (2 * num_info_per_device);
+      else
+        cols_per_plot -=
+            (cols_per_plot - cols_needed_box_drawing) % num_info_per_device;
       unsigned extra_cols = cols - cols_per_plot * plot_per_row;
       unsigned cols_between_plots =
           extra_cols / (plot_in_this_row <= 1 ? 1 : plot_in_this_row - 1);
