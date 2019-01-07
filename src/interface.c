@@ -58,8 +58,8 @@ enum interface_color {
   cyan_color = 1,
   yellow_color,
   magenta_color,
-  red_color,
   green_color,
+  red_color,
   blue_color,
 };
 
@@ -1593,8 +1593,8 @@ static void draw_plots(struct nvtop_interface *interface) {
       char memNum[2][8];
       snprintf(gpuNum[0], 8, "GPU %zu", interface->plots[i].gpu_ids[0]);
       snprintf(gpuNum[1], 8, "GPU %zu", interface->plots[i].gpu_ids[1]);
-      snprintf(gpuNum[0], 8, "MEM %zu", interface->plots[i].gpu_ids[0]);
-      snprintf(gpuNum[1], 8, "MEM %zu", interface->plots[i].gpu_ids[1]);
+      snprintf(memNum[0], 8, "MEM %zu", interface->plots[i].gpu_ids[0]);
+      snprintf(memNum[1], 8, "MEM %zu", interface->plots[i].gpu_ids[1]);
       nvtop_line_plot(
           interface->plots[i].plot_window, interface->plots[i].num_data,
           interface->plots[i].data, 0., 100., 4,
