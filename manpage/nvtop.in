@@ -1,7 +1,7 @@
 ." Manpage for nvtop
 ." Contact maxime.schmitt91@gmail.com
 
-.TH nvtop 1 "March 2018" "Version @NVTOP_VERSION_MAJOR@.@NVTOP_VERSION_MINOR@.@NVTOP_VERSION_PATCH@" "nvtop command"
+.TH nvtop 1 "January 2019" "Version @NVTOP_VERSION_MAJOR@.@NVTOP_VERSION_MINOR@.@NVTOP_VERSION_PATCH@" "nvtop command"
 
 .SH NAME
 nvtop \- NVIDIA GPU top
@@ -41,11 +41,8 @@ Use fahrenheit as temperature scale.
 .BR \-E ", " \-\-encode\-hide =\fIseconds\fR
 Modify the setting for the encode/decode auto-hide timer. Always visible if negative. Default to 30 seconds.
 .TP
-.BR \-p ", " \-\-max\-gpu\-plot
+.BR \-p ", " \-\-no\-plot
 Show only one bar plot corresponding to the maximum of all GPUs.
-.TP
-.BR \-P ", " \-\-no\-plot
-Disable the maximum line plotting.
 .TP
 .BR \-v ", " \-\-version
 Print the version and exit.
@@ -59,6 +56,9 @@ Select (highlight) the previous process.
 .TP
 .BR Down
 Select (highlight) the next process.
+.TP
+.BR Left\ /\ Right
+Scroll in the process row.
 .TP
 .BR +
 Sort increasingly.
