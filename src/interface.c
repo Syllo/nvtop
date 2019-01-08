@@ -1167,6 +1167,7 @@ static void print_processes_on_screen(unsigned int num_process,
 
   int printed = 0;
   int column_sort_start = 0, column_sort_end = sizeof_process_field[0];
+  memset(process_print_buffer, 0, sizeof(process_print_buffer));
   for (unsigned int i = 0; i < process_end; ++i) {
     if (i == process->sort_criterion) {
       column_sort_start = printed;
