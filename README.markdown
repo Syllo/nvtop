@@ -124,11 +124,11 @@ The build system supports multiple build type (e.g. -DCMAKE_BUILD_TYPE=RelWithDe
 Troubleshoot
 ------------
 
-- The plot looks bad
+- The plot looks bad:
   - Verify that you installed the wide character version of the NCurses library (libncurses**w**5-dev for Debian / Ubuntu), clean the build directory
-    and restart the build process
-  - If you are using Putty, you should consider adding ``export NCURSES_NO_UTF8_ACS=1`` to your shell initialization script (e.g. ``~/.bashrc``) or
-    execute nvtop as follows: ``NCURSES_NO_UTF8_ACS=1 nvtop``
+    and restart the build process.
+- **Putty**: Tell putty not to lie about its capabilities (`$TERM`) by setting the field ``Terminal-type string`` to ``putty`` in the menu
+  ``Connection > Data > Terminal Details``.
 
 License
 -------
