@@ -1407,9 +1407,14 @@ static void draw_options(struct nvtop_interface *interface) {
 }
 
 static const char *option_selection_hidden[] = {
-    "Kill",
     "Sort",
+    "Kill",
     "Quit",
+};
+static const char *option_selection_hidden_num[] = {
+    "6",
+    "9",
+    "10",
 };
 
 static const char *option_selection_sort[][2] = {
@@ -1432,7 +1437,7 @@ static void draw_option_selection(struct nvtop_interface *interface) {
   switch (interface->process.option_window.state) {
   case nvtop_option_state_hidden:
     for (size_t i = 0; i < 3; ++i) {
-      wprintw(win, "F%zu", i + 1);
+      wprintw(win, "F%s", option_selection_hidden_num[i]);
       wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
       wprintw(win, "%s", option_selection_hidden[i]);
       for (size_t j = strlen(option_selection_hidden[i]);
@@ -1658,13 +1663,13 @@ static void option_change_sort(struct nvtop_interface *inter) {
 
 void interface_key(int keyId, struct nvtop_interface *inter) {
   switch (keyId) {
-  case KEY_F(1):
+  case KEY_F(9):
     if (inter->process.option_window.state == nvtop_option_state_hidden) {
       inter->process.option_window.state = nvtop_option_state_kill;
       inter->process.option_window.selected_row = 0;
     }
     break;
-  case KEY_F(2):
+  case KEY_F(6):
     if (inter->process.option_window.state == nvtop_option_state_hidden) {
       inter->process.option_window.state = nvtop_option_state_sort_by;
       inter->process.option_window.selected_row = 0;
