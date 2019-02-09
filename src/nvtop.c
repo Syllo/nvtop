@@ -287,15 +287,15 @@ int main(int argc, char **argv) {
       }
       // else ALT key
     } break;
-    case KEY_F(3):
+    case KEY_F(10):
       if (is_escape_for_quit(interface))
         signal_exit = 1;
       break;
     case 'q':
       signal_exit = 1;
       break;
-    case KEY_F(1):
-    case KEY_F(2):
+    case KEY_F(9):
+    case KEY_F(6):
     case '+':
     case '-':
       interface_key(input_char, interface);
