@@ -66,13 +66,13 @@ Sort increasingly.
 .BR -
 Sort decreasingly.
 .TP
-.BR F1
+.BR F9
 "Kill" process: Select a signal to send to the highlighted process.
 .TP
-.BR F2
+.BR F6
 Sort: Select the field for sorting. The current sort field is highlighted inside the header bar.
 .TP
-.BR F3 ", " q ", " Esc
+.BR F10 ", " q ", " Esc
 Quit.
 
 .SH BUGS
