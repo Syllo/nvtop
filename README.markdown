@@ -9,7 +9,7 @@ handle multiple GPUs and print information about them in a htop familiar way.
 
 Because a picture is worth a thousand words:
 
-![NVTOP interface](/screenshot/NVTOP_ex1.png)
+![NVTOP interface](/screenshot/nvtopscreen1.png)
 
 Table of Contents
 -----------------
