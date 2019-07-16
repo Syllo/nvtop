@@ -56,10 +56,17 @@ Two libraries are required:
 * The *ncurses* library driving the user interface.
   * This makes the screen look beautiful.
 
-
 ## Distribution Specific Installation Process
 
 ### Ubuntu / Debian
+
+#### Ubuntu disco (19.04) / Debian buster (stable)
+
+- ```bash
+  sudo apt install nvtop
+  ```
+
+#### Older
 
 - NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
 - CMake, ncurses and git
