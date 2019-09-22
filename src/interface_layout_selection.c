@@ -165,12 +165,12 @@ void compute_sizes_from_layout(
   if (*num_plots == 0) {
     *plot_positions = NULL;
   } else {
-    *plot_positions = malloc(*num_plots * sizeof(**plot_positions));
+    *plot_positions = calloc(*num_plots, sizeof(**plot_positions));
     *plot_types = preferred_plot_type;
     unsigned rows_per_stack = rows_left / num_plot_stacks;
     if (rows_per_stack > 23)
       rows_per_stack = 23;
-    unsigned plot_per_row = *num_plots / num_plot_stacks;
+    unsigned plot_per_row = (*num_plots + (*num_plots % num_plot_stacks)) / num_plot_stacks;
     unsigned num_plot_done = 0;
     unsigned currentPosX = 0, currentPosY = rows_for_header;
     for (unsigned i = 0; i < num_plot_stacks; ++i) {
