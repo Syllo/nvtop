@@ -1,46 +1,49 @@
 # Distributed under the OSI-approved BSD 3-Clause License.  See accompanying
 # file Copyright.txt or https://cmake.org/licensing for details.
 
-#.rst:
-# FindCurses
-# ----------
-#
-# Find the curses or ncurses include file and library.
-#
-# Result Variables
-# ^^^^^^^^^^^^^^^^
-#
-# This module defines the following variables:
-#
-# ``CURSES_FOUND``
-#   True if Curses is found.
-# ``CURSES_INCLUDE_DIRS``
-#   The include directories needed to use Curses.
-# ``CURSES_LIBRARIES``
-#   The libraries needed to use Curses.
-# ``CURSES_HAVE_CURSES_H``
-#   True if curses.h is available.
-# ``CURSES_HAVE_NCURSES_H``
-#   True if ncurses.h is available.
-# ``CURSES_HAVE_NCURSES_NCURSES_H``
-#   True if ``ncurses/ncurses.h`` is available.
-# ``CURSES_HAVE_NCURSES_CURSES_H``
-#   True if ``ncurses/curses.h`` is available.
-#
-# Set ``CURSES_NEED_NCURSES`` to ``TRUE`` before the
-# ``find_package(Curses)`` call if NCurses functionality is required.
-# Set ``CURSES_NEED_WIDE`` to ``TRUE`` before the
-# ``find_package(Curses)`` call if unicode functionality is required.
-#
-# Backward Compatibility
-# ^^^^^^^^^^^^^^^^^^^^^^
-#
-# The following variable are provided for backward compatibility:
-#
-# ``CURSES_INCLUDE_DIR``
-#   Path to Curses include.  Use ``CURSES_INCLUDE_DIRS`` instead.
-# ``CURSES_LIBRARY``
-#   Path to Curses library.  Use ``CURSES_LIBRARIES`` instead.
+#[=======================================================================[.rst:
+FindCurses
+----------
+
+Find the curses or ncurses include file and library.
+
+Result Variables
+^^^^^^^^^^^^^^^^
+
+This module defines the following variables:
+
+``CURSES_FOUND``
+  True if Curses is found.
+``CURSES_INCLUDE_DIRS``
+  The include directories needed to use Curses.
+``CURSES_LIBRARIES``
+  The libraries needed to use Curses.
+``CURSES_CFLAGS``
+  Parameters which ought be given to C/C++ compilers when using Curses.
+``CURSES_HAVE_CURSES_H``
+  True if curses.h is available.
+``CURSES_HAVE_NCURSES_H``
+  True if ncurses.h is available.
+``CURSES_HAVE_NCURSES_NCURSES_H``
+  True if ``ncurses/ncurses.h`` is available.
+``CURSES_HAVE_NCURSES_CURSES_H``
+  True if ``ncurses/curses.h`` is available.
+
+Set ``CURSES_NEED_NCURSES`` to ``TRUE`` before the
+``find_package(Curses)`` call if NCurses functionality is required.
+Set ``CURSES_NEED_WIDE`` to ``TRUE`` before the
+``find_package(Curses)`` call if unicode functionality is required.
+
+Backward Compatibility
+^^^^^^^^^^^^^^^^^^^^^^
+
+The following variable are provided for backward compatibility:
+
+``CURSES_INCLUDE_DIR``
+  Path to Curses include.  Use ``CURSES_INCLUDE_DIRS`` instead.
+``CURSES_LIBRARY``
+  Path to Curses library.  Use ``CURSES_LIBRARIES`` instead.
+#]=======================================================================]
 
 include(CheckLibraryExists)
 
@@ -55,7 +58,7 @@ else()
   set(CURSES_NEED_NCURSES TRUE)
 endif()
 
-find_library(CURSES_CURSES_LIBRARY NAMES curses )
+find_library(CURSES_CURSES_LIBRARY NAMES curses)
 
 find_library(CURSES_NCURSES_LIBRARY NAMES "${NCURSES_LIBRARY_NAME}" )
 set(CURSES_USE_NCURSES FALSE)
@@ -117,7 +120,7 @@ if(CURSES_USE_NCURSES)
   if(CURSES_NCURSES_INCLUDE_PATH)
     if (CURSES_NEED_WIDE)
       find_path(CURSES_INCLUDE_PATH
-        NAMES ncursesw/ncurses.h ncursesw/curses.h
+        NAMES ncursesw/ncurses.h ncursesw/curses.h ncursesw.h cursesw.h
         PATHS ${CURSES_NCURSES_INCLUDE_PATH}
         NO_DEFAULT_PATH
         )
@@ -131,16 +134,18 @@ if(CURSES_USE_NCURSES)
   endif()
 
   if (CURSES_NEED_WIDE)
+    set(CURSES_TINFO_LIBRARY_NAME tinfow)
     find_path(CURSES_INCLUDE_PATH
-      NAMES ncursesw/ncurses.h ncursesw/curses.h
+      NAMES ncursesw/ncurses.h ncursesw/curses.h ncursesw.h cursesw.h
       HINTS "${_cursesParentDir}/include"
       )
   else()
+    set(CURSES_TINFO_LIBRARY_NAME tinfo)
     find_path(CURSES_INCLUDE_PATH
       NAMES ncurses/ncurses.h ncurses/curses.h ncurses.h curses.h
       HINTS "${_cursesParentDir}/include"
       )
-   endif()
+  endif()
 
   # Previous versions of FindCurses provided these values.
   if(NOT DEFINED CURSES_LIBRARY)
@@ -150,8 +155,8 @@ if(CURSES_USE_NCURSES)
   CHECK_LIBRARY_EXISTS("${CURSES_NCURSES_LIBRARY}"
     cbreak "" CURSES_NCURSES_HAS_CBREAK)
   if(NOT CURSES_NCURSES_HAS_CBREAK)
-    find_library(CURSES_EXTRA_LIBRARY tinfo HINTS "${_cursesLibDir}")
-    find_library(CURSES_EXTRA_LIBRARY tinfo )
+    find_library(CURSES_EXTRA_LIBRARY "${CURSES_TINFO_LIBRARY_NAME}" HINTS "${_cursesLibDir}")
+    find_library(CURSES_EXTRA_LIBRARY "${CURSES_TINFO_LIBRARY_NAME}" )
   endif()
 else()
   get_filename_component(_cursesLibDir "${CURSES_CURSES_LIBRARY}" PATH)
@@ -237,9 +242,15 @@ if(CURSES_FORM_LIBRARY)
   set(CURSES_LIBRARIES ${CURSES_LIBRARIES} ${CURSES_FORM_LIBRARY})
 endif()
 
-# Provide the *_INCLUDE_DIRS result.
+# Provide the *_INCLUDE_DIRS and *_CFLAGS results.
 set(CURSES_INCLUDE_DIRS ${CURSES_INCLUDE_PATH})
 set(CURSES_INCLUDE_DIR ${CURSES_INCLUDE_PATH}) # compatibility
+
+find_package(PkgConfig QUIET)
+if(PKG_CONFIG_FOUND)
+  pkg_check_modules(NCURSES QUIET ${NCURSES_LIBRARY_NAME})
+  set(CURSES_CFLAGS ${NCURSES_CFLAGS_OTHER})
+endif()
 
 include(FindPackageHandleStandardArgs)
 FIND_PACKAGE_HANDLE_STANDARD_ARGS(Curses DEFAULT_MSG
