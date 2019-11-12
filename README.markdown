@@ -122,6 +122,8 @@ make
 make install # You may need sufficient permission for that (root)
 ```
 
+If you use **conda** as environment manager and encounter an error while building nvtop, try `conda deactivate` before invoking `cmake`.
+
 The build system supports multiple build type (e.g. -DCMAKE_BUILD_TYPE=RelWithDebInfo):
 
 * Release: Binary without debug information
