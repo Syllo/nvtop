@@ -75,6 +75,10 @@ Sort: Select the field for sorting. The current sort field is highlighted inside
 .BR F10 ", " q ", " Esc
 Quit.
 
+.SH MEMORY SIZES
+.TP
+Memory sizes in nvtop are displayed as multiples of 1024 bytes or 1 KiB.
+
 .SH BUGS
 .TP
 .BR "Some fields are shown as N/A"
