@@ -166,13 +166,13 @@ enum device_field {
 
 static unsigned int sizeof_device_field[] = {
     [device_name] = 11,  [device_fan_speed] = 8, [device_temperature] = 10,
-    [device_power] = 15, [device_clock] = 11,    [device_pcie] = 44,
+    [device_power] = 15, [device_clock] = 11,    [device_pcie] = 46,
 };
 
 static unsigned int sizeof_process_field[] = {
     [process_pid] = 5,       [process_user] = 4,          [process_gpu_id] = 3,
     [process_type] = 7,
-    [process_memory] = 13, // 8 for mem 5 for %
+    [process_memory] = 14, // 9 for mem 5 for %
     [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9, [process_command] = 0,
 };
 
@@ -606,7 +606,7 @@ static void draw_bare_percentage(WINDOW *win, const char *prelude,
   wnoutrefresh(win);
 }
 
-static const char *memory_prefix[] = {"B", "k", "M", "G", "T", "P"};
+static const char *memory_prefix[] = {" B", "Ki", "Mi", "Gi", "Ti", "Pi"};
 
 static void draw_temp_color(WINDOW *win, unsigned int temp,
                             unsigned int temp_slowdown, bool celsius) {
@@ -637,7 +637,7 @@ static void print_pcie_at_scale(WINDOW *win, unsigned int value) {
   int prefix_off;
   double val_d = value;
   for (prefix_off = 1; prefix_off < 5 && val_d >= 1000.; ++prefix_off) {
-    val_d = val_d / 1000.;
+    val_d = val_d / 1024.;
   }
   if (val_d >= 100.) {
     wprintw(win, "%.1f", val_d);
@@ -784,10 +784,10 @@ static void draw_devices(struct device_info *dev_info,
       double used_mem = dinfo->used_memory;
       size_t prefix_off;
       for (prefix_off = 0; prefix_off < 5 && total_mem >= 1000; ++prefix_off) {
-        total_mem /= 1000;
-        used_mem /= 1000;
+        total_mem /= 1024;
+        used_mem /= 1024;
       }
-      snprintf(buff, 1024, "%.1f%s/%.1f%s", used_mem, memory_prefix[prefix_off],
+      snprintf(buff, 1024, "%.3f%s/%.3f%s", used_mem, memory_prefix[prefix_off],
                total_mem, memory_prefix[prefix_off]);
       draw_bare_percentage(mem_util_win, "MEM",
                            (unsigned int)(100. * dinfo->used_memory /
@@ -1218,8 +1218,8 @@ static void print_processes_on_screen(unsigned int num_process,
                           process_buffer_line_size - printed, " %*s ",
                           sizeof_process_field[process_type], "Compute");
     }
-    snprintf(memory, 9, "%6lluMB", proc[i].used_memory / 1048576);
-    snprintf(memory + 8, sizeof_process_field[process_memory] - 7, " %3.0f%%",
+    snprintf(memory, 10, "%6uMiB", (unsigned)(proc[i].used_memory / 1048576));
+    snprintf(memory + 9, sizeof_process_field[process_memory] - 7, " %3.0f%%",
              proc[i].mem_percentage);
     printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed, "%*s ",
@@ -1229,7 +1229,7 @@ static void print_processes_on_screen(unsigned int num_process,
     printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed, "%*s ",
                         sizeof_process_field[process_cpu_usage], cpu_percent);
-    snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "%zuMB",
+    snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "%zuMiB",
              proc[i].cpu_memory / 1048576);
     printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed, "%*s ",
