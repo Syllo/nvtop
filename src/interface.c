@@ -1346,7 +1346,7 @@ static const int signalValues[ARRAY_SIZE(signalNames)] = {
   SIGSYS,
 };
 
-static const size_t nvtop_num_signals = ARRAY_SIZE(signalNames);
+static const size_t nvtop_num_signals = ARRAY_SIZE(signalNames) - 1;
 
 static void draw_kill_option(struct nvtop_interface *interface) {
   WINDOW *win = interface->process.option_window.option_win;
