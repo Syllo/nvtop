@@ -1281,6 +1281,7 @@ static void draw_processes(struct device_info *dev_info,
 }
 
 static const char *signalNames[] = {
+  "Cancel",
   "SIGHUP",
   "SIGINT",
   "SIGQUIT",
@@ -1314,6 +1315,7 @@ static const char *signalNames[] = {
 };
 
 static const int signalValues[ARRAY_SIZE(signalNames)] = {
+  -1,
   SIGHUP,
   SIGINT,
   SIGQUIT,
@@ -1365,7 +1367,7 @@ static void draw_kill_option(struct nvtop_interface *interface) {
     if (i == interface->process.option_window.selected_row) {
       wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
     }
-    wprintw(win, "%*d %s", 2, signalValues[i], signalNames[i]);
+    wprintw(win, "%*d %s", 2, i, signalNames[i]);
     getyx(win, rows, cols);
 
     for (unsigned int j = cols; j < option_window_size; ++j)
