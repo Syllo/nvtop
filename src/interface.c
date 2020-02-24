@@ -35,6 +35,7 @@
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
 enum process_field {
   process_pid = 0,
@@ -1279,22 +1280,75 @@ static void draw_processes(struct device_info *dev_info,
   print_processes_on_screen(total_processes, &interface->process);
 }
 
-static const char *signalsName[] = {
-    "Cancel",  "SIGABRT", "SIGALRM",   "SIGBUS",  "SIGCHLD", "SIGCONT",
-    "SIGFPE",  "SIGHUP",  "SIGILL",    "SIGINT",  "SIGKILL", "SIGPIPE",
-    "SIGQUIT", "SIGSEGV", "SIGSTOP",   "SIGTERM", "SIGTSTP", "SIGTTIN",
-    "SIGTTOU", "SIGUSR1", "SIGUSR2",   "SIGPOLL", "SIGPROF", "SIGSYS",
-    "SIGTRAP", "SIGURG",  "SIGVTALRM", "SIGXCPU", "SIGXFSZ",
+static const char *signalNames[] = {
+  "Cancel",
+  "SIGHUP",
+  "SIGINT",
+  "SIGQUIT",
+  "SIGILL",
+  "SIGTRAP",
+  "SIGABRT",
+  "SIGBUS",
+  "SIGFPE",
+  "SIGKILL",
+  "SIGUSR1",
+  "SIGSEGV",
+  "SIGUSR2",
+  "SIGPIPE",
+  "SIGALRM",
+  "SIGTERM",
+  "SIGCHLD",
+  "SIGCONT",
+  "SIGSTOP",
+  "SIGTSTP",
+  "SIGTTIN",
+  "SIGTTOU",
+  "SIGURG",
+  "SIGXCPU",
+  "SIGXFSZ",
+  "SIGVTALRM",
+  "SIGPROF",
+  "SIGWINCH",
+  "SIGIO",
+  "SIGPWR",
+  "SIGSYS",
 };
 
-static const int signalsValues[] = {
-    SIGABRT, SIGALRM, SIGBUS,  SIGCHLD, SIGCONT,   SIGFPE,  SIGHUP,
-    SIGILL,  SIGINT,  SIGKILL, SIGPIPE, SIGQUIT,   SIGSEGV, SIGSTOP,
-    SIGTERM, SIGTSTP, SIGTTIN, SIGTTOU, SIGUSR1,   SIGUSR2, SIGPOLL,
-    SIGPROF, SIGSYS,  SIGTRAP, SIGURG,  SIGVTALRM, SIGXCPU, SIGXFSZ,
+static const int signalValues[ARRAY_SIZE(signalNames)] = {
+  -1,
+  SIGHUP,
+  SIGINT,
+  SIGQUIT,
+  SIGILL,
+  SIGTRAP,
+  SIGABRT,
+  SIGBUS,
+  SIGFPE,
+  SIGKILL,
+  SIGUSR1,
+  SIGSEGV,
+  SIGUSR2,
+  SIGPIPE,
+  SIGALRM,
+  SIGTERM,
+  SIGCHLD,
+  SIGCONT,
+  SIGSTOP,
+  SIGTSTP,
+  SIGTTIN,
+  SIGTTOU,
+  SIGURG,
+  SIGXCPU,
+  SIGXFSZ,
+  SIGVTALRM,
+  SIGPROF,
+  SIGWINCH,
+  SIGIO,
+  SIGPWR,
+  SIGSYS,
 };
 
-static const size_t nvtop_num_signals = 28;
+static const size_t nvtop_num_signals = ARRAY_SIZE(signalNames) - 1;
 
 static void draw_kill_option(struct nvtop_interface *interface) {
   WINDOW *win = interface->process.option_window.option_win;
@@ -1313,7 +1367,7 @@ static void draw_kill_option(struct nvtop_interface *interface) {
     if (i == interface->process.option_window.selected_row) {
       wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
     }
-    wprintw(win, "%*d %s", 2, i, signalsName[i]);
+    wprintw(win, "%*d %s", 2, i, signalNames[i]);
     getyx(win, rows, cols);
 
     for (unsigned int j = cols; j < option_window_size; ++j)
@@ -1650,7 +1704,7 @@ static void option_do_kill(struct nvtop_interface *inter) {
   if (inter->process.option_window.selected_row == 0)
     return;
   pid_t pid = inter->process.all_process[inter->process.selected_row].pid;
-  int sig = signalsValues[inter->process.option_window.selected_row - 1];
+  int sig = signalValues[inter->process.option_window.selected_row];
   kill(pid, sig);
 }
 
