@@ -98,14 +98,9 @@ Two libraries are required:
 
 ### Arch Linux
 
-- NVIDIA drivers (see [Arch Linux wiki](https://wiki.archlinux.org/index.php/NVIDIA))
-- CMake, ncurses and git
-  ```bash
-  sudo pacman -S cmake ncurses git
+- ```bash
+  sudo pacman -S nvtop
   ```
-- NVTOP
-  - The `nvtop` AUR package
-  - Follow the [NVTOP Build](#nvtop-build)
 
 ## NVTOP Build
 
