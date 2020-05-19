@@ -171,7 +171,7 @@ static unsigned int sizeof_device_field[] = {
 };
 
 static unsigned int sizeof_process_field[] = {
-    [process_pid] = 5,       [process_user] = 4,          [process_gpu_id] = 3,
+    [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,
     [process_type] = 7,
     [process_memory] = 14, // 9 for mem 5 for %
     [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9, [process_command] = 0,
