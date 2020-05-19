@@ -75,6 +75,10 @@ Sort: Select the field for sorting. The current sort field is highlighted inside
 .BR F10 ", " q ", " Esc
 Quit.
 
+.SH Dynamic meters
+.TP
+When the video encoder (ENC) and decoder (DEC) of the GPU are in use, new percentage meters will appear next to the GPU utilization bar. They will disappear automatically after some time of inactivity (see option -E).
+
 .SH MEMORY SIZES
 .TP
 Memory sizes in nvtop are displayed as multiples of 1024 bytes or 1 KiB.
