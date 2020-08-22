@@ -432,7 +432,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position *plot_positions = NULL;
 
   enum plot_type plot_type;
-  compute_sizes_from_layout(dwin->show_plot, true, true, dwin->num_devices, 2,
+  compute_sizes_from_layout(dwin->show_plot, true, true, num_devices, 2,
                             3, device_length(), rows - 1, cols,
                             device_positions, &process_position,
                             &dwin->num_plots, &plot_positions, &plot_type);

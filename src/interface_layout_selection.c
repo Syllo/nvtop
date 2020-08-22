@@ -123,7 +123,7 @@ void compute_sizes_from_layout(
     rows_for_process += rows_left - 1;
   }
   if (num_plot_stacks > 0) {
-    // Allocate new plot stack is enough vertical room
+    // Allocate a new plot stack if there is enough vertical room
     while (num_plot_stacks < *num_plots &&
            rows_left / (num_plot_stacks + 1) >= 11 &&
            (num_plot_stacks + 1) * min_plot_rows <= rows_left)
@@ -170,11 +170,16 @@ void compute_sizes_from_layout(
     unsigned rows_per_stack = rows_left / num_plot_stacks;
     if (rows_per_stack > 23)
       rows_per_stack = 23;
-    unsigned plot_per_row = (*num_plots + (*num_plots % num_plot_stacks)) / num_plot_stacks;
+    unsigned plot_per_row = *num_plots / num_plot_stacks;
+    unsigned stacks_with_extra_plot = *num_plots % num_plot_stacks;
     unsigned num_plot_done = 0;
     unsigned currentPosX = 0, currentPosY = rows_for_header;
     for (unsigned i = 0; i < num_plot_stacks; ++i) {
       unsigned plot_in_this_row = min(*num_plots - num_plot_done, plot_per_row);
+      if (stacks_with_extra_plot) {
+        plot_in_this_row++;
+        stacks_with_extra_plot--;
+      }
       unsigned cols_per_plot = cols / plot_in_this_row;
       if (*plot_types == plot_gpu_duo)
         cols_per_plot -= (cols_per_plot - cols_needed_box_drawing) %
