@@ -16,6 +16,8 @@ target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
 
+target_compile_definitions(nvtop PRIVATE NVML_NO_UNVERSIONED_FUNC_DEFS)
+
 set_property(TARGET nvtop PROPERTY C_STANDARD 11)
 
 target_link_libraries(nvtop
