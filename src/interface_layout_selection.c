@@ -187,7 +187,7 @@ void compute_sizes_from_layout(
       else
         cols_per_plot -=
             (cols_per_plot - cols_needed_box_drawing) % num_info_per_device;
-      unsigned extra_cols = cols - cols_per_plot * plot_per_row;
+      unsigned extra_cols = cols - cols_per_plot * plot_in_this_row;
       unsigned cols_between_plots =
           extra_cols / (plot_in_this_row <= 1 ? 1 : plot_in_this_row - 1);
       for (unsigned j = 0; j < plot_in_this_row; ++j) {
