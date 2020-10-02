@@ -19,6 +19,7 @@ target_include_directories(nvtop PRIVATE
   ${PROJECT_BINARY_DIR}/include)
 set(CMAKE_REQUIRED_INCLUDES "${NVML_INCLUDE_DIRS};${PROJECT_BINARY_DIR}/include")
 set(CMAKE_REQUIRED_LIBRARIES "${NVML_LIBRARIES}")
+unset(COMPILE_RESULT CACHE)
 check_c_source_compiles(
   "
 #include <stdlib.h>
@@ -42,6 +43,7 @@ if(NOT COMPILE_RESULT)
   "\nYou can solve this by dowloading it from the src repository of https://github.com/NVIDIA/nvidia-settings using the tag that matches your driver version and placing the file in the build/include directory of nvtop.")
   target_compile_definitions(nvtop PRIVATE NVML_NO_UNVERSIONED_FUNC_DEFS)
 endif()
+unset(COMPILE_RESULT CACHE)
 
 set_property(TARGET nvtop PROPERTY C_STANDARD 11)
 
