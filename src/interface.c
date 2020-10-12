@@ -151,6 +151,7 @@ struct nvtop_interface {
   struct plot_window *plots;
   bool use_fahrenheit;
   bool show_plot;
+  bool plot_old_left_recent_right;
   double encode_decode_hide_time;
   struct retained_data past_data;
 };
@@ -511,6 +512,7 @@ static void initialize_colors(void) {
 struct nvtop_interface *
 initialize_curses(unsigned int num_devices, unsigned int biggest_device_name,
                   bool use_color, bool use_fahrenheit, bool show_per_gpu_plot,
+                  bool plot_old_left_recent_right,
                   double encode_decode_hide_time, unsigned collect_interval) {
   struct nvtop_interface *interface = calloc(1, sizeof(*interface));
   interface->devices_win = calloc(num_devices, sizeof(*interface->devices_win));
@@ -536,6 +538,7 @@ initialize_curses(unsigned int num_devices, unsigned int biggest_device_name,
   interface->process.sort_criterion = process_memory;
   interface->process.sort_asc = false;
   interface->process.size_processes_buffer = 50;
+  interface->plot_old_left_recent_right = plot_old_left_recent_right;
   interface->process.all_process =
       malloc(interface->process.size_processes_buffer *
              sizeof(*interface->process.all_process));
@@ -1558,8 +1561,28 @@ static void update_retained_data(struct device_info *dev_info,
   }
 }
 
+static inline double *address_recent_left_old_right(size_t buffer_size,
+                                                    double buffer[buffer_size],
+                                                    size_t col_size, size_t col,
+                                                    size_t offset_in_column) {
+  return &buffer[col * col_size + offset_in_column];
+}
+
+static inline double *address_old_left_recent_right(size_t buffer_size,
+                                                    double buffer[buffer_size],
+                                                    size_t col_size, size_t col,
+                                                    size_t offset_in_column) {
+  return &buffer[buffer_size - (col + 1) * col_size + offset_in_column];
+}
+
+typedef double *(*plot_buffer_access_fn)(size_t, double *, size_t, size_t,
+                                         size_t);
+
 static void populate_plot_data_gpu_mem(struct nvtop_interface *interface,
                                        struct plot_window *plot) {
+  plot_buffer_access_fn access_fn = interface->plot_old_left_recent_right
+                                        ? address_old_left_recent_right
+                                        : address_recent_left_old_right;
   memset(plot->data, 0, plot->num_data * sizeof(double));
   unsigned num_cols = plot->type == plot_gpu_duo ? 4 : 2;
   unsigned upper_bound =
@@ -1573,23 +1596,23 @@ static void populate_plot_data_gpu_mem(struct nvtop_interface *interface,
     unsigned(*memdata)[interface->past_data.size_data_buffer] =
         (unsigned(*)[interface->past_data.size_data_buffer])
             interface->past_data.mem_util;
-    plot->data[i * num_cols] =
+    *access_fn(plot->num_data, plot->data, num_cols, i, 0) =
         gpudata[plot->gpu_ids[0]]
                [(interface->past_data.size_data_buffer +
                  interface->past_data.num_collected_data - i - 1) %
                 interface->past_data.size_data_buffer];
-    plot->data[i * num_cols + 1] =
+    *access_fn(plot->num_data, plot->data, num_cols, i, 1) =
         memdata[plot->gpu_ids[0]]
                [(interface->past_data.size_data_buffer +
                  interface->past_data.num_collected_data - i - 1) %
                 interface->past_data.size_data_buffer];
     if (plot->type == plot_gpu_duo) {
-      plot->data[i * num_cols + 2] =
+      *access_fn(plot->num_data, plot->data, num_cols, i, 2) =
           gpudata[plot->gpu_ids[1]]
                  [(interface->past_data.size_data_buffer +
                    interface->past_data.num_collected_data - i - 1) %
                   interface->past_data.size_data_buffer];
-      plot->data[i * num_cols + 3] =
+      *access_fn(plot->num_data, plot->data, num_cols, i, 3) =
           memdata[plot->gpu_ids[1]]
                  [(interface->past_data.size_data_buffer +
                    interface->past_data.num_collected_data - i - 1) %

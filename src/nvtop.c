@@ -53,6 +53,7 @@ static const char helpstring[] =
     "  -s --gpu-select   : Colon separated list of GPU IDs to monitor\n"
     "  -i --gpu-ignore   : Colon separated list of GPU IDs to ignore\n"
     "  -p --no-plot      : Disable bar plot\n"
+    "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and older on the right\n"
     "  -C --no-color     : No colors\n"
     "  -N --no-cache     : Always query the system for user names and command "
     "line information\n"
@@ -84,10 +85,11 @@ static const struct option long_opts[] = {
      .flag = NULL,
      .val = 'E'},
     {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
+    {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:s:i:CNfE:p";
+static const char opts[] = "hvd:s:i:CNfE:pr";
 
 static size_t update_mask_value(const char *str, size_t entry_mask,
                                 bool addTo) {
@@ -130,6 +132,7 @@ int main(int argc, char **argv) {
   bool cache_pid_infos = true;
   bool use_fahrenheit = false;
   bool show_plot = true;
+  bool plot_old_to_recent = true;
   double encode_decode_hide_time = 30.;
   while (true) {
     int optchar = getopt_long(argc, argv, opts, long_opts, NULL);
@@ -180,6 +183,9 @@ int main(int argc, char **argv) {
     } break;
     case 'p':
       show_plot = false;
+      break;
+    case 'r':
+       plot_old_to_recent = false;
       break;
     case ':':
     case '?':
@@ -248,7 +254,7 @@ int main(int argc, char **argv) {
   }
   struct nvtop_interface *interface = initialize_curses(
       num_devices, biggest_name, use_color_if_available, use_fahrenheit,
-      show_plot, encode_decode_hide_time, refresh_interval);
+      show_plot, plot_old_to_recent, encode_decode_hide_time, refresh_interval);
   timeout(refresh_interval);
 
   double time_slept = refresh_interval;
