@@ -21,6 +21,7 @@ Table of Contents
    1. [Fedora / RedHat / CentOS](#fedora--redhat--centos)
    1. [OpenSUSE](#opensuse)
    1. [Arch Linux](#arch-linux)
+   1. [Gentoo](#gentoo)
    1. [NVTOP Build](#nvtop-build)
 1. [Troubleshoot](#troubleshoot)
 1. [License](#license)
@@ -100,6 +101,12 @@ Two libraries are required:
 
 - ```bash
   sudo pacman -S nvtop
+  ```
+  
+### Gentoo
+
+- ```bash
+  sudo layman -a guru && sudo emerge -av nvtop
   ```
 
 ## NVTOP Build
