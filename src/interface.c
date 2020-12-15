@@ -972,7 +972,7 @@ copy_processes_for_processing(unsigned int num_devices,
 static int compare_pid_desc(const void *pp1, const void *pp2) {
   const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
   const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
-  return -p1->pid + p2->pid;
+  return p1->pid >= p2->pid ? -1 : 1;
 }
 
 static int compare_pid_asc(const void *pp1, const void *pp2) {
@@ -1002,7 +1002,7 @@ static int compare_process_name_asc(const void *pp1, const void *pp2) {
 static int compare_mem_usage_desc(const void *pp1, const void *pp2) {
   const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
   const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
-  return -p1->used_memory + p2->used_memory;
+  return p1->used_memory >= p2->used_memory ? -1 : 1;
 }
 
 static int compare_mem_usage_asc(const void *pp1, const void *pp2) {
@@ -1022,7 +1022,7 @@ static int compare_cpu_usage_asc(const void *pp1, const void *pp2) {
 static int compare_cpu_mem_usage_desc(const void *pp1, const void *pp2) {
   const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
   const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
-  return -(int)p1->cpu_memory + (int)p2->cpu_memory;
+  return p1->cpu_memory >= p2->cpu_memory ? -1 : 1;
 }
 
 static int compare_cpu_mem_usage_asc(const void *pp1, const void *pp2) {
@@ -1032,7 +1032,7 @@ static int compare_cpu_mem_usage_asc(const void *pp1, const void *pp2) {
 static int compare_gpu_desc(const void *pp1, const void *pp2) {
   const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
   const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
-  return -p1->gpu_id + p2->gpu_id;
+  return p1->gpu_id >= p2->gpu_id ? -1 : 1;
 }
 
 static int compare_gpu_asc(const void *pp1, const void *pp2) {
