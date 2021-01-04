@@ -19,7 +19,8 @@ if (NVML_INCLUDE_DIRS AND NVML_LIBRARIES)
 endif()
 
 # Headers
-file(GLOB nvml_header_path_hint /usr/include/nvidia*/include /usr/local/cuda*/include /opt/cuda*/include /usr/lib/*linux-gnu /usr/local/cuda*/targets/*/include)
+file(GLOB nvml_header_path_hint /usr/include/nvidia*/include /usr/local/cuda*/include /opt/cuda*/include /usr/lib/*linux-gnu /usr/local/cuda*/targets/*/include $ENV{CUDA_HOME}/include)
+message(${nvml_header_path_hint})
 find_path(NVML_INCLUDE_DIRS NAMES nvml.h
   PATHS ${nvml_header_path_hint} ${PROJECT_BINARY_DIR}/include)
 
