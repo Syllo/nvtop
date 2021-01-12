@@ -254,7 +254,7 @@ int main(int argc, char **argv) {
   }
   struct nvtop_interface *interface = initialize_curses(
       num_devices, biggest_name, use_color_if_available, use_fahrenheit,
-      show_plot, plot_old_to_recent, encode_decode_hide_time, refresh_interval);
+      show_plot, plot_old_to_recent, encode_decode_hide_time);
   timeout(refresh_interval);
 
   double time_slept = refresh_interval;
@@ -267,10 +267,11 @@ int main(int argc, char **argv) {
       clean_pid_cache();
     if (time_slept >= refresh_interval) {
       update_device_infos(num_devices, dev_infos);
+      update_interface_retained_data(dev_infos, interface);
       timeout(refresh_interval);
       time_slept = 0.;
     } else {
-      int next_sleep = (int)((refresh_interval - time_slept));
+      int next_sleep = refresh_interval - (int)time_slept;
       timeout(next_sleep);
     }
     draw_gpu_info_ncurses(dev_infos, interface);

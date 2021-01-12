@@ -33,12 +33,15 @@ struct nvtop_interface *
 initialize_curses(unsigned int num_devices, unsigned int biggest_device_name,
                   bool use_color, bool use_fahrenheit, bool show_per_gpu_plot,
                   bool plot_old_left_recent_right,
-                  double encode_decode_hide_time, unsigned collect_interval);
+                  double encode_decode_hide_time);
 
 void clean_ncurses(struct nvtop_interface *interface);
 
 void draw_gpu_info_ncurses(struct device_info *dev_info,
                            struct nvtop_interface *interface);
+
+void update_interface_retained_data(struct device_info *dev_info,
+                                 struct nvtop_interface *interface);
 
 void update_window_size_to_terminal_size(struct nvtop_interface *inter);
 

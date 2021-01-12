@@ -123,9 +123,6 @@ struct process_window {
 
 struct plot_window {
   enum plot_type type;
-  /*nvtop_time max_data_retain_time;*/
-  /*nvtop_time time_between_data_collection;*/
-  /*nvtop_time last_time_collected;*/
   size_t num_data;
   double *data;
   WINDOW *win;
@@ -135,12 +132,10 @@ struct plot_window {
 
 // Keep gpu information every 1 second for 10 minutes
 struct retained_data {
-  unsigned collect_interval;
   size_t size_data_buffer;
   size_t num_collected_data;
   unsigned *gpu_util;
   unsigned *mem_util;
-  nvtop_time last_collect;
 };
 
 struct nvtop_interface {
@@ -513,7 +508,7 @@ struct nvtop_interface *
 initialize_curses(unsigned int num_devices, unsigned int biggest_device_name,
                   bool use_color, bool use_fahrenheit, bool show_per_gpu_plot,
                   bool plot_old_left_recent_right,
-                  double encode_decode_hide_time, unsigned collect_interval) {
+                  double encode_decode_hide_time) {
   struct nvtop_interface *interface = calloc(1, sizeof(*interface));
   interface->devices_win = calloc(num_devices, sizeof(*interface->devices_win));
   interface->num_devices = num_devices;
@@ -553,9 +548,6 @@ initialize_curses(unsigned int num_devices, unsigned int biggest_device_name,
   some_time_in_past = nvtop_substract_time(time_now, some_time_in_past);
   interface->past_data.size_data_buffer = 10 * 60 * 1000;
   interface->past_data.num_collected_data = 0;
-  interface->past_data.collect_interval =
-      collect_interval > 1000 ? collect_interval : 1000;
-  nvtop_get_current_time(&interface->past_data.last_collect);
 
   for (size_t i = 0; i < num_devices; ++i) {
     interface->devices_win[i].last_encode_seen = some_time_in_past;
@@ -1545,26 +1537,19 @@ static void draw_option_selection(struct nvtop_interface *interface) {
   wnoutrefresh(win);
 }
 
-static void update_retained_data(struct device_info *dev_info,
-                                 struct nvtop_interface *interface) {
-  nvtop_time time_now;
-  nvtop_get_current_time(&time_now);
-  double time_diff =
-      nvtop_difftime(interface->past_data.last_collect, time_now) * 1000;
-  if (time_diff >= interface->past_data.collect_interval) {
-    interface->past_data.last_collect = time_now;
-    for (size_t i = 0; i < interface->num_devices; ++i) {
-      ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
-           .gpu_util)[i][interface->past_data.num_collected_data %
-                         interface->past_data.size_data_buffer] =
-          dev_info[i].gpu_util_rate;
-      ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
-           .mem_util)[i][interface->past_data.num_collected_data %
-                         interface->past_data.size_data_buffer] =
-          100 * dev_info[i].used_memory / dev_info[i].total_memory;
-    }
-    interface->past_data.num_collected_data++;
+void update_interface_retained_data(struct device_info *dev_info,
+                                    struct nvtop_interface *interface) {
+  for (size_t i = 0; i < interface->num_devices; ++i) {
+    ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
+         .gpu_util)[i][interface->past_data.num_collected_data %
+                       interface->past_data.size_data_buffer] =
+        dev_info[i].gpu_util_rate;
+    ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
+         .mem_util)[i][interface->past_data.num_collected_data %
+                       interface->past_data.size_data_buffer] =
+        100 * dev_info[i].used_memory / dev_info[i].total_memory;
   }
+  interface->past_data.num_collected_data++;
 }
 
 static inline double *address_recent_left_old_right(size_t buffer_size,
@@ -1699,7 +1684,6 @@ static void draw_plots(struct nvtop_interface *interface) {
 void draw_gpu_info_ncurses(struct device_info *dev_info,
                            struct nvtop_interface *interface) {
 
-  update_retained_data(dev_info, interface);
   draw_devices(dev_info, interface);
   draw_processes(dev_info, interface);
   if (interface->process.option_window.state != nvtop_option_state_hidden)
