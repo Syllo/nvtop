@@ -42,9 +42,12 @@ enum process_field {
   process_user,
   process_gpu_id,
   process_type,
+  process_gpu_usage,
   process_memory,
   process_cpu_usage,
   process_cpu_mem_usage,
+  process_enc_usage,
+  process_dec_usage,
   process_command,
   process_end,
 };
@@ -91,8 +94,11 @@ struct all_gpu_processes {
   char *user_name;
   unsigned long long used_memory;
   double mem_percentage;
+  double gpu_percent;
   double cpu_percent;
   size_t cpu_memory;
+  double enc_percent;
+  double dec_percent;
   unsigned int gpu_id;
   bool is_graphical;
 };
@@ -169,8 +175,12 @@ static unsigned int sizeof_device_field[] = {
 static unsigned int sizeof_process_field[] = {
     [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,
     [process_type] = 7,
+    [process_gpu_usage] = 6,
     [process_memory] = 14, // 9 for mem 5 for %
-    [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9, [process_command] = 0,
+    [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9,
+    [process_enc_usage] = 6,
+    [process_dec_usage] = 6,
+    [process_command] = 0,
 };
 
 static void alloc_device_window(unsigned int device_id, unsigned int start_row,
@@ -926,10 +936,16 @@ copy_processes_for_processing(unsigned int num_devices,
       interface->process.all_process[offset + j].mem_percentage =
           interface->process.all_process[offset + j].used_memory * 100. /
           (double)dev_info[i].total_memory;
+      interface->process.all_process[offset + j].gpu_percent =
+          dev_info[i].compute_procs[j].gpu_usage;
       interface->process.all_process[offset + j].cpu_percent =
           dev_info[i].compute_procs[j].cpu_usage;
       interface->process.all_process[offset + j].cpu_memory =
           dev_info[i].compute_procs[j].cpu_memory_res;
+      interface->process.all_process[offset + j].enc_percent =
+          dev_info[i].compute_procs[j].enc_usage;
+      interface->process.all_process[offset + j].dec_percent =
+          dev_info[i].compute_procs[j].dec_usage;
     }
     offset += dev_info[i].num_compute_procs;
     for (unsigned int j = 0; j < dev_info[i].num_graphical_procs; ++j) {
@@ -948,10 +964,16 @@ copy_processes_for_processing(unsigned int num_devices,
       interface->process.all_process[offset + j].mem_percentage =
           interface->process.all_process[offset + j].used_memory * 100. /
           (double)dev_info[i].total_memory;
+      interface->process.all_process[offset + j].gpu_percent =
+          dev_info[i].graphic_procs[j].gpu_usage;
       interface->process.all_process[offset + j].cpu_percent =
           dev_info[i].graphic_procs[j].cpu_usage;
       interface->process.all_process[offset + j].cpu_memory =
           dev_info[i].graphic_procs[j].cpu_memory_res;
+      interface->process.all_process[offset + j].enc_percent =
+          dev_info[i].graphic_procs[j].enc_usage;
+      interface->process.all_process[offset + j].dec_percent =
+          dev_info[i].graphic_procs[j].dec_usage;
     }
     offset += dev_info[i].num_graphical_procs;
   }
@@ -991,6 +1013,16 @@ static int compare_process_name_asc(const void *pp1, const void *pp2) {
   return compare_process_name_desc(pp2, pp1);
 }
 
+static int compare_gpu_usage_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
+  return p1->gpu_percent >= p2->gpu_percent ? -1 : 1;
+}
+
+static int compare_gpu_usage_asc(const void *pp1, const void *pp2) {
+  return compare_gpu_usage_desc(pp2, pp1);
+}
+
 static int compare_mem_usage_desc(const void *pp1, const void *pp2) {
   const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
   const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
@@ -1019,6 +1051,26 @@ static int compare_cpu_mem_usage_desc(const void *pp1, const void *pp2) {
 
 static int compare_cpu_mem_usage_asc(const void *pp1, const void *pp2) {
   return compare_cpu_mem_usage_desc(pp2, pp1);
+}
+
+static int compare_enc_usage_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
+  return p1->enc_percent >= p2->enc_percent ? -1 : 1;
+}
+
+static int compare_enc_usage_asc(const void *pp1, const void *pp2) {
+  return compare_enc_usage_desc(pp2, pp1);
+}
+
+static int compare_dec_usage_desc(const void *pp1, const void *pp2) {
+  const struct all_gpu_processes *p1 = (const struct all_gpu_processes *)pp1;
+  const struct all_gpu_processes *p2 = (const struct all_gpu_processes *)pp2;
+  return p1->dec_percent >= p2->dec_percent ? -1 : 1;
+}
+
+static int compare_dec_usage_asc(const void *pp1, const void *pp2) {
+  return compare_dec_usage_desc(pp2, pp1);
 }
 
 static int compare_gpu_desc(const void *pp1, const void *pp2) {
@@ -1070,6 +1122,12 @@ static void sort_process(struct all_gpu_processes *proc,
     else
       sort_fun = compare_process_type_desc;
     break;
+  case process_gpu_usage:
+    if (asc_sort)
+      sort_fun = compare_gpu_usage_asc;
+    else
+      sort_fun = compare_gpu_usage_desc;
+    break;
   case process_memory:
     if (asc_sort)
       sort_fun = compare_mem_usage_asc;
@@ -1094,6 +1152,18 @@ static void sort_process(struct all_gpu_processes *proc,
     else
       sort_fun = compare_cpu_mem_usage_desc;
     break;
+  case process_enc_usage:
+    if (asc_sort)
+      sort_fun = compare_enc_usage_asc;
+    else
+      sort_fun = compare_enc_usage_desc;
+    break;
+  case process_dec_usage:
+    if (asc_sort)
+      sort_fun = compare_dec_usage_asc;
+    else
+      sort_fun = compare_dec_usage_desc;
+    break;
   case process_end:
   default:
     return;
@@ -1102,7 +1172,7 @@ static void sort_process(struct all_gpu_processes *proc,
 }
 
 static const char *columnName[] = {
-    "PID", "USER", "GPU", "TYPE", "GPU MEM", "CPU", "HOST MEM", "Command",
+    "PID", "USER", "DEV", "TYPE", "GPU", "GPU MEM", "CPU", "HOST MEM", "ENC", "DEC", "Command",
 };
 
 static void update_selected_offset_with_window_size(
@@ -1162,7 +1232,10 @@ static void print_processes_on_screen(unsigned int num_process,
   char guid_str[sizeof_process_field[process_gpu_id] + 1];
   char memory[sizeof_process_field[process_memory] + 1];
   char cpu_percent[sizeof_process_field[process_cpu_usage] + 1];
+  char gpu_percent[sizeof_process_field[process_gpu_usage] + 1];
   char cpu_mem[sizeof_process_field[process_cpu_mem_usage] + 1];
+  char enc_percent[sizeof_process_field[process_enc_usage] + 1];
+  char dec_percent[sizeof_process_field[process_dec_usage] + 1];
 
   unsigned int start_at_process = process->offset;
   unsigned int end_at_process = start_at_process + rows;
@@ -1220,6 +1293,13 @@ static void print_processes_on_screen(unsigned int num_process,
                           process_buffer_line_size - printed, " %*s ",
                           sizeof_process_field[process_type], "Compute");
     }
+
+    snprintf(gpu_percent, sizeof_process_field[process_gpu_usage] + 1, "%.f%%",
+             proc[i].gpu_percent);
+    printed += snprintf(&process_print_buffer[printed],
+                        process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[process_gpu_usage], gpu_percent);
+
     snprintf(memory, 10, "%6uMiB", (unsigned)(proc[i].used_memory / 1048576));
     snprintf(memory + 9, sizeof_process_field[process_memory] - 7, " %3.0f%%",
              proc[i].mem_percentage);
@@ -1236,6 +1316,18 @@ static void print_processes_on_screen(unsigned int num_process,
     printed += snprintf(&process_print_buffer[printed],
                         process_buffer_line_size - printed, "%*s ",
                         sizeof_process_field[process_cpu_mem_usage], cpu_mem);
+
+    snprintf(enc_percent, sizeof_process_field[process_enc_usage] + 1, "%.f%%",
+             proc[i].enc_percent);
+    printed += snprintf(&process_print_buffer[printed],
+                        process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[process_enc_usage], enc_percent);
+    snprintf(dec_percent, sizeof_process_field[process_dec_usage] + 1, "%.f%%",
+             proc[i].dec_percent);
+    printed += snprintf(&process_print_buffer[printed],
+                        process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[process_dec_usage], dec_percent);
+
     snprintf(&process_print_buffer[printed], process_buffer_line_size - printed,
              "%.*s", process_buffer_line_size - printed, proc[i].process_name);
     unsigned int write_at = i - start_at_process + 1;

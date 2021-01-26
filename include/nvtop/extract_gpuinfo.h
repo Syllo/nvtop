@@ -40,6 +40,9 @@ struct gpu_process {
   size_t cpu_memory_virt;
   size_t cpu_memory_res;
   double cpu_usage;
+  double gpu_usage;
+  double enc_usage;
+  double dec_usage;
 };
 
 enum dev_info_valid {

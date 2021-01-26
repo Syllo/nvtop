@@ -268,6 +268,49 @@ retry_querry_compute:
       dinfo->num_compute_procs, dinfo->process_infos, dinfo->compute_procs);
 }
 
+static void update_process_samples(struct device_info *dinfo) {
+  nvmlReturn_t retval;
+  unsigned int processSamplesCount = 0;
+  nvmlProcessUtilizationSample_t *processSamples = NULL;
+  retval = nvmlDeviceGetProcessUtilization(dinfo->device_handle, NULL,
+                                           &processSamplesCount, 0);
+  if (retval == NVML_ERROR_INSUFFICIENT_SIZE && processSamplesCount > 0) {
+    processSamples = malloc(processSamplesCount *
+                            sizeof(*processSamples));
+    retval = nvmlDeviceGetProcessUtilization(dinfo->device_handle,
+                                             processSamples,
+                                             &processSamplesCount, 0);
+  }
+
+
+  for (unsigned int i = 0; i < dinfo->num_compute_procs; i++) {
+    unsigned int pid = dinfo->compute_procs[i].pid;
+    for (unsigned int j = 0; j < processSamplesCount; j++) {
+      nvmlProcessUtilizationSample_t *sample = &processSamples[j];
+      if (sample->pid == pid) {
+        dinfo->compute_procs[i].gpu_usage = sample->smUtil;
+        dinfo->compute_procs[i].enc_usage = sample->encUtil;
+        dinfo->compute_procs[i].dec_usage = sample->decUtil;
+        break;
+      }
+    }
+  }
+
+  for (unsigned int i = 0; i < dinfo->num_graphical_procs; i++) {
+    unsigned int pid = dinfo->graphic_procs[i].pid;
+    for (unsigned int j = 0; j < processSamplesCount; j++) {
+      nvmlProcessUtilizationSample_t *sample = &processSamples[j];
+      if (sample->pid == pid) {
+        dinfo->graphic_procs[i].gpu_usage = sample->smUtil;
+        dinfo->graphic_procs[i].enc_usage = sample->encUtil;
+        dinfo->graphic_procs[i].dec_usage = sample->decUtil;
+        break;
+      }
+    }
+  }
+  free(processSamples);
+}
+
 void update_device_infos(unsigned int num_devs, struct device_info *dev_info) {
   for (unsigned int i = 0; i < num_devs; ++i) {
     struct device_info *curr_dev_info = &dev_info[i];
@@ -451,6 +494,7 @@ void update_device_infos(unsigned int num_devs, struct device_info *dev_info) {
     // Process informations
     update_graphical_process(curr_dev_info);
     update_compute_process(curr_dev_info);
+    update_process_samples(curr_dev_info);
 
   } // Loop over devices
 
