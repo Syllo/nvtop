@@ -490,6 +490,7 @@ unsigned int initialize_device_info(struct device_info **dev_info,
         fprintf(stderr, "Impossible to get handle for device number %u : %s\n",
                 i, nvmlErrorString(retval));
         free(*dev_info);
+        *dev_info = NULL;
         return 0;
       }
     } else {

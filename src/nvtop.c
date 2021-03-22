@@ -238,11 +238,13 @@ int main(int argc, char **argv) {
   if (!init_gpu_info_extraction())
     return EXIT_FAILURE;
   size_t num_devices;
-  struct device_info *dev_infos;
+  struct device_info *dev_infos = NULL;
   num_devices = initialize_device_info(&dev_infos, gpu_mask);
   if (num_devices == 0) {
     fprintf(stdout, "No GPU left to monitor.\n");
-    free(dev_infos);
+    if (dev_infos != NULL) {
+      free(dev_infos);
+    }
     return EXIT_SUCCESS;
   }
   size_t biggest_name = 0;
