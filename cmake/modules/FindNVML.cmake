@@ -26,9 +26,10 @@ find_path(NVML_INCLUDE_DIRS NAMES nvml.h
 # library
 if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8") # 64bit
   file(GLOB nvml_lib_path_hint /usr/lib64/nvidia*/ /usr/lib/nvidia*/ /usr/local/cuda*/targets/*/lib/stubs/ "$ENV{CUDA_HOME}/lib64/"
-    "$ENV{CUDA_HOME}/lib/")
+    "$ENV{CUDA_HOME}/lib/" "$ENV{CUDA_HOME}/targets/*/lib/stubs")
 else() # assume 32bit
-  file(GLOB nvml_lib_path_hint /usr/lib32/nvidia*/ /usr/lib/nvidia*/ /usr/local/cuda*/targets/*/lib/stubs/ "$ENV{CUDA_HOME}/lib/")
+  file(GLOB nvml_lib_path_hint /usr/lib32/nvidia*/ /usr/lib/nvidia*/ /usr/local/cuda*/targets/*/lib/stubs/ "$ENV{CUDA_HOME}/lib/"
+    "$ENV{CUDA_HOME}/targets/*/lib/stubs")
 endif()
 find_library(NVML_LIBRARIES NAMES nvidia-ml libnvidia-ml.so.1
   PATHS ${nvml_lib_path_hint})
