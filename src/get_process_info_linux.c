@@ -76,6 +76,7 @@ void get_command_from_pid(pid_t pid, char **buffer) {
   size_t size_buffer = command_line_increment;
   *buffer = malloc(size_buffer);
   char *current_buffer = *buffer;
+  current_buffer[0] = '\0';
 
   size_t total_read = 0;
   do {
