@@ -96,6 +96,10 @@ void get_command_from_pid(pid_t pid, char **buffer) {
   }
   fclose(pid_file);
 
+  if (total_read == 0) {
+    (*buffer)[0] = '\0';
+  }
+
   for (size_t i = 0; total_read && i < total_read - 1; ++i) {
     if ((*buffer)[i] == '\0')
       (*buffer)[i] = ' ';
