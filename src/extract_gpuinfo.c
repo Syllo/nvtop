@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2017 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2017-2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -20,514 +20,221 @@
  */
 
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "nvtop/extract_gpuinfo.h"
+#include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/extract_gpuinfo_nvidia.h"
 #include "nvtop/get_process_info.h"
+#include "nvtop/time.h"
 #include "uthash.h"
 
-#define HASH_FIND_PID(head, pidfield, out)                                     \
-  HASH_FIND(hh, head, pidfield, sizeof(intmax_t), out)
+#define HASH_FIND_PID(head, key_ptr, out_ptr)                                  \
+  HASH_FIND(hh, head, key_ptr, sizeof(*key_ptr), out_ptr)
 
-#define HASH_ADD_PID(head, pidfield, add)                                      \
-  HASH_ADD(hh, head, pidfield, sizeof(intmax_t), add)
+#define HASH_ADD_PID(head, in_ptr)                                             \
+  HASH_ADD(hh, head, pid, sizeof(pid_t), in_ptr)
 
-#define HASH_REPLACE_PID(head, pidfield, replaced)                             \
-  HASH_REPLACE(hh, head, pidfield, sizeof(intmax_t), replaced)
-
-static bool nvml_initialized = false;
-
-bool init_gpu_info_extraction(void) {
-  if (!nvml_initialized) {
-    nvmlReturn_t retval = nvmlInit();
-    if (retval != NVML_SUCCESS) {
-      fprintf(stderr, "Impossible to initialize nvidia nvml : %s\n",
-              nvmlErrorString(retval));
-      return false;
-    }
-    nvml_initialized = true;
-  }
-  return true;
-}
-
-bool shutdown_gpu_info_extraction(void) {
-  if (nvml_initialized) {
-    nvmlReturn_t retval = nvmlShutdown();
-    if (retval != NVML_SUCCESS) {
-      fprintf(stderr, "Impossible to shutdown nvidia nvml : %s\n",
-              nvmlErrorString(retval));
-      return false;
-    }
-    nvml_initialized = false;
-  }
-  return true;
-}
-
-/**
- * Normaly those informations are not changing over time
- */
-static void populate_static_device_infos(struct device_info *dev_info) {
-
-  // GPU NAME
-  nvmlReturn_t retval =
-      nvmlDeviceGetName(dev_info->device_handle, dev_info->device_name,
-                        NVML_DEVICE_NAME_BUFFER_SIZE);
-  SET_VALID(device_name_valid, dev_info->valid);
-  if (retval != NVML_SUCCESS) {
-    memcpy(dev_info->device_name, "UNKNOWN", strlen("UNKNOWN") + 1);
-    RESET_VALID(device_name_valid, dev_info->valid);
-  }
-
-  // PCIe LINK GEN MAX
-  retval = nvmlDeviceGetMaxPcieLinkGeneration(dev_info->device_handle,
-                                              &dev_info->max_pcie_link_gen);
-  SET_VALID(max_pcie_link_gen_valid, dev_info->valid);
-  if (retval != NVML_SUCCESS) {
-    dev_info->max_pcie_link_gen = 0;
-    RESET_VALID(max_pcie_link_gen_valid, dev_info->valid);
-  }
-  // PCIe LINK WIDTH MAX
-  retval = nvmlDeviceGetMaxPcieLinkWidth(dev_info->device_handle,
-                                         &dev_info->max_pcie_link_width);
-  SET_VALID(max_pcie_link_width_valid, dev_info->valid);
-  if (retval != NVML_SUCCESS) {
-    dev_info->max_pcie_link_width = 0;
-    RESET_VALID(max_pcie_link_width_valid, dev_info->valid);
-  }
-
-  // GPU TEMP SHUTDOWN
-  retval = nvmlDeviceGetTemperatureThreshold(
-      dev_info->device_handle, NVML_TEMPERATURE_THRESHOLD_SHUTDOWN,
-      &dev_info->gpu_temp_shutdown);
-  SET_VALID(gpu_temp_shutdown_valid, dev_info->valid);
-  if (retval != NVML_SUCCESS) {
-    dev_info->gpu_temp_shutdown = 0;
-    RESET_VALID(gpu_temp_shutdown_valid, dev_info->valid);
-  }
-
-  // GPU TEMP SLOWDOWN
-  retval = nvmlDeviceGetTemperatureThreshold(
-      dev_info->device_handle, NVML_TEMPERATURE_THRESHOLD_SLOWDOWN,
-      &dev_info->gpu_temp_slowdown);
-  SET_VALID(gpu_temp_slowdown_valid, dev_info->valid);
-  if (retval != NVML_SUCCESS) {
-    dev_info->gpu_temp_slowdown = 0;
-    RESET_VALID(gpu_temp_slowdown_valid, dev_info->valid);
-  }
-}
-
-struct pid_infos {
-  intmax_t pid;
-  char *process_name;
+typedef struct process_info_cache_struct {
+  pid_t pid;
+  char *cmdline;
   char *user_name;
-  double cpu_elapsed_time;
-  nvtop_time last_measurement;
+  double last_total_consumed_cpu_time;
+  nvtop_time last_measurement_timestamp;
   UT_hash_handle hh;
-};
+} process_info_cache;
 
-static struct pid_infos *saved_pid_infos = NULL;    // Hash table saved pid info
-static struct pid_infos *current_used_infos = NULL; // Hash table saved pid info
+process_info_cache *cached_process_info = NULL;
+process_info_cache *updated_process_info = NULL;
 
-static void populate_infos(intmax_t pid, struct pid_infos *infos) {
-  infos->pid = pid;
-  get_command_from_pid((pid_t)pid, &infos->process_name);
-  if (infos->process_name == NULL) {
-    infos->process_name = malloc(4 * sizeof(*infos->process_name));
-    memcpy(infos->process_name, "N/A", 4);
+bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count,
+                                  gpu_info **devices) {
+  unsigned nvidia_devices_count = 0;
+  gpuinfo_nvidia_device_handle *nvidia_devices = NULL;
+  if (gpuinfo_nvidia_init()) {
+    bool retval = gpuinfo_nvidia_get_device_handles(
+        &nvidia_devices, &nvidia_devices_count, mask_nvidia);
+    if (!retval || (retval && nvidia_devices_count == 0)) {
+      gpuinfo_nvidia_shutdown();
+      nvidia_devices_count = 0;
+      nvidia_devices = NULL;
+    }
   }
-  get_username_from_pid((pid_t)pid, &infos->user_name);
-  if (infos->user_name == NULL) {
-    infos->user_name = malloc(4 * sizeof(*infos->user_name));
-    memcpy(infos->user_name, "N/A", 4);
+  unsigned total_devices = nvidia_devices_count;
+  *devices = malloc(total_devices * sizeof(**devices));
+  if (!*devices) {
+    perror("Cannot allocate memory: ");
+    free(nvidia_devices);
+    return false;
   }
-  struct process_cpu_usage cpu_usage;
-  if (get_process_info((pid_t)pid, &cpu_usage)) {
-    infos->cpu_elapsed_time =
-        cpu_usage.total_kernel_time + cpu_usage.total_user_time;
-    infos->last_measurement = cpu_usage.time;
-  } else {
-    infos->cpu_elapsed_time = -1.;
+  for (unsigned i = 0; i < nvidia_devices_count; ++i) {
+    (*devices)[i].gpu_type = gpuinfo_type_nvidia_proprietary;
+    (*devices)[i].nvidia_gpuhandle = nvidia_devices[i];
+    (*devices)[i].processes_count = 0;
+    (*devices)[i].processes = NULL;
   }
+  free(nvidia_devices);
+  *devices_count = total_devices;
+  return true;
 }
 
-static void
-update_gpu_process_from_process_info(unsigned int num_process,
-                                     nvmlProcessInfo_t *p_info,
-                                     struct gpu_process *gpu_proc_info) {
+bool gpuinfo_shutdown_info_extraction(unsigned device_count,
+                                      gpu_info *devices) {
+  for (unsigned i = 0; i < device_count; ++i) {
+    free(devices[i].processes);
+  }
+  free(devices);
+  gpuinfo_nvidia_shutdown();
+  gpuinfo_clear_cache();
+  return true;
+}
 
-  for (unsigned int i = 0; i < num_process; ++i) {
-    gpu_proc_info[i].pid = p_info[i].pid;
-    struct pid_infos *infos;
-    HASH_FIND_PID(saved_pid_infos, &gpu_proc_info[i].pid, infos);
-    if (!infos) {
-      HASH_FIND_PID(current_used_infos, &gpu_proc_info[i].pid, infos);
-      if (!infos) { // getting information from the system
-        infos = malloc(sizeof(*infos));
-        populate_infos(gpu_proc_info[i].pid, infos);
-        HASH_ADD_PID(current_used_infos, pid, infos);
-      }
-    } else {
-      HASH_DEL(saved_pid_infos, infos);
-      HASH_ADD_PID(current_used_infos, pid, infos);
+bool gpuinfo_populate_static_infos(unsigned device_count, gpu_info *devices) {
+  for (unsigned i = 0; i < device_count; ++i) {
+    switch (devices[i].gpu_type) {
+    case gpuinfo_type_nvidia_proprietary:
+      gpuinfo_nvidia_populate_static_info(devices[i].nvidia_gpuhandle,
+                                          &devices[i].static_info);
+      break;
+    default:
+      fprintf(stderr,
+              "Unknown GPU type encountered during static initialization\n");
+      return false;
     }
-    struct process_cpu_usage cpu_usage;
-    if (get_process_info((pid_t)p_info[i].pid, &cpu_usage)) {
-      if (infos->cpu_elapsed_time > -1.) {
-        gpu_proc_info[i].cpu_usage =
-            100. *
-            (cpu_usage.total_user_time + cpu_usage.total_kernel_time -
-             infos->cpu_elapsed_time) /
-            nvtop_difftime(infos->last_measurement, cpu_usage.time);
+  }
+  return true;
+}
+
+bool gpuinfo_refresh_dynamic_info(unsigned device_count, gpu_info *devices) {
+  for (unsigned i = 0; i < device_count; ++i) {
+    switch (devices[i].gpu_type) {
+    case gpuinfo_type_nvidia_proprietary:
+      gpuinfo_nvidia_refresh_dynamic_info(devices[i].nvidia_gpuhandle,
+                                          &devices[i].dynamic_info);
+      break;
+    default:
+      fprintf(stderr,
+              "Unknown GPU type encountered during static initialization\n");
+      return false;
+    }
+  }
+  return true;
+}
+
+static void gpuinfo_populate_process_infos(unsigned device_count,
+                                           gpu_info *devices) {
+  for (unsigned i = 0; i < device_count; ++i) {
+    for (unsigned j = 0; j < devices[i].processes_count; ++j) {
+      pid_t current_pid = devices[i].processes[j].pid;
+      process_info_cache *cached_pid_info;
+
+      HASH_FIND_PID(cached_process_info, &current_pid, cached_pid_info);
+      if (!cached_pid_info) {
+        // Newly encountered pid
+        cached_pid_info = malloc(sizeof(*cached_pid_info));
+        cached_pid_info->pid = current_pid;
+        get_username_from_pid(current_pid, &cached_pid_info->user_name);
+        get_command_from_pid(current_pid, &cached_pid_info->cmdline);
+        cached_pid_info->last_total_consumed_cpu_time = -1.;
       } else {
-        gpu_proc_info[i].cpu_usage = 0.;
+        // Already encountered so delete from cached list to avoid freeing
+        // memory at the end of this function
+        HASH_DEL(cached_process_info, cached_pid_info);
       }
-      gpu_proc_info[i].cpu_memory_virt = cpu_usage.virtual_memory;
-      gpu_proc_info[i].cpu_memory_res = cpu_usage.resident_memory;
-      infos->last_measurement = cpu_usage.time;
-      infos->cpu_elapsed_time =
-          cpu_usage.total_user_time + cpu_usage.total_kernel_time;
-    } else {
-      gpu_proc_info[i].cpu_memory_virt = 0;
-      gpu_proc_info[i].cpu_memory_res = 0;
-      gpu_proc_info[i].cpu_usage = 0.;
-      infos->cpu_elapsed_time = -1.;
-    }
-    /*fprintf(stderr, "PID %d cpu usage %f virt %zu res %zu\n",
-     * (int)p_info[i].pid,*/
-    /*gpu_proc_info[i].cpu_usage, gpu_proc_info[i].cpu_memory_virt,*/
-    /*gpu_proc_info[i].cpu_memory_res);*/
-    gpu_proc_info[i].process_name = infos->process_name;
-    gpu_proc_info[i].user_name = infos->user_name;
-    gpu_proc_info[i].used_memory = p_info[i].usedGpuMemory;
-  }
-}
+      HASH_ADD_PID(updated_process_info, cached_pid_info);
 
-static void update_graphical_process(struct device_info *dinfo) {
-  nvmlReturn_t retval;
+      devices[i].processes[j].cmdline = cached_pid_info->cmdline;
+      SET_VALID(gpuinfo_process_cmdline_valid, devices[i].processes[j].valid);
+      devices[i].processes[j].user_name = cached_pid_info->user_name;
+      SET_VALID(gpuinfo_process_user_name_valid, devices[i].processes[j].valid);
 
-  unsigned int array_size;
-retry_querry_graphical:
-  array_size = dinfo->size_proc_buffers;
-  unsigned int prev_array_size = array_size;
-  retval = nvmlDeviceGetGraphicsRunningProcesses(
-      dinfo->device_handle, &array_size, dinfo->process_infos);
-  if (retval != NVML_SUCCESS) {
-    if (retval == NVML_ERROR_INSUFFICIENT_SIZE) {
-      unsigned int new_size = prev_array_size * 2 > array_size * 2
-                                  ? prev_array_size * 2
-                                  : array_size * 2;
-      dinfo->size_proc_buffers = new_size;
-      dinfo->graphic_procs = realloc(dinfo->graphic_procs,
-                                     new_size * sizeof(*dinfo->graphic_procs));
-      dinfo->compute_procs = realloc(dinfo->compute_procs,
-                                     new_size * sizeof(*dinfo->compute_procs));
-      dinfo->process_infos = realloc(dinfo->process_infos,
-                                     new_size * sizeof(*dinfo->process_infos));
-      goto retry_querry_graphical;
-    } else {
-      dinfo->num_graphical_procs = 0;
-    }
-  } else {
-    dinfo->num_graphical_procs = array_size;
-  }
-  update_gpu_process_from_process_info(
-      dinfo->num_graphical_procs, dinfo->process_infos, dinfo->graphic_procs);
-}
-
-static void update_compute_process(struct device_info *dinfo) {
-  nvmlReturn_t retval;
-
-  unsigned int array_size;
-retry_querry_compute:
-  array_size = dinfo->size_proc_buffers;
-  unsigned int prev_array_size = array_size;
-  retval = nvmlDeviceGetComputeRunningProcesses(
-      dinfo->device_handle, &array_size, dinfo->process_infos);
-  if (retval != NVML_SUCCESS) {
-    if (retval == NVML_ERROR_INSUFFICIENT_SIZE) {
-      unsigned int new_size = prev_array_size * 2 > array_size * 2
-                                  ? prev_array_size * 2
-                                  : array_size * 2;
-      dinfo->size_proc_buffers = new_size;
-      dinfo->graphic_procs = realloc(dinfo->graphic_procs,
-                                     new_size * sizeof(*dinfo->graphic_procs));
-      dinfo->compute_procs = realloc(dinfo->compute_procs,
-                                     new_size * sizeof(*dinfo->compute_procs));
-      dinfo->process_infos = realloc(dinfo->process_infos,
-                                     new_size * sizeof(*dinfo->process_infos));
-      goto retry_querry_compute;
-    } else {
-      dinfo->num_compute_procs = 0;
-    }
-  } else {
-    dinfo->num_compute_procs = array_size;
-  }
-  update_gpu_process_from_process_info(
-      dinfo->num_compute_procs, dinfo->process_infos, dinfo->compute_procs);
-}
-
-void update_device_infos(unsigned int num_devs, struct device_info *dev_info) {
-  for (unsigned int i = 0; i < num_devs; ++i) {
-    struct device_info *curr_dev_info = &dev_info[i];
-
-    // GPU CLK
-    nvmlReturn_t retval = nvmlDeviceGetClockInfo(
-        curr_dev_info->device_handle, NVML_CLOCK_GRAPHICS,
-        &curr_dev_info->gpu_clock_speed);
-    SET_VALID(gpu_clock_speed_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->gpu_clock_speed = 0;
-      RESET_VALID(gpu_clock_speed_valid, curr_dev_info->valid);
-    }
-
-    // MEM CLK
-    retval =
-        nvmlDeviceGetClockInfo(curr_dev_info->device_handle, NVML_CLOCK_MEM,
-                               &curr_dev_info->mem_clock_speed);
-    SET_VALID(mem_clock_speed_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->mem_clock_speed = 0;
-      RESET_VALID(mem_clock_speed_valid, curr_dev_info->valid);
-    }
-
-    // GPU CLK MAX
-    retval = nvmlDeviceGetMaxClockInfo(curr_dev_info->device_handle,
-                                       NVML_CLOCK_GRAPHICS,
-                                       &curr_dev_info->gpu_clock_speed_max);
-    SET_VALID(gpu_clock_speed_max_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->gpu_clock_speed_max = 0;
-      RESET_VALID(gpu_clock_speed_max_valid, curr_dev_info->valid);
-    }
-
-    // MEM CLK MAX
-    retval =
-        nvmlDeviceGetMaxClockInfo(curr_dev_info->device_handle, NVML_CLOCK_MEM,
-                                  &curr_dev_info->mem_clock_speed_max);
-    SET_VALID(mem_clock_speed_max_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->mem_clock_speed_max = 0;
-      RESET_VALID(mem_clock_speed_max_valid, curr_dev_info->valid);
-    }
-
-    // GPU / MEM UTIL RATE
-    nvmlUtilization_t util_rate;
-    retval =
-        nvmlDeviceGetUtilizationRates(curr_dev_info->device_handle, &util_rate);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->gpu_util_rate = 0;
-      curr_dev_info->mem_util_rate = 0;
-      RESET_VALID(gpu_util_rate_valid, curr_dev_info->valid);
-      RESET_VALID(mem_util_rate_valid, curr_dev_info->valid);
-    } else {
-      curr_dev_info->gpu_util_rate = util_rate.gpu;
-      curr_dev_info->mem_util_rate = util_rate.memory;
-      SET_VALID(gpu_util_rate_valid, curr_dev_info->valid);
-      SET_VALID(mem_util_rate_valid, curr_dev_info->valid);
-    }
-
-    // FREE / TOTAL / USED MEMORY
-    nvmlMemory_t meminfo;
-    retval = nvmlDeviceGetMemoryInfo(curr_dev_info->device_handle, &meminfo);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->free_memory = 0;
-      curr_dev_info->total_memory = 0;
-      curr_dev_info->used_memory = 0;
-      RESET_VALID(free_memory_valid, curr_dev_info->valid);
-      RESET_VALID(total_memory_valid, curr_dev_info->valid);
-      RESET_VALID(used_memory_valid, curr_dev_info->valid);
-    } else {
-      curr_dev_info->free_memory = meminfo.free;
-      curr_dev_info->total_memory = meminfo.total;
-      curr_dev_info->used_memory = meminfo.used;
-      SET_VALID(free_memory_valid, curr_dev_info->valid);
-      SET_VALID(total_memory_valid, curr_dev_info->valid);
-      SET_VALID(used_memory_valid, curr_dev_info->valid);
-    }
-
-    // PCIe LINK GEN
-    retval = nvmlDeviceGetCurrPcieLinkGeneration(
-        curr_dev_info->device_handle, &curr_dev_info->cur_pcie_link_gen);
-    SET_VALID(cur_pcie_link_gen_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->cur_pcie_link_gen = 0;
-      RESET_VALID(cur_pcie_link_gen_valid, curr_dev_info->valid);
-    }
-
-    // PCIe LINK WIDTH
-    retval = nvmlDeviceGetCurrPcieLinkWidth(
-        curr_dev_info->device_handle, &curr_dev_info->cur_pcie_link_width);
-    SET_VALID(cur_pcie_link_width_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->cur_pcie_link_width = 0;
-      RESET_VALID(cur_pcie_link_width_valid, curr_dev_info->valid);
-    }
-
-    // PCIe TX THROUGHPUT
-    retval = nvmlDeviceGetPcieThroughput(curr_dev_info->device_handle,
-                                         NVML_PCIE_UTIL_TX_BYTES,
-                                         &curr_dev_info->pcie_tx);
-    SET_VALID(pcie_tx_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->pcie_tx = 0;
-      RESET_VALID(pcie_tx_valid, curr_dev_info->valid);
-    }
-
-    // PCIe RX THROUGHPUT
-    retval = nvmlDeviceGetPcieThroughput(curr_dev_info->device_handle,
-                                         NVML_PCIE_UTIL_RX_BYTES,
-                                         &curr_dev_info->pcie_rx);
-    SET_VALID(pcie_rx_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->pcie_rx = 0;
-      RESET_VALID(pcie_rx_valid, curr_dev_info->valid);
-    }
-
-    // FAN SPEED
-    retval = nvmlDeviceGetFanSpeed(curr_dev_info->device_handle,
-                                   &curr_dev_info->fan_speed);
-    SET_VALID(fan_speed_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->fan_speed = 0;
-      RESET_VALID(fan_speed_valid, curr_dev_info->valid);
-    }
-
-    // GPU TEMP
-    retval = nvmlDeviceGetTemperature(curr_dev_info->device_handle,
-                                      NVML_TEMPERATURE_GPU,
-                                      &curr_dev_info->gpu_temp);
-    SET_VALID(gpu_temp_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->gpu_temp = 0;
-      RESET_VALID(gpu_temp_valid, curr_dev_info->valid);
-    }
-
-    // POWER DRAW
-    retval = nvmlDeviceGetPowerUsage(curr_dev_info->device_handle,
-                                     &curr_dev_info->power_draw);
-    SET_VALID(power_draw_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->power_draw = 0;
-      RESET_VALID(power_draw_valid, curr_dev_info->valid);
-    }
-
-    // POWER MAX
-    retval = nvmlDeviceGetEnforcedPowerLimit(curr_dev_info->device_handle,
-                                             &curr_dev_info->power_draw_max);
-    SET_VALID(power_draw_max_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->power_draw_max = 0;
-      RESET_VALID(power_draw_max_valid, curr_dev_info->valid);
-    }
-
-    // Encoder infos
-    retval = nvmlDeviceGetEncoderUtilization(curr_dev_info->device_handle,
-                                             &curr_dev_info->encoder_rate,
-                                             &curr_dev_info->encoder_sampling);
-    SET_VALID(encoder_rate_valid, curr_dev_info->valid);
-    SET_VALID(encoder_sampling_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->encoder_rate = 0;
-      curr_dev_info->encoder_sampling = 0;
-      RESET_VALID(encoder_rate_valid, curr_dev_info->valid);
-      RESET_VALID(encoder_sampling_valid, curr_dev_info->valid);
-    }
-
-    // Decoder infos
-    retval = nvmlDeviceGetDecoderUtilization(curr_dev_info->device_handle,
-                                             &curr_dev_info->decoder_rate,
-                                             &curr_dev_info->decoder_sampling);
-    SET_VALID(decoder_rate_valid, curr_dev_info->valid);
-    SET_VALID(decoder_sampling_valid, curr_dev_info->valid);
-    if (retval != NVML_SUCCESS) {
-      curr_dev_info->decoder_rate = 0;
-      curr_dev_info->decoder_sampling = 0;
-      RESET_VALID(decoder_rate_valid, curr_dev_info->valid);
-      RESET_VALID(decoder_sampling_valid, curr_dev_info->valid);
-    }
-
-    // Process informations
-    update_graphical_process(curr_dev_info);
-    update_compute_process(curr_dev_info);
-
-  } // Loop over devices
-
-  // Now delete the (pid,username,command) cache entries that are not in use
-  // anymore
-  struct pid_infos *old_info, *tmp;
-  HASH_ITER(hh, saved_pid_infos, old_info, tmp) {
-    HASH_DEL(saved_pid_infos, old_info);
-    free(old_info->process_name);
-    free(old_info->user_name);
-    free(old_info);
-  }
-  saved_pid_infos = current_used_infos;
-  current_used_infos = NULL;
-}
-
-unsigned int initialize_device_info(struct device_info **dev_info,
-                                    size_t gpu_mask) {
-  unsigned int num_devices;
-  nvmlReturn_t retval = nvmlDeviceGetCount(&num_devices);
-  if (retval != NVML_SUCCESS) {
-    fprintf(stderr, "Impossible to get the number of devices : %s\n",
-            nvmlErrorString(retval));
-    return 0;
-  }
-  *dev_info = malloc(num_devices * sizeof(**dev_info));
-  struct device_info *devs = *dev_info;
-  unsigned int num_queriable = 0;
-  for (unsigned int i = 0; i < num_devices; ++i) {
-    retval = nvmlDeviceGetHandleByIndex(i, &devs[num_queriable].device_handle);
-    if (i < CHAR_BIT * sizeof(gpu_mask) && (gpu_mask & (1 << i)) == 0)
-      continue;
-    if (retval != NVML_SUCCESS) {
-      if (retval == NVML_ERROR_NO_PERMISSION) {
-        continue;
+      struct process_cpu_usage cpu_usage;
+      if (get_process_info(current_pid, &cpu_usage)) {
+        if (cached_pid_info->last_total_consumed_cpu_time > -1.) {
+          double usage_percent =
+              round(100. *
+                    (cpu_usage.total_user_time + cpu_usage.total_kernel_time -
+                     cached_pid_info->last_total_consumed_cpu_time) /
+                    nvtop_difftime(cached_pid_info->last_measurement_timestamp,
+                                   cpu_usage.timestamp));
+          devices[i].processes[j].cpu_usage = (unsigned)usage_percent;
+        } else {
+          devices[i].processes[j].cpu_usage = 0;
+        }
+        SET_VALID(gpuinfo_process_cpu_usage_valid,
+                  devices[i].processes[j].valid);
+        cached_pid_info->last_measurement_timestamp = cpu_usage.timestamp;
+        cached_pid_info->last_total_consumed_cpu_time =
+            cpu_usage.total_kernel_time + cpu_usage.total_user_time;
+        devices[i].processes[j].cpu_memory_res = cpu_usage.resident_memory;
+        SET_VALID(gpuinfo_process_cpu_memory_res_valid,
+                  devices[i].processes[j].valid);
+        devices[i].processes[j].cpu_memory_virt = cpu_usage.virtual_memory;
+        SET_VALID(gpuinfo_process_cpu_memory_virt_valid,
+                  devices[i].processes[j].valid);
       } else {
-        fprintf(stderr, "Impossible to get handle for device number %u : %s\n",
-                i, nvmlErrorString(retval));
-        free(*dev_info);
-        *dev_info = NULL;
-        return 0;
+        cached_pid_info->last_total_consumed_cpu_time = -1;
       }
-    } else {
-      populate_static_device_infos(&devs[num_queriable]);
-#define DEF_PROC_NUM 25
-      devs[num_queriable].size_proc_buffers = DEF_PROC_NUM;
-      devs[num_queriable].compute_procs =
-          malloc(DEF_PROC_NUM * sizeof(*devs[num_queriable].compute_procs));
-      devs[num_queriable].graphic_procs =
-          malloc(DEF_PROC_NUM * sizeof(*devs[num_queriable].graphic_procs));
-      devs[num_queriable].process_infos =
-          malloc(DEF_PROC_NUM * sizeof(*devs[num_queriable].process_infos));
-#undef DEF_PROC_NUM
-      num_queriable += 1;
+
+      // Process memory usage percent of total device memory
+      if (IS_VALID(gpuinfo_total_memory_valid, devices[i].dynamic_info.valid) &&
+          IS_VALID(gpuinfo_process_gpu_memory_usage_valid,
+                   devices[i].processes[j].valid)) {
+        float percentage =
+            roundf(100.f * (float)devices[i].processes[j].gpu_memory_usage /
+                   (float)devices[i].dynamic_info.total_memory);
+        devices[i].processes[j].gpu_memory_percentage = (unsigned)percentage;
+        SET_VALID(gpuinfo_process_gpu_memory_percentage_valid,
+                  devices[i].processes[j].valid);
+      }
     }
   }
-  return num_queriable;
+  process_info_cache *pid_not_encountered, *tmp;
+  HASH_ITER(hh, cached_process_info, pid_not_encountered, tmp) {
+    HASH_DEL(cached_process_info, pid_not_encountered);
+    free(pid_not_encountered->cmdline);
+    free(pid_not_encountered->user_name);
+    free(pid_not_encountered);
+  }
+  cached_process_info = updated_process_info;
+  updated_process_info = NULL;
 }
 
-void clean_pid_cache(void) {
-  struct pid_infos *old_info, *tmp;
-  // The current_used_infos should be NULL here
-  assert(current_used_infos == NULL);
-  HASH_ITER(hh, saved_pid_infos, old_info, tmp) {
-    HASH_DEL(saved_pid_infos, old_info);
-    free(old_info->process_name);
-    free(old_info->user_name);
-    free(old_info);
+bool gpuinfo_refresh_processes(unsigned device_count, gpu_info *devices) {
+  for (unsigned i = 0; i < device_count; ++i) {
+    switch (devices[i].gpu_type) {
+    case gpuinfo_type_nvidia_proprietary: {
+      unsigned processes_count = 0;
+      gpu_process *processes = NULL;
+      gpuinfo_nvidia_get_running_processes(devices[i].nvidia_gpuhandle,
+                                           &processes_count, &processes);
+      free(devices[i].processes);
+      devices[i].processes = processes;
+      devices[i].processes_count = processes_count;
+    } break;
+    default:
+      fprintf(stderr,
+              "Unknown GPU type encountered during static initialization\n");
+      return false;
+    }
   }
+
+  gpuinfo_populate_process_infos(device_count, devices);
+
+  return true;
 }
 
-void clean_device_info(unsigned int num_devs, struct device_info *dev_info) {
-  for (unsigned int i = 0; i < num_devs; ++i) {
-    free(dev_info[i].graphic_procs);
-    free(dev_info[i].compute_procs);
-    free(dev_info[i].process_infos);
+void gpuinfo_clear_cache(void) {
+  if (cached_process_info) {
+    process_info_cache *pid_cached, *tmp;
+    HASH_ITER(hh, cached_process_info, pid_cached, tmp) {
+      HASH_DEL(cached_process_info, pid_cached);
+      free(pid_cached->cmdline);
+      free(pid_cached->user_name);
+      free(pid_cached);
+    }
   }
-  free(dev_info);
-  clean_pid_cache();
 }
