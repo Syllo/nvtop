@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.1)
 #                              PROJECT                              #
 #///////////////////////////////////////////////////////////////////#
 
-project(nvtop VERSION 1.1.0
+project(nvtop VERSION 1.1.1
   LANGUAGES C)
 
 set(default_build_type "Release")
@@ -22,19 +22,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 #                           DEPENDENCIES                            #
 #///////////////////////////////////////////////////////////////////#
 
-if(NVML_RETRIEVE_HEADER_ONLINE)
-  file(DOWNLOAD "https://raw.githubusercontent.com/NVIDIA/nvidia-settings/master/src/nvml.h" ${PROJECT_BINARY_DIR}/include/nvml.h)
-endif()
-
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
-
-find_package(NVML REQUIRED)
-
-add_library(nvml INTERFACE IMPORTED)
-set_property(TARGET nvml PROPERTY
-  INTERFACE_INCLUDE_DIRECTORIES ${NVML_INCLUDE_DIRS})
-set_property(TARGET nvml PROPERTY
-  INTERFACE_LINK_LIBRARIES ${NVML_LIBRARIES})
 
 set(CURSES_NEED_NCURSES TRUE)
 # Try to find ncurses with unicode support first
