@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2017 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2017-2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -29,6 +29,7 @@
 
 #include <locale.h>
 
+#include "nvtop/extract_gpuinfo.h"
 #include "nvtop/interface.h"
 #include "nvtop/time.h"
 #include "nvtop/version.h"
@@ -53,9 +54,9 @@ static const char helpstring[] =
     "  -s --gpu-select   : Colon separated list of GPU IDs to monitor\n"
     "  -i --gpu-ignore   : Colon separated list of GPU IDs to ignore\n"
     "  -p --no-plot      : Disable bar plot\n"
-    "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and older on the right\n"
+    "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
+    "older on the right\n"
     "  -C --no-color     : No colors\n"
-    "  -N --no-cache     : Always query the system for user names and command "
     "line information\n"
     "  -f --freedom-unit : Use fahrenheit\n"
     "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
@@ -70,7 +71,6 @@ static const struct option long_opts[] = {
     {.name = "help", .has_arg = no_argument, .flag = NULL, .val = 'h'},
     {.name = "no-color", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "no-colour", .has_arg = no_argument, .flag = NULL, .val = 'C'},
-    {.name = "no-cache", .has_arg = no_argument, .flag = NULL, .val = 'N'},
     {.name = "freedom-unit", .has_arg = no_argument, .flag = NULL, .val = 'f'},
     {.name = "gpu-select",
      .has_arg = required_argument,
@@ -89,7 +89,7 @@ static const struct option long_opts[] = {
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:s:i:CNfE:pr";
+static const char opts[] = "hvd:s:i:CfE:pr";
 
 static size_t update_mask_value(const char *str, size_t entry_mask,
                                 bool addTo) {
@@ -129,7 +129,6 @@ int main(int argc, char **argv) {
   char *selectedGPU = NULL;
   char *ignoredGPU = NULL;
   bool use_color_if_available = true;
-  bool cache_pid_infos = true;
   bool use_fahrenheit = false;
   bool show_plot = true;
   bool plot_old_to_recent = true;
@@ -168,9 +167,6 @@ int main(int argc, char **argv) {
     case 'C':
       use_color_if_available = false;
       break;
-    case 'N':
-      cache_pid_infos = false;
-      break;
     case 'f':
       use_fahrenheit = true;
       break;
@@ -185,7 +181,7 @@ int main(int argc, char **argv) {
       show_plot = false;
       break;
     case 'r':
-       plot_old_to_recent = false;
+      plot_old_to_recent = false;
       break;
     case ':':
     case '?':
@@ -224,38 +220,41 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  size_t gpu_mask;
+  size_t gpu_mask_nvidia;
   if (selectedGPU != NULL) {
-    gpu_mask = 0;
-    gpu_mask = update_mask_value(selectedGPU, gpu_mask, true);
+    gpu_mask_nvidia = 0;
+    gpu_mask_nvidia = update_mask_value(selectedGPU, gpu_mask_nvidia, true);
   } else {
-    gpu_mask = UINT_MAX;
+    gpu_mask_nvidia = UINT_MAX;
   }
   if (ignoredGPU != NULL) {
-    gpu_mask = update_mask_value(ignoredGPU, gpu_mask, false);
+    gpu_mask_nvidia = update_mask_value(ignoredGPU, gpu_mask_nvidia, false);
   }
 
-  if (!init_gpu_info_extraction())
+  unsigned devices_count = 0;
+  gpu_info *devices = NULL;
+  if (!gpuinfo_init_info_extraction(gpu_mask_nvidia, &devices_count, &devices))
     return EXIT_FAILURE;
-  size_t num_devices;
-  struct device_info *dev_infos = NULL;
-  num_devices = initialize_device_info(&dev_infos, gpu_mask);
-  if (num_devices == 0) {
-    fprintf(stdout, "No GPU left to monitor.\n");
-    if (dev_infos != NULL) {
-      free(dev_infos);
-    }
+  if (devices_count == 0) {
+    fprintf(stdout, "No GPU to monitor.\n");
     return EXIT_SUCCESS;
   }
+
+  gpuinfo_populate_static_infos(devices_count, devices);
+
   size_t biggest_name = 0;
-  for (size_t i = 0; i < num_devices; ++i) {
-    size_t device_name_size = strlen(dev_infos->device_name);
+  for (unsigned i = 0; i < devices_count; ++i) {
+    size_t device_name_size;
+    if (IS_VALID(gpuinfo_device_name_valid, devices[i].static_info.valid))
+      device_name_size = strlen(devices[i].static_info.device_name);
+    else
+      device_name_size = 4;
     if (device_name_size > biggest_name) {
       biggest_name = device_name_size;
     }
   }
   struct nvtop_interface *interface = initialize_curses(
-      num_devices, biggest_name, use_color_if_available, use_fahrenheit,
+      devices_count, biggest_name, use_color_if_available, use_fahrenheit,
       show_plot, plot_old_to_recent, encode_decode_hide_time);
   timeout(refresh_interval);
 
@@ -265,18 +264,19 @@ int main(int argc, char **argv) {
       update_window_size_to_terminal_size(interface);
       signal_resize_win = 0;
     }
-    if (!cache_pid_infos)
-      clean_pid_cache();
     if (time_slept >= refresh_interval) {
-      update_device_infos(num_devices, dev_infos);
-      update_interface_retained_data(dev_infos, interface);
+      gpuinfo_refresh_dynamic_info(devices_count, devices);
+      if (!interface_freeze_processes(interface)) {
+        gpuinfo_refresh_processes(devices_count, devices);
+      }
+      update_interface_retained_data(devices_count, devices, interface);
       timeout(refresh_interval);
       time_slept = 0.;
     } else {
       int next_sleep = refresh_interval - (int)time_slept;
       timeout(next_sleep);
     }
-    draw_gpu_info_ncurses(dev_infos, interface);
+    draw_gpu_info_ncurses(devices_count, devices, interface);
 
     nvtop_time time_before_sleep, time_after_sleep;
     nvtop_get_current_time(&time_before_sleep);
@@ -309,10 +309,10 @@ int main(int argc, char **argv) {
     case '-':
       interface_key(input_char, interface);
       break;
-    case KEY_LEFT:
-    case KEY_RIGHT:
     case KEY_UP:
     case KEY_DOWN:
+    case KEY_LEFT:
+    case KEY_RIGHT:
     case KEY_ENTER:
     case '\n':
       interface_key(input_char, interface);
@@ -324,8 +324,7 @@ int main(int argc, char **argv) {
   }
 
   clean_ncurses(interface);
-  clean_device_info(num_devices, dev_infos);
-  shutdown_gpu_info_extraction();
+  gpuinfo_shutdown_info_extraction(devices_count, devices);
 
   return EXIT_SUCCESS;
 }

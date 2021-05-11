@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2017-2018 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2017-2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -26,27 +26,27 @@
 
 struct nvtop_interface;
 
-void show_gpu_infos_ascii(unsigned int num_devices,
-                          struct device_info *dev_info);
-
-struct nvtop_interface *
-initialize_curses(unsigned int num_devices, unsigned int biggest_device_name,
-                  bool use_color, bool use_fahrenheit, bool show_per_gpu_plot,
-                  bool plot_old_left_recent_right,
-                  double encode_decode_hide_time);
+struct nvtop_interface *initialize_curses(unsigned int num_devices,
+                                          unsigned int biggest_device_name,
+                                          bool use_color, bool use_fahrenheit,
+                                          bool show_per_gpu_plot,
+                                          bool plot_old_left_recent_right,
+                                          double encode_decode_hide_time);
 
 void clean_ncurses(struct nvtop_interface *interface);
 
-void draw_gpu_info_ncurses(struct device_info *dev_info,
+void draw_gpu_info_ncurses(unsigned devices_count, gpu_info *devices,
                            struct nvtop_interface *interface);
 
-void update_interface_retained_data(struct device_info *dev_info,
-                                 struct nvtop_interface *interface);
+void update_interface_retained_data(unsigned devices_count, gpu_info *devices,
+                                    struct nvtop_interface *interface);
 
 void update_window_size_to_terminal_size(struct nvtop_interface *inter);
 
 void interface_key(int keyId, struct nvtop_interface *inter);
 
 bool is_escape_for_quit(struct nvtop_interface *inter);
+
+bool interface_freeze_processes(struct nvtop_interface *interface);
 
 #endif // INTERFACE_H_
