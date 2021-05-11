@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2017 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2017-2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #include "nvtop/time.h"
 
@@ -32,7 +33,7 @@ struct process_cpu_usage {
   double total_kernel_time; // Seconds
   size_t virtual_memory;    // Bytes
   size_t resident_memory;   // Bytes
-  nvtop_time time;
+  nvtop_time timestamp;
 };
 
 void get_username_from_pid(pid_t pid, char **buffer);

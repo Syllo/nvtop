@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2017 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2017-2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -191,7 +191,7 @@ bool get_process_info(pid_t pid, struct process_cpu_usage *usage) {
   if (!stat_file) {
     return false;
   }
-  nvtop_get_current_time(&usage->time);
+  nvtop_get_current_time(&usage->timestamp);
   unsigned long total_user_time;   // in clock_ticks
   unsigned long total_kernel_time; // in clock_ticks
   unsigned long virtual_memory;    // In bytes
