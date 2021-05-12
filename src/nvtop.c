@@ -51,6 +51,8 @@ static const char helpstring[] =
     "Available options:\n"
     "  -d --delay        : Select the refresh rate (1 == 0.1s)\n"
     "  -v --version      : Print the version and exit\n"
+    "  -c --config-file  : Provide a custom config file location to load/save "
+    "preferences\n"
     "  -s --gpu-select   : Colon separated list of GPU IDs to monitor\n"
     "  -i --gpu-ignore   : Colon separated list of GPU IDs to ignore\n"
     "  -p --no-plot      : Disable bar plot\n"
@@ -69,6 +71,10 @@ static const struct option long_opts[] = {
     {.name = "delay", .has_arg = required_argument, .flag = NULL, .val = 'd'},
     {.name = "version", .has_arg = no_argument, .flag = NULL, .val = 'v'},
     {.name = "help", .has_arg = no_argument, .flag = NULL, .val = 'h'},
+    {.name = "config-file",
+     .has_arg = required_argument,
+     .flag = NULL,
+     .val = 'c'},
     {.name = "no-color", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "no-colour", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "freedom-unit", .has_arg = no_argument, .flag = NULL, .val = 'f'},
@@ -89,7 +95,7 @@ static const struct option long_opts[] = {
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:s:i:CfE:pr";
+static const char opts[] = "hvd:s:i:c:CfE:pr";
 
 static size_t update_mask_value(const char *str, size_t entry_mask,
                                 bool addTo) {
@@ -128,11 +134,13 @@ int main(int argc, char **argv) {
   int refresh_interval = 1000;
   char *selectedGPU = NULL;
   char *ignoredGPU = NULL;
-  bool use_color_if_available = true;
-  bool use_fahrenheit = false;
-  bool show_plot = true;
-  bool plot_old_to_recent = true;
-  double encode_decode_hide_time = 30.;
+  bool no_color_option = false;
+  bool use_fahrenheit_option = false;
+  bool hide_plot_option = false;
+  bool reverse_plot_direction_option = false;
+  bool encode_decode_timer_option_set = false;
+  double encode_decode_hide_time = -1.;
+  char *custom_config_file_path = NULL;
   while (true) {
     int optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -164,11 +172,14 @@ int main(int argc, char **argv) {
     case 'h':
       printf("%s\n%s", versionString, helpstring);
       exit(EXIT_SUCCESS);
+    case 'c':
+      custom_config_file_path = optarg;
+      break;
     case 'C':
-      use_color_if_available = false;
+      no_color_option = true;
       break;
     case 'f':
-      use_fahrenheit = true;
+      use_fahrenheit_option = true;
       break;
     case 'E': {
       if (sscanf(optarg, "%lf", &encode_decode_hide_time) == EOF) {
@@ -176,12 +187,13 @@ int main(int argc, char **argv) {
                 optarg);
         exit(EXIT_FAILURE);
       }
+      encode_decode_timer_option_set = true;
     } break;
     case 'p':
-      show_plot = false;
+      hide_plot_option = true;
       break;
     case 'r':
-      plot_old_to_recent = false;
+      reverse_plot_direction_option = true;
       break;
     case ':':
     case '?':
@@ -240,6 +252,25 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
   }
 
+  nvtop_interface_option interface_options;
+  alloc_interface_options_internals(custom_config_file_path, devices_count,
+                                    &interface_options);
+  load_interface_options_from_config_file(devices_count, &interface_options);
+  if (no_color_option)
+    interface_options.use_color = false;
+  if (hide_plot_option) {
+    for (unsigned i = 0; i < devices_count; ++i) {
+      interface_options.device_information_drawn[i] = 0;
+    }
+  }
+  if (encode_decode_timer_option_set) {
+    interface_options.encode_decode_hiding_timer = encode_decode_hide_time;
+  }
+  if (reverse_plot_direction_option)
+    interface_options.plot_left_to_right = true;
+  if (use_fahrenheit_option)
+    interface_options.temperature_in_fahrenheit = true;
+
   gpuinfo_populate_static_infos(devices_count, devices);
 
   size_t biggest_name = 0;
@@ -253,9 +284,8 @@ int main(int argc, char **argv) {
       biggest_name = device_name_size;
     }
   }
-  struct nvtop_interface *interface = initialize_curses(
-      devices_count, biggest_name, use_color_if_available, use_fahrenheit,
-      show_plot, plot_old_to_recent, encode_decode_hide_time);
+  struct nvtop_interface *interface =
+      initialize_curses(devices_count, biggest_name, interface_options);
   timeout(refresh_interval);
 
   double time_slept = refresh_interval;

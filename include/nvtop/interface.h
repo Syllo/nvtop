@@ -24,14 +24,51 @@
 
 #include "nvtop/extract_gpuinfo.h"
 
+enum plot_information {
+  plot_gpu_rate = 0,
+  plot_gpu_mem_rate,
+  plot_encoder_rate,
+  plot_decoder_rate,
+  plot_gpu_temperature,
+  plot_info_count
+};
+
+enum process_field {
+  process_pid = 0,
+  process_user,
+  process_gpu_id,
+  process_type,
+  process_memory,
+  process_cpu_usage,
+  process_cpu_mem_usage,
+  process_command,
+  process_end,
+};
+
+typedef int plot_info_to_draw;
+
+typedef struct nvtop_interface_option_struct {
+  bool plot_left_to_right;        // true to reverse the plot refresh direction
+                                  // defines inactivity (0 use rate) before
+                                  // hiding it
+  bool temperature_in_fahrenheit; // Switch from celsius to fahrenheit
+  // temperature scale
+  bool use_color;                    // Name self explanatory
+  double encode_decode_hiding_timer; // Negative to always display, positive
+  plot_info_to_draw
+      *device_information_drawn; // Stores the information to drawn for each
+                                 // GPU (see enum plot_draw_information)
+  char *config_file_location;    // Location of the config file
+  enum process_field
+      sort_processes_by;      // Specify the field used to order the processes
+  bool sort_descending_order; // Sort in descenging order
+} nvtop_interface_option;
+
 struct nvtop_interface;
 
-struct nvtop_interface *initialize_curses(unsigned int num_devices,
-                                          unsigned int biggest_device_name,
-                                          bool use_color, bool use_fahrenheit,
-                                          bool show_per_gpu_plot,
-                                          bool plot_old_left_recent_right,
-                                          double encode_decode_hide_time);
+struct nvtop_interface *initialize_curses(unsigned num_devices,
+                                          unsigned largest_device_name,
+                                          nvtop_interface_option options);
 
 void clean_ncurses(struct nvtop_interface *interface);
 
@@ -48,5 +85,42 @@ void interface_key(int keyId, struct nvtop_interface *inter);
 bool is_escape_for_quit(struct nvtop_interface *inter);
 
 bool interface_freeze_processes(struct nvtop_interface *interface);
+
+inline plot_info_to_draw plot_add_draw_info(enum plot_information set_info,
+                                            plot_info_to_draw to_draw) {
+  return to_draw | (1 << set_info);
+}
+
+inline plot_info_to_draw plot_remove_draw_info(enum plot_information reset_info,
+                                               plot_info_to_draw to_draw) {
+  return to_draw & (~(1 << reset_info));
+}
+
+inline plot_info_to_draw plot_default_draw_info(void) {
+  return (1 << plot_gpu_rate) | (1 << plot_gpu_mem_rate);
+}
+
+inline bool plot_isset_draw_info(enum plot_information check_info,
+                                 plot_info_to_draw to_draw) {
+  return to_draw & (1 << check_info);
+}
+
+inline unsigned plot_count_draw_info(plot_info_to_draw to_draw) {
+  unsigned count = 0;
+  for (enum plot_information i = plot_gpu_rate; i < plot_info_count; ++i) {
+    count += plot_isset_draw_info(i, to_draw) ? 1 : 0;
+  }
+  return count;
+}
+
+void alloc_interface_options_internals(char *config_file_location,
+                                       unsigned num_devices,
+                                       nvtop_interface_option *options);
+
+bool load_interface_options_from_config_file(unsigned num_devices,
+                                             nvtop_interface_option *options);
+
+bool save_interface_options_to_config_file(
+    unsigned num_devices, const nvtop_interface_option *options);
 
 #endif // INTERFACE_H_
