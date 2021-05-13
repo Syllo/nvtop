@@ -9,17 +9,21 @@ add_executable (nvtop
   nvtop.c
   interface.c
   interface_layout_selection.c
+  interface_options.c
   get_process_info_linux.c
   extract_gpuinfo.c
   extract_gpuinfo_nvidia.c
   time.c
-  plot.c)
+  plot.c
+  ini.c)
 
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
 
 set_property(TARGET nvtop PROPERTY C_STANDARD 11)
+
+target_compile_definitions(nvtop PRIVATE _GNU_SOURCE)
 
 target_link_libraries(nvtop
   PRIVATE ncurses m ${CMAKE_DL_LIBS})

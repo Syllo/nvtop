@@ -27,16 +27,12 @@
 #include "nvtop/time.h"
 
 #include <assert.h>
-#include <errno.h>
 #include <inttypes.h>
-#include <libgen.h>
-#include <limits.h>
 #include <ncurses.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
 #include <tgmath.h>
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
@@ -468,24 +464,20 @@ struct nvtop_interface *initialize_curses(unsigned num_devices,
   curs_set(0);
 
   // Hide decode and encode if not active for some time
-  nvtop_time time_now, some_time_in_past;
-  if (interface->options.encode_decode_hiding_timer > 0.)
+  if (interface->options.encode_decode_hiding_timer > 0.) {
+    nvtop_time time_now, some_time_in_past;
     some_time_in_past = nvtop_hmns_to_time(
         0,
         (unsigned int)(interface->options.encode_decode_hiding_timer / 60.) + 1,
         0);
-  else
-    some_time_in_past = nvtop_hmns_to_time(0, 0, 0);
-  nvtop_get_current_time(&time_now);
-  some_time_in_past = nvtop_substract_time(time_now, some_time_in_past);
-  for (size_t i = 0; i < num_devices; ++i) {
-    interface->devices_win[i].last_encode_seen = some_time_in_past;
-    interface->devices_win[i].last_decode_seen = some_time_in_past;
+
+    nvtop_get_current_time(&time_now);
+    some_time_in_past = nvtop_substract_time(time_now, some_time_in_past);
+    for (size_t i = 0; i < num_devices; ++i) {
+      interface->devices_win[i].last_encode_seen = some_time_in_past;
+      interface->devices_win[i].last_decode_seen = some_time_in_past;
+    }
   }
-  interface->options.encode_decode_hiding_timer =
-      interface->options.encode_decode_hiding_timer < 0.
-          ? 1e20
-          : interface->options.encode_decode_hiding_timer;
 
   interface->process.offset = 0;
   interface->process.offset_column = 0;
@@ -625,15 +617,17 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
         has_encode_in_last_min = true;
         dev->last_encode_seen = tnow;
       } else {
-        if (nvtop_difftime(dev->last_encode_seen, tnow) >
-            interface->options.encode_decode_hiding_timer) {
+        if (interface->options.encode_decode_hiding_timer < 0. ||
+            nvtop_difftime(dev->last_encode_seen, tnow) >
+                interface->options.encode_decode_hiding_timer) {
           if (has_encode_in_last_min) {
             werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
             werase_and_wnoutrefresh(dev->mem_util_enc_dec);
             werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
             werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
           }
-          has_encode_in_last_min = false;
+          if (interface->options.encode_decode_hiding_timer > 0.)
+            has_encode_in_last_min = false;
         }
       }
     } else {
@@ -657,15 +651,17 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
         has_decode_in_last_min = true;
         dev->last_decode_seen = tnow;
       } else {
-        if (nvtop_difftime(dev->last_decode_seen, tnow) >
-            interface->options.encode_decode_hiding_timer) {
+        if (interface->options.encode_decode_hiding_timer < 0. ||
+            nvtop_difftime(dev->last_decode_seen, tnow) >
+                interface->options.encode_decode_hiding_timer) {
           if (has_decode_in_last_min) {
             werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
             werase_and_wnoutrefresh(dev->mem_util_enc_dec);
             werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
             werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
           }
-          has_decode_in_last_min = false;
+          if (interface->options.encode_decode_hiding_timer > 0.)
+            has_decode_in_last_min = false;
         }
       }
     } else {
@@ -1036,7 +1032,7 @@ static void sort_process(all_processes all_procs, enum process_field criterion,
     else
       sort_fun = compare_cpu_mem_usage_desc;
     break;
-  case process_end:
+  case process_field_count:
   default:
     return;
   }
@@ -1115,7 +1111,7 @@ static void print_processes_on_screen(all_processes all_procs,
   int printed = 0;
   int column_sort_start = 0, column_sort_end = sizeof_process_field[0];
   memset(process_print_buffer, 0, sizeof(process_print_buffer));
-  for (enum process_field i = process_pid; i < process_end; ++i) {
+  for (enum process_field i = process_pid; i < process_field_count; ++i) {
     if (i == sort_criterion) {
       column_sort_start = printed;
       column_sort_end = i == process_command
@@ -1346,7 +1342,7 @@ static void draw_sort_option(struct nvtop_interface *interface) {
                              ? start_at_option + rows - 2
                              : start_at_option + rows - 1;
 
-  for (size_t i = start_at_option; i < end_at_option && i < process_end; ++i) {
+  for (size_t i = start_at_option; i < end_at_option && i < process_field_count; ++i) {
     if (i + 1 == interface->process.option_window.selected_row) {
       wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
     }
@@ -1373,7 +1369,7 @@ static void draw_options(struct nvtop_interface *interface) {
     num_options = nvtop_num_signals + 1; // Option + Cancel
     break;
   case nvtop_option_state_sort_by:
-    num_options = process_end + 1; // Option + Cancel
+    num_options = process_field_count + 1; // Option + Cancel
     break;
   case nvtop_option_state_hidden:
   default:
@@ -1748,144 +1744,4 @@ void interface_key(int keyId, struct nvtop_interface *inter) {
 
 bool interface_freeze_processes(struct nvtop_interface *interface) {
   return interface->process.option_window.state == nvtop_option_state_kill;
-}
-
-extern inline plot_info_to_draw
-plot_add_draw_info(enum plot_information set_info, plot_info_to_draw to_draw);
-
-extern inline plot_info_to_draw
-plot_remove_draw_info(enum plot_information set_info,
-                      plot_info_to_draw to_draw);
-
-extern inline plot_info_to_draw plot_default_draw_info(void);
-
-extern inline bool plot_isset_draw_info(enum plot_information check_info,
-                                        plot_info_to_draw to_draw);
-
-extern inline unsigned plot_count_draw_info(plot_info_to_draw to_draw);
-
-char config_file_path[PATH_MAX];
-const char config_file_location[] = "nvtop/interface.ini";
-const char config_conf_path[] = ".config";
-
-static const char *default_config_path(void) {
-  char *xdg_config_dir = getenv("XDG_CONFIG_HOME");
-  size_t conf_path_length = 0;
-  if (!xdg_config_dir) {
-    // XDG config dir not set, default to $HOME/.config
-    xdg_config_dir = getenv("HOME");
-    conf_path_length = sizeof(config_conf_path);
-  }
-  size_t xdg_path_length = strlen(xdg_config_dir);
-  if (xdg_path_length <
-      PATH_MAX - conf_path_length - sizeof(config_file_location)) {
-    strcpy(config_file_path, xdg_config_dir);
-    config_file_path[xdg_path_length] = '/';
-    if (conf_path_length) {
-      strcpy(config_file_path + xdg_path_length + 1, config_conf_path);
-      config_file_path[xdg_path_length + conf_path_length] = '/';
-    }
-    strcpy(config_file_path + xdg_path_length + 1 + conf_path_length,
-           config_file_location);
-    return config_file_path;
-  } else {
-    return NULL;
-  }
-}
-
-void alloc_interface_options_internals(char *config_location,
-                                       unsigned num_devices,
-                                       nvtop_interface_option *options) {
-  options->device_information_drawn =
-      malloc(num_devices * sizeof(*options->device_information_drawn));
-  if (!options->device_information_drawn) {
-    perror("Cannot allocate memory: ");
-    exit(EXIT_FAILURE);
-  }
-  for (unsigned i = 0; i < num_devices; ++i) {
-    options->device_information_drawn[i] = plot_default_draw_info();
-  }
-  options->plot_left_to_right = false;
-  options->use_color = true;
-  options->encode_decode_hiding_timer = 30.;
-  options->temperature_in_fahrenheit = false;
-  options->config_file_location = NULL;
-  options->sort_processes_by = process_memory;
-  options->sort_descending_order = true;
-  if (config_location) {
-    options->config_file_location = malloc(strlen(config_location) + 1);
-    if (!options->config_file_location) {
-      perror("Cannot allocate memory: ");
-      exit(EXIT_FAILURE);
-    }
-    strcpy(options->config_file_location, config_location);
-  } else {
-    const char *default_path = default_config_path();
-    options->config_file_location = malloc(strlen(default_path) + 1);
-    if (!options->config_file_location) {
-      perror("Cannot allocate memory: ");
-      exit(EXIT_FAILURE);
-    }
-    strcpy(options->config_file_location, default_path);
-  }
-  // Implement the ini file load
-}
-
-bool load_interface_options_from_config_file(unsigned num_devices,
-                                             nvtop_interface_option *options) {
-  FILE *option_file = fopen(options->config_file_location, "r");
-  if (!option_file)
-    return false;
-
-  // TODO
-  // Implement the ini load
-
-  fclose(option_file);
-  return false;
-}
-
-bool save_interface_options_to_config_file(
-    unsigned num_devices, const nvtop_interface_option *options) {
-  char folder_path[PATH_MAX];
-  strcpy(folder_path, options->config_file_location);
-  char *config_directory = dirname(folder_path);
-
-  // Create config directory
-  for (char *index = config_directory + 1; *index != '\0'; ++index) {
-    if (*index == '/') {
-      *index = '\0';
-      if (mkdir(config_directory,
-                S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
-        if (errno != EEXIST) {
-          char *error_str = strerror(errno);
-          fprintf(stderr, "Could not create directory \"%s\": %s\n",
-                  config_directory, error_str);
-          return false;
-        }
-      }
-      *index = '/';
-    }
-  }
-  if (mkdir(config_directory,
-            S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
-    if (errno != EEXIST) {
-      char *error_str = strerror(errno);
-      fprintf(stderr, "Could not create directory \"%s\": %s\n",
-              config_directory, error_str);
-      return false;
-    }
-  }
-  FILE *config_file = fopen(options->config_file_location, "w");
-  if (!config_file) {
-    char *error_str = strerror(errno);
-    fprintf(stderr, "Could not create config file \"%s\": %s\n",
-            options->config_file_location, error_str);
-    return false;
-  }
-
-  // TODO
-  // Implement the ini save
-
-  fclose(config_file);
-  return false;
 }

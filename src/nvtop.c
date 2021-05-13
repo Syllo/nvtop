@@ -31,6 +31,7 @@
 
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/interface.h"
+#include "nvtop/interface_options.h"
 #include "nvtop/time.h"
 #include "nvtop/version.h"
 
@@ -256,6 +257,13 @@ int main(int argc, char **argv) {
   alloc_interface_options_internals(custom_config_file_path, devices_count,
                                     &interface_options);
   load_interface_options_from_config_file(devices_count, &interface_options);
+  for (unsigned i = 0; i < devices_count; ++i) {
+    // Nothing specified in the file
+    if (!plot_isset_draw_info(plot_information_count,
+                              interface_options.device_information_drawn[i])) {
+      interface_options.device_information_drawn[i] = plot_default_draw_info();
+    }
+  }
   if (no_color_option)
     interface_options.use_color = false;
   if (hide_plot_option) {
@@ -265,6 +273,8 @@ int main(int argc, char **argv) {
   }
   if (encode_decode_timer_option_set) {
     interface_options.encode_decode_hiding_timer = encode_decode_hide_time;
+    if (interface_options.encode_decode_hiding_timer < 0.)
+      interface_options.encode_decode_hiding_timer = 0.;
   }
   if (reverse_plot_direction_option)
     interface_options.plot_left_to_right = true;
