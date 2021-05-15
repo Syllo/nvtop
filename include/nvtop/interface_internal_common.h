@@ -96,6 +96,7 @@ struct plot_window {
 };
 
 enum setup_window_section {
+  setup_general_selected,
   setup_header_selected,
   setup_chart_selected,
   setup_process_list_selected,

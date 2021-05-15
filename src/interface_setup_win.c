@@ -23,6 +23,9 @@
 #include "nvtop/interface_internal_common.h"
 #include "nvtop/interface_options.h"
 
+static char *setup_window_category_names[setup_window_selection_count] = {
+    "General", "Devices", "Chart", "Processes"};
+
 // All the windows used to display the setup
 enum setup_window_type {
   setup_window_type_setup,
@@ -32,11 +35,23 @@ enum setup_window_type {
   setup_window_type_count
 };
 
+// General Options
+
+enum setup_general_options {
+  setup_general_color,
+  setup_general_update_interval,
+  setup_general_options_count
+};
+
+static const char
+    *setup_general_option_description[setup_general_options_count] = {
+        "Disable color (requires save and restart)",
+        "Update interval (seconds)"};
+
 // Header Options
 
 enum setup_header_options {
   setup_header_toggle_fahrenheit,
-  setup_header_toggle_color,
   setup_header_enc_dec_timer,
   setup_header_options_count
 };
@@ -44,7 +59,6 @@ enum setup_header_options {
 static const char
     *setup_header_option_descriptions[setup_header_options_count] = {
         "Temperature in fahrenheit",
-        "Disable color (requires save and restart)",
         "Keep displaying Encoder/Decoder rate (after reaching an idle state)"};
 
 // Chart Options
@@ -156,7 +170,7 @@ void show_setup_window(struct nvtop_interface *interface) {
   interface->setup_win.visible = true;
   touchwin(interface->setup_win.clean_space);
   wnoutrefresh(interface->setup_win.clean_space);
-  interface->setup_win.selected_section = setup_header_selected;
+  interface->setup_win.selected_section = setup_general_selected;
   interface->setup_win.indentation_level = 0;
   interface->setup_win.options_selected[0] = 0;
   interface->setup_win.options_selected[1] = 0;
@@ -173,54 +187,66 @@ static void draw_setup_window_setup(struct nvtop_interface *interface) {
   mvwchgat(interface->setup_win.setup, 0, 0,
            sizeof_setup_windows[setup_window_type_setup], A_STANDOUT,
            green_color, NULL);
-  mvwprintw(interface->setup_win.setup, setup_header_selected + 1, 0,
-            "Devices");
-  if (interface->setup_win.selected_section == setup_header_selected) {
-    if (interface->setup_win.indentation_level == 0) {
-      set_attribute_between(interface->setup_win.setup,
-                            setup_header_selected + 1, 0,
-                            sizeof_setup_windows[setup_window_type_setup],
-                            A_STANDOUT, cyan_color);
-    } else {
-      mvwprintw(interface->setup_win.setup, setup_header_selected + 1,
-                sizeof_setup_windows[setup_window_type_setup] - 1, ">");
-      set_attribute_between(
-          interface->setup_win.setup, setup_header_selected + 1, 0,
-          sizeof_setup_windows[setup_window_type_setup], A_BOLD, cyan_color);
-    }
-  }
-  mvwprintw(interface->setup_win.setup, setup_chart_selected + 1, 0, "Chart");
-  if (interface->setup_win.selected_section == setup_chart_selected) {
-    if (interface->setup_win.indentation_level == 0) {
-      set_attribute_between(interface->setup_win.setup,
-                            setup_chart_selected + 1, 0,
-                            sizeof_setup_windows[setup_window_type_setup],
-                            A_STANDOUT, cyan_color);
-    } else {
-      mvwprintw(interface->setup_win.setup, setup_chart_selected + 1,
-                sizeof_setup_windows[setup_window_type_setup] - 1, ">");
-      set_attribute_between(
-          interface->setup_win.setup, setup_chart_selected + 1, 0,
-          sizeof_setup_windows[setup_window_type_setup], A_BOLD, cyan_color);
-    }
-  }
-  mvwprintw(interface->setup_win.setup, setup_process_list_selected + 1, 0,
-            "Processes");
-  if (interface->setup_win.selected_section == setup_process_list_selected) {
-    if (interface->setup_win.indentation_level == 0) {
-      set_attribute_between(interface->setup_win.setup,
-                            setup_process_list_selected + 1, 0,
-                            sizeof_setup_windows[setup_window_type_setup],
-                            A_STANDOUT, cyan_color);
-    } else {
-      mvwprintw(interface->setup_win.setup, setup_process_list_selected + 1,
-                sizeof_setup_windows[setup_window_type_setup] - 1, ">");
-      set_attribute_between(
-          interface->setup_win.setup, setup_process_list_selected + 1, 0,
-          sizeof_setup_windows[setup_window_type_setup], A_BOLD, cyan_color);
+  for (enum setup_window_section category = setup_general_selected;
+       category < setup_window_selection_count; ++category) {
+    mvwprintw(interface->setup_win.setup, category + 1, 0, "%s",
+              setup_window_category_names[category]);
+    if (interface->setup_win.selected_section == category) {
+      if (interface->setup_win.indentation_level == 0) {
+        set_attribute_between(interface->setup_win.setup, category + 1, 0,
+                              sizeof_setup_windows[setup_window_type_setup],
+                              A_STANDOUT, cyan_color);
+      } else {
+        mvwprintw(interface->setup_win.setup, category + 1,
+                  sizeof_setup_windows[setup_window_type_setup] - 1, ">");
+        set_attribute_between(interface->setup_win.setup, category + 1, 0,
+                              sizeof_setup_windows[setup_window_type_setup],
+                              A_BOLD, cyan_color);
+      }
     }
   }
   wnoutrefresh(interface->setup_win.setup);
+}
+
+static void draw_setup_window_general(struct nvtop_interface *interface) {
+  if (interface->setup_win.indentation_level > 1)
+    interface->setup_win.indentation_level = 1;
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] >= setup_general_options_count)
+    interface->setup_win.options_selected[0] = setup_general_options_count - 1;
+
+  wattron(interface->setup_win.single, COLOR_PAIR(green_color) | A_STANDOUT);
+  mvwprintw(interface->setup_win.single, 0, 0, "General Options");
+  wattroff(interface->setup_win.single, COLOR_PAIR(green_color) | A_STANDOUT);
+  unsigned int cur_col, maxcols, tmp;
+  (void)tmp;
+  getmaxyx(interface->setup_win.single, tmp, maxcols);
+  getyx(interface->setup_win.single, tmp, cur_col);
+  mvwchgat(interface->setup_win.single, 0, cur_col, maxcols - cur_col,
+           A_STANDOUT, green_color, NULL);
+
+  enum option_state option_state = !interface->options.use_color;
+  mvwprintw(interface->setup_win.single, setup_general_color + 1, 0, "[%c] %s",
+            option_state_char(option_state),
+            setup_general_option_description[setup_general_color]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_general_color) {
+    mvwchgat(interface->setup_win.single, setup_general_color + 1, 0, 3,
+             A_STANDOUT, cyan_color, NULL);
+  }
+
+  int update_deciseconds = (interface->options.update_interval / 100) % 10;
+  int update_seconds = interface->options.update_interval / 1000;
+  mvwprintw(interface->setup_win.single, setup_general_update_interval + 1, 0,
+            "[%2u.%u] %s", update_seconds, update_deciseconds,
+            setup_general_option_description[setup_general_update_interval]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] ==
+          setup_general_update_interval) {
+    mvwchgat(interface->setup_win.single, setup_general_update_interval + 1, 0,
+             6, A_STANDOUT, cyan_color, NULL);
+  }
+  wnoutrefresh(interface->setup_win.single);
 }
 
 static void draw_setup_window_header(struct nvtop_interface *interface) {
@@ -252,17 +278,6 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
       interface->setup_win.options_selected[0] ==
           setup_header_toggle_fahrenheit) {
     mvwchgat(options_win, setup_header_toggle_fahrenheit + 1, 0, 3, A_STANDOUT,
-             cyan_color, NULL);
-  }
-
-  // Color option
-  option_state = !interface->options.use_color;
-  mvwprintw(options_win, setup_header_toggle_color + 1, 0, "[%c] %s",
-            option_state_char(option_state),
-            setup_header_option_descriptions[setup_header_toggle_color]);
-  if (interface->setup_win.indentation_level == 1 &&
-      interface->setup_win.options_selected[0] == setup_header_toggle_color) {
-    mvwchgat(options_win, setup_header_toggle_color + 1, 0, 3, A_STANDOUT,
              cyan_color, NULL);
   }
 
@@ -522,6 +537,9 @@ void draw_setup_window(unsigned devices_count, gpu_info *devices,
                        struct nvtop_interface *interface) {
   draw_setup_window_setup(interface);
   switch (interface->setup_win.selected_section) {
+  case setup_general_selected:
+    draw_setup_window_general(interface);
+    break;
   case setup_header_selected:
     draw_setup_window_header(interface);
     break;
@@ -553,7 +571,7 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
 
     case KEY_UP:
       if (interface->setup_win.indentation_level == 0) {
-        if (interface->setup_win.selected_section != setup_header_selected) {
+        if (interface->setup_win.selected_section != setup_general_selected) {
           interface->setup_win.selected_section--;
           interface->setup_win.options_selected[0] = 0;
           interface->setup_win.options_selected[1] = 0;
@@ -595,6 +613,15 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
       break;
 
     case '+':
+      // General Options
+      if (interface->setup_win.selected_section == setup_general_selected) {
+        if (interface->setup_win.options_selected[0] ==
+            setup_general_update_interval) {
+          if (interface->options.update_interval <= 99800)
+            interface->options.update_interval += 100;
+        }
+      }
+      // Header options
       if (interface->setup_win.selected_section == setup_header_selected) {
         if (interface->setup_win.indentation_level == 1) {
           if (interface->setup_win.options_selected[0] ==
@@ -605,6 +632,15 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
       }
       break;
     case '-':
+      // General Options
+      if (interface->setup_win.selected_section == setup_general_selected) {
+        if (interface->setup_win.options_selected[0] ==
+            setup_general_update_interval) {
+          if (interface->options.update_interval >= 200)
+            interface->options.update_interval -= 100;
+        }
+      }
+      // Header options
       if (interface->setup_win.selected_section == setup_header_selected) {
         if (interface->setup_win.indentation_level == 1) {
           if (interface->setup_win.options_selected[0] ==
@@ -623,6 +659,15 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
         handle_setup_win_keypress(KEY_RIGHT, interface);
         return;
       }
+      // General Options
+      if (interface->setup_win.selected_section == setup_general_selected) {
+        if (interface->setup_win.options_selected[0] == setup_general_color) {
+          interface->options.use_color = !interface->options.use_color;
+        }
+        if (interface->setup_win.options_selected[0] ==
+            setup_general_update_interval) {
+        }
+      }
       // Header Options
       if (interface->setup_win.selected_section == setup_header_selected) {
         if (interface->setup_win.indentation_level == 1) {
@@ -630,10 +675,6 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
               setup_header_toggle_fahrenheit) {
             interface->options.temperature_in_fahrenheit =
                 !interface->options.temperature_in_fahrenheit;
-          }
-          if (interface->setup_win.options_selected[0] ==
-              setup_header_toggle_color) {
-            interface->options.use_color = !interface->options.use_color;
           }
           if (interface->setup_win.options_selected[0] ==
               setup_header_enc_dec_timer) {

@@ -41,6 +41,7 @@ typedef struct nvtop_interface_option_struct {
   enum process_field
       sort_processes_by;      // Specify the field used to order the processes
   bool sort_descending_order; // Sort in descenging order
+  int update_interval;        // Interval between interface update in milliseconds
 } nvtop_interface_option;
 
 inline plot_info_to_draw plot_add_draw_info(enum plot_information set_info,

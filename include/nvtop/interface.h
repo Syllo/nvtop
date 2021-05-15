@@ -48,4 +48,6 @@ bool is_escape_for_quit(struct nvtop_interface *inter);
 
 bool interface_freeze_processes(struct nvtop_interface *interface);
 
+int interface_update_interval(const struct nvtop_interface *interface);
+
 #endif // INTERFACE_H_

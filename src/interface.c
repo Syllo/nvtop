@@ -1666,3 +1666,7 @@ bool interface_freeze_processes(struct nvtop_interface *interface) {
 
 extern inline void set_attribute_between(WINDOW *win, int startY, int startX,
                                          int endX, attr_t attr, short pair);
+
+int interface_update_interval(const struct nvtop_interface *interface) {
+  return interface->options.update_interval;
+}

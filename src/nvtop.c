@@ -133,7 +133,8 @@ int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
 
   opterr = 0;
-  int refresh_interval = 1000;
+  bool update_interval_option_set = false;
+  int update_interval_option;
   char *selectedGPU = NULL;
   char *ignoredGPU = NULL;
   bool no_color_option = false;
@@ -160,7 +161,12 @@ int main(int argc, char **argv) {
         fprintf(stderr, "Error: A negative delay requires a time machine!\n");
         exit(EXIT_FAILURE);
       }
-      refresh_interval = (int)delay_val * 100u;
+      update_interval_option_set = true;
+      update_interval_option = (int)delay_val * 100u;
+      if (update_interval_option > 99900)
+        update_interval_option = 99900;
+      if (update_interval_option < 100)
+        update_interval_option = 100;
     } break;
     case 's':
       selectedGPU = optarg;
@@ -281,6 +287,8 @@ int main(int argc, char **argv) {
     interface_options.plot_left_to_right = true;
   if (use_fahrenheit_option)
     interface_options.temperature_in_fahrenheit = true;
+  if (update_interval_option_set)
+    interface_options.update_interval = update_interval_option;
 
   gpuinfo_populate_static_infos(devices_count, devices);
 
@@ -297,24 +305,24 @@ int main(int argc, char **argv) {
   }
   struct nvtop_interface *interface =
       initialize_curses(devices_count, biggest_name, interface_options);
-  timeout(refresh_interval);
+  timeout(interface_update_interval(interface));
 
-  double time_slept = refresh_interval;
+  double time_slept = interface_update_interval(interface);
   while (!signal_exit) {
     if (signal_resize_win) {
       update_window_size_to_terminal_size(interface);
       signal_resize_win = 0;
     }
-    if (time_slept >= refresh_interval) {
+    if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(devices_count, devices);
       if (!interface_freeze_processes(interface)) {
         gpuinfo_refresh_processes(devices_count, devices);
       }
       update_interface_retained_data(devices_count, devices, interface);
-      timeout(refresh_interval);
+      timeout(interface_update_interval(interface));
       time_slept = 0.;
     } else {
-      int next_sleep = refresh_interval - (int)time_slept;
+      int next_sleep = interface_update_interval(interface) - (int)time_slept;
       timeout(next_sleep);
     }
     draw_gpu_info_ncurses(devices_count, devices, interface);

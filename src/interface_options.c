@@ -76,6 +76,7 @@ void alloc_interface_options_internals(char *config_location,
   options->config_file_location = NULL;
   options->sort_processes_by = process_memory;
   options->sort_descending_order = true;
+  options->update_interval = 1000;
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {
@@ -99,10 +100,13 @@ struct nvtop_option_ini_data {
   nvtop_interface_option *options;
 };
 
+static const char general_section[] = "GeneralOption";
+static const char general_value_use_color[] = "UseColor";
+static const char general_value_update_interval[] = "UpdateInterval";
+
 static const char header_section[] = "HeaderOption";
 static const char header_value_use_fahrenheit[] = "UseFahrenheit";
 static const char header_value_encode_decode_timer[] = "EncodeHideTimer";
-static const char header_value_use_color[] = "UseColor";
 
 static const char chart_section[] = "ChartOption";
 static const char chart_value_reverse[] = "ReverseChart";
@@ -123,6 +127,22 @@ static const char *device_draw_vals[plot_information_count + 1] = {
 static int nvtop_option_ini_handler(void *user, const char *section,
                                     const char *name, const char *value) {
   struct nvtop_option_ini_data *ini_data = (struct nvtop_option_ini_data *)user;
+  // General Options
+  if (strcmp(section, general_section) == 0) {
+    if (strcmp(name, general_value_use_color) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->use_color = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->use_color = false;
+      }
+    }
+    if (strcmp(name, general_value_update_interval) == 0) {
+      int update_interval;
+      if (sscanf(value, "%d", &update_interval) == 1)
+        ini_data->options->update_interval = update_interval;
+    }
+  }
   // Header Options
   if (strcmp(section, header_section) == 0) {
     if (strcmp(name, header_value_use_fahrenheit) == 0) {
@@ -137,14 +157,6 @@ static int nvtop_option_ini_handler(void *user, const char *section,
       double value_double;
       if (sscanf(value, "%le", &value_double) == 1)
         ini_data->options->encode_decode_hiding_timer = value_double;
-    }
-    if (strcmp(name, header_value_use_color) == 0) {
-      if (strcmp(value, "true") == 0) {
-        ini_data->options->use_color = true;
-      }
-      if (strcmp(value, "false") == 0) {
-        ini_data->options->use_color = false;
-      }
     }
   }
   // Chart Options
@@ -259,12 +271,17 @@ bool save_interface_options_to_config_file(
     return false;
   }
 
+  // General Options
+  fprintf(config_file, "[%s]\n", general_section);
+  fprintf(config_file, "%s = %s\n", general_value_use_color,
+          boolean_string(options->use_color));
+  fprintf(config_file, "%s = %d\n", general_value_update_interval,
+          options->update_interval);
+
   // Header Options
   fprintf(config_file, "[%s]\n", header_section);
   fprintf(config_file, "%s = %s\n", header_value_use_fahrenheit,
           boolean_string(options->temperature_in_fahrenheit));
-  fprintf(config_file, "%s = %s\n", header_value_use_color,
-          boolean_string(options->use_color));
   fprintf(config_file, "%s = %e\n", header_value_encode_decode_timer,
           options->encode_decode_hiding_timer);
   fprintf(config_file, "\n");
