@@ -515,87 +515,55 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
       wnoutrefresh(dev->name_win);
     }
 
+    werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
+    werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+    werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
+    werase_and_wnoutrefresh(dev->mem_util_enc_dec);
+    werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+    werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
     char buff[1024];
     nvtop_time tnow;
     nvtop_get_current_time(&tnow);
-    static bool has_encode_in_last_min = true;
+    bool is_encode_displayed = true;
     if (IS_VALID(gpuinfo_encoder_rate_valid, devices[i].dynamic_info.valid)) {
       if (devices[i].dynamic_info.encoder_rate > 0) {
-        if (!has_encode_in_last_min) {
-          werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
-          werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
-          werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
-          werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
-        }
-        has_encode_in_last_min = true;
+        is_encode_displayed = true;
         dev->last_encode_seen = tnow;
       } else {
-        if (interface->options.encode_decode_hiding_timer <= 0. ||
+        if (interface->options.encode_decode_hiding_timer > 0. &&
             nvtop_difftime(dev->last_encode_seen, tnow) >
                 interface->options.encode_decode_hiding_timer) {
-          if (has_encode_in_last_min) {
-            werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
-            werase_and_wnoutrefresh(dev->mem_util_enc_dec);
-            werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
-            werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
-          }
-          if (interface->options.encode_decode_hiding_timer > 0.)
-            has_encode_in_last_min = false;
+          is_encode_displayed = false;
         }
       }
     } else {
-      has_encode_in_last_min = false;
-      werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
-      werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
-      werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
-      werase_and_wnoutrefresh(dev->mem_util_enc_dec);
-      werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
-      werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
+      is_encode_displayed = false;
     }
-    static bool has_decode_in_last_min = true;
+    bool is_decode_displayed = true;
     if (IS_VALID(gpuinfo_decoder_rate_valid, devices[i].dynamic_info.valid)) {
       if (devices[i].dynamic_info.decoder_rate > 0) {
-        if (!has_decode_in_last_min) {
-          werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
-          werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
-          werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
-          werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
-        }
-        has_decode_in_last_min = true;
+        is_decode_displayed = true;
         dev->last_decode_seen = tnow;
       } else {
-        if (interface->options.encode_decode_hiding_timer <= 0. ||
+        if (interface->options.encode_decode_hiding_timer > 0. &&
             nvtop_difftime(dev->last_decode_seen, tnow) >
                 interface->options.encode_decode_hiding_timer) {
-          if (has_decode_in_last_min) {
-            werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
-            werase_and_wnoutrefresh(dev->mem_util_enc_dec);
-            werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
-            werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
-          }
-          if (interface->options.encode_decode_hiding_timer > 0.)
-            has_decode_in_last_min = false;
+          is_decode_displayed = false;
         }
       }
     } else {
-      has_decode_in_last_min = false;
-      werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
-      werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
-      werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
-      werase_and_wnoutrefresh(dev->mem_util_enc_dec);
-      werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
-      werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
+      is_decode_displayed = false;
     }
     WINDOW *gpu_util_win;
     WINDOW *mem_util_win;
     WINDOW *encode_win = dev->encode_util;
     WINDOW *decode_win = dev->decode_util;
-    if (has_encode_in_last_min && has_decode_in_last_min) {
+    if (is_encode_displayed && is_decode_displayed) {
       gpu_util_win = dev->gpu_util_enc_dec;
       mem_util_win = dev->mem_util_enc_dec;
     } else {
-      if (has_encode_in_last_min || has_decode_in_last_min) {
-        if (has_encode_in_last_min)
+      if (is_encode_displayed || is_decode_displayed) {
+        if (is_encode_displayed)
           encode_win = dev->decode_util;
         gpu_util_win = dev->gpu_util_no_enc_or_dec;
         mem_util_win = dev->mem_util_no_enc_or_dec;
@@ -604,14 +572,14 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
         mem_util_win = dev->mem_util_no_enc_and_dec;
       }
     }
-    if (has_encode_in_last_min) {
+    if (is_encode_displayed) {
       if (IS_VALID(gpuinfo_encoder_rate_valid, devices[i].dynamic_info.valid)) {
         snprintf(buff, 1024, "%u%%", devices[i].dynamic_info.encoder_rate);
         draw_bare_percentage(encode_win, "ENC",
                              devices[i].dynamic_info.encoder_rate, buff);
       }
     }
-    if (has_decode_in_last_min) {
+    if (is_decode_displayed) {
       if (IS_VALID(gpuinfo_decoder_rate_valid, devices[i].dynamic_info.valid)) {
         snprintf(buff, 1024, "%u%%", devices[i].dynamic_info.decoder_rate);
         draw_bare_percentage(decode_win, "DEC",
