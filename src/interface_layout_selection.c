@@ -1,5 +1,5 @@
-#include "nvtop/interface.h"
 #include "nvtop/interface_layout_selection.h"
+#include "nvtop/interface.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -23,12 +23,13 @@ static void min_size_taken_by_plot(unsigned num_data_info_to_plot,
 }
 
 void compute_sizes_from_layout(
-    bool show_graphs, bool show_header, bool show_process, size_t num_devices,
+    bool show_graphs, bool show_header, bool show_process, unsigned num_devices,
     unsigned num_info_per_device, unsigned device_header_rows,
     unsigned device_header_cols, unsigned rows, unsigned cols,
     struct window_position *device_positions,
     struct window_position *process_position, unsigned *num_plots,
-    struct window_position **plot_positions, enum plot_type *plot_types) {
+    struct window_position **plot_positions, enum plot_type *plot_types,
+    struct window_position *setup_position) {
 
   unsigned min_rows_for_header = 0, header_stacks = 0, num_device_per_row = 0;
   if (show_header) {
@@ -208,4 +209,9 @@ void compute_sizes_from_layout(
   process_position->posY = rows - rows_for_process - rows_left_for_process;
   process_position->sizeY = rows_for_process + rows_left_for_process;
   process_position->sizeX = cols;
+
+  setup_position->posX = 0;
+  setup_position->posY = rows_for_header;
+  setup_position->sizeY = rows - rows_for_header;
+  setup_position->sizeX = cols;
 }

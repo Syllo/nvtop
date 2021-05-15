@@ -10,6 +10,7 @@ add_executable (nvtop
   interface.c
   interface_layout_selection.c
   interface_options.c
+  interface_setup_win.c
   get_process_info_linux.c
   extract_gpuinfo.c
   extract_gpuinfo_nvidia.c

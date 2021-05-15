@@ -21,6 +21,7 @@
 
 #include "nvtop/interface_options.h"
 #include "ini.h"
+#include "nvtop/interface_common.h"
 
 #include <errno.h>
 #include <libgen.h>

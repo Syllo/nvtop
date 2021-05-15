@@ -31,6 +31,7 @@
 
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/interface.h"
+#include "nvtop/interface_common.h"
 #include "nvtop/interface_options.h"
 #include "nvtop/time.h"
 #include "nvtop/version.h"
@@ -343,8 +344,10 @@ int main(int argc, char **argv) {
     case 'q':
       signal_exit = 1;
       break;
+    case KEY_F(2):
     case KEY_F(9):
     case KEY_F(6):
+    case KEY_F(12):
     case '+':
     case '-':
       interface_key(input_char, interface);
