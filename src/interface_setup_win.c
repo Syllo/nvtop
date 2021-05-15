@@ -508,11 +508,11 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
   }
 }
 
-static const char *setup_window_shortcuts[] = {"ESC/F2", "Enter", "Arrow keys",
+static const char *setup_window_shortcuts[] = {"Enter", "ESC", "Arrow keys",
                                                "+/-", "F12"};
 
 static const char *setup_window_shortcut_description[] = {
-    "Exit Setup", "Select/Toggle", "Navigate Menu",
+    "Toggle", "Exit", "Navigate Menu",
     "Increment/Decrement Values", "Save Config"};
 
 static void draw_setup_window_shortcuts(struct nvtop_interface *interface) {
