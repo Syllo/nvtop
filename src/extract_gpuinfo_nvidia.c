@@ -472,12 +472,9 @@ void gpuinfo_nvidia_refresh_dynamic_info(gpuinfo_nvidia_device_handle device,
       nvmlDeviceGetUtilizationRates(device, &utilization_percentages);
   if (last_nvml_return_status == NVML_SUCCESS) {
     dynamic_info->gpu_util_rate = utilization_percentages.gpu;
-    dynamic_info->mem_util_rate = utilization_percentages.memory;
     SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
-    SET_VALID(gpuinfo_mem_util_rate_valid, dynamic_info->valid);
   } else {
     RESET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
-    RESET_VALID(gpuinfo_mem_util_rate_valid, dynamic_info->valid);
   }
 
   // Encoder utilization rate
@@ -504,13 +501,16 @@ void gpuinfo_nvidia_refresh_dynamic_info(gpuinfo_nvidia_device_handle device,
     dynamic_info->total_memory = memory_info.total;
     dynamic_info->used_memory = memory_info.used;
     dynamic_info->free_memory = memory_info.free;
+    dynamic_info->mem_util_rate = memory_info.used * 100 / memory_info.total;
     SET_VALID(gpuinfo_total_memory_valid, dynamic_info->valid);
     SET_VALID(gpuinfo_used_memory_valid, dynamic_info->valid);
     SET_VALID(gpuinfo_free_memory_valid, dynamic_info->valid);
+    SET_VALID(gpuinfo_mem_util_rate_valid, dynamic_info->valid);
   } else {
     RESET_VALID(gpuinfo_total_memory_valid, dynamic_info->valid);
     RESET_VALID(gpuinfo_used_memory_valid, dynamic_info->valid);
     RESET_VALID(gpuinfo_free_memory_valid, dynamic_info->valid);
+    RESET_VALID(gpuinfo_mem_util_rate_valid, dynamic_info->valid);
   }
 
   // Pcie generation used by the device
