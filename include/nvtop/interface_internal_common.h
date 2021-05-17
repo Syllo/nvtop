@@ -24,6 +24,7 @@
 
 #include "nvtop/interface_layout_selection.h"
 #include "nvtop/interface_options.h"
+#include "nvtop/interface_ring_buffer.h"
 #include "nvtop/time.h"
 
 #include <ncurses.h>
@@ -115,13 +116,6 @@ struct setup_window {
 };
 
 // Keep gpu information every 1 second for 10 minutes
-struct retained_data {
-  size_t size_data_buffer;
-  size_t num_collected_data;
-  unsigned *gpu_util;
-  unsigned *mem_util;
-};
-
 struct nvtop_interface {
   nvtop_interface_option options;
   unsigned devices_count;
@@ -129,7 +123,7 @@ struct nvtop_interface {
   struct process_window process;
   unsigned num_plots;
   struct plot_window *plots;
-  struct retained_data past_data;
+  interface_ring_buffer saved_data_ring;
   struct setup_window setup_win;
 };
 

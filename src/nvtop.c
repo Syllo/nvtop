@@ -318,7 +318,7 @@ int main(int argc, char **argv) {
       if (!interface_freeze_processes(interface)) {
         gpuinfo_refresh_processes(devices_count, devices);
       }
-      update_interface_retained_data(devices_count, devices, interface);
+      save_current_data_to_ring(devices_count, devices, interface);
       timeout(interface_update_interval(interface));
       time_slept = 0.;
     } else {

@@ -37,8 +37,8 @@ void clean_ncurses(struct nvtop_interface *interface);
 void draw_gpu_info_ncurses(unsigned devices_count, gpu_info *devices,
                            struct nvtop_interface *interface);
 
-void update_interface_retained_data(unsigned devices_count, gpu_info *devices,
-                                    struct nvtop_interface *interface);
+void save_current_data_to_ring(unsigned devices_count, gpu_info *devices,
+                               struct nvtop_interface *interface);
 
 void update_window_size_to_terminal_size(struct nvtop_interface *inter);
 

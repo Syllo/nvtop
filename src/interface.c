@@ -25,6 +25,7 @@
 #include "nvtop/interface_common.h"
 #include "nvtop/interface_internal_common.h"
 #include "nvtop/interface_layout_selection.h"
+#include "nvtop/interface_ring_buffer.h"
 #include "nvtop/interface_setup_win.h"
 #include "nvtop/plot.h"
 #include "nvtop/time.h"
@@ -397,13 +398,8 @@ struct nvtop_interface *initialize_curses(unsigned devices_count,
   interface->process.option_window.offset = 0;
   interface->process.option_window.state = nvtop_option_state_hidden;
   interface->process.selected_row = 0;
-  interface->past_data.size_data_buffer = 10 * 60 * 1000;
-  interface->past_data.num_collected_data = 0;
-
-  interface->past_data.gpu_util = malloc(
-      sizeof(unsigned[devices_count][interface->past_data.size_data_buffer]));
-  interface->past_data.mem_util = malloc(
-      sizeof(unsigned[devices_count][interface->past_data.size_data_buffer]));
+  interface_alloc_ring_buffer(devices_count, 4, 10 * 60 * 1000,
+                              &interface->saved_data_ring);
   initialize_all_windows(interface);
   refresh();
   return interface;
@@ -415,8 +411,7 @@ void clean_ncurses(struct nvtop_interface *interface) {
   free(interface->options.device_information_drawn);
   free(interface->options.config_file_location);
   free(interface->devices_win);
-  free(interface->past_data.gpu_util);
-  free(interface->past_data.mem_util);
+  interface_free_ring_buffer(&interface->saved_data_ring);
   free(interface);
 }
 

@@ -22,6 +22,7 @@
 #include "nvtop/interface_setup_win.h"
 #include "nvtop/interface_internal_common.h"
 #include "nvtop/interface_options.h"
+#include "nvtop/interface_ring_buffer.h"
 
 static char *setup_window_category_names[setup_window_selection_count] = {
     "General", "Devices", "Chart", "Processes"};
@@ -711,6 +712,7 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
                     plot_remove_draw_info(
                         interface->setup_win.options_selected[1],
                         interface->options.device_information_drawn[i]);
+                interface_ring_buffer_empty(&interface->saved_data_ring, i);
               }
             } else {
               for (unsigned i = 0; i < interface->devices_count; ++i) {
@@ -718,6 +720,7 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
                     plot_add_draw_info(
                         interface->setup_win.options_selected[1],
                         interface->options.device_information_drawn[i]);
+                interface_ring_buffer_empty(&interface->saved_data_ring, i);
               }
             }
           }
@@ -737,6 +740,8 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
                   .device_information_drawn[selected_gpu] = plot_add_draw_info(
                   interface->setup_win.options_selected[1],
                   interface->options.device_information_drawn[selected_gpu]);
+            interface_ring_buffer_empty(&interface->saved_data_ring,
+                                        selected_gpu);
           }
         }
       }
