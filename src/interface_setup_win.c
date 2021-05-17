@@ -20,6 +20,7 @@
  */
 
 #include "nvtop/interface_setup_win.h"
+#include "nvtop/interface.h"
 #include "nvtop/interface_internal_common.h"
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
@@ -513,8 +514,8 @@ static const char *setup_window_shortcuts[] = {"Enter", "ESC", "Arrow keys",
                                                "+/-", "F12"};
 
 static const char *setup_window_shortcut_description[] = {
-    "Toggle", "Exit", "Navigate Menu",
-    "Increment/Decrement Values", "Save Config"};
+    "Toggle", "Exit", "Navigate Menu", "Increment/Decrement Values",
+    "Save Config"};
 
 static void draw_setup_window_shortcuts(struct nvtop_interface *interface) {
   WINDOW *window = interface->process.option_window.option_selection_window;
@@ -769,12 +770,7 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
     case KEY_F(2):
     case 27:
       interface->setup_win.visible = false;
-      for (unsigned i = 0; i < interface->num_plots; ++i) {
-        touchwin(interface->plots[i].win);
-        touchwin(interface->plots[i].plot_window);
-        werase(interface->process.option_window.option_selection_window);
-        touchwin(interface->process.process_win);
-      }
+      update_window_size_to_terminal_size(interface);
       break;
     case KEY_F(12):
       save_interface_options_to_config_file(interface->devices_count,

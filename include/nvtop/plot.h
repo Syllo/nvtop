@@ -23,11 +23,14 @@
 #define __PLOT_H_
 
 #include <ncurses.h>
+#include <stdbool.h>
 #include <stddef.h>
+
+#define PLOT_MAX_LEGEND_SIZE 35
 
 void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
                      double min, double max, unsigned num_plots,
-                     const char *legend[]);
+                     bool legend_left, char legend[4][PLOT_MAX_LEGEND_SIZE]);
 
 void nvtop_bar_plot(WINDOW *win, size_t num_data, const double *data,
                     double min, double max);

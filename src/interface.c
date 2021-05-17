@@ -217,56 +217,35 @@ static void initialize_gpu_mem_plot(struct plot_window *plot,
   unsigned cols = position->sizeX;
   cols -= 5;
   rows -= 2;
-  cols = cols / 2 * 2;
   plot->plot_window =
       newwin(rows, cols, position->posY + 1, position->posX + 4);
   draw_rectangle(plot->win, 3, 0, cols + 2, rows + 2);
-  mvwprintw(plot->win, 1 + rows * 3 / 4, 0, "25%%");
-  mvwprintw(plot->win, 1 + rows / 4, 0, "75%%");
-  mvwprintw(plot->win, 1 + rows / 2, 0, "50%%");
+  mvwprintw(plot->win, 1 + rows * 3 / 4, 0, " 25");
+  mvwprintw(plot->win, 1 + rows / 4, 0, " 75");
+  mvwprintw(plot->win, 1 + rows / 2, 0, " 50");
   mvwprintw(plot->win, 1, 0, "100");
-  mvwprintw(plot->win, rows, 0, " 0%%");
+  mvwprintw(plot->win, rows, 0, "  0");
   plot->data = calloc(cols, sizeof(*plot->data));
   plot->num_data = cols;
 }
 
-static void alloc_plot_window(struct nvtop_interface *interface,
+static void alloc_plot_window(unsigned devices_count,
                               struct window_position *plot_positions,
-                              enum plot_type plot_type) {
-  if (!plot_positions) {
+                              unsigned map_device_to_plot[devices_count],
+                              struct nvtop_interface *interface) {
+  if (!interface->num_plots) {
     interface->plots = NULL;
     return;
   }
   interface->plots = malloc(interface->num_plots * sizeof(*interface->plots));
-  unsigned num_device_to_attribute;
-  unsigned max_device_per_plot;
-  switch (plot_type) {
-  case plot_gpu_solo:
-    num_device_to_attribute = interface->devices_count;
-    max_device_per_plot = 1;
-    break;
-  case plot_gpu_duo:
-    num_device_to_attribute = interface->devices_count;
-    max_device_per_plot = 2;
-    break;
-  case plot_gpu_max:
-    num_device_to_attribute = 1;
-    max_device_per_plot = 1;
-    break;
-  }
-  unsigned current_gpu_id = 0;
   for (size_t i = 0; i < interface->num_plots; ++i) {
-    interface->plots[i].gpu_ids[0] = current_gpu_id++;
-    if (num_device_to_attribute > 1 && max_device_per_plot > 1) {
-      interface->plots[i].type = plot_gpu_duo;
-      num_device_to_attribute -= 2;
-      interface->plots[i].gpu_ids[1] = current_gpu_id++;
-    } else {
-      if (plot_type == plot_gpu_max)
-        interface->plots[i].type = plot_gpu_max;
-      else
-        interface->plots[i].type = plot_gpu_solo;
-      num_device_to_attribute -= 1;
+    interface->plots[i].num_devices_to_plot = 0;
+    for (unsigned dev_id = 0; dev_id < devices_count; ++dev_id) {
+      if (map_device_to_plot[dev_id] == i) {
+        interface->plots[i]
+            .devices_ids[interface->plots[i].num_devices_to_plot] = dev_id;
+        interface->plots[i].num_devices_to_plot++;
+      }
     }
     interface->plots[i].win =
         newwin(plot_positions[i].sizeY, plot_positions[i].sizeX,
@@ -292,18 +271,18 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   unsigned int devices_count = dwin->devices_count;
 
   struct window_position device_positions[devices_count];
+  unsigned map_device_to_plot[devices_count];
   struct window_position process_position;
-  struct window_position *plot_positions = NULL;
+  struct window_position plot_positions[MAX_CHARTS];
   struct window_position setup_position;
 
-  enum plot_type plot_type;
-  compute_sizes_from_layout(true, true, true, devices_count, 2, 3,
-                            device_length(), rows - 1, cols, device_positions,
-                            &process_position, &dwin->num_plots,
-                            &plot_positions, &plot_type, &setup_position);
+  compute_sizes_from_layout(devices_count, 3, device_length(), rows - 1, cols,
+                            dwin->options.device_information_drawn,
+                            device_positions, &dwin->num_plots, plot_positions,
+                            map_device_to_plot, &process_position,
+                            &setup_position);
 
-  alloc_plot_window(dwin, plot_positions, plot_type);
-  free(plot_positions);
+  alloc_plot_window(devices_count, plot_positions, map_device_to_plot, dwin);
 
   for (unsigned int i = 0; i < devices_count; ++i) {
     alloc_device_window(device_positions[i].posY, device_positions[i].posX,
@@ -1326,148 +1305,151 @@ static void draw_option_selection(struct nvtop_interface *interface) {
   wnoutrefresh(win);
 }
 
-void update_interface_retained_data(unsigned devices_count, gpu_info *devices,
-                                    struct nvtop_interface *interface) {
-  for (unsigned i = 0; i < devices_count; ++i) {
-    ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
-         .gpu_util)[i][interface->past_data.num_collected_data %
-                       interface->past_data.size_data_buffer] =
-        devices[i].dynamic_info.gpu_util_rate;
-    ((unsigned(*)[interface->past_data.size_data_buffer])interface->past_data
-         .mem_util)[i][interface->past_data.num_collected_data %
-                       interface->past_data.size_data_buffer] =
-        100 * devices[i].dynamic_info.used_memory /
-        devices[i].dynamic_info.total_memory;
-  }
-  interface->past_data.num_collected_data++;
-}
-
-static inline double *address_recent_left_old_right(size_t buffer_size,
-                                                    double buffer[buffer_size],
-                                                    size_t col_size, size_t col,
-                                                    size_t offset_in_column) {
-  return &buffer[col * col_size + offset_in_column];
-}
-
-static inline double *address_old_left_recent_right(size_t buffer_size,
-                                                    double buffer[buffer_size],
-                                                    size_t col_size, size_t col,
-                                                    size_t offset_in_column) {
-  return &buffer[buffer_size - (col + 1) * col_size + offset_in_column];
-}
-
-typedef double *(*plot_buffer_access_fn)(size_t, double *, size_t, size_t,
-                                         size_t);
-
-static void populate_plot_data_gpu_mem(struct nvtop_interface *interface,
-                                       struct plot_window *plot) {
-  plot_buffer_access_fn access_fn = interface->options.plot_left_to_right
-                                        ? address_recent_left_old_right
-                                        : address_old_left_recent_right;
-  memset(plot->data, 0, plot->num_data * sizeof(double));
-  unsigned num_cols = plot->type == plot_gpu_duo ? 4 : 2;
-  unsigned upper_bound =
-      plot->num_data / num_cols > interface->past_data.num_collected_data
-          ? interface->past_data.num_collected_data
-          : plot->num_data / num_cols;
-  for (unsigned i = 0; i < upper_bound; ++i) {
-    unsigned(*gpudata)[interface->past_data.size_data_buffer] =
-        (unsigned(*)[interface->past_data.size_data_buffer])
-            interface->past_data.gpu_util;
-    unsigned(*memdata)[interface->past_data.size_data_buffer] =
-        (unsigned(*)[interface->past_data.size_data_buffer])
-            interface->past_data.mem_util;
-    *access_fn(plot->num_data, plot->data, num_cols, i, 0) =
-        gpudata[plot->gpu_ids[0]]
-               [(interface->past_data.size_data_buffer +
-                 interface->past_data.num_collected_data - i - 1) %
-                interface->past_data.size_data_buffer];
-    *access_fn(plot->num_data, plot->data, num_cols, i, 1) =
-        memdata[plot->gpu_ids[0]]
-               [(interface->past_data.size_data_buffer +
-                 interface->past_data.num_collected_data - i - 1) %
-                interface->past_data.size_data_buffer];
-    if (plot->type == plot_gpu_duo) {
-      *access_fn(plot->num_data, plot->data, num_cols, i, 2) =
-          gpudata[plot->gpu_ids[1]]
-                 [(interface->past_data.size_data_buffer +
-                   interface->past_data.num_collected_data - i - 1) %
-                  interface->past_data.size_data_buffer];
-      *access_fn(plot->num_data, plot->data, num_cols, i, 3) =
-          memdata[plot->gpu_ids[1]]
-                 [(interface->past_data.size_data_buffer +
-                   interface->past_data.num_collected_data - i - 1) %
-                  interface->past_data.size_data_buffer];
+void save_current_data_to_ring(unsigned devices_count, gpu_info *devices,
+                               struct nvtop_interface *interface) {
+  for (unsigned dev_id = 0; dev_id < devices_count; ++dev_id) {
+    unsigned data_index = 0;
+    for (enum plot_information info = plot_gpu_rate;
+         info < plot_information_count; ++info) {
+      if (plot_isset_draw_info(
+              info, interface->options.device_information_drawn[dev_id])) {
+        unsigned data_val = 0;
+        switch (info) {
+        case plot_gpu_rate:
+          if (IS_VALID(gpuinfo_gpu_util_rate_valid,
+                       devices[dev_id].dynamic_info.valid))
+            data_val = devices[dev_id].dynamic_info.gpu_util_rate;
+          break;
+        case plot_gpu_mem_rate:
+          if (IS_VALID(gpuinfo_mem_util_rate_valid,
+                       devices[dev_id].dynamic_info.valid))
+            data_val = devices[dev_id].dynamic_info.mem_util_rate;
+          break;
+        case plot_encoder_rate:
+          if (IS_VALID(gpuinfo_encoder_rate_valid,
+                       devices[dev_id].dynamic_info.valid))
+            data_val = devices[dev_id].dynamic_info.encoder_rate;
+          break;
+        case plot_decoder_rate:
+          if (IS_VALID(gpuinfo_decoder_rate_valid,
+                       devices[dev_id].dynamic_info.valid))
+            data_val = devices[dev_id].dynamic_info.decoder_rate;
+          break;
+        case plot_gpu_temperature:
+          if (IS_VALID(gpuinfo_gpu_temp_valid,
+                       devices[dev_id].dynamic_info.valid)) {
+            data_val = devices[dev_id].dynamic_info.gpu_temp;
+            if (data_val > 100)
+              data_val = 100u;
+          }
+          break;
+        case plot_information_count:
+          break;
+        }
+        interface_ring_buffer_push(&interface->saved_data_ring, dev_id,
+                                   data_index, data_val);
+        data_index++;
+      }
     }
   }
 }
 
-static void populate_plot_data_max_gpu_mem(struct nvtop_interface *interface,
-                                           struct plot_window *plot) {
-  // Populate data
-  memset(plot->data, 0, plot->num_data * sizeof(double));
-  unsigned upper_bound =
-      plot->num_data / 2 > interface->past_data.num_collected_data
-          ? interface->past_data.num_collected_data
-          : plot->num_data / 2;
-  for (unsigned k = 0; k < interface->devices_count; ++k) {
-    for (unsigned i = 0; i < upper_bound; ++i) {
-      unsigned(*gpudata)[interface->past_data.size_data_buffer] =
-          (unsigned(*)[interface->past_data.size_data_buffer])
-              interface->past_data.gpu_util;
-      unsigned(*memdata)[interface->past_data.size_data_buffer] =
-          (unsigned(*)[interface->past_data.size_data_buffer])
-              interface->past_data.mem_util;
-      plot->data[i * 2] =
-          max(plot->data[i * 2],
-              gpudata[k][(interface->past_data.size_data_buffer +
-                          interface->past_data.num_collected_data - i - 1) %
-                         interface->past_data.size_data_buffer]);
-      plot->data[i * 2 + 1] =
-          max(plot->data[i * 2 + 1],
-              memdata[k][(interface->past_data.size_data_buffer +
-                          interface->past_data.num_collected_data - i - 1) %
-                         interface->past_data.size_data_buffer]);
+
+static unsigned populate_plot_data_from_ring_buffer(
+    const struct nvtop_interface *interface, struct plot_window *plot_win,
+    unsigned size_data_buff, double data[size_data_buff],
+    char plot_legend[4][PLOT_MAX_LEGEND_SIZE]) {
+
+  memset(data, 0, size_data_buff * sizeof(double));
+  unsigned total_to_draw = 0;
+  for (unsigned i = 0; i < plot_win->num_devices_to_plot; ++i) {
+    unsigned dev_id = plot_win->devices_ids[i];
+    plot_info_to_draw to_draw =
+        interface->options.device_information_drawn[dev_id];
+    total_to_draw += plot_count_draw_info(to_draw);
+  }
+
+  assert(size_data_buff % total_to_draw == 0);
+  unsigned max_data_to_copy = size_data_buff / total_to_draw;
+  double(*data_split)[total_to_draw] = (double(*)[total_to_draw])data;
+
+  unsigned in_processing = 0;
+  for (unsigned i = 0; i < plot_win->num_devices_to_plot; ++i) {
+    unsigned dev_id = plot_win->devices_ids[i];
+    plot_info_to_draw to_draw =
+        interface->options.device_information_drawn[dev_id];
+    unsigned data_ring_index = 0;
+    for (enum plot_information info = plot_gpu_rate;
+         info < plot_information_count; ++info) {
+      if (plot_isset_draw_info(info, to_draw)) {
+        // Populate the legend
+        switch (info) {
+        case plot_gpu_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
+                   "GPU %u utilization (%%)", dev_id);
+          break;
+        case plot_gpu_mem_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
+                   "GPU %u memory (%%)", dev_id);
+          break;
+        case plot_encoder_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
+                   "GPU %u encoder (%%)", dev_id);
+          break;
+        case plot_decoder_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
+                   "GPU %u decoder (%%)", dev_id);
+          break;
+        case plot_gpu_temperature:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
+                   "GPU %u temperature (celsius)", dev_id);
+          break;
+        case plot_information_count:
+          break;
+        }
+        // Copy the data
+        unsigned data_in_ring = interface_ring_buffer_data_stored(
+            &interface->saved_data_ring, dev_id, data_ring_index);
+        if (interface->options.plot_left_to_right) {
+          for (unsigned j = 0; j < data_in_ring && j < max_data_to_copy; ++j) {
+            data_split[j][in_processing] = interface_ring_buffer_get(
+                &interface->saved_data_ring, dev_id, data_ring_index,
+                data_in_ring - j - 1);
+          }
+        } else {
+          for (unsigned j = 0; j < data_in_ring && j < max_data_to_copy; ++j) {
+            data_split[max_data_to_copy - j - 1][in_processing] =
+                interface_ring_buffer_get(&interface->saved_data_ring, dev_id,
+                                          data_ring_index,
+                                          data_in_ring - j - 1);
+          }
+        }
+        data_ring_index++;
+        in_processing++;
+      }
     }
   }
+  return total_to_draw;
 }
 
 static void draw_plots(struct nvtop_interface *interface) {
-  for (unsigned i = 0; i < interface->num_plots; ++i) {
-    wnoutrefresh(interface->plots[i].win);
-    werase(interface->plots[i].plot_window);
-    switch (interface->plots[i].type) {
-    case plot_gpu_max:
-      populate_plot_data_max_gpu_mem(interface, &interface->plots[i]);
-      nvtop_line_plot(interface->plots[i].plot_window,
-                      interface->plots[i].num_data, interface->plots[i].data,
-                      0., 100., 2, (const char *[2]){"MAX GPU", "MAX MEM"});
-      break;
-    case plot_gpu_solo: {
-      populate_plot_data_gpu_mem(interface, &interface->plots[i]);
-      char gpuNum[8];
-      snprintf(gpuNum, 8, "GPU %zu", interface->plots[i].gpu_ids[0]);
-      nvtop_line_plot(interface->plots[i].plot_window,
-                      interface->plots[i].num_data, interface->plots[i].data,
-                      0., 100., 2, (const char *[2]){gpuNum, "MEM"});
-    } break;
-    case plot_gpu_duo: {
-      populate_plot_data_gpu_mem(interface, &interface->plots[i]);
-      char gpuNum[2][8];
-      char memNum[2][8];
-      snprintf(gpuNum[0], 8, "GPU %zu", interface->plots[i].gpu_ids[0]);
-      snprintf(gpuNum[1], 8, "GPU %zu", interface->plots[i].gpu_ids[1]);
-      snprintf(memNum[0], 8, "MEM %zu", interface->plots[i].gpu_ids[0]);
-      snprintf(memNum[1], 8, "MEM %zu", interface->plots[i].gpu_ids[1]);
-      nvtop_line_plot(
-          interface->plots[i].plot_window, interface->plots[i].num_data,
-          interface->plots[i].data, 0., 100., 4,
-          (const char *[4]){gpuNum[0], memNum[0], gpuNum[1], memNum[1]});
-    } break;
-    default:
-      break;
-    }
-    wnoutrefresh(interface->plots[i].plot_window);
+  for (unsigned plot_id = 0; plot_id < interface->num_plots; ++plot_id) {
+    wnoutrefresh(interface->plots[plot_id].win);
+    werase(interface->plots[plot_id].plot_window);
+
+    char plot_legend[4][PLOT_MAX_LEGEND_SIZE];
+
+    unsigned num_lines = populate_plot_data_from_ring_buffer(
+        interface, &interface->plots[plot_id],
+        interface->plots[plot_id].num_data, interface->plots[plot_id].data,
+        plot_legend);
+
+    nvtop_line_plot(interface->plots[plot_id].plot_window,
+                    interface->plots[plot_id].num_data,
+                    interface->plots[plot_id].data, 0., 100., num_lines,
+                    !interface->options.plot_left_to_right, plot_legend);
+
+    wnoutrefresh(interface->plots[plot_id].plot_window);
   }
 }
 

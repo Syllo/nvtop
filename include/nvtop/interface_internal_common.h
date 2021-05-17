@@ -88,12 +88,12 @@ struct process_window {
 };
 
 struct plot_window {
-  enum plot_type type;
   size_t num_data;
   double *data;
   WINDOW *win;
   WINDOW *plot_window;
-  size_t gpu_ids[2];
+  unsigned num_devices_to_plot;
+  unsigned devices_ids[4];
 };
 
 enum setup_window_section {

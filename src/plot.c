@@ -9,7 +9,7 @@ static inline int data_level(double rows, double data, double increment) {
 
 void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
                      double min, double max, unsigned num_plots,
-                     const char *legend[]) {
+                     bool legend_left, char legend[4][PLOT_MAX_LEGEND_SIZE]) {
   if (num_data == 0)
     return;
   int rows, cols;
@@ -87,14 +87,15 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
   int plot_y_position = 0;
   for (unsigned i = 0; i < num_plots && plot_y_position < rows; ++i) {
     if (legend[i]) {
-      size_t length = strlen(legend[i]);
       wattron(win, COLOR_PAIR(1 + i % 5));
-      if (length < (size_t)cols) {
-        mvwprintw(win, plot_y_position, cols - length, "%s", legend[i]);
+      if (legend_left) {
+        mvwprintw(win, plot_y_position, 0, "%.*s", cols, legend[i]);
       } else {
-        wmove(win, plot_y_position, 0);
-        for (int j = 0; j < cols; ++j) {
-          waddch(win, legend[i][j]);
+        size_t length = strlen(legend[i]);
+        if (length <= (size_t)cols) {
+          mvwprintw(win, plot_y_position, cols - length, "%s", legend[i]);
+        } else {
+          mvwprintw(win, plot_y_position, 0, "%.*s", length - cols, legend[i]);
         }
       }
       wattroff(win, COLOR_PAIR(1 + i % 5));

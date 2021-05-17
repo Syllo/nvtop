@@ -1,49 +1,262 @@
 #include "nvtop/interface_layout_selection.h"
 #include "nvtop/interface.h"
+#include "nvtop/interface_options.h"
 
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
-static void min_size_taken_by_process(unsigned rows, unsigned num_devices,
-                                      unsigned *rows_needed) {
-  *rows_needed = 1 + max(5, min(rows / 4, num_devices * 3));
+static unsigned min_rows_taken_by_process(unsigned rows, unsigned num_devices) {
+  return 1 + max(5, min(rows / 4, num_devices * 3));
 }
 
 static const unsigned cols_needed_box_drawing = 5;
-static void min_size_taken_by_plot(unsigned num_data_info_to_plot,
-                                   unsigned *rows_needed,
-                                   unsigned *cols_needed) {
-  *rows_needed = 7;
-  *cols_needed = cols_needed_box_drawing + 10 * num_data_info_to_plot;
+static const unsigned min_plot_rows = 7;
+static unsigned min_plot_cols(unsigned num_data_info_to_plot) {
+  return cols_needed_box_drawing + 10 * num_data_info_to_plot;
+}
+
+// The merge works as follows:
+// Try to merge consecutive devices pairs, i.e. (0,1),(1,2), ..., (n-1,n)
+// And then every 2 separated devices pairs, i.e. (0,2),(1,3), ... ,(n-2,n)
+// And then every p separated devices pairs, i.e. (0,p),(1,p), ... ,(n-p,n)
+static bool who_to_merge(unsigned n_th_merge, unsigned devices_count,
+                         const plot_info_to_draw to_draw[devices_count],
+                         unsigned merge_ids[2]) {
+  unsigned valid_merge_encountered = 0;
+  unsigned merge1 = 0, merge2;
+  unsigned separation = 1;
+
+  while (true) {
+    merge2 = merge1 + separation;
+    if (merge2 < devices_count) {
+      unsigned dev1_info_count = plot_count_draw_info(to_draw[merge1]);
+      unsigned dev2_info_count = plot_count_draw_info(to_draw[merge2]);
+      if (dev1_info_count > 0 && dev2_info_count > 0 &&
+          dev1_info_count + dev2_info_count <= 4) {
+        if (valid_merge_encountered == n_th_merge) {
+          merge_ids[0] = merge1;
+          merge_ids[1] = merge2;
+          return true;
+        }
+        valid_merge_encountered++;
+      }
+      merge1++;
+    } else {
+      merge1 = 0;
+      separation++;
+      // Has exhausted all possibilities
+      if (separation >= devices_count)
+        return false;
+    }
+  }
+}
+
+static bool move_plot_to_stack(unsigned stack_max_cols, unsigned plot_id,
+                               unsigned destination_stack, unsigned plot_count,
+                               unsigned stack_count,
+                               unsigned num_info_per_plot[plot_count],
+                               unsigned cols_allocated_in_stacks[stack_count],
+                               unsigned plot_in_stack[plot_count]) {
+  if (plot_in_stack[plot_id] == destination_stack)
+    return false;
+  unsigned cols_after_merge = cols_allocated_in_stacks[destination_stack] +
+                              min_plot_cols(num_info_per_plot[plot_id]);
+  if (cols_after_merge > stack_max_cols) {
+    return false;
+  } else {
+    cols_allocated_in_stacks[plot_in_stack[plot_id]] -=
+        min_plot_cols(num_info_per_plot[plot_id]);
+    cols_allocated_in_stacks[destination_stack] += num_info_per_plot[plot_id];
+    plot_in_stack[plot_id] = destination_stack;
+    return true;
+  }
+}
+
+static unsigned info_in_plot(unsigned plot_id, unsigned devices_count,
+                             unsigned map_device_to_plot[devices_count],
+                             const plot_info_to_draw to_draw[devices_count]) {
+  unsigned sum = 0;
+  for (unsigned dev_id = 0; dev_id < devices_count; ++dev_id) {
+    if (map_device_to_plot[dev_id] == plot_id)
+      sum += plot_count_draw_info(to_draw[dev_id]);
+  }
+  return sum;
+}
+
+static unsigned cols_used_by_stack(unsigned stack_id, unsigned plot_count,
+                                   unsigned num_info_per_plot[plot_count],
+                                   unsigned plot_in_stack[plot_count]) {
+  unsigned sum = 0;
+  for (unsigned plot_id = 0; plot_id < plot_count; ++plot_id) {
+    if (plot_in_stack[plot_id] == stack_id)
+      sum += min_plot_cols(num_info_per_plot[plot_id]);
+  }
+  return sum;
+}
+
+static unsigned
+size_differences_between_stacks(unsigned plot_count, unsigned stack_count,
+                                unsigned cols_allocated_in_stacks[plot_count]) {
+  unsigned sum = 0;
+  for (unsigned i = 0; i < stack_count; ++i) {
+    for (unsigned j = i + 1; j < stack_count; ++j) {
+      if (cols_allocated_in_stacks[i] > cols_allocated_in_stacks[j]) {
+        sum += cols_allocated_in_stacks[i] - cols_allocated_in_stacks[j];
+      } else {
+        sum += cols_allocated_in_stacks[j] - cols_allocated_in_stacks[i];
+      }
+    }
+  }
+  return sum;
+}
+
+static void
+preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols,
+                             unsigned devices_count,
+                             const plot_info_to_draw to_draw[devices_count],
+                             unsigned map_device_to_plot[devices_count],
+                             unsigned plot_in_stack[devices_count],
+                             unsigned *num_plots, unsigned *plot_stack_count) {
+
+  // Used to handle the merging process
+  unsigned num_info_per_devices[MAX_CHARTS];
+  unsigned how_many_to_merge = 0;
+
+  bool plot_anything = false;
+  for (unsigned i = 0; i < devices_count; ++i) {
+    num_info_per_devices[i] = plot_count_draw_info(to_draw[i]);
+    if (num_info_per_devices[i])
+      plot_anything = true;
+  }
+
+  // Get the most packed configuration possible with one chart per device if
+  // possible.
+  // If there is not enough place, merge the charts and retry.
+  unsigned num_plot_stacks = 0;
+  bool search_a_window_configuration =
+      plot_anything && rows_for_plots >= min_plot_rows;
+  while (search_a_window_configuration) {
+    search_a_window_configuration = false;
+    unsigned plot_id = 0;
+    num_plot_stacks = 1;
+    unsigned cols_used_in_stack = 0;
+    unsigned rows_left_to_allocate = rows_for_plots - min_plot_rows;
+
+    for (unsigned i = 0; i < devices_count; ++i) {
+      unsigned num_info_for_this_plot = num_info_per_devices[i];
+      if (num_info_for_this_plot == 0)
+        continue;
+
+      unsigned cols_this_plot = min_plot_cols(num_info_for_this_plot);
+      // If there is enough horizontal space left, allocate side by side
+      if (plot_total_cols >= cols_this_plot + cols_used_in_stack) {
+        cols_used_in_stack += cols_this_plot;
+        plot_in_stack[plot_id] = num_plot_stacks - 1;
+        map_device_to_plot[i] = plot_id;
+        plot_id++;
+      } else { // Else allocate a new stack
+        if (rows_left_to_allocate >= min_plot_rows) {
+          rows_left_to_allocate -= min_plot_rows;
+          num_plot_stacks++;
+          cols_used_in_stack = 0;
+        } else { // Not enough space for a stack: retry and merge one more
+          unsigned to_merge[2];
+          if (who_to_merge(how_many_to_merge, devices_count, to_draw,
+                           to_merge)) {
+            num_info_per_devices[to_merge[0]] +=
+                num_info_per_devices[to_merge[1]];
+            num_info_per_devices[to_merge[1]] = 0;
+            how_many_to_merge++;
+            search_a_window_configuration = true;
+          } else { // No merge left
+            num_plot_stacks = 0;
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  // Compute the number of plots, the mapping and the size
+  *num_plots = 0;
+  *plot_stack_count = num_plot_stacks;
+  if (num_plot_stacks > 0) {
+    for (unsigned i = 0; i < devices_count; ++i) {
+      if (num_info_per_devices[i]) {
+        map_device_to_plot[i] = *num_plots;
+        *num_plots += 1;
+      }
+    }
+    // For the devices that were merged
+    for (unsigned i = 0; i < how_many_to_merge; ++i) {
+      unsigned to_merge[2];
+      who_to_merge(i, devices_count, to_draw, to_merge);
+      map_device_to_plot[to_merge[1]] = map_device_to_plot[to_merge[0]];
+    }
+  }
+}
+
+static void balance_info_on_stacks_preserving_plot_order(
+    unsigned stack_max_cols, unsigned stack_count, unsigned plot_count,
+    unsigned num_info_per_plot[plot_count],
+    unsigned cols_allocated_in_stacks[stack_count],
+    unsigned plot_in_stack[plot_count]) {
+  if (stack_count > plot_count) {
+    stack_count = plot_count;
+  }
+  unsigned moving_plot_id = plot_count - 1;
+  while (moving_plot_id < plot_count) {
+    unsigned to_stack = plot_in_stack[moving_plot_id] + 1;
+    if (to_stack < stack_count) {
+      unsigned diff_sum_before = size_differences_between_stacks(
+          plot_count, stack_count, cols_allocated_in_stacks);
+      unsigned stack_before = plot_in_stack[moving_plot_id];
+      if (move_plot_to_stack(stack_max_cols, moving_plot_id, to_stack,
+                             plot_count, stack_count, num_info_per_plot,
+                             cols_allocated_in_stacks, plot_in_stack)) {
+        unsigned diff_sum_after = size_differences_between_stacks(
+            plot_count, stack_count, cols_allocated_in_stacks);
+        if (diff_sum_after <= diff_sum_before) {
+          moving_plot_id = plot_count;
+        } else {
+          // Move back
+          move_plot_to_stack(stack_max_cols, moving_plot_id, stack_before,
+                             plot_count, stack_count, num_info_per_plot,
+                             cols_allocated_in_stacks, plot_in_stack);
+        }
+      }
+    }
+    moving_plot_id--;
+  }
 }
 
 void compute_sizes_from_layout(
-    bool show_graphs, bool show_header, bool show_process, unsigned num_devices,
-    unsigned num_info_per_device, unsigned device_header_rows,
+    unsigned devices_count, unsigned device_header_rows,
     unsigned device_header_cols, unsigned rows, unsigned cols,
-    struct window_position *device_positions,
-    struct window_position *process_position, unsigned *num_plots,
-    struct window_position **plot_positions, enum plot_type *plot_types,
+    const plot_info_to_draw to_draw[devices_count],
+    struct window_position device_positions[devices_count], unsigned *num_plots,
+    struct window_position plot_positions[MAX_CHARTS],
+    unsigned map_device_to_plot[devices_count],
+    struct window_position *process_position,
     struct window_position *setup_position) {
 
   unsigned min_rows_for_header = 0, header_stacks = 0, num_device_per_row = 0;
-  if (show_header) {
-    num_device_per_row = max(1, cols / device_header_cols);
-    header_stacks = num_devices / num_device_per_row +
-                    ((num_devices % num_device_per_row) > 0);
-    if (num_devices % header_stacks == 0)
-      num_device_per_row = num_devices / header_stacks;
-    min_rows_for_header = header_stacks * device_header_rows;
-  }
-  unsigned min_rows_for_process = 0;
-  if (show_process) {
-    min_size_taken_by_process(rows, num_devices, &min_rows_for_process);
-  }
+  num_device_per_row = max(1, cols / device_header_cols);
+  header_stacks = devices_count / num_device_per_row +
+                  ((devices_count % num_device_per_row) > 0);
+  if (devices_count % header_stacks == 0)
+    num_device_per_row = devices_count / header_stacks;
+  min_rows_for_header = header_stacks * device_header_rows;
+
+  unsigned min_rows_for_process =
+      min_rows_taken_by_process(rows, devices_count);
+
   // Not enough room for the header and process
   if (rows < min_rows_for_header + min_rows_for_process) {
     if (rows >= min_rows_for_header + 2) { // Shrink process
@@ -55,83 +268,49 @@ void compute_sizes_from_layout(
   }
   unsigned rows_for_header = min_rows_for_header;
   unsigned rows_for_process = min_rows_for_process;
-  unsigned rows_left = rows - min_rows_for_header - min_rows_for_process;
+  unsigned rows_for_plots = rows - min_rows_for_header - min_rows_for_process;
 
-  unsigned min_plot_rows, min_plot_cols_solo, min_plot_cols_duo;
-  min_size_taken_by_plot(num_info_per_device, &min_plot_rows,
-                         &min_plot_cols_solo);
-  min_size_taken_by_plot(num_info_per_device * 2, &min_plot_rows,
-                         &min_plot_cols_duo);
-
-  enum plot_type preferred_plot_type = plot_gpu_duo;
-  unsigned max_plot_per_row = cols / min_plot_cols_duo;
-  if (max_plot_per_row == 0) {
-    if (cols >= min_plot_cols_solo) {
-      max_plot_per_row = 1;
-      preferred_plot_type = plot_gpu_solo;
-    } else {
-      max_plot_per_row = 0;
-    }
-  }
-  unsigned num_borrow_line = 0;
   unsigned num_plot_stacks = 0;
-  if (max_plot_per_row > 0 && show_graphs) {
-    if (preferred_plot_type == plot_gpu_duo) {
-      num_plot_stacks =
-          (num_devices + (num_devices % 2)) / 2 / max_plot_per_row;
-    } else {
-      num_plot_stacks = num_devices / max_plot_per_row;
-    }
-    num_plot_stacks = max(num_plot_stacks, 1);
-    if (num_plot_stacks * min_plot_rows > rows_left) {
-      if (rows_left >= min_plot_rows) {
-        preferred_plot_type = plot_gpu_max;
-        num_plot_stacks = 1;
-      } else {
-        num_plot_stacks = 0;
-      }
-    }
-    if (num_plot_stacks > 0) {
-      switch (preferred_plot_type) {
-      case plot_gpu_duo:
-        *num_plots = (num_devices + (num_devices % 2)) / 2;
-        break;
-      case plot_gpu_solo:
-        *num_plots = num_devices;
-        break;
-      case plot_gpu_max:
-        *num_plots = 1;
-        break;
-      }
-      num_borrow_line = rows_left - num_plot_stacks * min_plot_rows;
-    } else {
-      goto no_plot;
-    }
-  } else {
-  no_plot:
-    num_borrow_line = rows_left;
-    *num_plots = 0;
-  }
+  unsigned plot_in_stack[MAX_CHARTS];
+  preliminary_plot_positioning(rows_for_plots, cols, devices_count, to_draw,
+                               map_device_to_plot, plot_in_stack, num_plots,
+                               &num_plot_stacks);
 
+  // Transfer some lines to the header to separate the devices
+  unsigned transferable_lines =
+      rows_for_plots - num_plot_stacks * min_plot_rows;
   unsigned space_for_header = header_stacks == 0 ? 0 : header_stacks - 1;
   bool space_between_header_stack = false;
-  if (num_borrow_line >= space_for_header && show_header) {
+  if (transferable_lines >= space_for_header) {
     rows_for_header += space_for_header;
-    rows_left -= space_for_header;
+    rows_for_plots -= space_for_header;
     space_between_header_stack = true;
   }
-  if (*num_plots == 0 && show_process && rows_left > 0) {
-    rows_for_process += rows_left - 1;
-  }
+
+  // Allocate additional plot stacks if there is enough vertical room
   if (num_plot_stacks > 0) {
-    // Allocate a new plot stack if there is enough vertical room
     while (num_plot_stacks < *num_plots &&
-           rows_left / (num_plot_stacks + 1) >= 11 &&
-           (num_plot_stacks + 1) * min_plot_rows <= rows_left)
+           rows_for_plots / (num_plot_stacks + 1) >= 11 &&
+           (num_plot_stacks + 1) * min_plot_rows <= rows_for_plots)
       num_plot_stacks++;
   }
 
-  // Now compute the interface window positions
+  // Compute the cols used in each stacks to prepare balancing
+  unsigned num_info_per_plot[MAX_CHARTS];
+  for (unsigned i = 0; i < *num_plots; ++i) {
+    num_info_per_plot[i] =
+        info_in_plot(i, devices_count, map_device_to_plot, to_draw);
+  }
+  unsigned cols_allocated_in_stacks[MAX_CHARTS];
+  for (unsigned i = 0; i < num_plot_stacks; ++i) {
+    cols_allocated_in_stacks[i] =
+        cols_used_by_stack(i, *num_plots, num_info_per_plot, plot_in_stack);
+  }
+
+  // Keep the plot order of apparition, but spread the plot on different stacks
+  balance_info_on_stacks_preserving_plot_order(
+      cols, num_plot_stacks, *num_plots, num_info_per_plot,
+      cols_allocated_in_stacks, plot_in_stack);
 
   // Device Information Header
   unsigned cols_header_left = cols - num_device_per_row * device_header_cols;
@@ -147,7 +326,7 @@ void compute_sizes_from_layout(
   unsigned num_this_row = 0;
   unsigned headerPosX = space_before_header;
   unsigned headerPosY = 0;
-  for (unsigned i = 0; i < num_devices; ++i) {
+  for (unsigned i = 0; i < devices_count; ++i) {
     device_positions[i].posX = headerPosX;
     device_positions[i].posY = headerPosY;
     device_positions[i].sizeX = device_header_cols;
@@ -163,46 +342,42 @@ void compute_sizes_from_layout(
   }
 
   unsigned rows_left_for_process = 0;
-  if (*num_plots == 0) {
-    *plot_positions = NULL;
-  } else {
-    *plot_positions = calloc(*num_plots, sizeof(**plot_positions));
-    *plot_types = preferred_plot_type;
-    unsigned rows_per_stack = rows_left / num_plot_stacks;
+  if (*num_plots > 0) {
+    unsigned rows_per_stack = rows_for_plots / num_plot_stacks;
     if (rows_per_stack > 23)
       rows_per_stack = 23;
-    unsigned plot_per_row = *num_plots / num_plot_stacks;
-    unsigned stacks_with_extra_plot = *num_plots % num_plot_stacks;
     unsigned num_plot_done = 0;
     unsigned currentPosX = 0, currentPosY = rows_for_header;
-    for (unsigned i = 0; i < num_plot_stacks; ++i) {
-      unsigned plot_in_this_row = min(*num_plots - num_plot_done, plot_per_row);
-      if (stacks_with_extra_plot) {
-        plot_in_this_row++;
-        stacks_with_extra_plot--;
+    for (unsigned stack_id = 0; stack_id < num_plot_stacks; ++stack_id) {
+      unsigned plot_in_this_stack = 0;
+      for (unsigned j = 0; j < *num_plots; ++j) {
+        if (plot_in_stack[j] == stack_id) {
+          plot_in_this_stack++;
+        }
       }
-      unsigned cols_per_plot = cols / plot_in_this_row;
-      if (*plot_types == plot_gpu_duo)
-        cols_per_plot -= (cols_per_plot - cols_needed_box_drawing) %
-                         (2 * num_info_per_device);
-      else
-        cols_per_plot -=
-            (cols_per_plot - cols_needed_box_drawing) % num_info_per_device;
-      unsigned extra_cols = cols - cols_per_plot * plot_in_this_row;
-      unsigned cols_between_plots =
-          extra_cols / (plot_in_this_row <= 1 ? 1 : plot_in_this_row - 1);
-      for (unsigned j = 0; j < plot_in_this_row; ++j) {
-        (*plot_positions)[num_plot_done].posX = currentPosX;
-        (*plot_positions)[num_plot_done].posY = currentPosY;
-        (*plot_positions)[num_plot_done].sizeX = cols_per_plot;
-        (*plot_positions)[num_plot_done].sizeY = rows_per_stack;
-        currentPosX += cols_per_plot + cols_between_plots;
-        num_plot_done++;
+      unsigned cols_per_plot = cols / plot_in_this_stack;
+      unsigned extra_cols_in_stack = 0;
+      for (unsigned j = 0; j < *num_plots; ++j) {
+        if (plot_in_stack[j] == stack_id) {
+          unsigned cols_for_this_plot = cols_per_plot;
+          cols_for_this_plot -= (cols_for_this_plot - cols_needed_box_drawing) %
+                                num_info_per_plot[j];
+          extra_cols_in_stack += cols_per_plot - cols_for_this_plot;
+          plot_positions[num_plot_done].posX = currentPosX;
+          plot_positions[num_plot_done].posY = currentPosY;
+          plot_positions[num_plot_done].sizeX = cols_for_this_plot;
+          plot_positions[num_plot_done].sizeY = rows_per_stack;
+          currentPosX += cols_for_this_plot + extra_cols_in_stack;
+          num_plot_done++;
+        }
       }
       currentPosY += rows_per_stack;
       currentPosX = 0;
     }
-    rows_left_for_process = rows_left - rows_per_stack * num_plot_stacks;
+    rows_left_for_process = rows_for_plots - rows_per_stack * num_plot_stacks;
+  } else {
+    // No plot displayed, allocate the leftover space to the processes
+    rows_for_process += rows_for_plots - 1;
   }
 
   process_position->posX = 0;

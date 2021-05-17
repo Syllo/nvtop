@@ -41,12 +41,29 @@ typedef struct nvtop_interface_option_struct {
   enum process_field
       sort_processes_by;      // Specify the field used to order the processes
   bool sort_descending_order; // Sort in descenging order
-  int update_interval;        // Interval between interface update in milliseconds
+  int update_interval; // Interval between interface update in milliseconds
 } nvtop_interface_option;
+
+inline bool plot_isset_draw_info(enum plot_information check_info,
+                                 plot_info_to_draw to_draw) {
+  return to_draw & (1 << check_info);
+}
+
+inline unsigned plot_count_draw_info(plot_info_to_draw to_draw) {
+  unsigned count = 0;
+  for (enum plot_information i = plot_gpu_rate; i < plot_information_count;
+       ++i) {
+    count += plot_isset_draw_info(i, to_draw);
+  }
+  return count;
+}
 
 inline plot_info_to_draw plot_add_draw_info(enum plot_information set_info,
                                             plot_info_to_draw to_draw) {
-  return to_draw | (1 << set_info);
+  if (plot_count_draw_info(to_draw) < 4)
+    return to_draw | (1 << set_info);
+  else
+    return to_draw;
 }
 
 inline plot_info_to_draw plot_remove_draw_info(enum plot_information reset_info,
@@ -56,19 +73,6 @@ inline plot_info_to_draw plot_remove_draw_info(enum plot_information reset_info,
 
 inline plot_info_to_draw plot_default_draw_info(void) {
   return (1 << plot_gpu_rate) | (1 << plot_gpu_mem_rate);
-}
-
-inline bool plot_isset_draw_info(enum plot_information check_info,
-                                 plot_info_to_draw to_draw) {
-  return to_draw & (1 << check_info);
-}
-
-inline unsigned plot_count_draw_info(plot_info_to_draw to_draw) {
-  unsigned count = 0;
-  for (enum plot_information i = plot_gpu_rate; i < plot_information_count; ++i) {
-    count += plot_isset_draw_info(i, to_draw) ? 1 : 0;
-  }
-  return count;
 }
 
 void alloc_interface_options_internals(char *config_file_location,
