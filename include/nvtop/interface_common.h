@@ -29,6 +29,7 @@ enum plot_information {
   plot_decoder_rate,
   plot_gpu_temperature,
   plot_gpu_power_draw_rate,
+  plot_fan_speed,
   plot_information_count
 };
 

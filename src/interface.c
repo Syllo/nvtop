@@ -1354,6 +1354,12 @@ void save_current_data_to_ring(unsigned devices_count, gpu_info *devices,
               data_val = 100u;
           }
           break;
+        case plot_fan_speed:
+          if (IS_VALID(gpuinfo_fan_speed_valid,
+                       devices[dev_id].dynamic_info.valid)) {
+            data_val = devices[dev_id].dynamic_info.fan_speed;
+          }
+          break;
         case plot_information_count:
           break;
         }
@@ -1417,6 +1423,10 @@ static unsigned populate_plot_data_from_ring_buffer(
         case plot_gpu_power_draw_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
                    "GPU%u power%%", dev_id);
+          break;
+        case plot_fan_speed:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
+                   "GPU%u fan%%", dev_id);
           break;
         case plot_information_count:
           break;
