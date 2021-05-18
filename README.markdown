@@ -14,20 +14,35 @@ Because a picture is worth a thousand words:
 Table of Contents
 -----------------
 
-1. [NVTOP Options and Interactive Commands](#nvtop-options-and-interactive-commands)
-1. [GPU Support](#gpu-support)
-1. [Build](#build)
-   1. [Ubuntu / Debian](#ubuntu--debian)
-   1. [Fedora / RedHat / CentOS](#fedora--redhat--centos)
-   1. [OpenSUSE](#opensuse)
-   1. [Arch Linux](#arch-linux)
-   1. [Gentoo](#gentoo)
-   1. [NVTOP Build](#nvtop-build)
-1. [Troubleshoot](#troubleshoot)
-1. [License](#license)
+- [NVTOP Options and Interactive Commands](#nvtop-options-and-interactive-commands)
+  - [Interactive Setup Window](#interactive-setup-window)
+  - [Saving Preferences](#saving-preferences)
+  - [NVTOP Manual and Command line Options](#nvtop-manual-and-command-line-options)
+- [GPU Support](#gpu-support)
+- [Build](#build)
+- [Distribution Specific Installation Process](#distribution-specific-installation-process)
+  - [Ubuntu / Debian](#ubuntu--debian)
+    - [Ubuntu disco (19.04) / Debian buster (stable)](#ubuntu-disco-1904--debian-buster-stable)
+  - [Fedora / RedHat / CentOS](#fedora--redhat--centos)
+  - [OpenSUSE](#opensuse)
+  - [Arch Linux](#arch-linux)
+- [NVTOP Build](#nvtop-build)
+- [Troubleshoot](#troubleshoot)
+- [License](#license)
 
 NVTOP Options and Interactive Commands
 --------------------------------------
+### Interactive Setup Window
+
+NVTOP has a builtin setup utility that provides a way to specialize the interface to your needs.
+Simply press ``F2`` and select the options that are the best for you.
+
+### Saving Preferences
+
+You can save the preferences set in the setup window by pressing ``F12``.
+The preferences will be loaded the next time you run ``nvtop``.
+
+### NVTOP Manual and Command line Options
 
 NVTOP comes with a manpage!
 ```bash
@@ -50,7 +65,7 @@ take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/n
 Build
 -----
 
-Two libraries are required:
+Two libraries are required in order for NVTOP to display GPU information:
 
 * The *NVIDIA Management Library* (*NVML*) which comes with the GPU driver.
   * This queries the GPU for information.
@@ -102,7 +117,7 @@ Two libraries are required:
 - ```bash
   sudo pacman -S nvtop
   ```
-  
+
 ### Gentoo
 
 - ```bash
