@@ -1360,6 +1360,24 @@ void save_current_data_to_ring(unsigned devices_count, gpu_info *devices,
             data_val = devices[dev_id].dynamic_info.fan_speed;
           }
           break;
+        case plot_gpu_clock_rate:
+          if (IS_VALID(gpuinfo_curr_gpu_clock_speed_valid,
+                       devices[dev_id].dynamic_info.valid) &&
+              IS_VALID(gpuinfo_max_gpu_clock_speed_valid,
+                       devices[dev_id].dynamic_info.valid)) {
+            data_val = devices[dev_id].dynamic_info.gpu_clock_speed * 100 /
+                       devices[dev_id].dynamic_info.gpu_clock_speed_max;
+          }
+          break;
+        case plot_gpu_mem_clock_rate:
+          if (IS_VALID(gpuinfo_curr_mem_clock_speed_valid,
+                       devices[dev_id].dynamic_info.valid) &&
+              IS_VALID(gpuinfo_max_mem_clock_speed_valid,
+                       devices[dev_id].dynamic_info.valid)) {
+            data_val = devices[dev_id].dynamic_info.mem_clock_speed * 100 /
+                       devices[dev_id].dynamic_info.mem_clock_speed_max;
+          }
+          break;
         case plot_information_count:
           break;
         }
@@ -1427,6 +1445,14 @@ static unsigned populate_plot_data_from_ring_buffer(
         case plot_fan_speed:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
                    "GPU%u fan%%", dev_id);
+          break;
+        case plot_gpu_clock_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
+                   "GPU%u clock%%", dev_id);
+          break;
+        case plot_gpu_mem_clock_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
+                   "GPU%u mem clock%%", dev_id);
           break;
         case plot_information_count:
           break;
