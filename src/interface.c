@@ -1386,23 +1386,23 @@ static unsigned populate_plot_data_from_ring_buffer(
         switch (info) {
         case plot_gpu_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
-                   "GPU %u utilization (%%)", dev_id);
+                   "GPU%u %%", dev_id);
           break;
         case plot_gpu_mem_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
-                   "GPU %u memory (%%)", dev_id);
+                   "GPU%u mem%%", dev_id);
           break;
         case plot_encoder_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
-                   "GPU %u encoder (%%)", dev_id);
+                   "GPU%u encode%%", dev_id);
           break;
         case plot_decoder_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
-                   "GPU %u decoder (%%)", dev_id);
+                   "GPU%u decode%%", dev_id);
           break;
         case plot_gpu_temperature:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
-                   "GPU %u temperature (celsius)", dev_id);
+                   "GPU%u temp(c)", dev_id);
           break;
         case plot_information_count:
           break;
