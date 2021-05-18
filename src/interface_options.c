@@ -129,7 +129,7 @@ static const char process_sort_ascending[] = "ascending";
 static const char device_section[] = "DeviceDrawOption";
 static const char device_shown_value[] = "ShownInfo";
 static const char *device_draw_vals[plot_information_count + 1] = {
-    "gpuRate", "gpuMemRate", "encodeRate", "decodeRate", "temperature", "none"};
+    "gpuRate", "gpuMemRate", "encodeRate", "decodeRate", "temperature", "powerDrawRate" ,"none"};
 
 static int nvtop_option_ini_handler(void *user, const char *section,
                                     const char *name, const char *value) {

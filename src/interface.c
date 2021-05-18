@@ -1343,6 +1343,17 @@ void save_current_data_to_ring(unsigned devices_count, gpu_info *devices,
               data_val = 100u;
           }
           break;
+        case plot_gpu_power_draw_rate:
+          if (IS_VALID(gpuinfo_power_draw_valid,
+                       devices[dev_id].dynamic_info.valid) &&
+              IS_VALID(gpuinfo_power_draw_max_valid,
+                       devices[dev_id].dynamic_info.valid)) {
+            data_val = devices[dev_id].dynamic_info.power_draw * 100 /
+                       devices[dev_id].dynamic_info.power_draw_max;
+            if (data_val > 100)
+              data_val = 100u;
+          }
+          break;
         case plot_information_count:
           break;
         }
@@ -1353,7 +1364,6 @@ void save_current_data_to_ring(unsigned devices_count, gpu_info *devices,
     }
   }
 }
-
 
 static unsigned populate_plot_data_from_ring_buffer(
     const struct nvtop_interface *interface, struct plot_window *plot_win,
@@ -1385,8 +1395,8 @@ static unsigned populate_plot_data_from_ring_buffer(
         // Populate the legend
         switch (info) {
         case plot_gpu_rate:
-          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
-                   "GPU%u %%", dev_id);
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u %%",
+                   dev_id);
           break;
         case plot_gpu_mem_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
@@ -1403,6 +1413,10 @@ static unsigned populate_plot_data_from_ring_buffer(
         case plot_gpu_temperature:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
                    "GPU%u temp(c)", dev_id);
+          break;
+        case plot_gpu_power_draw_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE,
+                   "GPU%u power%%", dev_id);
           break;
         case plot_information_count:
           break;
