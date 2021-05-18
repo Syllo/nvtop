@@ -404,6 +404,9 @@ static void draw_setup_window_chart(unsigned devices_count, gpu_info *devices,
     getyx(value_list_win, tmp, cur_col);
     mvwchgat(value_list_win, 0, cur_col, maxcols - cur_col, A_STANDOUT,
              green_color, NULL);
+    wattron(value_list_win, COLOR_PAIR(magenta_color));
+    mvwprintw(value_list_win, 1, 0, "Maximum of 4 metrics per GPU");
+    wattroff(value_list_win, COLOR_PAIR(magenta_color));
 
     for (enum plot_information i = plot_gpu_rate; i < plot_information_count;
          ++i) {
@@ -426,12 +429,12 @@ static void draw_setup_window_chart(unsigned devices_count, gpu_info *devices,
         option_state = plot_isset_draw_info(
             i, interface->options.device_information_drawn[selected_gpu]);
       }
-      mvwprintw(value_list_win, i + 1, 0, "[%c] %s",
+      mvwprintw(value_list_win, i + 2, 0, "[%c] %s",
                 option_state_char(option_state),
                 setup_chart_gpu_value_descriptions[i]);
       if (interface->setup_win.indentation_level == 2 &&
           interface->setup_win.options_selected[1] == i) {
-        mvwchgat(value_list_win, i + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+        mvwchgat(value_list_win, i + 2, 0, 3, A_STANDOUT, cyan_color, NULL);
       }
     }
     wnoutrefresh(value_list_win);
