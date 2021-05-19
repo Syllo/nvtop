@@ -106,6 +106,8 @@ enum gpuinfo_process_info_valid {
   gpuinfo_process_cmdline_valid,
   gpuinfo_process_user_name_valid,
   gpuinfo_process_gpu_usage_valid,
+  gpuinfo_process_gpu_encoder_valid,
+  gpuinfo_process_gpu_decoder_valid,
   gpuinfo_process_gpu_memory_usage_valid,
   gpuinfo_process_gpu_memory_percentage_valid,
   gpuinfo_process_cpu_usage_valid,
@@ -120,6 +122,8 @@ typedef struct gpu_process_struct {
   char *cmdline;                       // Process User Name
   char *user_name;                     // Process User Name
   unsigned gpu_usage;                  // Percentage of GPU used by the process
+  unsigned encode_usage;               // Percentage of GPU encoder used by the process
+  unsigned decode_usage;               // Percentage of GPU decoder used by the process
   unsigned long long gpu_memory_usage; // Memory used by the process
   unsigned gpu_memory_percentage;      // Percentage of the total device memory
                                        // consumed by the process

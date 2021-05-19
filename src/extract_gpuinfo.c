@@ -75,6 +75,7 @@ bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count,
     (*devices)[i].nvidia_gpuhandle = nvidia_devices[i];
     (*devices)[i].processes_count = 0;
     (*devices)[i].processes = NULL;
+    (*devices)[i].nvidia_internal.last_utilization_timestamp = 0;
   }
   free(nvidia_devices);
   *devices_count = total_devices;
@@ -210,6 +211,7 @@ bool gpuinfo_refresh_processes(unsigned device_count, gpu_info *devices) {
       unsigned processes_count = 0;
       gpu_process *processes = NULL;
       gpuinfo_nvidia_get_running_processes(devices[i].nvidia_gpuhandle,
+                                           &devices[i].nvidia_internal,
                                            &processes_count, &processes);
       free(devices[i].processes);
       devices[i].processes = processes;

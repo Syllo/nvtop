@@ -40,6 +40,9 @@ typedef struct gpu_info_struct {
   gpuinfo_dynamic_info dynamic_info;
   unsigned processes_count;
   gpu_process *processes;
+  union {
+    gpuinfo_nvidia_internal_data nvidia_internal;
+  };
 } gpu_info;
 
 bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count, gpu_info **devices);
