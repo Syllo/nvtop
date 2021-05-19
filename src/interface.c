@@ -46,10 +46,13 @@ static unsigned int sizeof_device_field[device_field_count] = {
 };
 
 static unsigned int sizeof_process_field[process_field_count] = {
-    [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,
-    [process_type] = 7,
+    [process_pid] = 7,       [process_user] = 4,
+    [process_gpu_id] = 3,    [process_type] = 7,
+    [process_gpu_rate] = 4,  [process_enc_rate] = 4,
+    [process_dec_rate] = 4,
     [process_memory] = 14, // 9 for mem 5 for %
-    [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9, [process_command] = 0,
+    [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9,
+    [process_command] = 0,
 };
 
 static void alloc_device_window(unsigned int start_row, unsigned int start_col,
@@ -837,6 +840,68 @@ static int compare_process_type_asc(const void *pp1, const void *pp2) {
   return -compare_process_name_desc(pp1, pp2);
 }
 
+static int compare_process_gpu_rate_desc(const void *pp1, const void *pp2) {
+  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
+  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
+  if (IS_VALID(gpuinfo_process_gpu_usage_valid, p1->process->valid) &&
+      IS_VALID(gpuinfo_process_gpu_usage_valid, p2->process->valid)) {
+    return p1->process->gpu_usage > p2->process->gpu_usage ? -1 : 1;
+  } else {
+    if (IS_VALID(gpuinfo_process_gpu_usage_valid, p1->process->valid)) {
+      return p1->process->gpu_usage > 0 ? -1 : 0;
+    } else if (IS_VALID(gpuinfo_process_gpu_usage_valid, p2->process->valid)) {
+      return p2->process->gpu_usage > 0 ? 1 : 0;
+    } else {
+      return 0;
+    }
+  }
+}
+
+static int compare_process_gpu_rate_asc(const void *pp1, const void *pp2) {
+  return -compare_process_gpu_rate_desc(pp1, pp2);
+}
+
+static int compare_process_enc_rate_desc(const void *pp1, const void *pp2) {
+  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
+  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
+  if (IS_VALID(gpuinfo_process_gpu_encoder_valid, p1->process->valid) &&
+      IS_VALID(gpuinfo_process_gpu_encoder_valid, p2->process->valid)) {
+    return p1->process->encode_usage >= p2->process->encode_usage ? -1 : 1;
+  } else {
+    if (IS_VALID(gpuinfo_process_gpu_encoder_valid, p1->process->valid)) {
+      return p1->process->encode_usage > 0 ? -1 : 0;
+    } else if (IS_VALID(gpuinfo_process_gpu_encoder_valid, p2->process->valid)) {
+      return p2->process->encode_usage > 0 ? 1 : 0;
+    } else {
+      return 0;
+    }
+  }
+}
+
+static int compare_process_enc_rate_asc(const void *pp1, const void *pp2) {
+  return -compare_process_enc_rate_desc(pp1, pp2);
+}
+
+static int compare_process_dec_rate_desc(const void *pp1, const void *pp2) {
+  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
+  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
+  if (IS_VALID(gpuinfo_process_gpu_decoder_valid, p1->process->valid) &&
+      IS_VALID(gpuinfo_process_gpu_decoder_valid, p2->process->valid)) {
+    return p1->process->decode_usage >= p2->process->decode_usage ? -1 : 1;
+  } else {
+    if (IS_VALID(gpuinfo_process_gpu_decoder_valid, p1->process->valid)) {
+      return p1->process->decode_usage > 0 ? -1 : 0;
+    } else if (IS_VALID(gpuinfo_process_gpu_decoder_valid, p2->process->valid)) {
+      return p2->process->decode_usage > 0 ? 1 : 0;
+    } else {
+      return 0;
+    }
+  }
+}
+static int compare_process_dec_rate_asc(const void *pp1, const void *pp2) {
+  return -compare_process_dec_rate_desc(pp1, pp2);
+}
+
 static void sort_process(all_processes all_procs, enum process_field criterion,
                          bool asc_sort) {
   int (*sort_fun)(const void *, const void *);
@@ -889,16 +954,35 @@ static void sort_process(all_processes all_procs, enum process_field criterion,
     else
       sort_fun = compare_cpu_mem_usage_desc;
     break;
+  case process_gpu_rate:
+    fprintf(stderr, "Comparing gpu rates\n");
+    if (asc_sort)
+      sort_fun = compare_process_gpu_rate_asc;
+    else
+      sort_fun = compare_process_gpu_rate_desc;
+    break;
+  case process_enc_rate:
+    if (asc_sort)
+      sort_fun = compare_process_enc_rate_asc;
+    else
+      sort_fun = compare_process_enc_rate_desc;
+    break;
+  case process_dec_rate:
+    if (asc_sort)
+      sort_fun = compare_process_dec_rate_asc;
+    else
+      sort_fun = compare_process_dec_rate_desc;
+    break;
   case process_field_count:
-  default:
     return;
   }
   qsort(all_procs.processes, all_procs.processes_count,
         sizeof(*all_procs.processes), sort_fun);
 }
 
-static const char *columnName[] = {
-    "PID", "USER", "GPU", "TYPE", "GPU MEM", "CPU", "HOST MEM", "Command",
+static const char *columnName[process_field_count] = {
+    "PID", "USER",    "DEV", "TYPE",     "GPU",     "ENC",
+    "DEC", "GPU MEM", "CPU", "HOST MEM", "Command",
 };
 
 static void update_selected_offset_with_window_size(
@@ -1034,6 +1118,39 @@ print_processes_on_screen(all_processes all_procs,
                             process_buffer_line_size - printed, "%*s ",
                             sizeof_process_field[process_type], "Compute");
       }
+    }
+
+    if (process_is_field_displayed(process_gpu_rate, fields_to_display)) {
+      unsigned gpu_usage = 0;
+      if (IS_VALID(gpuinfo_process_gpu_usage_valid,
+                   processes[i].process->valid)) {
+        gpu_usage = processes[i].process->gpu_usage;
+      }
+      printed +=
+          snprintf(&process_print_buffer[printed],
+                   process_buffer_line_size - printed, "%3u%% ", gpu_usage);
+    }
+
+    if (process_is_field_displayed(process_enc_rate, fields_to_display)) {
+      unsigned encoder_rate = 0;
+      if (IS_VALID(gpuinfo_process_gpu_encoder_valid,
+                   processes[i].process->valid)) {
+        encoder_rate = processes[i].process->encode_usage;
+      }
+      printed +=
+          snprintf(&process_print_buffer[printed],
+                   process_buffer_line_size - printed, "%3u%% ", encoder_rate);
+    }
+
+    if (process_is_field_displayed(process_dec_rate, fields_to_display)) {
+      unsigned decode_rate = 0;
+      if (IS_VALID(gpuinfo_process_gpu_decoder_valid,
+                   processes[i].process->valid)) {
+        decode_rate = processes[i].process->decode_usage;
+      }
+      printed +=
+          snprintf(&process_print_buffer[printed],
+                   process_buffer_line_size - printed, "%3u%% ", decode_rate);
     }
 
     if (process_is_field_displayed(process_memory, fields_to_display)) {

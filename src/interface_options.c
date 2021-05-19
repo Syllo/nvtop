@@ -124,8 +124,8 @@ static const char process_list_section[] = "ProcessListOption";
 static const char process_value_sortby[] = "SortBy";
 static const char process_value_display_field[] = "DisplayField";
 static const char *process_sortby_vals[process_field_count + 1] = {
-    "pId",      "user",   "gpuId",   "type", "memory",
-    "cpuUsage", "cpuMem", "cmdline", "none"};
+    "pId",     "user",   "gpuId",    "type",   "gpuRate", "encRate",
+    "decRate", "memory", "cpuUsage", "cpuMem", "cmdline", "none"};
 static const char process_value_sort_order[] = "SortOrder";
 static const char process_sort_descending[] = "descending";
 static const char process_sort_ascending[] = "ascending";
@@ -405,12 +405,18 @@ process_default_sort_by_from(process_field_displayed fields_displayed) {
     return process_memory;
   if (process_is_field_displayed(process_cpu_mem_usage, fields_displayed))
     return process_cpu_mem_usage;
+  if (process_is_field_displayed(process_gpu_rate, fields_displayed))
+    return process_gpu_rate;
   if (process_is_field_displayed(process_cpu_usage, fields_displayed))
     return process_cpu_usage;
   if (process_is_field_displayed(process_command, fields_displayed))
     return process_command;
   if (process_is_field_displayed(process_type, fields_displayed))
     return process_type;
+  if (process_is_field_displayed(process_enc_rate, fields_displayed))
+    return process_enc_rate;
+  if (process_is_field_displayed(process_dec_rate, fields_displayed))
+    return process_dec_rate;
   if (process_is_field_displayed(process_user, fields_displayed))
     return process_user;
   if (process_is_field_displayed(process_gpu_id, fields_displayed))

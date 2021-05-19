@@ -112,6 +112,8 @@ inline process_field_displayed process_default_displayed_field(void) {
        ++field) {
     to_display = process_add_field_to_display(field, to_display);
   }
+  to_display = process_remove_field_to_display(process_enc_rate, to_display);
+  to_display = process_remove_field_to_display(process_dec_rate, to_display);
   return to_display;
 }
 

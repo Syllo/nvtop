@@ -100,8 +100,9 @@ static const char
         "Sort Ascending", "Sort by", "Field Displayed"};
 
 static const char *setup_proc_list_value_descriptions[process_field_count] = {
-    "Process Id",       "User name", "GPU Id",           "Workload type",
-    "GPU memory usage", "CPU usage", "CPU memory usage", "Command"};
+    "Process Id", "User name",        "Device Id",        "Workload type",
+    "GPU usage",  "Encoder usage",    "Decoder usage", "GPU memory usage",
+    "CPU usage",  "CPU memory usage", "Command"};
 
 static unsigned int sizeof_setup_windows[setup_window_type_count] = {
     [setup_window_type_setup] = 11,
