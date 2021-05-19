@@ -25,6 +25,7 @@
 #include "nvtop/interface_common.h"
 #include "nvtop/interface_internal_common.h"
 #include "nvtop/interface_layout_selection.h"
+#include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
 #include "nvtop/interface_setup_win.h"
 #include "nvtop/plot.h"
@@ -278,6 +279,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
 
   compute_sizes_from_layout(devices_count, 3, device_length(), rows - 1, cols,
                             dwin->options.device_information_drawn,
+                            dwin->options.process_fields_displayed,
                             device_positions, &dwin->num_plots, plot_positions,
                             map_device_to_plot, &process_position,
                             &setup_position);
@@ -919,9 +921,11 @@ static void update_selected_offset_with_window_size(
 #define process_buffer_line_size 8192
 static char process_print_buffer[process_buffer_line_size];
 
-static void print_processes_on_screen(all_processes all_procs,
-                                      struct process_window *process,
-                                      enum process_field sort_criterion) {
+static void
+print_processes_on_screen(all_processes all_procs,
+                          struct process_window *process,
+                          enum process_field sort_criterion,
+                          process_field_displayed fields_to_display) {
   WINDOW *win = process->option_window.state == nvtop_option_state_hidden
                     ? process->process_win
                     : process->process_with_option_win;
@@ -960,9 +964,10 @@ static void print_processes_on_screen(all_processes all_procs,
                             ? process_buffer_line_size - 4
                             : column_sort_start + sizeof_process_field[i];
     }
-    printed += snprintf(&process_print_buffer[printed],
-                        process_buffer_line_size - printed, "%*s ",
-                        sizeof_process_field[i], columnName[i]);
+    if (process_is_field_displayed(i, fields_to_display))
+      printed += snprintf(&process_print_buffer[printed],
+                          process_buffer_line_size - printed, "%*s ",
+                          sizeof_process_field[i], columnName[i]);
   }
 
   mvwprintw(win, 0, 0, "%.*s", cols,
@@ -972,90 +977,121 @@ static void print_processes_on_screen(all_processes all_procs,
                         column_sort_end - (int)process->offset_column,
                         A_STANDOUT, cyan_color);
 
-  int start_type = 0;
-  for (unsigned int i = 0; i < process_type; ++i) {
-    start_type += sizeof_process_field[i] + 1;
+  int start_col_process_type = 0;
+  for (enum process_field i = process_pid; i < process_type; ++i) {
+    if (process_is_field_displayed(i, fields_to_display))
+      start_col_process_type += sizeof_process_field[i] + 1;
   }
-  int end_type = start_type + sizeof_process_field[process_type];
+  int end_col_process_type =
+      start_col_process_type + sizeof_process_field[process_type];
 
   for (unsigned int i = start_at_process;
        i < end_at_process && i < all_procs.processes_count; ++i) {
     memset(process_print_buffer, 0, sizeof(process_print_buffer));
-    size_t size = snprintf(pid_str, sizeof_process_field[process_pid] + 1,
-                           "%" PRIdMAX, (intmax_t)processes[i].process->pid);
-    if (size == sizeof_process_field[process_pid] + 1)
-      pid_str[sizeof_process_field[process_pid]] = '\0';
-    size = snprintf(guid_str, sizeof_process_field[process_gpu_id] + 1, "%u",
-                    processes[i].gpu_id);
-    if (size == sizeof_process_field[process_gpu_id] + 1)
-      pid_str[sizeof_process_field[process_gpu_id]] = '\0';
 
-    const char *username;
-    if (IS_VALID(gpuinfo_process_user_name_valid,
-                 processes[i].process->valid)) {
-      username = processes[i].process->user_name;
-    } else {
-      username = "N/A";
-    }
-    printed = snprintf(process_print_buffer, process_buffer_line_size,
-                       "%*s %*s %*s", sizeof_process_field[process_pid],
-                       pid_str, sizeof_process_field[process_user], username,
-                       sizeof_process_field[process_gpu_id], guid_str);
-
-    if (processes[i].process->type == gpu_process_graphical) {
-      printed += snprintf(&process_print_buffer[printed],
-                          process_buffer_line_size - printed, " %*s ",
-                          sizeof_process_field[process_type], "Graphic");
-    } else {
-      printed += snprintf(&process_print_buffer[printed],
-                          process_buffer_line_size - printed, " %*s ",
-                          sizeof_process_field[process_type], "Compute");
+    printed = 0;
+    if (process_is_field_displayed(process_pid, fields_to_display)) {
+      size_t size = snprintf(pid_str, sizeof_process_field[process_pid] + 1,
+                             "%" PRIdMAX, (intmax_t)processes[i].process->pid);
+      if (size == sizeof_process_field[process_pid] + 1)
+        pid_str[sizeof_process_field[process_pid]] = '\0';
+      printed +=
+          snprintf(&process_print_buffer[printed], process_buffer_line_size,
+                   "%*s ", sizeof_process_field[process_pid], pid_str);
     }
 
-    if (IS_VALID(gpuinfo_process_gpu_memory_usage_valid,
-                 processes[i].process->valid)) {
-      if (IS_VALID(gpuinfo_process_gpu_memory_percentage_valid,
+    if (process_is_field_displayed(process_user, fields_to_display)) {
+      const char *username;
+      if (IS_VALID(gpuinfo_process_user_name_valid,
                    processes[i].process->valid)) {
-        snprintf(memory, 10, "%6uMiB",
-                 (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
-        snprintf(memory + 9, sizeof_process_field[process_memory] - 7, " %3u%%",
-                 processes[i].process->gpu_memory_percentage);
+        username = processes[i].process->user_name;
       } else {
-        snprintf(memory, sizeof_process_field[process_memory], "%6uMiB",
-                 (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
+        username = "N/A";
       }
-    } else {
-      memory[0] = '\0';
+
+      printed += snprintf(&process_print_buffer[printed],
+                          process_buffer_line_size - printed, "%*s ",
+                          sizeof_process_field[process_user], username);
     }
-    printed += snprintf(&process_print_buffer[printed],
-                        process_buffer_line_size - printed, "%*s ",
-                        sizeof_process_field[process_memory], memory);
 
-    if (IS_VALID(gpuinfo_process_cpu_usage_valid, processes[i].process->valid))
-      snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1, "%u%%",
-               processes[i].process->cpu_usage);
-    else
-      snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1,
-               "   N/A");
-    printed += snprintf(&process_print_buffer[printed],
-                        process_buffer_line_size - printed, "%*s ",
-                        sizeof_process_field[process_cpu_usage], cpu_percent);
+    if (process_is_field_displayed(process_gpu_id, fields_to_display)) {
+      size_t size = snprintf(guid_str, sizeof_process_field[process_gpu_id] + 1,
+                             "%u", processes[i].gpu_id);
+      if (size >= sizeof_process_field[process_gpu_id] + 1)
+        pid_str[sizeof_process_field[process_gpu_id]] = '\0';
+      printed += snprintf(&process_print_buffer[printed],
+                          process_buffer_line_size - printed, "%*s ",
+                          sizeof_process_field[process_gpu_id], guid_str);
+    }
 
-    if (IS_VALID(gpuinfo_process_cpu_memory_res_valid,
-                 processes[i].process->valid))
-      snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1,
-               "%zuMiB", processes[i].process->cpu_memory_res / 1048576);
-    else
-      snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "N/A");
-    printed += snprintf(&process_print_buffer[printed],
-                        process_buffer_line_size - printed, "%*s ",
-                        sizeof_process_field[process_cpu_mem_usage], cpu_mem);
+    if (process_is_field_displayed(process_type, fields_to_display)) {
+      if (processes[i].process->type == gpu_process_graphical) {
+        printed += snprintf(&process_print_buffer[printed],
+                            process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_type], "Graphic");
+      } else {
+        printed += snprintf(&process_print_buffer[printed],
+                            process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_type], "Compute");
+      }
+    }
 
-    if (IS_VALID(gpuinfo_process_cmdline_valid, processes[i].process->valid))
-      snprintf(&process_print_buffer[printed],
-               process_buffer_line_size - printed, "%.*s",
-               process_buffer_line_size - printed,
-               processes[i].process->cmdline);
+    if (process_is_field_displayed(process_memory, fields_to_display)) {
+      if (IS_VALID(gpuinfo_process_gpu_memory_usage_valid,
+                   processes[i].process->valid)) {
+        if (IS_VALID(gpuinfo_process_gpu_memory_percentage_valid,
+                     processes[i].process->valid)) {
+          snprintf(
+              memory, 10, "%6uMiB",
+              (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
+          snprintf(memory + 9, sizeof_process_field[process_memory] - 7,
+                   " %3u%%", processes[i].process->gpu_memory_percentage);
+        } else {
+          snprintf(
+              memory, sizeof_process_field[process_memory], "%6uMiB",
+              (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
+        }
+      } else {
+        memory[0] = '\0';
+      }
+      printed += snprintf(&process_print_buffer[printed],
+                          process_buffer_line_size - printed, "%*s ",
+                          sizeof_process_field[process_memory], memory);
+    }
+
+    if (process_is_field_displayed(process_cpu_usage, fields_to_display)) {
+      if (IS_VALID(gpuinfo_process_cpu_usage_valid,
+                   processes[i].process->valid))
+        snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1,
+                 "%u%%", processes[i].process->cpu_usage);
+      else
+        snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1,
+                 "   N/A");
+      printed += snprintf(&process_print_buffer[printed],
+                          process_buffer_line_size - printed, "%*s ",
+                          sizeof_process_field[process_cpu_usage], cpu_percent);
+    }
+
+    if (process_is_field_displayed(process_cpu_mem_usage, fields_to_display)) {
+      if (IS_VALID(gpuinfo_process_cpu_memory_res_valid,
+                   processes[i].process->valid))
+        snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1,
+                 "%zuMiB", processes[i].process->cpu_memory_res / 1048576);
+      else
+        snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1,
+                 "N/A");
+      printed += snprintf(&process_print_buffer[printed],
+                          process_buffer_line_size - printed, "%*s ",
+                          sizeof_process_field[process_cpu_mem_usage], cpu_mem);
+    }
+
+    if (process_is_field_displayed(process_command, fields_to_display)) {
+      if (IS_VALID(gpuinfo_process_cmdline_valid, processes[i].process->valid))
+        printed += snprintf(&process_print_buffer[printed],
+                            process_buffer_line_size - printed, "%.*s",
+                            process_buffer_line_size - printed,
+                            processes[i].process->cmdline);
+    }
 
     unsigned int write_at = i - start_at_process + 1;
     mvwprintw(win, write_at, 0, "%.*s", cols,
@@ -1063,14 +1099,20 @@ static void print_processes_on_screen(all_processes all_procs,
     if (i == special_row) {
       mvwchgat(win, write_at, 0, -1, A_STANDOUT, cyan_color, NULL);
     } else {
-      if (processes[i].process->type == gpu_process_graphical) {
-        set_attribute_between(
-            win, write_at, start_type - (int)process->offset_column,
-            end_type - (int)process->offset_column, 0, yellow_color);
-      } else {
-        set_attribute_between(
-            win, write_at, start_type - (int)process->offset_column,
-            end_type - (int)process->offset_column, 0, magenta_color);
+      if (process_is_field_displayed(process_type, fields_to_display)) {
+        if (processes[i].process->type == gpu_process_graphical) {
+          set_attribute_between(
+              win, write_at,
+              start_col_process_type - (int)process->offset_column,
+              end_col_process_type - (int)process->offset_column, 0,
+              yellow_color);
+        } else {
+          set_attribute_between(
+              win, write_at,
+              start_col_process_type - (int)process->offset_column,
+              end_col_process_type - (int)process->offset_column, 0,
+              magenta_color);
+        }
       }
     }
   }
@@ -1103,7 +1145,8 @@ static void draw_processes(unsigned devices_count, gpu_info *devices,
   sizeof_process_field[process_user] = largest_username;
 
   print_processes_on_screen(all_procs, &interface->process,
-                            interface->options.sort_processes_by);
+                            interface->options.sort_processes_by,
+                            interface->options.process_fields_displayed);
   free(all_procs.processes);
 }
 
@@ -1184,18 +1227,26 @@ static void draw_sort_option(struct nvtop_interface *interface) {
                              ? start_at_option + rows - 2
                              : start_at_option + rows - 1;
 
-  for (size_t i = start_at_option; i < end_at_option && i < process_field_count;
-       ++i) {
-    if (i + 1 == interface->process.option_window.selected_row) {
-      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-    }
-    wprintw(win, "%s", columnName[i]);
-    getyx(win, rows, cols);
-    for (unsigned int j = cols; j < option_window_size; ++j)
-      wprintw(win, " ");
-    if (i + 1 == interface->process.option_window.selected_row) {
-      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      mvwprintw(win, rows, option_window_size - 1, " ");
+  unsigned option_index = 0;
+  for (enum process_field field = process_pid; field < process_field_count;
+       ++field) {
+    if (process_is_field_displayed(
+            field, interface->options.process_fields_displayed)) {
+      if (option_index >= start_at_option && option_index < end_at_option) {
+        if (option_index + 1 == interface->process.option_window.selected_row) {
+          wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+        }
+        wprintw(win, "%s", columnName[field]);
+        getyx(win, rows, cols);
+        for (unsigned int j = cols; j < option_window_size; ++j)
+          wprintw(win, " ");
+
+        if (option_index + 1 == interface->process.option_window.selected_row) {
+          wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+          mvwprintw(win, rows, option_window_size - 1, " ");
+        }
+      }
+      option_index++;
     }
   }
   wnoutrefresh(win);
@@ -1212,7 +1263,9 @@ static void draw_options(struct nvtop_interface *interface) {
     num_options = nvtop_num_signals + 1; // Option + Cancel
     break;
   case nvtop_option_state_sort_by:
-    num_options = process_field_count + 1; // Option + Cancel
+    num_options = process_field_displayed_count(
+                      interface->options.process_fields_displayed) +
+                  1; // Option + Cancel
     break;
   case nvtop_option_state_hidden:
   default:
@@ -1263,13 +1316,17 @@ static void draw_option_selection(struct nvtop_interface *interface) {
   switch (interface->process.option_window.state) {
   case nvtop_option_state_hidden:
     for (size_t i = 0; i < ARRAY_SIZE(option_selection_hidden); ++i) {
-      wprintw(win, "F%s", option_selection_hidden_num[i]);
-      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      wprintw(win, "%s", option_selection_hidden[i]);
-      for (size_t j = strlen(option_selection_hidden[i]);
-           j < option_selection_width; ++j)
-        wprintw(win, " ");
-      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      if (process_field_displayed_count(
+              interface->options.process_fields_displayed) > 0 ||
+          (i != 1 && i != 2)) {
+        wprintw(win, "F%s", option_selection_hidden_num[i]);
+        wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+        wprintw(win, "%s", option_selection_hidden[i]);
+        for (size_t j = strlen(option_selection_hidden[i]);
+             j < option_selection_width; ++j)
+          wprintw(win, " ");
+        wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      }
     }
     break;
   case nvtop_option_state_kill:
@@ -1551,8 +1608,17 @@ static void option_do_kill(struct nvtop_interface *interface) {
 static void option_change_sort(struct nvtop_interface *interface) {
   if (interface->process.option_window.selected_row == 0)
     return;
-  interface->options.sort_processes_by =
-      process_pid + interface->process.option_window.selected_row - 1;
+  unsigned index = 0;
+  for (enum process_field i = process_pid; i < process_field_count; ++i) {
+    if (process_is_field_displayed(
+            i, interface->options.process_fields_displayed)) {
+      if (index == interface->process.option_window.selected_row - 1) {
+        interface->options.sort_processes_by = i;
+        return;
+      }
+      index++;
+    }
+  }
 }
 
 void interface_key(int keyId, struct nvtop_interface *interface) {
@@ -1572,14 +1638,18 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
                                           &interface->options);
     break;
   case KEY_F(9):
-    if (interface->process.option_window.state == nvtop_option_state_hidden) {
+    if (process_field_displayed_count(
+            interface->options.process_fields_displayed) > 0 &&
+        interface->process.option_window.state == nvtop_option_state_hidden) {
       werase(interface->process.option_window.option_selection_window);
       interface->process.option_window.state = nvtop_option_state_kill;
       interface->process.option_window.selected_row = 0;
     }
     break;
   case KEY_F(6):
-    if (interface->process.option_window.state == nvtop_option_state_hidden) {
+    if (process_field_displayed_count(
+            interface->options.process_fields_displayed) > 0 &&
+        interface->process.option_window.state == nvtop_option_state_hidden) {
       werase(interface->process.option_window.option_selection_window);
       interface->process.option_window.state = nvtop_option_state_sort_by;
       interface->process.option_window.selected_row = 0;

@@ -42,11 +42,14 @@ typedef struct nvtop_interface_option_struct {
       sort_processes_by;      // Specify the field used to order the processes
   bool sort_descending_order; // Sort in descenging order
   int update_interval; // Interval between interface update in milliseconds
+  process_field_displayed
+      process_fields_displayed; // Which columns of the
+                                // process list are displayed
 } nvtop_interface_option;
 
 inline bool plot_isset_draw_info(enum plot_information check_info,
                                  plot_info_to_draw to_draw) {
-  return to_draw & (1 << check_info);
+  return (to_draw & (1 << check_info)) > 0;
 }
 
 inline unsigned plot_count_draw_info(plot_info_to_draw to_draw) {
@@ -84,5 +87,46 @@ bool load_interface_options_from_config_file(unsigned num_devices,
 
 bool save_interface_options_to_config_file(
     unsigned num_devices, const nvtop_interface_option *options);
+
+inline bool
+process_is_field_displayed(enum process_field field,
+                           process_field_displayed fields_displayed) {
+  return (fields_displayed & (1 << field)) > 0;
+}
+
+inline process_field_displayed
+process_remove_field_to_display(enum process_field field,
+                                process_field_displayed fields_displayed) {
+  return fields_displayed & (~(1 << field));
+}
+
+inline process_field_displayed
+process_add_field_to_display(enum process_field field,
+                             process_field_displayed fields_displayed) {
+  return fields_displayed | (1 << field);
+}
+
+inline process_field_displayed process_default_displayed_field(void) {
+  process_field_displayed to_display = 0;
+  for (enum process_field field = process_pid; field < process_field_count;
+       ++field) {
+    to_display = process_add_field_to_display(field, to_display);
+  }
+  return to_display;
+}
+
+inline unsigned
+process_field_displayed_count(process_field_displayed fields_displayed) {
+  unsigned displayed_count = 0;
+  for (enum process_field field = process_pid; field < process_field_count;
+       ++field) {
+    if (process_is_field_displayed(field, fields_displayed))
+      displayed_count++;
+  }
+  return displayed_count;
+}
+
+enum process_field
+process_default_sort_by_from(process_field_displayed fields_displayed);
 
 #endif // INTERFACE_OPTIONS_H__

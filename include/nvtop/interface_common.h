@@ -49,4 +49,6 @@ enum process_field {
   process_field_count,
 };
 
+typedef int process_field_displayed;
+
 #endif // INTERFACE_COMMON_H__

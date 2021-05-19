@@ -61,7 +61,7 @@ This section deals with the devices display (top of the interface). You can \fBs
 This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR.
 .TP
 .I Processes
-This section deals with the process list (bottom of the interface). You can \fBselect the sort order\fR and \fBselect the metric by which to sort the processes by\fR.
+This section deals with the process list (bottom of the interface). You can \fBselect the sort order\fR, \fBselect the metric by which to sort the processes by\fR and \fBselect which metric is displayed\fR.
 
 .SH INTERACTIVE COMMANDS
 .TP

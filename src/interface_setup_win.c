@@ -91,12 +91,13 @@ static const char *setup_chart_gpu_value_descriptions[plot_information_count] =
 enum setup_proc_list_options {
   setup_proc_list_sort_ascending,
   setup_proc_list_sort_by,
+  setup_proc_list_display,
   setup_proc_list_options_count
 };
 
 static const char
     *setup_proc_list_option_description[setup_proc_list_options_count] = {
-        "Sort Ascending", "Sort by"};
+        "Sort Ascending", "Sort by", "Field Displayed"};
 
 static const char *setup_proc_list_value_descriptions[process_field_count] = {
     "Process Id",       "User name", "GPU Id",           "Workload type",
@@ -452,8 +453,21 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
       interface->setup_win.indentation_level = 1;
   } else {
     option_list_win = interface->setup_win.split[0];
-    if (interface->setup_win.options_selected[1] >= process_field_count)
-      interface->setup_win.options_selected[1] = process_field_count - 1;
+    if (interface->setup_win.options_selected[0] == setup_proc_list_sort_by) {
+      unsigned fields_count = process_field_displayed_count(
+          interface->options.process_fields_displayed);
+      if (!fields_count) {
+        if (interface->setup_win.indentation_level > 1)
+          interface->setup_win.indentation_level = 1;
+      } else {
+        if (interface->setup_win.options_selected[1] >= fields_count)
+          interface->setup_win.options_selected[1] = fields_count - 1;
+      }
+    }
+    if (interface->setup_win.options_selected[0] == setup_proc_list_display) {
+      if (interface->setup_win.options_selected[1] >= process_field_count)
+        interface->setup_win.options_selected[1] = process_field_count - 1;
+    }
   }
 
   werase(interface->setup_win.single);
@@ -483,39 +497,87 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
              A_STANDOUT, cyan_color, NULL);
   }
 
-  if (interface->setup_win.options_selected[0] == setup_proc_list_sort_by) {
-    if (interface->setup_win.indentation_level == 1)
-      wattron(option_list_win, A_STANDOUT | COLOR_PAIR(cyan_color));
-    if (interface->setup_win.indentation_level == 2)
-      wattron(option_list_win, A_BOLD | COLOR_PAIR(cyan_color));
+  for (enum setup_proc_list_options i = setup_proc_list_sort_by;
+       i < setup_proc_list_options_count; ++i) {
+    if (interface->setup_win.options_selected[0] == i) {
+      if (interface->setup_win.indentation_level == 1)
+        wattron(option_list_win, A_STANDOUT | COLOR_PAIR(cyan_color));
+      if (interface->setup_win.indentation_level == 2)
+        wattron(option_list_win, A_BOLD | COLOR_PAIR(cyan_color));
+    }
+    mvwaddch(option_list_win, i + 1, 1, ACS_HLINE);
+    waddch(option_list_win, '>');
+    wattroff(option_list_win, A_STANDOUT | A_BOLD | COLOR_PAIR(cyan_color));
+    wprintw(option_list_win, " %s", setup_proc_list_option_description[i]);
+    wnoutrefresh(option_list_win);
   }
-  mvwaddch(option_list_win, setup_proc_list_sort_by + 1, 1, ACS_HLINE);
-  waddch(option_list_win, '>');
-  wattroff(option_list_win, A_STANDOUT | A_BOLD | COLOR_PAIR(cyan_color));
-  wprintw(option_list_win, " %s",
-          setup_proc_list_option_description[setup_proc_list_sort_by]);
-  wnoutrefresh(option_list_win);
 
   if (interface->setup_win.options_selected[0] >= setup_proc_list_sort_by) {
     WINDOW *value_list_win = interface->setup_win.split[1];
-    wattron(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
-    mvwprintw(value_list_win, 0, 0, "Processes are sorted by:");
-    wattroff(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
-    getmaxyx(value_list_win, tmp, maxcols);
-    getyx(value_list_win, tmp, cur_col);
-    mvwchgat(value_list_win, 0, cur_col, maxcols - cur_col, A_STANDOUT,
-             green_color, NULL);
-    for (enum process_field field = process_pid; field < process_field_count;
-         ++field) {
-      option_state = interface->options.sort_processes_by == field;
-      mvwprintw(value_list_win, field + 1, 0, "[%c] %s",
-                option_state_char(option_state),
-                setup_proc_list_value_descriptions[field]);
-      if (interface->setup_win.indentation_level == 2 &&
-          interface->setup_win.options_selected[1] == field) {
-        mvwchgat(value_list_win, field + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+    // Sort by
+    if (interface->setup_win.options_selected[0] == setup_proc_list_sort_by) {
+      wattron(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+      mvwprintw(value_list_win, 0, 0, "Processes are sorted by:");
+      wattroff(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+      wclrtoeol(value_list_win);
+      getmaxyx(value_list_win, tmp, maxcols);
+      getyx(value_list_win, tmp, cur_col);
+      mvwchgat(value_list_win, 0, cur_col, maxcols - cur_col, A_STANDOUT,
+               green_color, NULL);
+      unsigned index = 0;
+      for (enum process_field field = process_pid; field < process_field_count;
+           ++field) {
+        if (process_is_field_displayed(
+                field, interface->options.process_fields_displayed)) {
+          option_state = interface->options.sort_processes_by == field;
+          mvwprintw(value_list_win, index + 1, 0, "[%c] %s",
+                    option_state_char(option_state),
+                    setup_proc_list_value_descriptions[field]);
+          wclrtoeol(value_list_win);
+          if (interface->setup_win.indentation_level == 2 &&
+              interface->setup_win.options_selected[1] == index) {
+            mvwchgat(value_list_win, index + 1, 0, 3, A_STANDOUT, cyan_color,
+                     NULL);
+            wmove(value_list_win, field + 2, 0);
+          }
+          index++;
+        }
+      }
+      if (!index) {
+        // Nothing displayed
+        wattron(value_list_win, COLOR_PAIR(magenta_color));
+        mvwprintw(value_list_win, 1, 0,
+                  "Nothing to sort: none of the process fields are displayed");
+        wattroff(value_list_win, COLOR_PAIR(magenta_color));
       }
     }
+    // Process field displayed
+    if (interface->setup_win.options_selected[0] == setup_proc_list_display) {
+      wattron(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+      mvwprintw(value_list_win, 0, 0, "Process Field Displayed:");
+      wattroff(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+      wclrtoeol(value_list_win);
+      getmaxyx(value_list_win, tmp, maxcols);
+      getyx(value_list_win, tmp, cur_col);
+      mvwchgat(value_list_win, 0, cur_col, maxcols - cur_col, A_STANDOUT,
+               green_color, NULL);
+      for (enum process_field field = process_pid; field < process_field_count;
+           ++field) {
+        option_state = process_is_field_displayed(
+            field, interface->options.process_fields_displayed);
+        mvwprintw(value_list_win, field + 1, 0, "[%c] %s",
+                  option_state_char(option_state),
+                  setup_proc_list_value_descriptions[field]);
+        wclrtoeol(value_list_win);
+        if (interface->setup_win.indentation_level == 2 &&
+            interface->setup_win.options_selected[1] == field) {
+          mvwchgat(value_list_win, field + 1, 0, 3, A_STANDOUT, cyan_color,
+                   NULL);
+          wmove(value_list_win, field + 2, 0);
+        }
+      }
+    }
+    wclrtobot(value_list_win);
     wnoutrefresh(value_list_win);
   }
 }
@@ -771,8 +833,39 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
         } else if (interface->setup_win.indentation_level == 2) {
           if (interface->setup_win.options_selected[0] ==
               setup_proc_list_sort_by) {
-            interface->options.sort_processes_by =
-                interface->setup_win.options_selected[1];
+            unsigned index = 0;
+            for (enum process_field field = process_pid;
+                 field < process_field_count; ++field) {
+              if (process_is_field_displayed(
+                      field, interface->options.process_fields_displayed)) {
+                if (index == interface->setup_win.options_selected[1])
+                  interface->options.sort_processes_by = field;
+                index++;
+              }
+            }
+          }
+          if (interface->setup_win.options_selected[0] ==
+              setup_proc_list_display) {
+            if (process_is_field_displayed(
+                    interface->setup_win.options_selected[1],
+                    interface->options.process_fields_displayed)) {
+              interface->options.process_fields_displayed =
+                  process_remove_field_to_display(
+                      interface->setup_win.options_selected[1],
+                      interface->options.process_fields_displayed);
+            } else {
+              interface->options.process_fields_displayed =
+                  process_add_field_to_display(
+                      interface->setup_win.options_selected[1],
+                      interface->options.process_fields_displayed);
+            }
+            if (!process_is_field_displayed(
+                    interface->options.sort_processes_by,
+                    interface->options.process_fields_displayed)) {
+              interface->options.sort_processes_by =
+                  process_default_sort_by_from(
+                      interface->options.process_fields_displayed);
+            }
           }
         }
       }

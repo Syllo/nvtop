@@ -269,7 +269,20 @@ int main(int argc, char **argv) {
     if (!plot_isset_draw_info(plot_information_count,
                               interface_options.device_information_drawn[i])) {
       interface_options.device_information_drawn[i] = plot_default_draw_info();
+    } else {
+      interface_options.device_information_drawn[i] =
+          plot_remove_draw_info(plot_information_count,
+                                interface_options.device_information_drawn[i]);
     }
+  }
+  if (!process_is_field_displayed(process_field_count,
+                                  interface_options.process_fields_displayed)) {
+    interface_options.process_fields_displayed =
+        process_default_displayed_field();
+  } else {
+    interface_options.process_fields_displayed =
+        process_remove_field_to_display(
+            process_field_count, interface_options.process_fields_displayed);
   }
   if (no_color_option)
     interface_options.use_color = false;

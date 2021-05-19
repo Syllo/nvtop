@@ -77,6 +77,7 @@ void alloc_interface_options_internals(char *config_location,
   options->sort_processes_by = process_memory;
   options->sort_descending_order = true;
   options->update_interval = 1000;
+  options->process_fields_displayed = 0;
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {
@@ -121,8 +122,10 @@ static const char chart_value_reverse[] = "ReverseChart";
 
 static const char process_list_section[] = "ProcessListOption";
 static const char process_value_sortby[] = "SortBy";
-static const char *process_sortby_vals[process_field_count] = {
-    "pId", "user", "gpuId", "type", "memory", "cpuUsage", "cpuMem", "cmdline"};
+static const char process_value_display_field[] = "DisplayField";
+static const char *process_sortby_vals[process_field_count + 1] = {
+    "pId",      "user",   "gpuId",   "type", "memory",
+    "cpuUsage", "cpuMem", "cmdline", "none"};
 static const char process_value_sort_order[] = "SortOrder";
 static const char process_sort_descending[] = "descending";
 static const char process_sort_ascending[] = "ascending";
@@ -189,6 +192,20 @@ static int nvtop_option_ini_handler(void *user, const char *section,
         }
       }
     }
+    if (strcmp(name, process_value_display_field) == 0) {
+      for (enum process_field i = process_pid; i < process_field_count + 1;
+           ++i) {
+        if (strcmp(value, process_sortby_vals[i]) == 0) {
+          ini_data->options->process_fields_displayed =
+              process_add_field_to_display(
+                  i, ini_data->options->process_fields_displayed);
+          ini_data->options->process_fields_displayed =
+              process_add_field_to_display(
+                  process_field_count,
+                  ini_data->options->process_fields_displayed);
+        }
+      }
+    }
     if (strcmp(name, process_value_sort_order) == 0) {
       if (strcmp(value, process_sort_descending) == 0) {
         ini_data->options->sort_descending_order = true;
@@ -229,6 +246,11 @@ bool load_interface_options_from_config_file(unsigned num_devices,
   struct nvtop_option_ini_data ini_data = {num_devices, options};
   int retval = ini_parse_file(option_file, nvtop_option_ini_handler, &ini_data);
   fclose(option_file);
+  if (!process_is_field_displayed(options->sort_processes_by,
+                                  options->process_fields_displayed)) {
+    options->sort_processes_by =
+        process_default_sort_by_from(options->process_fields_displayed);
+  }
   return retval >= 0;
 }
 
@@ -310,6 +332,18 @@ bool save_interface_options_to_config_file(
                                          : process_sort_ascending);
   fprintf(config_file, "%s = %s\n", process_value_sortby,
           process_sortby_vals[options->sort_processes_by]);
+  bool display_any_field = false;
+  for (enum process_field field = process_pid; field < process_field_count;
+       ++field) {
+    if (process_is_field_displayed(field, options->process_fields_displayed)) {
+      fprintf(config_file, "%s = %s\n", process_value_display_field,
+              process_sortby_vals[field]);
+      display_any_field = true;
+    }
+  }
+  if (!display_any_field)
+    fprintf(config_file, "%s = %s\n", process_value_display_field,
+            process_sortby_vals[process_field_count]);
   fprintf(config_file, "\n");
 
   // Per-Device Sections
@@ -347,3 +381,41 @@ extern inline bool plot_isset_draw_info(enum plot_information check_info,
                                         plot_info_to_draw to_draw);
 
 extern inline unsigned plot_count_draw_info(plot_info_to_draw to_draw);
+
+extern inline bool
+process_is_field_displayed(enum process_field field,
+                           process_field_displayed cols_displayed);
+
+extern inline process_field_displayed
+process_remove_field_to_display(enum process_field field,
+                                process_field_displayed cols_displayed);
+
+extern inline process_field_displayed
+process_add_field_to_display(enum process_field field,
+                             process_field_displayed cols_displayed);
+
+extern inline process_field_displayed process_default_displayed_field(void);
+
+extern inline unsigned
+process_field_displayed_count(process_field_displayed fields_displayed);
+
+enum process_field
+process_default_sort_by_from(process_field_displayed fields_displayed) {
+  if (process_is_field_displayed(process_memory, fields_displayed))
+    return process_memory;
+  if (process_is_field_displayed(process_cpu_mem_usage, fields_displayed))
+    return process_cpu_mem_usage;
+  if (process_is_field_displayed(process_cpu_usage, fields_displayed))
+    return process_cpu_usage;
+  if (process_is_field_displayed(process_command, fields_displayed))
+    return process_command;
+  if (process_is_field_displayed(process_type, fields_displayed))
+    return process_type;
+  if (process_is_field_displayed(process_user, fields_displayed))
+    return process_user;
+  if (process_is_field_displayed(process_gpu_id, fields_displayed))
+    return process_gpu_id;
+  if (process_is_field_displayed(process_pid, fields_displayed))
+    return process_pid;
+  return process_field_count;
+}

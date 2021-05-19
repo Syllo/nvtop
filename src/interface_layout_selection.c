@@ -240,6 +240,7 @@ void compute_sizes_from_layout(
     unsigned devices_count, unsigned device_header_rows,
     unsigned device_header_cols, unsigned rows, unsigned cols,
     const plot_info_to_draw to_draw[devices_count],
+    process_field_displayed process_displayed,
     struct window_position device_positions[devices_count], unsigned *num_plots,
     struct window_position plot_positions[MAX_CHARTS],
     unsigned map_device_to_plot[devices_count],
@@ -255,11 +256,14 @@ void compute_sizes_from_layout(
   min_rows_for_header = header_stacks * device_header_rows;
 
   unsigned min_rows_for_process =
-      min_rows_taken_by_process(rows, devices_count);
+      process_field_displayed_count(process_displayed)
+          ? min_rows_taken_by_process(rows, devices_count)
+          : 0;
 
   // Not enough room for the header and process
   if (rows < min_rows_for_header + min_rows_for_process) {
-    if (rows >= min_rows_for_header + 2) { // Shrink process
+    if (rows >= min_rows_for_header + 2 &&
+        process_field_displayed_count(process_displayed)) { // Shrink process
       min_rows_for_process = rows - min_rows_for_header;
     } else { // Only header if possible
       min_rows_for_header = rows;
@@ -374,10 +378,12 @@ void compute_sizes_from_layout(
       currentPosY += rows_per_stack;
       currentPosX = 0;
     }
-    rows_left_for_process = rows_for_plots - rows_per_stack * num_plot_stacks;
+    if (process_field_displayed_count(process_displayed) > 0)
+      rows_left_for_process = rows_for_plots - rows_per_stack * num_plot_stacks;
   } else {
     // No plot displayed, allocate the leftover space to the processes
-    rows_for_process += rows_for_plots - 1;
+    if (process_field_displayed_count(process_displayed) > 0)
+      rows_for_process += rows_for_plots - 1;
   }
 
   process_position->posX = 0;
