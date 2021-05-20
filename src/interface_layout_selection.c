@@ -361,24 +361,28 @@ void compute_sizes_from_layout(
     unsigned currentPosX = 0, currentPosY = rows_for_header;
     for (unsigned stack_id = 0; stack_id < num_plot_stacks; ++stack_id) {
       unsigned plot_in_this_stack = 0;
+      unsigned lines_to_draw = 0;
       for (unsigned j = 0; j < *num_plots; ++j) {
         if (plot_in_stack[j] == stack_id) {
           plot_in_this_stack++;
+          lines_to_draw += num_info_per_plot[j];
         }
       }
-      unsigned cols_per_plot = cols / plot_in_this_stack;
-      unsigned extra_cols_in_stack = 0;
+      unsigned cols_for_line_drawing =
+          cols - plot_in_this_stack * cols_needed_box_drawing;
       for (unsigned j = 0; j < *num_plots; ++j) {
         if (plot_in_stack[j] == stack_id) {
-          unsigned cols_for_this_plot = cols_per_plot;
-          cols_for_this_plot -= (cols_for_this_plot - cols_needed_box_drawing) %
-                                num_info_per_plot[j];
-          extra_cols_in_stack += cols_per_plot - cols_for_this_plot;
+          unsigned max_plot_cols =
+              cols_needed_box_drawing +
+              cols_for_line_drawing * num_info_per_plot[j] / lines_to_draw;
+          unsigned plot_cols =
+              max_plot_cols -
+              (max_plot_cols - cols_needed_box_drawing) % num_info_per_plot[j];
           plot_positions[num_plot_done].posX = currentPosX;
           plot_positions[num_plot_done].posY = currentPosY;
-          plot_positions[num_plot_done].sizeX = cols_for_this_plot;
+          plot_positions[num_plot_done].sizeX = plot_cols;
           plot_positions[num_plot_done].sizeY = rows_per_stack;
-          currentPosX += cols_for_this_plot + extra_cols_in_stack;
+          currentPosX += max_plot_cols;
           num_plot_done++;
         }
       }
