@@ -65,14 +65,14 @@ static bool move_plot_to_stack(unsigned stack_max_cols, unsigned plot_id,
                                unsigned plot_in_stack[plot_count]) {
   if (plot_in_stack[plot_id] == destination_stack)
     return false;
-  unsigned cols_after_merge = cols_allocated_in_stacks[destination_stack] +
-                              min_plot_cols(num_info_per_plot[plot_id]);
+  unsigned cols_used_by_plot_id = min_plot_cols(num_info_per_plot[plot_id]);
+  unsigned cols_after_merge =
+      cols_allocated_in_stacks[destination_stack] + cols_used_by_plot_id;
   if (cols_after_merge > stack_max_cols) {
     return false;
   } else {
-    cols_allocated_in_stacks[plot_in_stack[plot_id]] -=
-        min_plot_cols(num_info_per_plot[plot_id]);
-    cols_allocated_in_stacks[destination_stack] += num_info_per_plot[plot_id];
+    cols_allocated_in_stacks[plot_in_stack[plot_id]] -= cols_used_by_plot_id;
+    cols_allocated_in_stacks[destination_stack] += cols_used_by_plot_id;
     plot_in_stack[plot_id] = destination_stack;
     return true;
   }
@@ -160,11 +160,18 @@ preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols,
         plot_in_stack[plot_id] = num_plot_stacks - 1;
         map_device_to_plot[i] = plot_id;
         plot_id++;
-      } else { // Else allocate a new stack
+      } else {
+        // This plot is too wide for an empty stack, abort
+        if (cols_used_in_stack == 0) {
+          num_plot_stacks = 0;
+          break;
+        }
+        // Else allocate a new stack and retry
         if (rows_left_to_allocate >= min_plot_rows) {
           rows_left_to_allocate -= min_plot_rows;
           num_plot_stacks++;
           cols_used_in_stack = 0;
+          i--;
         } else { // Not enough space for a stack: retry and merge one more
           unsigned to_merge[2];
           if (who_to_merge(how_many_to_merge, devices_count, to_draw,
