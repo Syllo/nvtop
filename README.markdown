@@ -37,6 +37,8 @@ NVTOP Options and Interactive Commands
 NVTOP has a builtin setup utility that provides a way to specialize the interface to your needs.
 Simply press ``F2`` and select the options that are the best for you.
 
+![NVTOP Setup Window](/screenshot/Nvtop-config.png)
+
 ### Saving Preferences
 
 You can save the preferences set in the setup window by pressing ``F12``.
@@ -131,7 +133,12 @@ git clone https://github.com/Syllo/nvtop.git
 mkdir -p nvtop/build && cd nvtop/build
 cmake ..
 make
-make install # You may need sufficient permission for that (root)
+
+# Install globally on the system
+sudo make install
+
+# Alternatively, install without privileges at a location of your choosing
+# make DESTDIR="/your/install/path" install
 ```
 
 If you use **conda** as environment manager and encounter an error while building nvtop, try `conda deactivate` before invoking `cmake`.
