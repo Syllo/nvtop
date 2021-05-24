@@ -134,23 +134,32 @@ static void gpuinfo_populate_process_infos(unsigned device_count,
 
       HASH_FIND_PID(cached_process_info, &current_pid, cached_pid_info);
       if (!cached_pid_info) {
-        // Newly encountered pid
-        cached_pid_info = malloc(sizeof(*cached_pid_info));
-        cached_pid_info->pid = current_pid;
-        get_username_from_pid(current_pid, &cached_pid_info->user_name);
-        get_command_from_pid(current_pid, &cached_pid_info->cmdline);
-        cached_pid_info->last_total_consumed_cpu_time = -1.;
+        HASH_FIND_PID(updated_process_info, &current_pid, cached_pid_info);
+        if (!cached_pid_info) {
+          // Newly encountered pid
+          cached_pid_info = malloc(sizeof(*cached_pid_info));
+          cached_pid_info->pid = current_pid;
+          get_username_from_pid(current_pid, &cached_pid_info->user_name);
+          get_command_from_pid(current_pid, &cached_pid_info->cmdline);
+          cached_pid_info->last_total_consumed_cpu_time = -1.;
+          HASH_ADD_PID(updated_process_info, cached_pid_info);
+        }
       } else {
         // Already encountered so delete from cached list to avoid freeing
         // memory at the end of this function
         HASH_DEL(cached_process_info, cached_pid_info);
+        HASH_ADD_PID(updated_process_info, cached_pid_info);
       }
-      HASH_ADD_PID(updated_process_info, cached_pid_info);
 
-      devices[i].processes[j].cmdline = cached_pid_info->cmdline;
-      SET_VALID(gpuinfo_process_cmdline_valid, devices[i].processes[j].valid);
-      devices[i].processes[j].user_name = cached_pid_info->user_name;
-      SET_VALID(gpuinfo_process_user_name_valid, devices[i].processes[j].valid);
+      if (cached_pid_info->cmdline) {
+        devices[i].processes[j].cmdline = cached_pid_info->cmdline;
+        SET_VALID(gpuinfo_process_cmdline_valid, devices[i].processes[j].valid);
+      }
+      if (cached_pid_info->user_name) {
+        devices[i].processes[j].user_name = cached_pid_info->user_name;
+        SET_VALID(gpuinfo_process_user_name_valid,
+                  devices[i].processes[j].valid);
+      }
 
       struct process_cpu_usage cpu_usage;
       if (get_process_info(current_pid, &cpu_usage)) {
