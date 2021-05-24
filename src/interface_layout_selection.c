@@ -60,7 +60,7 @@ static bool who_to_merge(unsigned n_th_merge, unsigned devices_count,
 static bool move_plot_to_stack(unsigned stack_max_cols, unsigned plot_id,
                                unsigned destination_stack, unsigned plot_count,
                                unsigned stack_count,
-                               unsigned num_info_per_plot[plot_count],
+                               const unsigned num_info_per_plot[plot_count],
                                unsigned cols_allocated_in_stacks[stack_count],
                                unsigned plot_in_stack[plot_count]) {
   if (plot_in_stack[plot_id] == destination_stack)
@@ -79,7 +79,7 @@ static bool move_plot_to_stack(unsigned stack_max_cols, unsigned plot_id,
 }
 
 static unsigned info_in_plot(unsigned plot_id, unsigned devices_count,
-                             unsigned map_device_to_plot[devices_count],
+                             const unsigned map_device_to_plot[devices_count],
                              const plot_info_to_draw to_draw[devices_count]) {
   unsigned sum = 0;
   for (unsigned dev_id = 0; dev_id < devices_count; ++dev_id) {
@@ -90,8 +90,8 @@ static unsigned info_in_plot(unsigned plot_id, unsigned devices_count,
 }
 
 static unsigned cols_used_by_stack(unsigned stack_id, unsigned plot_count,
-                                   unsigned num_info_per_plot[plot_count],
-                                   unsigned plot_in_stack[plot_count]) {
+                                   const unsigned num_info_per_plot[plot_count],
+                                   const unsigned plot_in_stack[plot_count]) {
   unsigned sum = 0;
   for (unsigned plot_id = 0; plot_id < plot_count; ++plot_id) {
     if (plot_in_stack[plot_id] == stack_id)

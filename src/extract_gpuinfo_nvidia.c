@@ -592,7 +592,8 @@ void gpuinfo_nvidia_refresh_dynamic_info(gpuinfo_nvidia_device_handle device,
 
 static void gpuinfo_nvidia_get_process_utilization(
     gpuinfo_nvidia_device_handle device, gpuinfo_nvidia_internal_data *internal,
-    unsigned num_processes_recovered, gpu_process *processes) {
+    unsigned num_processes_recovered,
+    gpu_process processes[num_processes_recovered]) {
   if (num_processes_recovered && nvmlDeviceGetProcessUtilization) {
     unsigned samples_count = 0;
     nvmlReturn_t retval = nvmlDeviceGetProcessUtilization(
@@ -615,16 +616,13 @@ static void gpuinfo_nvidia_get_process_utilization(
       for (unsigned j = 0; !process_matched && j < num_processes_recovered;
            ++j) {
         if ((pid_t)samples[i].pid == processes[j].pid) {
-                  processes[j].gpu_usage = samples[i].smUtil;
-                  SET_VALID(gpuinfo_process_gpu_usage_valid,
-                            processes[j].valid);
-                  processes[j].encode_usage = samples[i].encUtil;
-                  SET_VALID(gpuinfo_process_gpu_encoder_valid,
-                            processes[j].valid);
-                  processes[j].decode_usage = samples[i].decUtil;
-                  SET_VALID(gpuinfo_process_gpu_decoder_valid,
-                            processes[j].valid);
-                  process_matched = true;
+          processes[j].gpu_usage = samples[i].smUtil;
+          SET_VALID(gpuinfo_process_gpu_usage_valid, processes[j].valid);
+          processes[j].encode_usage = samples[i].encUtil;
+          SET_VALID(gpuinfo_process_gpu_encoder_valid, processes[j].valid);
+          processes[j].decode_usage = samples[i].decUtil;
+          SET_VALID(gpuinfo_process_gpu_decoder_valid, processes[j].valid);
+          process_matched = true;
         }
       }
     }
@@ -646,7 +644,7 @@ void gpuinfo_nvidia_get_running_processes(
     exit(EXIT_FAILURE);
   }
   unsigned graphical_count = 0, compute_count = 0, recovered_count;
-retry_querry_graphical:
+retry_query_graphical:
   recovered_count = array_size;
   last_nvml_return_status = nvmlDeviceGetGraphicsRunningProcesses(
       device, &recovered_count, retrieved_infos);
@@ -658,12 +656,12 @@ retry_querry_graphical:
       perror("Could not re-allocate memory: ");
       exit(EXIT_FAILURE);
     }
-    goto retry_querry_graphical;
+    goto retry_query_graphical;
   }
   if (last_nvml_return_status == NVML_SUCCESS) {
     graphical_count = recovered_count;
   }
-retry_querry_compute:
+retry_query_compute:
   recovered_count = array_size - graphical_count;
   last_nvml_return_status = nvmlDeviceGetComputeRunningProcesses(
       device, &recovered_count, retrieved_infos + graphical_count);
@@ -675,16 +673,16 @@ retry_querry_compute:
       perror("Could not re-allocate memory: ");
       exit(EXIT_FAILURE);
     }
-    goto retry_querry_compute;
+    goto retry_query_compute;
   }
   if (last_nvml_return_status == NVML_SUCCESS) {
     compute_count = recovered_count;
   }
 
   *num_processes_recovered = graphical_count + compute_count;
-  if (compute_count + graphical_count > 0) {
+  if (*num_processes_recovered > 0) {
     *processes_info =
-        malloc((graphical_count + compute_count) * sizeof(**processes_info));
+        malloc(*num_processes_recovered * sizeof(**processes_info));
     if (!*processes_info) {
       perror("Could not allocate memory: ");
       exit(EXIT_FAILURE);

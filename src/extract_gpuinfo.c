@@ -64,12 +64,17 @@ bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count,
     }
   }
   unsigned total_devices = nvidia_devices_count;
-  *devices = malloc(total_devices * sizeof(**devices));
-  if (!*devices) {
-    perror("Cannot allocate memory: ");
-    free(nvidia_devices);
-    return false;
+  if (!total_devices) {
+    *devices = NULL;
+  } else {
+    *devices = malloc(total_devices * sizeof(**devices));
+    if (!*devices) {
+      perror("Cannot allocate memory: ");
+      free(nvidia_devices);
+      return false;
+    }
   }
+
   for (unsigned i = 0; i < nvidia_devices_count; ++i) {
     (*devices)[i].gpu_type = gpuinfo_type_nvidia_proprietary;
     (*devices)[i].nvidia_gpuhandle = nvidia_devices[i];

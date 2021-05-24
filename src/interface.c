@@ -718,13 +718,17 @@ static all_processes all_processes_array(unsigned devices_count,
   for (unsigned i = 0; i < devices_count; ++i) {
     total_processes_count += devices[i].processes_count;
   }
-  all_processes merged_devices_processes = {0, NULL};
+  all_processes merged_devices_processes;
   merged_devices_processes.processes_count = total_processes_count;
-  merged_devices_processes.processes = malloc(
-      total_processes_count * sizeof(*merged_devices_processes.processes));
-  if (!merged_devices_processes.processes) {
-    perror("Cannot allocate memory: ");
-    exit(EXIT_FAILURE);
+  if (total_processes_count) {
+    merged_devices_processes.processes = malloc(
+        total_processes_count * sizeof(*merged_devices_processes.processes));
+    if (!merged_devices_processes.processes) {
+      perror("Cannot allocate memory: ");
+      exit(EXIT_FAILURE);
+    }
+  } else {
+    merged_devices_processes.processes = NULL;
   }
 
   size_t offset = 0;
@@ -905,6 +909,8 @@ static int compare_process_dec_rate_asc(const void *pp1, const void *pp2) {
 
 static void sort_process(all_processes all_procs, enum process_field criterion,
                          bool asc_sort) {
+  if (all_procs.processes_count == 0 || !all_procs.processes)
+    return;
   int (*sort_fun)(const void *, const void *);
   switch (criterion) {
   case process_pid:
@@ -1577,7 +1583,7 @@ static unsigned populate_plot_data_from_ring_buffer(
     unsigned size_data_buff, double data[size_data_buff],
     char plot_legend[4][PLOT_MAX_LEGEND_SIZE]) {
 
-  memset(data, 0, size_data_buff * sizeof(double));
+  memset(data, 0, size_data_buff * sizeof(*data));
   unsigned total_to_draw = 0;
   for (unsigned i = 0; i < plot_win->num_devices_to_plot; ++i) {
     unsigned dev_id = plot_win->devices_ids[i];
@@ -1586,6 +1592,7 @@ static unsigned populate_plot_data_from_ring_buffer(
     total_to_draw += plot_count_draw_info(to_draw);
   }
 
+  assert(total_to_draw > 0);
   assert(size_data_buff % total_to_draw == 0);
   unsigned max_data_to_copy = size_data_buff / total_to_draw;
   double(*data_split)[total_to_draw] = (double(*)[total_to_draw])data;
