@@ -401,9 +401,9 @@ void clean_ncurses(struct nvtop_interface *interface) {
   free(interface);
 }
 
-static void draw_bare_percentage(WINDOW *win, const char *prelude,
-                                 unsigned int new_percentage,
-                                 const char inside_braces_right[1024]) {
+static void draw_percentage_meter(WINDOW *win, const char *prelude,
+                                  unsigned int new_percentage,
+                                  const char inside_braces_right[1024]) {
   int rows, cols;
   getmaxyx(win, rows, cols);
   (void)rows;
@@ -590,24 +590,24 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
     if (is_encode_displayed) {
       if (IS_VALID(gpuinfo_encoder_rate_valid, devices[i].dynamic_info.valid)) {
         snprintf(buff, 1024, "%u%%", devices[i].dynamic_info.encoder_rate);
-        draw_bare_percentage(encode_win, "ENC",
-                             devices[i].dynamic_info.encoder_rate, buff);
+        draw_percentage_meter(encode_win, "ENC",
+                              devices[i].dynamic_info.encoder_rate, buff);
       }
     }
     if (is_decode_displayed) {
       if (IS_VALID(gpuinfo_decoder_rate_valid, devices[i].dynamic_info.valid)) {
         snprintf(buff, 1024, "%u%%", devices[i].dynamic_info.decoder_rate);
-        draw_bare_percentage(decode_win, "DEC",
-                             devices[i].dynamic_info.decoder_rate, buff);
+        draw_percentage_meter(decode_win, "DEC",
+                              devices[i].dynamic_info.decoder_rate, buff);
       }
     }
     if (IS_VALID(gpuinfo_gpu_util_rate_valid, devices[i].dynamic_info.valid)) {
       snprintf(buff, 1024, "%u%%", devices[i].dynamic_info.gpu_util_rate);
-      draw_bare_percentage(gpu_util_win, "GPU",
-                           devices[i].dynamic_info.gpu_util_rate, buff);
+      draw_percentage_meter(gpu_util_win, "GPU",
+                            devices[i].dynamic_info.gpu_util_rate, buff);
     } else {
       snprintf(buff, 1024, "N/A");
-      draw_bare_percentage(gpu_util_win, "GPU", 0, buff);
+      draw_percentage_meter(gpu_util_win, "GPU", 0, buff);
     }
 
     if (IS_VALID(gpuinfo_total_memory_valid, devices[i].dynamic_info.valid) &&
@@ -624,11 +624,11 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
       snprintf(buff, 1024, "%.3f%s/%.3f%s", used_prefixed,
                memory_prefix[prefix_off], total_prefixed,
                memory_prefix[prefix_off]);
-      draw_bare_percentage(mem_util_win, "MEM",
-                           (unsigned int)(100. * used_mem / total_mem), buff);
+      draw_percentage_meter(mem_util_win, "MEM",
+                            (unsigned int)(100. * used_mem / total_mem), buff);
     } else {
       snprintf(buff, 1024, "N/A");
-      draw_bare_percentage(mem_util_win, "MEM", 0, buff);
+      draw_percentage_meter(mem_util_win, "MEM", 0, buff);
     }
     if (IS_VALID(gpuinfo_gpu_temp_valid, devices[i].dynamic_info.valid)) {
       if (!IS_VALID(gpuinfo_temperature_slowdown_valid,
