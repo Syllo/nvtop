@@ -1265,7 +1265,7 @@ print_processes_on_screen(all_processes all_procs,
     unsigned int write_at = i - start_at_process + 1;
     mvwprintw(win, write_at, 0, "%.*s", cols,
               &process_print_buffer[process->offset_column]);
-    int row, col;
+    unsigned row, col;
     getyx(win, row, col);
     if (row == write_at)
       wclrtoeol(win);
@@ -1758,7 +1758,7 @@ static void draw_plots(struct nvtop_interface *interface) {
 
     nvtop_line_plot(interface->plots[plot_id].plot_window,
                     interface->plots[plot_id].num_data,
-                    interface->plots[plot_id].data, 0., 100., num_lines,
+                    interface->plots[plot_id].data, num_lines,
                     !interface->options.plot_left_to_right, plot_legend);
 
     wnoutrefresh(interface->plots[plot_id].plot_window);

@@ -1,93 +1,112 @@
-#include <string.h>
-#include <tgmath.h>
+/*
+ *
+ * Copyright (C) 2019-2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ *
+ * This file is part of Nvtop.
+ *
+ * Nvtop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Nvtop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with nvtop.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
 
 #include "nvtop/plot.h"
+
+#include <ncurses.h>
+#include <string.h>
+#include <tgmath.h>
 
 static inline int data_level(double rows, double data, double increment) {
   return (int)(rows - round(data / increment));
 }
 
 void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
-                     double min, double max, unsigned num_plots,
-                     bool legend_left, char legend[4][PLOT_MAX_LEGEND_SIZE]) {
+                     unsigned num_plots, bool legend_left,
+                     char legend[4][PLOT_MAX_LEGEND_SIZE]) {
   if (num_data == 0)
     return;
   int rows, cols;
   getmaxyx(win, rows, cols);
-  rows -= 1; // Maximum drawable character
-  double increment = (max - min) / (double)(rows);
-  int low_data_level = data_level(0, min, increment);
-  for (size_t k = 0; k < num_plots; ++k) {
-    int level_previous = data_level(rows, data[k], increment) - low_data_level;
-    int level_next, level_current;
-    wattron(win, COLOR_PAIR(1 + k % 5));
-    for (size_t i = k; i < num_data || i < (size_t)cols; i += num_plots) {
-      level_next = i + num_plots >= num_data
-                       ? level_next
-                       : data_level(rows, data[i + num_plots], increment) -
-                             low_data_level;
-      level_current = data_level(rows, data[i], increment) - low_data_level;
-      int top, bottom;
-      if (level_current == level_previous) {
-        mvwaddch(win, level_current, i, ACS_HLINE);
-        top = bottom = level_current;
-      } else {
-        if (level_current < level_previous) {
-          top = level_previous;
-          bottom = level_current;
-        } else {
-          top = level_current;
-          bottom = level_previous;
-        }
-        for (int j = bottom + 1; j < top; j++) {
-          mvwaddch(win, j, i, ACS_VLINE);
-        }
-        if (level_current > level_previous) {
-          mvwaddch(win, level_current, i, ACS_LLCORNER);
-          mvwaddch(win, level_previous, i, ACS_URCORNER);
-        } else {
-          mvwaddch(win, level_current, i, ACS_ULCORNER);
-          mvwaddch(win, level_previous, i, ACS_LRCORNER);
-        }
-      }
-      for (unsigned j = 0; j < num_plots; ++j) {
-        if (j == k)
-          continue;
-        int cross_level = -low_data_level;
-        if (j < k || i + j < num_plots + k)
-          cross_level += data_level(rows, data[i - k + j], increment);
-        else
-          cross_level +=
-              data_level(rows, data[i - k + j - num_plots], increment);
-        if (cross_level == top && top == bottom)
-          continue;
+  rows -= 1;
+  double increment = 100. / (double)(rows);
 
-        if (cross_level > bottom && cross_level < top) {
-          mvwaddch(win, cross_level, i, ACS_PLUS);
-        } else {
-          if (cross_level == top) {
-            mvwaddch(win, cross_level, i, ACS_BTEE);
-          } else {
-            if (cross_level == bottom) {
-              mvwaddch(win, cross_level, i, ACS_TTEE);
-            } else {
-              wattroff(win, COLOR_PAIR(1 + k % 5));
-              wattron(win, COLOR_PAIR(1 + j % 5));
-              mvwaddch(win, cross_level, i, ACS_HLINE);
-              wattroff(win, COLOR_PAIR(1 + j % 5));
-              wattron(win, COLOR_PAIR(1 + k % 5));
+  unsigned lvl_before[4];
+  for (size_t k = 0; k < num_plots; ++k)
+    lvl_before[k] = data_level(rows, data[k], increment);
+
+  for (size_t i = 0; i < num_data || i < (size_t)cols; i += num_plots) {
+    for (unsigned k = 0; k < num_plots; ++k) {
+      unsigned lvl_now_k = data_level(rows, data[i + k], increment);
+      wcolor_set(win, k + 1, NULL);
+      // Three cases: has increased, has decreased and remained level
+      if (lvl_before[k] < lvl_now_k || lvl_before[k] > lvl_now_k) {
+        // Case 1 and 2: has increased/decreased
+
+        // An increase goes down on the plot because (0,0) is top left
+        bool drawing_down = lvl_before[k] < lvl_now_k;
+        unsigned bottom = drawing_down ? lvl_before[k] : lvl_now_k;
+        unsigned top = drawing_down ? lvl_now_k : lvl_before[k];
+
+        // Draw the vertical line corners
+        mvwaddch(win, bottom, i + k,
+                 drawing_down ? ACS_URCORNER : ACS_ULCORNER);
+        mvwaddch(win, top, i + k, drawing_down ? ACS_LLCORNER : ACS_LRCORNER);
+        // Draw the vertical line between the corners
+        if (top - bottom > 1) {
+          mvwvline(win, bottom + 1, i + k, 0, top - bottom - 1);
+        }
+
+        // Draw the continuation of the other metrics
+        for (unsigned j = 0; j < num_plots; ++j) {
+          if (j != k) {
+            if (lvl_before[j] == top)
+              // The continuation is at the same level as the bottom corner
+              mvwaddch(win, top, i + k, ACS_BTEE);
+            else if (lvl_before[j] == bottom)
+              // The continuation is at the same level as the top corner
+              mvwaddch(win, bottom, i + k, ACS_TTEE);
+            else if (lvl_before[j] > bottom && lvl_before[j] < top)
+              // The continuation lies on the vertical line
+              mvwaddch(win, lvl_before[j], i + k, ACS_PLUS);
+            else {
+              // The continuation lies outside the update interval so keep the
+              // color
+              wcolor_set(win, j + 1, NULL);
+              mvwaddch(win, lvl_before[j], i + k, ACS_HLINE);
+              wcolor_set(win, k + 1, NULL);
+            }
+          }
+        }
+      } else {
+        // Case 3: stayed level
+        mvwhline(win, lvl_now_k, i + k, 0, 1);
+        for (unsigned j = 0; j < num_plots; ++j) {
+          if (j != k) {
+            if (lvl_before[j] != lvl_now_k) {
+              // Add the continuation of other metric lines
+              wcolor_set(win, j + 1, NULL);
+              mvwaddch(win, lvl_before[j], i + k, ACS_HLINE);
+              wcolor_set(win, k + 1, NULL);
             }
           }
         }
       }
-      level_previous = level_current;
+      lvl_before[k] = lvl_now_k;
     }
-    wattroff(win, COLOR_PAIR(1 + k % 5));
   }
   int plot_y_position = 0;
   for (unsigned i = 0; i < num_plots && plot_y_position < rows; ++i) {
     if (legend[i]) {
-      wattron(win, COLOR_PAIR(1 + i % 5));
+      wcolor_set(win, i + 1, NULL);
       if (legend_left) {
         mvwprintw(win, plot_y_position, 0, "%.*s", cols, legend[i]);
       } else {
@@ -98,39 +117,19 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
           mvwprintw(win, plot_y_position, 0, "%.*s", length - cols, legend[i]);
         }
       }
-      wattroff(win, COLOR_PAIR(1 + i % 5));
       plot_y_position++;
-    }
-  }
-}
-
-void nvtop_bar_plot(WINDOW *win, size_t num_data, const double *data,
-                    double min, double max) {
-  if (num_data == 0)
-    return;
-  int rows, cols;
-  getmaxyx(win, rows, cols);
-  rows -= 1;
-  double increment = (max - min) / (double)(rows);
-  int low_data_level = data_level(0, min, increment);
-  for (size_t i = 0; i < num_data || i < (size_t)cols; ++i) {
-    for (int j = data_level(rows, data[i], increment) - low_data_level;
-         j <= rows; j++) {
-      mvwaddch(win, j, i, ACS_CKBOARD);
     }
   }
 }
 
 void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY,
                     unsigned sizeX, unsigned sizeY) {
-  for (unsigned i = 0; i < sizeX - 2; ++i) {
-    mvwaddch(win, startY, startX + 1 + i, ACS_HLINE);
-    mvwaddch(win, startY + sizeY - 1, startX + 1 + i, ACS_HLINE);
-  }
-  for (unsigned i = 0; i < sizeY - 2; ++i) {
-    mvwaddch(win, startY + 1 + i, startX, ACS_VLINE);
-    mvwaddch(win, startY + 1 + i, startX + sizeX - 1, ACS_VLINE);
-  }
+  mvwhline(win, startY, startX + 1, 0, sizeX - 2);
+  mvwhline(win, startY + sizeY - 1, startX + 1, 0, sizeX - 2);
+
+  mvwvline(win, startY + 1, startX, 0, sizeY - 2);
+  mvwvline(win, startY + 1, startX + sizeX - 1, 0, sizeY - 2);
+
   mvwaddch(win, startY, startX, ACS_ULCORNER);
   mvwaddch(win, startY, startX + sizeX - 1, ACS_URCORNER);
   mvwaddch(win, startY + sizeY - 1, startX, ACS_LLCORNER);
