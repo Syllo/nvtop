@@ -1163,9 +1163,9 @@ print_processes_on_screen(all_processes all_procs,
         if (IS_VALID(gpuinfo_process_gpu_memory_percentage_valid,
                      processes[i].process->valid)) {
           snprintf(
-              memory, 10, "%6uMiB",
+              memory, 9 + 1, "%6uMiB",
               (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
-          snprintf(memory + 9, sizeof_process_field[process_memory] - 7,
+          snprintf(memory + 9, sizeof_process_field[process_memory] - 9 + 1,
                    " %3u%%", processes[i].process->gpu_memory_percentage);
         } else {
           snprintf(

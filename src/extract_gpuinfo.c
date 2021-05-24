@@ -197,6 +197,7 @@ static void gpuinfo_populate_process_infos(unsigned device_count,
             roundf(100.f * (float)devices[i].processes[j].gpu_memory_usage /
                    (float)devices[i].dynamic_info.total_memory);
         devices[i].processes[j].gpu_memory_percentage = (unsigned)percentage;
+        assert(devices[i].processes[j].gpu_memory_percentage <= 100);
         SET_VALID(gpuinfo_process_gpu_memory_percentage_valid,
                   devices[i].processes[j].valid);
       }
