@@ -1060,8 +1060,6 @@ print_processes_on_screen(all_processes all_procs,
                     : process->process_with_option_win;
   struct gpuid_and_process *processes = all_procs.processes;
 
-  werase(win);
-
   unsigned int rows, cols;
   getmaxyx(win, rows, cols);
   rows -= 1;
@@ -1101,6 +1099,7 @@ print_processes_on_screen(all_processes all_procs,
 
   mvwprintw(win, 0, 0, "%.*s", cols,
             &process_print_buffer[process->offset_column]);
+  wclrtoeol(win);
   mvwchgat(win, 0, 0, -1, A_STANDOUT, green_color, NULL);
   set_attribute_between(win, 0, column_sort_start - (int)process->offset_column,
                         column_sort_end - (int)process->offset_column,
@@ -1114,6 +1113,8 @@ print_processes_on_screen(all_processes all_procs,
   int end_col_process_type =
       start_col_process_type + sizeof_process_field[process_type];
 
+  static unsigned printed_last_call = 0;
+  unsigned last_line_printed = 0;
   for (unsigned int i = start_at_process;
        i < end_at_process && i < all_procs.processes_count; ++i) {
     memset(process_print_buffer, 0, sizeof(process_print_buffer));
@@ -1258,6 +1259,11 @@ print_processes_on_screen(all_processes all_procs,
     unsigned int write_at = i - start_at_process + 1;
     mvwprintw(win, write_at, 0, "%.*s", cols,
               &process_print_buffer[process->offset_column]);
+    int row, col;
+    getyx(win, row, col);
+    if (row == write_at)
+      wclrtoeol(win);
+    last_line_printed = write_at;
     if (i == special_row) {
       mvwchgat(win, write_at, 0, -1, A_STANDOUT, cyan_color, NULL);
     } else {
@@ -1278,6 +1284,14 @@ print_processes_on_screen(all_processes all_procs,
       }
     }
   }
+  if (printed_last_call > last_line_printed) {
+    for (unsigned i = last_line_printed + 1;
+         i <= rows && i <= printed_last_call; ++i) {
+      wmove(win, i, 0);
+      wclrtoeol(win);
+    }
+  }
+  printed_last_call = last_line_printed;
   wnoutrefresh(win);
 }
 
@@ -1285,16 +1299,19 @@ static void update_process_option_win(struct nvtop_interface *interface);
 
 static void draw_processes(unsigned devices_count, gpu_info *devices,
                            struct nvtop_interface *interface) {
+  if (interface->process.process_win == NULL)
+    return;
+
   if (interface->process.option_window.state !=
       interface->process.option_window.previous_state) {
     werase(interface->process.option_window.option_win);
+    wclear(interface->process.process_win);
+    wclear(interface->process.process_with_option_win);
     wnoutrefresh(interface->process.option_window.option_win);
   }
   if (interface->process.option_window.state != nvtop_option_state_hidden)
     update_process_option_win(interface);
 
-  if (interface->process.process_win == NULL)
-    return;
   all_processes all_procs = all_processes_array(devices_count, devices);
   sort_process(all_procs, interface->options.sort_processes_by,
                !interface->options.sort_descending_order);
