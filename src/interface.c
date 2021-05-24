@@ -242,6 +242,7 @@ static void initialize_gpu_mem_plot(struct plot_window *plot,
   mvwprintw(plot->win, rows, 0, "  0");
   plot->data = calloc(cols, sizeof(*plot->data));
   plot->num_data = cols;
+  wnoutrefresh(plot->win);
 }
 
 static void alloc_plot_window(unsigned devices_count,
@@ -360,6 +361,7 @@ struct nvtop_interface *initialize_curses(unsigned devices_count,
   interface->devices_count = devices_count;
   sizeof_device_field[device_name] = largest_device_name + 11;
   initscr();
+  refresh();
   if (interface->options.use_color && has_colors() == TRUE) {
     initialize_colors();
   }
@@ -387,7 +389,6 @@ struct nvtop_interface *initialize_curses(unsigned devices_count,
   interface_alloc_ring_buffer(devices_count, 4, 10 * 60 * 1000,
                               &interface->saved_data_ring);
   initialize_all_windows(interface);
-  refresh();
   return interface;
 }
 
@@ -408,9 +409,9 @@ static void draw_percentage_meter(WINDOW *win, const char *prelude,
   getmaxyx(win, rows, cols);
   (void)rows;
   size_t size_prelude = strlen(prelude);
-  wattron(win, COLOR_PAIR(cyan_color));
+  wcolor_set(win, cyan_color, NULL);
   mvwprintw(win, 0, 0, "%s", prelude);
-  wattroff(win, COLOR_PAIR(cyan_color));
+  wstandend(win);
   waddch(win, '[');
   int curx, cury;
   curx = getcurx(win);
@@ -438,21 +439,25 @@ static void draw_temp_color(WINDOW *win, unsigned int temp,
     temp_convert = temp;
   else
     temp_convert = (unsigned)(32 + nearbyint(temp * 1.8));
-  mvwprintw(win, 0, 0, "TEMP %3u", temp_convert);
+  wcolor_set(win, cyan_color, NULL);
+  mvwprintw(win, 0, 0, "TEMP");
+
+  if (temp >= temp_slowdown - 5) {
+    if (temp >= temp_slowdown)
+      wcolor_set(win, red_color, NULL);
+    else
+      wcolor_set(win, yellow_color, NULL);
+  } else {
+    wcolor_set(win, green_color, NULL);
+  }
+  wprintw(win, " %3u", temp_convert);
+  wstandend(win);
+
   waddch(win, ACS_DEGREE);
   if (celsius)
     waddch(win, 'C');
   else
     waddch(win, 'F');
-  if (temp >= temp_slowdown - 5) {
-    if (temp >= temp_slowdown)
-      mvwchgat(win, 0, 5, 3, 0, red_color, NULL);
-    else
-      mvwchgat(win, 0, 5, 3, 0, yellow_color, NULL);
-  } else {
-    mvwchgat(win, 0, 5, 3, 0, green_color, NULL);
-  }
-  mvwchgat(win, 0, 0, 4, 0, cyan_color, NULL);
   wnoutrefresh(win);
 }
 
@@ -485,9 +490,9 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
   for (unsigned i = 0; i < devices_count; ++i) {
     struct device_window *dev = &interface->devices_win[i];
 
-    wattron(dev->name_win, COLOR_PAIR(cyan_color));
+    wcolor_set(dev->name_win, cyan_color, NULL);
     mvwprintw(dev->name_win, 0, 0, "Device %-2u", i);
-    wattroff(dev->name_win, COLOR_PAIR(cyan_color));
+    wstandend(dev->name_win);
     if (IS_VALID(gpuinfo_device_name_valid, devices[i].static_info.valid)) {
       wprintw(dev->name_win, "[%s]", devices[i].static_info.device_name);
       wnoutrefresh(dev->name_win);
@@ -705,12 +710,11 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
 
     // PICe throughput
     werase(dev->pcie_info);
-    wattron(dev->pcie_info, COLOR_PAIR(cyan_color));
+    wcolor_set(dev->pcie_info, cyan_color, NULL);
     mvwprintw(dev->pcie_info, 0, 0, "PCIe ");
-    wattroff(dev->pcie_info, COLOR_PAIR(cyan_color));
-    wattron(dev->pcie_info, COLOR_PAIR(magenta_color));
+    wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, "GEN ");
-    wattroff(dev->pcie_info, COLOR_PAIR(magenta_color));
+    wstandend(dev->pcie_info);
     if (IS_VALID(gpuinfo_pcie_link_gen_valid, devices[i].dynamic_info.valid) &&
         IS_VALID(gpuinfo_pcie_link_width_valid, devices[i].dynamic_info.valid))
       wprintw(dev->pcie_info, "%u@%2ux",
@@ -719,16 +723,16 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
     else
       wprintw(dev->pcie_info, "N/A");
 
-    wattron(dev->pcie_info, COLOR_PAIR(magenta_color));
+    wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " RX: ");
-    wattroff(dev->pcie_info, COLOR_PAIR(magenta_color));
+    wstandend(dev->pcie_info);
     if (IS_VALID(gpuinfo_pcie_rx_valid, devices[i].dynamic_info.valid))
       print_pcie_at_scale(dev->pcie_info, devices[i].dynamic_info.pcie_rx);
     else
       wprintw(dev->pcie_info, "N/A");
-    wattron(dev->pcie_info, COLOR_PAIR(magenta_color));
+    wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " TX: ");
-    wattroff(dev->pcie_info, COLOR_PAIR(magenta_color));
+    wstandend(dev->pcie_info);
     if (IS_VALID(gpuinfo_pcie_tx_valid, devices[i].dynamic_info.valid))
       print_pcie_at_scale(dev->pcie_info, devices[i].dynamic_info.pcie_tx);
     else
@@ -910,7 +914,8 @@ static int compare_process_enc_rate_desc(const void *pp1, const void *pp2) {
   } else {
     if (IS_VALID(gpuinfo_process_gpu_encoder_valid, p1->process->valid)) {
       return p1->process->encode_usage > 0 ? -1 : 0;
-    } else if (IS_VALID(gpuinfo_process_gpu_encoder_valid, p2->process->valid)) {
+    } else if (IS_VALID(gpuinfo_process_gpu_encoder_valid,
+                        p2->process->valid)) {
       return p2->process->encode_usage > 0 ? 1 : 0;
     } else {
       return 0;
@@ -931,7 +936,8 @@ static int compare_process_dec_rate_desc(const void *pp1, const void *pp2) {
   } else {
     if (IS_VALID(gpuinfo_process_gpu_decoder_valid, p1->process->valid)) {
       return p1->process->decode_usage > 0 ? -1 : 0;
-    } else if (IS_VALID(gpuinfo_process_gpu_decoder_valid, p2->process->valid)) {
+    } else if (IS_VALID(gpuinfo_process_gpu_decoder_valid,
+                        p2->process->valid)) {
       return p2->process->decode_usage > 0 ? 1 : 0;
     } else {
       return 0;
@@ -1363,9 +1369,9 @@ static const size_t nvtop_num_signals = ARRAY_SIZE(signalNames) - 1;
 
 static void draw_kill_option(struct nvtop_interface *interface) {
   WINDOW *win = interface->process.option_window.option_win;
-  wattron(win, COLOR_PAIR(green_color) | A_REVERSE);
+  wattr_set(win, A_REVERSE, green_color, NULL);
   mvwprintw(win, 0, 0, "Send signal:");
-  wattroff(win, COLOR_PAIR(green_color) | A_REVERSE);
+  wstandend(win);
   wprintw(win, " ");
   int rows, cols;
   getmaxyx(win, rows, cols);
@@ -1376,7 +1382,7 @@ static void draw_kill_option(struct nvtop_interface *interface) {
   for (size_t i = start_at_option; i < end_at_option && i <= nvtop_num_signals;
        ++i) {
     if (i == interface->process.option_window.selected_row) {
-      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      wattr_set(win, A_STANDOUT, cyan_color, NULL);
     }
     wprintw(win, "%*d %s", 2, i, signalNames[i]);
     getyx(win, rows, cols);
@@ -1384,7 +1390,7 @@ static void draw_kill_option(struct nvtop_interface *interface) {
     for (unsigned int j = cols; j < option_window_size; ++j)
       wprintw(win, " ");
     if (i == interface->process.option_window.selected_row) {
-      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      wstandend(win);
       mvwprintw(win, rows, option_window_size - 1, " ");
     }
   }
@@ -1393,21 +1399,21 @@ static void draw_kill_option(struct nvtop_interface *interface) {
 
 static void draw_sort_option(struct nvtop_interface *interface) {
   WINDOW *win = interface->process.option_window.option_win;
-  wattron(win, COLOR_PAIR(green_color) | A_REVERSE);
+  wattr_set(win, A_REVERSE, green_color, NULL);
   mvwprintw(win, 0, 0, "Sort by     ");
-  wattroff(win, COLOR_PAIR(green_color) | A_REVERSE);
+  wstandend(win);
   wprintw(win, " ");
   int rows, cols;
   if (interface->process.option_window.offset == 0) {
     if (interface->process.option_window.selected_row == 0) {
-      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      wattr_set(win, A_STANDOUT, cyan_color, NULL);
     }
     wprintw(win, "Cancel");
     getyx(win, rows, cols);
     for (unsigned int j = cols; j < option_window_size; ++j)
       wprintw(win, " ");
     if (interface->process.option_window.selected_row == 0) {
-      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      wstandend(win);
       mvwprintw(win, rows, option_window_size - 1, " ");
     }
   }
@@ -1427,7 +1433,7 @@ static void draw_sort_option(struct nvtop_interface *interface) {
             field, interface->options.process_fields_displayed)) {
       if (option_index >= start_at_option && option_index < end_at_option) {
         if (option_index + 1 == interface->process.option_window.selected_row) {
-          wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+          wattr_set(win, A_STANDOUT, cyan_color, NULL);
         }
         wprintw(win, "%s", columnName[field]);
         getyx(win, rows, cols);
@@ -1435,7 +1441,7 @@ static void draw_sort_option(struct nvtop_interface *interface) {
           wprintw(win, " ");
 
         if (option_index + 1 == interface->process.option_window.selected_row) {
-          wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+          wstandend(win);
           mvwprintw(win, rows, option_window_size - 1, " ");
         }
       }
@@ -1518,46 +1524,37 @@ static void draw_process_shortcuts(struct nvtop_interface *interface) {
               interface->options.process_fields_displayed) > 0 ||
           (i != 1 && i != 2)) {
         wprintw(win, "F%s", option_selection_hidden_num[i]);
-        wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-        wprintw(win, "%s", option_selection_hidden[i]);
-        for (size_t j = strlen(option_selection_hidden[i]);
-             j < option_selection_width; ++j)
-          wprintw(win, " ");
-        wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+        wattr_set(win, A_STANDOUT, cyan_color, NULL);
+        wprintw(win, "%-*s", option_selection_width,
+                option_selection_hidden[i]);
+        wstandend(win);
       }
     }
     break;
   case nvtop_option_state_kill:
     for (size_t i = 0; i < ARRAY_SIZE(option_selection_kill); ++i) {
       wprintw(win, "%s", option_selection_kill[i][0]);
-      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      wprintw(win, "%s", option_selection_kill[i][1]);
-      for (size_t j = strlen(option_selection_kill[i][1]);
-           j < option_selection_width; ++j)
-        wprintw(win, " ");
-      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      wattr_set(win, A_STANDOUT, cyan_color, NULL);
+      wprintw(win, "%-*s", option_selection_width, option_selection_kill[i][1]);
+      wstandend(win);
     }
     break;
   case nvtop_option_state_sort_by:
     for (size_t i = 0; i < ARRAY_SIZE(option_selection_sort); ++i) {
       wprintw(win, "%s", option_selection_sort[i][0]);
-      wattron(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
-      wprintw(win, "%s", option_selection_sort[i][1]);
-      for (size_t j = strlen(option_selection_sort[i][1]);
-           j < option_selection_width; ++j)
-        wprintw(win, " ");
-      wattroff(win, COLOR_PAIR(cyan_color) | A_STANDOUT);
+      wattr_set(win, A_STANDOUT, cyan_color, NULL);
+      wprintw(win, "%-*s", option_selection_width, option_selection_sort[i][1]);
+      wstandend(win);
     }
     break;
   default:
     break;
   }
   wclrtoeol(win);
-  unsigned int cur_col, maxcols, tmp;
+  unsigned int cur_col, tmp;
   (void)tmp;
-  getmaxyx(win, tmp, maxcols);
   getyx(win, tmp, cur_col);
-  mvwchgat(win, 0, cur_col, maxcols - cur_col, A_STANDOUT, cyan_color, NULL);
+  mvwchgat(win, 0, cur_col, -1, A_STANDOUT, cyan_color, NULL);
   wnoutrefresh(win);
   interface->process.option_window.previous_state = current_state;
 }
@@ -1750,7 +1747,6 @@ static unsigned populate_plot_data_from_ring_buffer(
 
 static void draw_plots(struct nvtop_interface *interface) {
   for (unsigned plot_id = 0; plot_id < interface->num_plots; ++plot_id) {
-    wnoutrefresh(interface->plots[plot_id].win);
     werase(interface->plots[plot_id].plot_window);
 
     char plot_legend[4][PLOT_MAX_LEGEND_SIZE];
@@ -1781,7 +1777,6 @@ void draw_gpu_info_ncurses(unsigned devices_count, gpu_info *devices,
   }
   draw_shortcuts(interface);
   doupdate();
-  refresh();
 }
 
 void update_window_size_to_terminal_size(struct nvtop_interface *inter) {

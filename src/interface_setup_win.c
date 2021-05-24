@@ -25,6 +25,8 @@
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
 
+#include <ncurses.h>
+
 static char *setup_window_category_names[setup_window_selection_count] = {
     "General", "Devices", "Chart", "Processes"};
 
@@ -100,7 +102,7 @@ static const char
         "Sort Ascending", "Sort by", "Field Displayed"};
 
 static const char *setup_proc_list_value_descriptions[process_field_count] = {
-    "Process Id", "User name",        "Device Id",        "Workload type",
+    "Process Id", "User name",        "Device Id",     "Workload type",
     "GPU usage",  "Encoder usage",    "Decoder usage", "GPU memory usage",
     "CPU usage",  "CPU memory usage", "Command"};
 
@@ -225,9 +227,10 @@ static void draw_setup_window_general(struct nvtop_interface *interface) {
       interface->setup_win.options_selected[0] >= setup_general_options_count)
     interface->setup_win.options_selected[0] = setup_general_options_count - 1;
 
-  wattron(interface->setup_win.single, COLOR_PAIR(green_color) | A_STANDOUT);
+  wattr_set(interface->setup_win.single, A_STANDOUT, green_color, NULL);
   mvwprintw(interface->setup_win.single, 0, 0, "General Options");
-  wattroff(interface->setup_win.single, COLOR_PAIR(green_color) | A_STANDOUT);
+  wstandend(interface->setup_win.single);
+
   unsigned int cur_col, maxcols, tmp;
   (void)tmp;
   getmaxyx(interface->setup_win.single, tmp, maxcols);
@@ -267,9 +270,10 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
 
   WINDOW *options_win = interface->setup_win.single;
 
-  wattron(options_win, COLOR_PAIR(green_color) | A_STANDOUT);
+  wattr_set(options_win, A_STANDOUT, green_color, NULL);
   mvwprintw(options_win, 0, 0, "Devices Display Options");
-  wattroff(options_win, COLOR_PAIR(green_color) | A_STANDOUT);
+  wstandend(options_win);
+
   unsigned int cur_col, maxcols, tmp;
   (void)tmp;
   getmaxyx(options_win, tmp, maxcols);
@@ -329,9 +333,10 @@ static void draw_setup_window_chart(unsigned devices_count, gpu_info *devices,
   touchwin(interface->setup_win.split[0]);
   touchwin(interface->setup_win.split[1]);
 
-  wattron(option_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+  wattr_set(option_list_win, A_STANDOUT, green_color, NULL);
   mvwprintw(option_list_win, 0, 0, "Chart Options");
-  wattroff(option_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+  wstandend(option_list_win);
+
   unsigned int cur_col, maxcols, tmp;
   (void)tmp;
   getmaxyx(option_list_win, tmp, maxcols);
@@ -355,13 +360,13 @@ static void draw_setup_window_chart(unsigned devices_count, gpu_info *devices,
   // Set for all GPUs at once
   if (interface->setup_win.options_selected[0] == setup_chart_all_gpu) {
     if (interface->setup_win.indentation_level == 1)
-      wattron(option_list_win, A_STANDOUT | COLOR_PAIR(cyan_color));
+      wattr_set(option_list_win, A_STANDOUT, cyan_color, NULL);
     if (interface->setup_win.indentation_level == 2)
-      wattron(option_list_win, A_BOLD | COLOR_PAIR(cyan_color));
+      wattr_set(option_list_win, A_BOLD, cyan_color, NULL);
   }
   mvwaddch(option_list_win, setup_chart_all_gpu + 1, 1, ACS_HLINE);
   waddch(option_list_win, '>');
-  wattroff(option_list_win, A_STANDOUT | A_BOLD | COLOR_PAIR(cyan_color));
+  wstandend(option_list_win);
   wprintw(option_list_win, " %s",
           setup_chart_options_descriptions[setup_chart_all_gpu]);
 
@@ -370,13 +375,13 @@ static void draw_setup_window_chart(unsigned devices_count, gpu_info *devices,
     if (interface->setup_win.options_selected[0] ==
         setup_chart_start_gpu_list + i) {
       if (interface->setup_win.indentation_level == 1)
-        wattron(option_list_win, A_STANDOUT | COLOR_PAIR(cyan_color));
+        wattr_set(option_list_win, A_STANDOUT, cyan_color, NULL);
       if (interface->setup_win.indentation_level == 2)
-        wattron(option_list_win, A_BOLD | COLOR_PAIR(cyan_color));
+        wattr_set(option_list_win, A_BOLD, cyan_color, NULL);
     }
     mvwaddch(option_list_win, setup_chart_start_gpu_list + 1 + i, 1, ACS_HLINE);
     waddch(option_list_win, '>');
-    wattroff(option_list_win, A_STANDOUT | A_BOLD | COLOR_PAIR(cyan_color));
+    wstandend(option_list_win);
     wprintw(option_list_win, " %s %u",
             setup_chart_options_descriptions[setup_chart_start_gpu_list], i);
   }
@@ -385,7 +390,7 @@ static void draw_setup_window_chart(unsigned devices_count, gpu_info *devices,
   // Window of list of metric to display in chart (4 maximum)
   if (interface->setup_win.options_selected[0] >= setup_chart_all_gpu) {
     WINDOW *value_list_win = interface->setup_win.split[1];
-    wattron(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+    wattr_set(value_list_win, A_STANDOUT, green_color, NULL);
     mvwprintw(value_list_win, 0, 0, "Metric Displayed in Graph");
     getmaxyx(value_list_win, tmp, maxcols);
     unsigned selected_gpu =
@@ -401,13 +406,12 @@ static void draw_setup_window_chart(unsigned devices_count, gpu_info *devices,
         wprintw(value_list_win, " (GPU %u)", selected_gpu);
     }
     wclrtoeol(value_list_win);
-    wattroff(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
     getyx(value_list_win, tmp, cur_col);
     mvwchgat(value_list_win, 0, cur_col, maxcols - cur_col, A_STANDOUT,
              green_color, NULL);
-    wattron(value_list_win, COLOR_PAIR(magenta_color));
+    wattr_set(value_list_win, A_NORMAL, magenta_color, NULL);
     mvwprintw(value_list_win, 1, 0, "Maximum of 4 metrics per GPU");
-    wattroff(value_list_win, COLOR_PAIR(magenta_color));
+    wstandend(value_list_win);
 
     for (enum plot_information i = plot_gpu_rate; i < plot_information_count;
          ++i) {
@@ -475,9 +479,9 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
   touchwin(interface->setup_win.split[0]);
   touchwin(interface->setup_win.split[1]);
 
-  wattron(option_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+  wattr_set(option_list_win, A_STANDOUT, green_color, NULL);
   mvwprintw(option_list_win, 0, 0, "Process List Options");
-  wattroff(option_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+  wstandend(option_list_win);
   unsigned int cur_col, maxcols, tmp;
   (void)tmp;
   getmaxyx(option_list_win, tmp, maxcols);
@@ -501,13 +505,13 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
        i < setup_proc_list_options_count; ++i) {
     if (interface->setup_win.options_selected[0] == i) {
       if (interface->setup_win.indentation_level == 1)
-        wattron(option_list_win, A_STANDOUT | COLOR_PAIR(cyan_color));
+        wattr_set(option_list_win, A_STANDOUT, cyan_color, NULL);
       if (interface->setup_win.indentation_level == 2)
-        wattron(option_list_win, A_BOLD | COLOR_PAIR(cyan_color));
+        wattr_set(option_list_win, A_BOLD, cyan_color, NULL);
     }
     mvwaddch(option_list_win, i + 1, 1, ACS_HLINE);
     waddch(option_list_win, '>');
-    wattroff(option_list_win, A_STANDOUT | A_BOLD | COLOR_PAIR(cyan_color));
+    wstandend(option_list_win);
     wprintw(option_list_win, " %s", setup_proc_list_option_description[i]);
     wnoutrefresh(option_list_win);
   }
@@ -516,9 +520,9 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
     WINDOW *value_list_win = interface->setup_win.split[1];
     // Sort by
     if (interface->setup_win.options_selected[0] == setup_proc_list_sort_by) {
-      wattron(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+      wattr_set(value_list_win, A_STANDOUT, green_color, NULL);
       mvwprintw(value_list_win, 0, 0, "Processes are sorted by:");
-      wattroff(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+      wstandend(value_list_win);
       wclrtoeol(value_list_win);
       getmaxyx(value_list_win, tmp, maxcols);
       getyx(value_list_win, tmp, cur_col);
@@ -545,17 +549,17 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
       }
       if (!index) {
         // Nothing displayed
-        wattron(value_list_win, COLOR_PAIR(magenta_color));
+        wcolor_set(value_list_win, magenta_color, NULL);
         mvwprintw(value_list_win, 1, 0,
                   "Nothing to sort: none of the process fields are displayed");
-        wattroff(value_list_win, COLOR_PAIR(magenta_color));
+        wstandend(value_list_win);
       }
     }
     // Process field displayed
     if (interface->setup_win.options_selected[0] == setup_proc_list_display) {
-      wattron(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+      wattr_set(value_list_win, A_STANDOUT, green_color, NULL);
       mvwprintw(value_list_win, 0, 0, "Process Field Displayed:");
-      wattroff(value_list_win, COLOR_PAIR(green_color) | A_STANDOUT);
+      wstandend(value_list_win);
       wclrtoeol(value_list_win);
       getmaxyx(value_list_win, tmp, maxcols);
       getyx(value_list_win, tmp, cur_col);
@@ -595,16 +599,15 @@ void draw_setup_window_shortcuts(struct nvtop_interface *interface) {
   wmove(window, 0, 0);
   for (size_t i = 0; i < ARRAY_SIZE(setup_window_shortcuts); ++i) {
     wprintw(window, "%s", setup_window_shortcuts[i]);
-    wattron(window, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    wattr_set(window, A_STANDOUT, cyan_color, NULL);
     wprintw(window, "%s ", setup_window_shortcut_description[i]);
-    wattroff(window, COLOR_PAIR(cyan_color) | A_STANDOUT);
+    wstandend(window);
   }
   wclrtoeol(window);
-  unsigned int cur_col, maxcols, tmp;
+  unsigned int cur_col, tmp;
   (void)tmp;
-  getmaxyx(window, tmp, maxcols);
   getyx(window, tmp, cur_col);
-  mvwchgat(window, 0, cur_col, maxcols - cur_col, A_STANDOUT, cyan_color, NULL);
+  mvwchgat(window, 0, cur_col, -1, A_STANDOUT, cyan_color, NULL);
   wnoutrefresh(window);
 }
 
