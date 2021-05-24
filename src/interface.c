@@ -173,6 +173,8 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col,
              start_col + spacer + size_gpu + size_encode + 1);
   if (dwin->mem_util_no_enc_and_dec == NULL)
     goto alloc_error;
+  dwin->enc_was_visible = false;
+  dwin->dec_was_visible = false;
 
   return;
 alloc_error:
@@ -495,12 +497,6 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
       wnoutrefresh(dev->name_win);
     }
 
-    werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
-    werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
-    werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
-    werase_and_wnoutrefresh(dev->mem_util_enc_dec);
-    werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
-    werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
     char buff[1024];
     nvtop_time tnow;
     nvtop_get_current_time(&tnow);
@@ -509,11 +505,31 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
       if (devices[i].dynamic_info.encoder_rate > 0) {
         is_encode_displayed = true;
         dev->last_encode_seen = tnow;
+        if (!dev->enc_was_visible) {
+          dev->enc_was_visible = true;
+          if (!dev->dec_was_visible) {
+            werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
+            werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
+          } else {
+            werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+            werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+          }
+        }
       } else {
         if (interface->options.encode_decode_hiding_timer > 0. &&
             nvtop_difftime(dev->last_encode_seen, tnow) >
                 interface->options.encode_decode_hiding_timer) {
           is_encode_displayed = false;
+          if (dev->enc_was_visible) {
+            dev->enc_was_visible = false;
+            if (dev->dec_was_visible) {
+              werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
+              werase_and_wnoutrefresh(dev->mem_util_enc_dec);
+            } else {
+              werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+              werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+            }
+          }
         }
       }
     } else {
@@ -524,11 +540,31 @@ static void draw_devices(unsigned devices_count, gpu_info *devices,
       if (devices[i].dynamic_info.decoder_rate > 0) {
         is_decode_displayed = true;
         dev->last_decode_seen = tnow;
+        if (!dev->dec_was_visible) {
+          dev->dec_was_visible = true;
+          if (!dev->enc_was_visible) {
+            werase_and_wnoutrefresh(dev->gpu_util_no_enc_and_dec);
+            werase_and_wnoutrefresh(dev->mem_util_no_enc_and_dec);
+          } else {
+            werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+            werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+          }
+        }
       } else {
         if (interface->options.encode_decode_hiding_timer > 0. &&
             nvtop_difftime(dev->last_decode_seen, tnow) >
                 interface->options.encode_decode_hiding_timer) {
           is_decode_displayed = false;
+          if (dev->dec_was_visible) {
+            dev->dec_was_visible = false;
+            if (dev->enc_was_visible) {
+              werase_and_wnoutrefresh(dev->gpu_util_enc_dec);
+              werase_and_wnoutrefresh(dev->mem_util_enc_dec);
+            } else {
+              werase_and_wnoutrefresh(dev->gpu_util_no_enc_or_dec);
+              werase_and_wnoutrefresh(dev->mem_util_no_enc_or_dec);
+            }
+          }
         }
       }
     } else {

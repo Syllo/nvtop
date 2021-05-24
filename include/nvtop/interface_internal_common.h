@@ -64,6 +64,8 @@ struct device_window {
   WINDOW *gpu_clock_info;
   WINDOW *mem_clock_info;
   WINDOW *pcie_info;
+  bool enc_was_visible;
+  bool dec_was_visible;
   nvtop_time last_decode_seen;
   nvtop_time last_encode_seen;
 };
