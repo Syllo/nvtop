@@ -73,6 +73,7 @@ struct device_window {
 static const unsigned int option_window_size = 13;
 struct option_window {
   enum nvtop_option_window_state state;
+  enum nvtop_option_window_state previous_state;
   unsigned int selected_row;
   unsigned int offset;
   WINDOW *option_win;

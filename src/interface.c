@@ -204,17 +204,26 @@ static void free_device_windows(struct device_window *dwin) {
 static void alloc_process_with_option(struct nvtop_interface *interface,
                                       unsigned posX, unsigned posY,
                                       unsigned sizeX, unsigned sizeY) {
-
   if (sizeY > 0) {
     interface->process.process_win = newwin(sizeY, sizeX, posY, posX);
     interface->process.process_with_option_win = newwin(
         sizeY, sizeX - option_window_size, posY, posX + option_window_size);
-
   } else {
-    interface->process.option_window.state = nvtop_option_state_hidden;
     interface->process.process_win = NULL;
     interface->process.process_with_option_win = NULL;
   }
+  interface->process.selected_row = 0;
+  interface->process.selected_pid = -1;
+  interface->process.offset_column = 0;
+  interface->process.offset = 0;
+
+  interface->process.option_window.option_win =
+      newwin(sizeY, option_window_size, posY, posX);
+
+  interface->process.option_window.state = nvtop_option_state_hidden;
+  interface->process.option_window.previous_state = nvtop_option_state_sort_by;
+  interface->process.option_window.offset = 0;
+  interface->process.option_window.selected_row = 0;
 }
 
 static void initialize_gpu_mem_plot(struct plot_window *plot,
@@ -298,9 +307,6 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
 
   alloc_process_with_option(dwin, process_position.posX, process_position.posY,
                             process_position.sizeX, process_position.sizeY);
-  dwin->process.option_window.option_win =
-      newwin(process_position.sizeY, option_window_size, process_position.posY,
-             process_position.posX);
 
   dwin->shortcut_window = newwin(1, cols, rows - 1, 0);
 
@@ -378,12 +384,6 @@ struct nvtop_interface *initialize_curses(unsigned devices_count,
     }
   }
 
-  interface->process.offset = 0;
-  interface->process.offset_column = 0;
-  interface->process.option_window.offset = 0;
-  interface->process.option_window.state = nvtop_option_state_hidden;
-  interface->process.selected_row = 0;
-  interface->process.selected_pid = -1;
   interface_alloc_ring_buffer(devices_count, 4, 10 * 60 * 1000,
                               &interface->saved_data_ring);
   initialize_all_windows(interface);
@@ -1281,8 +1281,17 @@ print_processes_on_screen(all_processes all_procs,
   wnoutrefresh(win);
 }
 
+static void update_process_option_win(struct nvtop_interface *interface);
+
 static void draw_processes(unsigned devices_count, gpu_info *devices,
                            struct nvtop_interface *interface) {
+  if (interface->process.option_window.state !=
+      interface->process.option_window.previous_state) {
+    werase(interface->process.option_window.option_win);
+    wnoutrefresh(interface->process.option_window.option_win);
+  }
+  if (interface->process.option_window.state != nvtop_option_state_hidden)
+    update_process_option_win(interface);
 
   if (interface->process.process_win == NULL)
     return;
@@ -1419,7 +1428,7 @@ static void draw_sort_option(struct nvtop_interface *interface) {
   wnoutrefresh(win);
 }
 
-static void draw_options(struct nvtop_interface *interface) {
+static void update_process_option_win(struct nvtop_interface *interface) {
   unsigned int rows, cols;
   getmaxyx(interface->process.option_window.option_win, rows, cols);
   rows -= 1;
@@ -1478,9 +1487,14 @@ static const char *option_selection_kill[][2] = {
 static const unsigned int option_selection_width = 8;
 
 static void draw_process_shortcuts(struct nvtop_interface *interface) {
+  if (interface->process.option_window.state ==
+      interface->process.option_window.previous_state)
+    return;
   WINDOW *win = interface->shortcut_window;
+  enum nvtop_option_window_state current_state =
+      interface->process.option_window.state;
   wmove(win, 0, 0);
-  switch (interface->process.option_window.state) {
+  switch (current_state) {
   case nvtop_option_state_hidden:
     for (size_t i = 0; i < ARRAY_SIZE(option_selection_hidden); ++i) {
       if (process_field_displayed_count(
@@ -1528,6 +1542,7 @@ static void draw_process_shortcuts(struct nvtop_interface *interface) {
   getyx(win, tmp, cur_col);
   mvwchgat(win, 0, cur_col, maxcols - cur_col, A_STANDOUT, cyan_color, NULL);
   wnoutrefresh(win);
+  interface->process.option_window.previous_state = current_state;
 }
 
 static void draw_shortcuts(struct nvtop_interface *interface) {
@@ -1758,10 +1773,7 @@ void update_window_size_to_terminal_size(struct nvtop_interface *inter) {
   refresh();
   refresh();
   delete_all_windows(inter);
-  struct option_window options = inter->process.option_window;
   initialize_all_windows(inter);
-  inter->process.option_window.selected_row = options.selected_row;
-  inter->process.option_window.state = options.state;
 }
 
 bool is_escape_for_quit(struct nvtop_interface *interface) {
