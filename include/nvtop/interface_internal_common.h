@@ -76,7 +76,6 @@ struct option_window {
   unsigned int selected_row;
   unsigned int offset;
   WINDOW *option_win;
-  WINDOW *option_selection_window;
 };
 
 struct process_window {
@@ -123,6 +122,7 @@ struct nvtop_interface {
   unsigned devices_count;
   struct device_window *devices_win;
   struct process_window process;
+  WINDOW *shortcut_window;
   unsigned num_plots;
   struct plot_window *plots;
   interface_ring_buffer saved_data_ring;

@@ -38,6 +38,8 @@ void hide_setup_window(struct nvtop_interface *interface);
 void draw_setup_window(unsigned devices_count, gpu_info *devices,
                        struct nvtop_interface *interface);
 
+void draw_setup_window_shortcuts(struct nvtop_interface *interface);
+
 void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface);
 
 #endif // INTERFACE_SETUP_WIN_H__

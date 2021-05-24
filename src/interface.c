@@ -302,8 +302,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
       newwin(process_position.sizeY, option_window_size, process_position.posY,
              process_position.posX);
 
-  dwin->process.option_window.option_selection_window =
-      newwin(1, cols, rows - 1, 0);
+  dwin->shortcut_window = newwin(1, cols, rows - 1, 0);
 
   alloc_setup_window(&setup_position, &dwin->setup_win);
 }
@@ -316,7 +315,7 @@ static void delete_all_windows(struct nvtop_interface *dwin) {
   delwin(dwin->process.process_with_option_win);
   dwin->process.process_win = NULL;
   dwin->process.process_with_option_win = NULL;
-  delwin(dwin->process.option_window.option_selection_window);
+  delwin(dwin->shortcut_window);
   delwin(dwin->process.option_window.option_win);
   for (size_t i = 0; i < dwin->num_plots; ++i) {
     delwin(dwin->plots[i].win);
@@ -1478,8 +1477,8 @@ static const char *option_selection_kill[][2] = {
 
 static const unsigned int option_selection_width = 8;
 
-static void draw_option_selection(struct nvtop_interface *interface) {
-  WINDOW *win = interface->process.option_window.option_selection_window;
+static void draw_process_shortcuts(struct nvtop_interface *interface) {
+  WINDOW *win = interface->shortcut_window;
   wmove(win, 0, 0);
   switch (interface->process.option_window.state) {
   case nvtop_option_state_hidden:
@@ -1522,12 +1521,21 @@ static void draw_option_selection(struct nvtop_interface *interface) {
   default:
     break;
   }
+  wclrtoeol(win);
   unsigned int cur_col, maxcols, tmp;
   (void)tmp;
   getmaxyx(win, tmp, maxcols);
   getyx(win, tmp, cur_col);
   mvwchgat(win, 0, cur_col, maxcols - cur_col, A_STANDOUT, cyan_color, NULL);
   wnoutrefresh(win);
+}
+
+static void draw_shortcuts(struct nvtop_interface *interface) {
+  if (interface->setup_win.visible) {
+    draw_setup_window_shortcuts(interface);
+  } else {
+    draw_process_shortcuts(interface);
+  }
 }
 
 void save_current_data_to_ring(unsigned devices_count, gpu_info *devices,
@@ -1734,14 +1742,12 @@ void draw_gpu_info_ncurses(unsigned devices_count, gpu_info *devices,
 
   draw_devices(devices_count, devices, interface);
   if (!interface->setup_win.visible) {
-    draw_processes(devices_count, devices, interface);
-    if (interface->process.option_window.state != nvtop_option_state_hidden)
-      draw_options(interface);
-    draw_option_selection(interface);
     draw_plots(interface);
+    draw_processes(devices_count, devices, interface);
   } else {
     draw_setup_window(devices_count, devices, interface);
   }
+  draw_shortcuts(interface);
   doupdate();
   refresh();
 }
@@ -1812,7 +1818,6 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
     if (process_field_displayed_count(
             interface->options.process_fields_displayed) > 0 &&
         interface->process.option_window.state == nvtop_option_state_hidden) {
-      werase(interface->process.option_window.option_selection_window);
       interface->process.option_window.state = nvtop_option_state_kill;
       interface->process.option_window.selected_row = 0;
     }
@@ -1821,7 +1826,6 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
     if (process_field_displayed_count(
             interface->options.process_fields_displayed) > 0 &&
         interface->process.option_window.state == nvtop_option_state_hidden) {
-      werase(interface->process.option_window.option_selection_window);
       interface->process.option_window.state = nvtop_option_state_sort_by;
       interface->process.option_window.selected_row = 0;
     }
@@ -1875,12 +1879,10 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
     case nvtop_option_state_kill:
       option_do_kill(interface);
       interface->process.option_window.state = nvtop_option_state_hidden;
-      werase(interface->process.option_window.option_selection_window);
       break;
     case nvtop_option_state_sort_by:
       option_change_sort(interface);
       interface->process.option_window.state = nvtop_option_state_hidden;
-      werase(interface->process.option_window.option_selection_window);
       break;
     case nvtop_option_state_hidden:
     default:
@@ -1889,7 +1891,6 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
     break;
   case 27:
     interface->process.option_window.state = nvtop_option_state_hidden;
-    werase(interface->process.option_window.option_selection_window);
     break;
   default:
     break;

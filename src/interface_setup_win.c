@@ -185,7 +185,6 @@ void show_setup_window(struct nvtop_interface *interface) {
   interface->setup_win.indentation_level = 0;
   interface->setup_win.options_selected[0] = 0;
   interface->setup_win.options_selected[1] = 0;
-  werase(interface->process.option_window.option_selection_window);
 }
 
 void hide_setup_window(struct nvtop_interface *interface) {
@@ -590,8 +589,8 @@ static const char *setup_window_shortcut_description[] = {
     "Toggle", "Exit", "Navigate Menu", "Increment/Decrement Values",
     "Save Config"};
 
-static void draw_setup_window_shortcuts(struct nvtop_interface *interface) {
-  WINDOW *window = interface->process.option_window.option_selection_window;
+void draw_setup_window_shortcuts(struct nvtop_interface *interface) {
+  WINDOW *window = interface->shortcut_window;
 
   wmove(window, 0, 0);
   for (size_t i = 0; i < ARRAY_SIZE(setup_window_shortcuts); ++i) {
@@ -600,6 +599,7 @@ static void draw_setup_window_shortcuts(struct nvtop_interface *interface) {
     wprintw(window, "%s ", setup_window_shortcut_description[i]);
     wattroff(window, COLOR_PAIR(cyan_color) | A_STANDOUT);
   }
+  wclrtoeol(window);
   unsigned int cur_col, maxcols, tmp;
   (void)tmp;
   getmaxyx(window, tmp, maxcols);
@@ -627,7 +627,6 @@ void draw_setup_window(unsigned devices_count, gpu_info *devices,
   default:
     break;
   }
-  draw_setup_window_shortcuts(interface);
 }
 
 void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
