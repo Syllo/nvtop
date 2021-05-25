@@ -143,8 +143,8 @@ static nvmlReturn_t (*nvmlDeviceGetDecoderUtilization)(
 typedef struct {
   unsigned int pid;
   unsigned long long usedGpuMemory;
-  unsigned int gpuInstanceId;
-  unsigned int computeInstanceId;
+  // unsigned int gpuInstanceId;      // not supported by older NVIDIA drivers
+  // unsigned int computeInstanceId;  // not supported by older NVIDIA drivers
 } nvmlProcessInfo_t;
 
 static nvmlReturn_t (*nvmlDeviceGetGraphicsRunningProcesses)(
@@ -325,21 +325,13 @@ bool gpuinfo_nvidia_init(void) {
 
   nvmlDeviceGetGraphicsRunningProcesses =
       (__typeof__(nvmlDeviceGetGraphicsRunningProcesses))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetGraphicsRunningProcesses_v2");
-  if (!nvmlDeviceGetGraphicsRunningProcesses)
-    nvmlDeviceGetGraphicsRunningProcesses =
-        (__typeof__(nvmlDeviceGetGraphicsRunningProcesses))dlsym(
-            libnvidia_ml_handle, "nvmlDeviceGetGraphicsRunningProcesses");
+          libnvidia_ml_handle, "nvmlDeviceGetGraphicsRunningProcesses");
   if (!nvmlDeviceGetGraphicsRunningProcesses)
     goto init_error_clean_exit;
 
   nvmlDeviceGetComputeRunningProcesses =
       (__typeof__(nvmlDeviceGetComputeRunningProcesses))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetComputeRunningProcesses_v2");
-  if (!nvmlDeviceGetComputeRunningProcesses)
-    nvmlDeviceGetComputeRunningProcesses =
-        (__typeof__(nvmlDeviceGetComputeRunningProcesses))dlsym(
-            libnvidia_ml_handle, "nvmlDeviceGetComputeRunningProcesses");
+          libnvidia_ml_handle, "nvmlDeviceGetComputeRunningProcesses");
   if (!nvmlDeviceGetComputeRunningProcesses)
     goto init_error_clean_exit;
 

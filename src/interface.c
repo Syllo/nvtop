@@ -382,6 +382,7 @@ struct nvtop_interface *initialize_curses(unsigned devices_count,
   interface->process.option_window.offset = 0;
   interface->process.option_window.state = nvtop_option_state_hidden;
   interface->process.selected_row = 0;
+  interface->process.selected_pid = -1;
   interface_alloc_ring_buffer(devices_count, 4, 10 * 60 * 1000,
                               &interface->saved_data_ring);
   initialize_all_windows(interface);
@@ -989,6 +990,9 @@ static void update_selected_offset_with_window_size(
     unsigned int *selected_row, unsigned int *offset,
     unsigned int row_available_to_draw, unsigned int num_to_draw) {
 
+  if (!num_to_draw)
+    return;
+
   if (*selected_row > num_to_draw - 1)
     *selected_row = num_to_draw - 1;
 
@@ -1159,9 +1163,9 @@ print_processes_on_screen(all_processes all_procs,
         if (IS_VALID(gpuinfo_process_gpu_memory_percentage_valid,
                      processes[i].process->valid)) {
           snprintf(
-              memory, 10, "%6uMiB",
+              memory, 9 + 1, "%6uMiB",
               (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
-          snprintf(memory + 9, sizeof_process_field[process_memory] - 7,
+          snprintf(memory + 9, sizeof_process_field[process_memory] - 9 + 1,
                    " %3u%%", processes[i].process->gpu_memory_percentage);
         } else {
           snprintf(
@@ -1245,10 +1249,15 @@ static void draw_processes(unsigned devices_count, gpu_info *devices,
   sort_process(all_procs, interface->options.sort_processes_by,
                !interface->options.sort_descending_order);
 
-  if (interface->process.selected_row >= all_procs.processes_count)
-    interface->process.selected_row = all_procs.processes_count - 1;
-  interface->process.selected_pid =
-      all_procs.processes[interface->process.selected_row].process->pid;
+  if (all_procs.processes_count > 0) {
+    if (interface->process.selected_row >= all_procs.processes_count)
+      interface->process.selected_row = all_procs.processes_count - 1;
+    interface->process.selected_pid =
+        all_procs.processes[interface->process.selected_row].process->pid;
+  } else {
+    interface->process.selected_row = 0;
+    interface->process.selected_pid = -1;
+  }
 
   unsigned largest_username = 4;
   for (unsigned i = 0; i < all_procs.processes_count; ++i) {
@@ -1719,7 +1728,9 @@ static void option_do_kill(struct nvtop_interface *interface) {
     return;
   pid_t pid = interface->process.selected_pid;
   int sig = signalValues[interface->process.option_window.selected_row];
-  kill(pid, sig);
+  if (pid > 0) {
+    kill(pid, sig);
+  }
 }
 
 static void option_change_sort(struct nvtop_interface *interface) {
