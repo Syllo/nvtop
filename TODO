@@ -1,7 +1,0 @@
-What is in the pipeline:
-
-- Add scrollable lists.
-
-- Add mouse selection with ncurses.
-
-- Add nouveau driver support if possible.
