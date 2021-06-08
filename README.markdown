@@ -26,6 +26,7 @@ Table of Contents
   - [Fedora / RedHat / CentOS](#fedora--redhat--centos)
   - [OpenSUSE](#opensuse)
   - [Arch Linux](#arch-linux)
+  - [Docker](#docker)
 - [NVTOP Build](#nvtop-build)
 - [Troubleshoot](#troubleshoot)
 - [License](#license)
@@ -124,6 +125,18 @@ Two libraries are required in order for NVTOP to display GPU information:
 
 - ```bash
   sudo layman -a guru && sudo emerge -av nvtop
+  ```
+
+### Docker
+
+- NVIDIA drivers (same as above)
+
+- [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) (See  [Container Toolkit Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker))
+
+- ```bash
+  git clone https://github.com/Syllo/nvtop.git
+  docker build --tag nvtop .
+  docker run --interactive --tty --rm --runtime=nvidia --gpus all --pid=host nvtop
   ```
 
 ## NVTOP Build
