@@ -608,14 +608,29 @@ static void gpuinfo_nvidia_get_process_utilization(
       free(samples);
       return;
     }
-    if (samples_count) {
-      internal->last_utilization_timestamp = samples[0].timeStamp;
-    }
+    unsigned long long newest_timestamp_candidate =
+        internal->last_utilization_timestamp;
     for (unsigned i = 0; i < samples_count; ++i) {
       bool process_matched = false;
       for (unsigned j = 0; !process_matched && j < num_processes_recovered;
            ++j) {
-        if ((pid_t)samples[i].pid == processes[j].pid) {
+        // Filter out samples due to inconsistency in the results returned by
+        // the function nvmlDeviceGetProcessUtilization (see bug #110 on
+        // Github). Check for a valid running process returned by
+        // nvmlDeviceGetComputeRunningProcesses or
+        // nvmlDeviceGetGraphicsRunningProcesses, filter out inconsistent
+        // utilization value greater than 100% and filter out timestamp results
+        // that are less recent than what we were asking for
+        if ((pid_t)samples[i].pid == processes[j].pid &&
+            samples[i].smUtil <= 100 && samples[i].encUtil <= 100 &&
+            samples[i].decUtil <= 100 &&
+            samples[i].timeStamp > internal->last_utilization_timestamp) {
+          // Collect the largest valid timestamp for this device to filter out
+          // the samples during the next call to the function
+          // nvmlDeviceGetProcessUtilization
+          if (samples[i].timeStamp > newest_timestamp_candidate)
+            newest_timestamp_candidate = samples[i].timeStamp;
+
           processes[j].gpu_usage = samples[i].smUtil;
           SET_VALID(gpuinfo_process_gpu_usage_valid, processes[j].valid);
           processes[j].encode_usage = samples[i].encUtil;
@@ -626,6 +641,7 @@ static void gpuinfo_nvidia_get_process_utilization(
         }
       }
     }
+    internal->last_utilization_timestamp = newest_timestamp_candidate;
     free(samples);
   }
 }
