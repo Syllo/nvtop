@@ -446,17 +446,41 @@ void gpuinfo_nvidia_populate_static_info(gpuinfo_nvidia_device_handle device,
 void gpuinfo_nvidia_refresh_dynamic_info(gpuinfo_nvidia_device_handle device,
                                          gpuinfo_dynamic_info *dynamic_info) {
 
+  bool graphics_clock_valid = false;
+  unsigned graphics_clock;
+  bool sm_clock_valid = false;
+  unsigned sm_clock;
+  nvmlClockType_t getMaxClockFrom = NVML_CLOCK_GRAPHICS;
+
   // GPU current speed
-  last_nvml_return_status = nvmlDeviceGetClockInfo(
-      device, NVML_CLOCK_GRAPHICS, &dynamic_info->gpu_clock_speed);
-  if (last_nvml_return_status == NVML_SUCCESS)
+  // Maximum between SM and Graphical
+  last_nvml_return_status =
+      nvmlDeviceGetClockInfo(device, NVML_CLOCK_GRAPHICS, &graphics_clock);
+  graphics_clock_valid = last_nvml_return_status == NVML_SUCCESS;
+
+  last_nvml_return_status =
+      nvmlDeviceGetClockInfo(device, NVML_CLOCK_SM, &sm_clock);
+  sm_clock_valid = last_nvml_return_status == NVML_SUCCESS;
+
+  if (graphics_clock_valid && sm_clock_valid && graphics_clock < sm_clock) {
+    getMaxClockFrom = NVML_CLOCK_SM;
+  } else if (!graphics_clock_valid && sm_clock_valid) {
+    getMaxClockFrom = NVML_CLOCK_SM;
+  }
+
+  RESET_VALID(gpuinfo_curr_gpu_clock_speed_valid, dynamic_info->valid);
+  if (getMaxClockFrom == NVML_CLOCK_GRAPHICS && graphics_clock_valid) {
+    dynamic_info->gpu_clock_speed = graphics_clock;
     SET_VALID(gpuinfo_curr_gpu_clock_speed_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_curr_gpu_clock_speed_valid, dynamic_info->valid);
+  }
+  if (getMaxClockFrom == NVML_CLOCK_SM && sm_clock_valid) {
+    dynamic_info->gpu_clock_speed = sm_clock;
+    SET_VALID(gpuinfo_curr_gpu_clock_speed_valid, dynamic_info->valid);
+  }
 
   // GPU max speed
   last_nvml_return_status = nvmlDeviceGetMaxClockInfo(
-      device, NVML_CLOCK_GRAPHICS, &dynamic_info->gpu_clock_speed_max);
+      device, getMaxClockFrom, &dynamic_info->gpu_clock_speed_max);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_max_gpu_clock_speed_valid, dynamic_info->valid);
   else
