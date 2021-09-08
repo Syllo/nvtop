@@ -1003,7 +1003,6 @@ static void sort_process(all_processes all_procs, enum process_field criterion,
       sort_fun = compare_cpu_mem_usage_desc;
     break;
   case process_gpu_rate:
-    fprintf(stderr, "Comparing gpu rates\n");
     if (asc_sort)
       sort_fun = compare_process_gpu_rate_asc;
     else
