@@ -1,4 +1,1 @@
-*.o
-*ctags
-build/
-cmake-build*/
+.gitignore
