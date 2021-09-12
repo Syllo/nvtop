@@ -134,9 +134,9 @@ Two libraries are required in order for NVTOP to display GPU information:
 - [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) (See  [Container Toolkit Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker))
 
 - ```bash
-  git clone https://github.com/Syllo/nvtop.git
-  docker build --tag nvtop .
-  docker run --interactive --tty --rm --runtime=nvidia --gpus all --pid=host nvtop
+  git clone https://github.com/Syllo/nvtop.git && cd nvtop
+  sudo docker build --tag nvtop .
+  sudo docker run -it --rm --runtime=nvidia --gpus=all --pid=host nvtop
   ```
 
 ## NVTOP Build
