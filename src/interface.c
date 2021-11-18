@@ -1357,6 +1357,11 @@ static const char *signalNames[] = {
     "SIGSYS",
 };
 
+// SIGPWR does not exist on FreeBSD, while it is a synonym for SIGINFO on Linux
+#ifdef __FreeBSD__
+#define SIGPWR SIGINFO
+#endif
+
 static const int signalValues[ARRAY_SIZE(signalNames)] = {
     -1,      SIGHUP,    SIGINT,  SIGQUIT,  SIGILL,  SIGTRAP, SIGABRT, SIGBUS,
     SIGFPE,  SIGKILL,   SIGUSR1, SIGSEGV,  SIGUSR2, SIGPIPE, SIGALRM, SIGTERM,
