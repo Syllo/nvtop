@@ -6,7 +6,7 @@ What is this repository about?
 
 This repository provides the packed nvtop along with its dependency (`ncurses 6.3`) and the installation script for non-privileged users. 
 
-Note that this repo doesn't provide the *NVML* and the CUDA driver as both requires root access.
+Note that this repo doesn't provide the *NVML* and the CUDA driver as both require root access.
 
 
 What is NVTOP?
@@ -21,7 +21,7 @@ For detailed introduction, please refer to the original [site](https://github.co
 Table of Contents
 -----------------
 
-- [Build](#nvtop-build)
+- [Installation](#installation)
 - [Troubleshoot](#troubleshoot)
 - [License](#license)
 
@@ -38,28 +38,25 @@ Two libraries are required in order for NVTOP to display GPU information:
   * Provided in this repository.
 
 
-## NVTOP Build
+## Installation
 
+To install under the home directory (`$HOME/bin`), simply run
 ```bash
-git clone https://github.com/Syllo/nvtop.git
-mkdir -p nvtop/build && cd nvtop/build
-cmake ..
-make
+bash install.sh
+```
 
-# Install globally on the system
-sudo make install
+As some workstations may require the users to move their exectuables to specific location (such as `/tmp2`), you could specify the path where you want to install by
+```bash
+bash install.sh $PATH_TO_INSTALLATION
+```
 
-# Alternatively, install without privileges at a location of your choosing
-# make DESTDIR="/your/install/path" install
+After running the script, remember to add the path to the `PATH` environment variable. For example,
+```bash
+echo export PATH=/tmp2/`whoami`/bin:$PATH >> ~/.zshrc
+source ~/.zshrc
 ```
 
 If you use **conda** as environment manager and encounter an error while building nvtop, try `conda deactivate` before invoking `cmake`.
-
-The build system supports multiple build type (e.g. -DCMAKE_BUILD_TYPE=RelWithDebInfo):
-
-* Release: Binary without debug information
-* RelWithDebInfo: Binary with debug information
-* Debug: Compile with warning flags and address/undefined sanitizers enabled (for development purposes)
 
 License
 -------
