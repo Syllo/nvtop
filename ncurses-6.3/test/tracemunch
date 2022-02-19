@@ -1,0 +1,939 @@
+#!/usr/bin/env perl
+# $Id: tracemunch,v 1.41 2021/09/04 10:31:03 tom Exp $
+##############################################################################
+# Copyright 2018-2020,2021 Thomas E. Dickey                                  #
+# Copyright 1998-2005,2017 Free Software Foundation, Inc.                    #
+#                                                                            #
+# Permission is hereby granted, free of charge, to any person obtaining a    #
+# copy of this software and associated documentation files (the "Software"), #
+# to deal in the Software without restriction, including without limitation  #
+# the rights to use, copy, modify, merge, publish, distribute, distribute    #
+# with modifications, sublicense, and/or sell copies of the Software, and to #
+# permit persons to whom the Software is furnished to do so, subject to the  #
+# following conditions:                                                      #
+#                                                                            #
+# The above copyright notice and this permission notice shall be included in #
+# all copies or substantial portions of the Software.                        #
+#                                                                            #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR #
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   #
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    #
+# THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER      #
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    #
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        #
+# DEALINGS IN THE SOFTWARE.                                                  #
+#                                                                            #
+# Except as contained in this notice, the name(s) of the above copyright     #
+# holders shall not be used in advertising or otherwise to promote the sale, #
+# use or other dealings in this Software without prior written               #
+# authorization.                                                             #
+##############################################################################
+# tracemunch -- compactify ncurses trace logs
+#
+# The error logs produced by ncurses with tracing enabled can be very tedious
+# to wade through.  This script helps by compacting runs of log lines that
+# can be conveniently expressed as higher-level operations.
+
+use strict;
+use warnings;
+
+$| = 1;
+
+our $putattr =
+    'PutAttrChar\(\{\{ ' . "'(.)'"
+  . ' = 0[0-7]+ \}\}\) at \(([0-9]+), ([0-9]+)\)';
+our $waddnstr =
+'^called \{waddnstr\((0x[[:xdigit:]]+|window\d+),"((\\.|[^\"]*))",[-]?[0-9]+\)';
+
+our %TR = qw(
+  DISABLE       0x0000
+  TIMES         0x0001
+  TPUTS         0x0002
+  UPDATE        0x0004
+  MOVE          0x0008
+  CHARPUT       0x0010
+  ORDINARY      0x001F
+  CALLS         0x0020
+  VIRTPUT       0x0040
+  IEVENT        0x0080
+  BITS          0x0100
+  ICALLS        0x0200
+  CCALLS        0x0400
+  DATABASE      0x0800
+  ATTRS         0x1000
+);
+
+our $tracelevel = 0;
+
+our $tSCREEN   = 1;    # SCREEN*
+our $tWINDOW   = 2;    # WINDOW*
+our $tTERMINAL = 3;    # TERMINAL*
+our $tPANEL    = 4;    # PANEL*
+our $tFIELD    = 5;    # FIELD*
+our $tFORM     = 5;    # FORM*
+our $tMENU     = 6;    # MENU*
+our $tITEM     = 7;    # ITEM*
+
+our %known_p1_types = (
+    $tSCREEN   => "SCREEN*",
+    $tWINDOW   => "WINDOW*",
+    $tTERMINAL => "TERMINAL*",
+    $tPANEL    => "PANEL*",
+    $tFORM     => "FORM*",
+    $tFIELD    => "FIELD*",
+    $tMENU     => "MENU*",
+    $tITEM     => "ITEM*",
+);
+
+# If the trace is complete, we can infer addresses using the return value from
+# newwin, etc.  But if it is incomplete, we can still check for special cases
+# such as SCREEN* and WINDOW* parameters.  In this table, the type for the
+# first parameter is encoded, relying upon an ncurses programming convention:
+our %known_p1 = (
+    TransformLine          => $tSCREEN,
+    _nc_console_read       => $tSCREEN,
+    _nc_freewin            => $tWINDOW,
+    _nc_initscr            => $tSCREEN,
+    _nc_makenew            => $tSCREEN,
+    _nc_mingw_console_read => $tSCREEN,
+    _nc_reset_colors       => $tSCREEN,
+    _nc_scroll_optimize    => $tSCREEN,
+    _nc_tinfo              => $tSCREEN,
+    _nc_tinfo_mvcur        => $tSCREEN,
+    _nc_wgetch             => $tWINDOW,
+    adjust_window          => $tWINDOW,
+    assume_default_colors  => $tSCREEN,
+    attr_get               => $tWINDOW,
+    baudrate               => $tSCREEN,
+    beep                   => $tSCREEN,
+    border_set             => $tWINDOW,
+    bottom_panel           => $tPANEL,
+    bottom_panel           => $tPANEL,
+    box                    => $tWINDOW,
+    box_set                => $tWINDOW,
+    can_change_color       => $tSCREEN,
+    cbreak                 => $tSCREEN,
+    ceiling_panel          => $tSCREEN,
+    clearok                => $tWINDOW,
+    color_content          => $tSCREEN,
+    copywin                => $tWINDOW,
+    current_item           => $tMENU,
+    curs_set               => $tSCREEN,
+    decrease_size          => $tSCREEN,
+    def_prog_mode          => $tSCREEN,
+    def_shell_mode         => $tSCREEN,
+    define_key             => $tSCREEN,
+    del_curterm            => $tSCREEN,
+    del_panel              => $tPANEL,
+    del_panel              => $tPANEL,
+    delay_output           => $tSCREEN,
+    delscreen              => $tSCREEN,
+    delwin                 => $tWINDOW,
+    derwin                 => $tWINDOW,
+    doupdate               => $tSCREEN,
+    dup_field              => $tFIELD,
+    dupwin                 => $tWINDOW,
+    echo                   => $tSCREEN,
+    endwin                 => $tSCREEN,
+    erasechar              => $tSCREEN,
+    field_opts_off         => $tFIELD,
+    field_opts_on          => $tFIELD,
+    filter                 => $tSCREEN,
+    flash                  => $tSCREEN,
+    flushinp               => $tSCREEN,
+    form_driver            => $tFORM,
+    form_driver_w          => $tFORM,
+    form_opts_off          => $tFORM,
+    form_opts_on           => $tFORM,
+    free_field             => $tFIELD,
+    free_form              => $tFORM,
+    free_item              => $tITEM,
+    free_menu              => $tMENU,
+    getattrs               => $tWINDOW,
+    getbegx                => $tWINDOW,
+    getbegy                => $tWINDOW,
+    getbkgd                => $tWINDOW,
+    getcurx                => $tWINDOW,
+    getcury                => $tWINDOW,
+    getmaxx                => $tWINDOW,
+    getmaxy                => $tWINDOW,
+    getmouse               => $tSCREEN,
+    getparx                => $tWINDOW,
+    getpary                => $tWINDOW,
+    ground_panel           => $tSCREEN,
+    halfdelay              => $tSCREEN,
+    has_ic                 => $tSCREEN,
+    has_il                 => $tSCREEN,
+    has_key                => $tSCREEN,
+    hide_panel             => $tPANEL,
+    hide_panel             => $tPANEL,
+    idcok                  => $tWINDOW,
+    idlok                  => $tWINDOW,
+    immedok                => $tWINDOW,
+    increase_size          => $tSCREEN,
+    init_color             => $tSCREEN,
+    init_pair              => $tSCREEN,
+    intrflush              => $tSCREEN,
+    is_cleared             => $tWINDOW,
+    is_idcok               => $tWINDOW,
+    is_idlok               => $tWINDOW,
+    is_immedok             => $tWINDOW,
+    is_keypad              => $tWINDOW,
+    is_leaveok             => $tWINDOW,
+    is_linetouched         => $tWINDOW,
+    is_nodelay             => $tWINDOW,
+    is_notimeout           => $tWINDOW,
+    is_pad                 => $tWINDOW,
+    is_scrollok            => $tWINDOW,
+    is_subwin              => $tWINDOW,
+    is_syncok              => $tWINDOW,
+    is_term_resized        => $tSCREEN,
+    is_wintouched          => $tWINDOW,
+    item_count             => $tMENU,
+    item_description       => $tITEM,
+    item_index             => $tITEM,
+    item_init              => $tMENU,
+    item_name              => $tITEM,
+    item_opts              => $tITEM,
+    item_opts_off          => $tITEM,
+    item_opts_on           => $tITEM,
+    item_term              => $tMENU,
+    item_userptr           => $tITEM,
+    item_value             => $tITEM,
+    item_visible           => $tITEM,
+    key_defined            => $tSCREEN,
+    keybound               => $tSCREEN,
+    keyok                  => $tSCREEN,
+    keypad                 => $tWINDOW,
+    killchar               => $tSCREEN,
+    leaveok                => $tWINDOW,
+    link_field             => $tFIELD,
+    longname               => $tSCREEN,
+    menu_back              => $tMENU,
+    menu_driver            => $tMENU,
+    menu_fore              => $tMENU,
+    menu_format            => $tMENU,
+    menu_grey              => $tMENU,
+    menu_init              => $tMENU,
+    menu_items             => $tMENU,
+    menu_mark              => $tMENU,
+    menu_opts              => $tMENU,
+    menu_opts_off          => $tMENU,
+    menu_opts_on           => $tMENU,
+    menu_pad               => $tMENU,
+    menu_pattern           => $tMENU,
+    menu_spacing           => $tMENU,
+    menu_sub               => $tMENU,
+    menu_term              => $tMENU,
+    menu_userptr           => $tMENU,
+    menu_win               => $tMENU,
+    meta                   => $tWINDOW,
+    mouseinterval          => $tSCREEN,
+    mousemask              => $tSCREEN,
+    move_field             => $tFIELD,
+    move_panel             => $tPANEL,
+    move_panel             => $tPANEL,
+    mvcur                  => $tSCREEN,
+    mvderwin               => $tWINDOW,
+    mvwadd_wch             => $tWINDOW,
+    mvwadd_wchnstr         => $tWINDOW,
+    mvwadd_wchstr          => $tWINDOW,
+    mvwaddch               => $tWINDOW,
+    mvwaddchnstr           => $tWINDOW,
+    mvwaddchstr            => $tWINDOW,
+    mvwaddnstr             => $tWINDOW,
+    mvwaddnwstr            => $tWINDOW,
+    mvwaddstr              => $tWINDOW,
+    mvwaddwstr             => $tWINDOW,
+    mvwchgat               => $tWINDOW,
+    mvwdelch               => $tWINDOW,
+    mvwget_wch             => $tWINDOW,
+    mvwget_wstr            => $tWINDOW,
+    mvwgetch               => $tWINDOW,
+    mvwgetn_wstr           => $tWINDOW,
+    mvwgetnstr             => $tWINDOW,
+    mvwgetstr              => $tWINDOW,
+    mvwhline               => $tWINDOW,
+    mvwhline_set           => $tWINDOW,
+    mvwin                  => $tWINDOW,
+    mvwin_wch              => $tWINDOW,
+    mvwin_wchnstr          => $tWINDOW,
+    mvwin_wchstr           => $tWINDOW,
+    mvwinch                => $tWINDOW,
+    mvwinchnstr            => $tWINDOW,
+    mvwinchstr             => $tWINDOW,
+    mvwins_nwstr           => $tWINDOW,
+    mvwins_wch             => $tWINDOW,
+    mvwins_wstr            => $tWINDOW,
+    mvwinsch               => $tWINDOW,
+    mvwinsnstr             => $tWINDOW,
+    mvwinsstr              => $tWINDOW,
+    mvwinstr               => $tWINDOW,
+    mvwinwstr              => $tWINDOW,
+    mvwvline               => $tWINDOW,
+    mvwvline_set           => $tWINDOW,
+    new_panel              => $tWINDOW,
+    new_panel              => $tWINDOW,
+    newpad                 => $tSCREEN,
+    newterm                => $tSCREEN,
+    newwin                 => $tSCREEN,
+    nl                     => $tSCREEN,
+    nocbreak               => $tSCREEN,
+    nodelay                => $tWINDOW,
+    noecho                 => $tSCREEN,
+    nofilter               => $tSCREEN,
+    nonl                   => $tSCREEN,
+    noqiflush              => $tSCREEN,
+    noraw                  => $tSCREEN,
+    notimeout              => $tWINDOW,
+    overlap                => $tWINDOW,
+    overlay                => $tWINDOW,
+    overwrite              => $tWINDOW,
+    pair_content           => $tSCREEN,
+    panel_above            => $tPANEL,
+    panel_above            => $tPANEL,
+    panel_below            => $tPANEL,
+    panel_below            => $tPANEL,
+    panel_hidden           => $tPANEL,
+    panel_hidden           => $tPANEL,
+    panel_userptr          => $tPANEL,
+    panel_userptr          => $tPANEL,
+    panel_window           => $tPANEL,
+    panel_window           => $tPANEL,
+    pecho_wchar            => $tWINDOW,
+    pechochar              => $tWINDOW,
+    pnoutrefresh           => $tWINDOW,
+    pos_form_cursor        => $tFORM,
+    pos_menu_cursor        => $tMENU,
+    post_form              => $tFORM,
+    post_menu              => $tMENU,
+    putwin                 => $tWINDOW,
+    qiflush                => $tSCREEN,
+    raw                    => $tSCREEN,
+    redrawwin              => $tWINDOW,
+    replace_panel          => $tPANEL,
+    replace_panel          => $tPANEL,
+    reset_prog_mode        => $tSCREEN,
+    reset_shell_mode       => $tSCREEN,
+    resetty                => $tSCREEN,
+    resize_term            => $tSCREEN,
+    resizeterm             => $tSCREEN,
+    restartterm            => $tSCREEN,
+    ripoffline             => $tSCREEN,
+    savetty                => $tSCREEN,
+    scale_menu             => $tMENU,
+    scr_init               => $tSCREEN,
+    scr_restore            => $tSCREEN,
+    scr_set                => $tSCREEN,
+    scroll                 => $tWINDOW,
+    scrollok               => $tWINDOW,
+    set_current_field      => $tFORM,
+    set_current_item       => $tMENU,
+    set_curterm            => $tTERMINAL,
+    set_field_back         => $tFIELD,
+    set_field_buffer       => $tFIELD,
+    set_field_fore         => $tFIELD,
+    set_field_init         => $tFORM,
+    set_field_just         => $tFIELD,
+    set_field_opts         => $tFIELD,
+    set_field_pad          => $tFIELD,
+    set_field_status       => $tFIELD,
+    set_field_term         => $tFORM,
+    set_field_type         => $tFIELD,
+    set_field_userptr      => $tFIELD,
+    set_form_fields        => $tFORM,
+    set_form_init          => $tFORM,
+    set_form_opts          => $tFORM,
+    set_form_page          => $tFORM,
+    set_form_sub           => $tFORM,
+    set_form_term          => $tFORM,
+    set_form_userptr       => $tFORM,
+    set_form_win           => $tFORM,
+    set_item_init          => $tMENU,
+    set_item_opts          => $tITEM,
+    set_item_term          => $tMENU,
+    set_item_userptr       => $tITEM,
+    set_item_value         => $tITEM,
+    set_menu_back          => $tMENU,
+    set_menu_fore          => $tMENU,
+    set_menu_format        => $tMENU,
+    set_menu_grey          => $tMENU,
+    set_menu_init          => $tMENU,
+    set_menu_items         => $tMENU,
+    set_menu_mark          => $tMENU,
+    set_menu_opts          => $tMENU,
+    set_menu_pad           => $tMENU,
+    set_menu_pattern       => $tMENU,
+    set_menu_spacing       => $tMENU,
+    set_menu_sub           => $tMENU,
+    set_menu_term          => $tMENU,
+    set_menu_userptr       => $tMENU,
+    set_menu_win           => $tMENU,
+    set_new_page           => $tFIELD,
+    set_panel_userptr      => $tPANEL,
+    set_panel_userptr      => $tPANEL,
+    set_term               => $tSCREEN,
+    set_top_row            => $tMENU,
+    show_panel             => $tPANEL,
+    show_panel             => $tPANEL,
+    slk_attr               => $tSCREEN,
+    slk_attr_set           => $tSCREEN,
+    slk_attroff            => $tSCREEN,
+    slk_attron             => $tSCREEN,
+    slk_attrset            => $tSCREEN,
+    slk_clear              => $tSCREEN,
+    slk_color              => $tSCREEN,
+    slk_init               => $tSCREEN,
+    slk_label              => $tSCREEN,
+    slk_noutrefresh        => $tSCREEN,
+    slk_refresh            => $tSCREEN,
+    slk_restore            => $tSCREEN,
+    slk_set                => $tSCREEN,
+    slk_touch              => $tSCREEN,
+    start_color            => $tSCREEN,
+    subwin                 => $tWINDOW,
+    syncok                 => $tWINDOW,
+    termattrs              => $tSCREEN,
+    termname               => $tSCREEN,
+    tgetflag               => $tSCREEN,
+    tgetnum                => $tSCREEN,
+    tigetflag              => $tSCREEN,
+    tigetnum               => $tSCREEN,
+    tigetstr               => $tSCREEN,
+    tinfo                  => $tSCREEN,
+    top_panel              => $tPANEL,
+    top_panel              => $tPANEL,
+    top_row                => $tMENU,
+    touchline              => $tWINDOW,
+    touchwin               => $tWINDOW,
+    typeahead              => $tSCREEN,
+    unfocus_current_field  => $tFORM,
+    unget_wch              => $tSCREEN,
+    ungetch                => $tSCREEN,
+    ungetmouse             => $tSCREEN,
+    unpost_form            => $tFORM,
+    unpost_menu            => $tMENU,
+    untouchwin             => $tWINDOW,
+    update_panels_sp       => $tSCREEN,
+    use_default_colors     => $tSCREEN,
+    use_env                => $tSCREEN,
+    use_legacy_coding      => $tSCREEN,
+    use_screen             => $tSCREEN,
+    use_tioctl             => $tSCREEN,
+    use_window             => $tWINDOW,
+    vidattr                => $tSCREEN,
+    vidputs                => $tSCREEN,
+    vw_printw              => $tWINDOW,
+    vwprintw               => $tWINDOW,
+    wadd_wch               => $tWINDOW,
+    wadd_wchnstr           => $tWINDOW,
+    wadd_wchstr            => $tWINDOW,
+    waddch                 => $tWINDOW,
+    waddchnstr             => $tWINDOW,
+    waddchstr              => $tWINDOW,
+    waddnstr               => $tWINDOW,
+    waddnwstr              => $tWINDOW,
+    waddstr                => $tWINDOW,
+    waddwstr               => $tWINDOW,
+    wattr_get              => $tWINDOW,
+    wattr_off              => $tWINDOW,
+    wattr_on               => $tWINDOW,
+    wattr_set              => $tWINDOW,
+    wattroff               => $tWINDOW,
+    wattron                => $tWINDOW,
+    wattrset               => $tWINDOW,
+    wbkgd                  => $tWINDOW,
+    wbkgdset               => $tWINDOW,
+    wborder                => $tWINDOW,
+    wborder_set            => $tWINDOW,
+    wchgat                 => $tWINDOW,
+    wclear                 => $tWINDOW,
+    wclrtobot              => $tWINDOW,
+    wclrtoeol              => $tWINDOW,
+    wcolor_set             => $tWINDOW,
+    wcursyncup             => $tWINDOW,
+    wdelch                 => $tWINDOW,
+    wdeleteln              => $tWINDOW,
+    wechochar              => $tWINDOW,
+    wenclose               => $tWINDOW,
+    werase                 => $tWINDOW,
+    wget_wch               => $tWINDOW,
+    wget_wstr              => $tWINDOW,
+    wgetbkgrnd             => $tWINDOW,
+    wgetch                 => $tWINDOW,
+    wgetch_events          => $tWINDOW,
+    wgetdelay              => $tWINDOW,
+    wgetn_wstr             => $tWINDOW,
+    wgetnstr               => $tWINDOW,
+    wgetparent             => $tWINDOW,
+    wgetscrreg             => $tWINDOW,
+    wgetstr                => $tWINDOW,
+    whline                 => $tWINDOW,
+    whline_set             => $tWINDOW,
+    win_wch                => $tWINDOW,
+    win_wchnstr            => $tWINDOW,
+    win_wchstr             => $tWINDOW,
+    winch                  => $tWINDOW,
+    winchnstr              => $tWINDOW,
+    winchstr               => $tWINDOW,
+    winnstr                => $tWINDOW,
+    winnwstr               => $tWINDOW,
+    wins_nwstr             => $tWINDOW,
+    wins_wch               => $tWINDOW,
+    wins_wstr              => $tWINDOW,
+    winsch                 => $tWINDOW,
+    winsdelln              => $tWINDOW,
+    winsertln              => $tWINDOW,
+    winsnstr               => $tWINDOW,
+    winsstr                => $tWINDOW,
+    winstr                 => $tWINDOW,
+    winwstr                => $tWINDOW,
+    wmouse_trafo           => $tWINDOW,
+    wmove                  => $tWINDOW,
+    wnoutrefresh           => $tWINDOW,
+    wprintw                => $tWINDOW,
+    wredrawln              => $tWINDOW,
+    wrefresh               => $tWINDOW,
+    wresize                => $tWINDOW,
+    wscrl                  => $tWINDOW,
+    wsetscrreg             => $tWINDOW,
+    wstandend              => $tWINDOW,
+    wstandout              => $tWINDOW,
+    wsyncdown              => $tWINDOW,
+    wsyncup                => $tWINDOW,
+    wtimeout               => $tWINDOW,
+    wtouchln               => $tWINDOW,
+    wvline                 => $tWINDOW,
+);
+
+our $fld_nums = 0;
+our $frm_nums = 0;
+our $itm_nums = 0;
+our $mnu_nums = 0;
+our $pan_nums = 0;
+our $scr_nums = 0;
+our $thr_nums = 0;
+our $trm_nums = 0;
+our $try_nums = 0;
+our $usr_nums = 0;
+our $win_nums = 0;
+
+our $curscr = "";
+our $newscr = "";
+our $stdscr = "";
+
+our %fld_addr;    # FIELD*
+our %frm_addr;    # FORM*
+our %itm_addr;    # ITEM*
+our %mnu_addr;    # MENU*
+our %pan_addr;    # PANEL*
+our %scr_addr;    # SCREEN*
+our %thr_addr;    # thread-id
+our %trm_addr;    # TERMINAL*
+our %try_addr;    # tries-number
+our %usr_addr;    # user-pointer
+our %win_addr;    # WINDOW*
+
+sub has_addr($) {
+    my $value  = shift;
+    my $result = 0;
+    $result = 1 if ( $value =~ /\b0x[[:xdigit:]]+\b/i );
+    return $result;
+}
+
+sub transaddr($) {
+    my $arg = shift;
+    my $n;
+
+    $arg =~ s/\b$curscr\b/curscr/g if ($curscr);
+    $arg =~ s/\b$newscr\b/newscr/g if ($newscr);
+    $arg =~ s/\b$stdscr\b/stdscr/g if ($stdscr);
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %fld_addr ) {
+            $n = $fld_addr{$addr};
+            $arg =~ s/\b$addr\b/field$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %frm_addr ) {
+            $n = $frm_addr{$addr};
+            $arg =~ s/\b$addr\b/form$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %itm_addr ) {
+            $n = $itm_addr{$addr};
+            $arg =~ s/\b$addr\b/item$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %mnu_addr ) {
+            $n = $mnu_addr{$addr};
+            $arg =~ s/\b$addr\b/menu$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %pan_addr ) {
+            $n = $pan_addr{$addr};
+            $arg =~ s/\b$addr\b/panel$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %scr_addr ) {
+            $n = $scr_addr{$addr};
+            $arg =~ s/\b$addr\b/screen$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %thr_addr ) {
+            $n = $thr_addr{$addr};
+            $arg =~ s/\b$addr\b/thread$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %trm_addr ) {
+            $n = $trm_addr{$addr};
+            $arg =~ s/\b$addr\b/terminal$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %try_addr ) {
+            $n = $try_addr{$addr};
+            $arg =~ s/\b$addr\b/tries_$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %usr_addr ) {
+            $n = $usr_addr{$addr};
+            $arg =~ s/\b$addr\b/user_ptr$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        foreach my $addr ( keys %win_addr ) {
+            $n = $win_addr{$addr};
+            $arg =~ s/\b$addr\b/window$n/g if ( defined $n );
+        }
+    }
+    if ( &has_addr($arg) ) {
+        if ( $arg =~ /add_wch\((window\d+,)?0x[[:xdigit:]]+\)/i ) {
+            $arg =~ s/(0x[[:xdigit:]]+)[)]/\&wch)/i;
+        }
+        elsif (
+            $arg =~ /color_content\((screen\d+,)?\d+(,0x[[:xdigit:]]+){3}/i )
+        {
+            $arg =~ s/(,0x[[:xdigit:]]+){3}[)]/,\&r,\&g,\&b)/i;
+        }
+        elsif ( $arg =~ /pair_content\((screen\d+,)?\d+(,0x[[:xdigit:]]+){2}/i )
+        {
+            $arg =~ s/(,0x[[:xdigit:]]+){2}[)]/,\&fg,\&bg)/i;
+        }
+    }
+    if ( &has_addr($arg) and $arg =~ /called\s+\{/ ) {
+        my $func = $arg;
+        chomp $func;
+        $func =~ s/^.*called\s+\{([[:alnum:]_]+)\(.*$/$1/;
+        if ( defined $known_p1{$func} ) {
+            my $addr = $arg;
+            my $type = $known_p1{$func};
+            chomp $addr;
+            $addr =~ s/^[^(]+\((0x[[:xdigit:]]+).*$/$1/i;
+            if ( $addr !~ /^0x[[:xdigit:]]+$/i ) {
+                if ( $type == $tSCREEN and $addr =~ /^[^(]+\(screen\d+[,)]/ ) {
+
+                    # ignore
+                }
+                elsif ( $type == $tWINDOW
+                    and $addr =~
+                    /^[^(]+\((stdscr|newscr|curscr|window\d+)[,)]/ )
+                {
+
+                    # ignore
+                }
+                elsif ( $type == $tTERMINAL
+                    and $addr =~ /^[^(]+\(terminal\d+[,)]/ )
+                {
+                    # ignore
+                }
+                elsif ( $type == $tPANEL and $addr =~ /^[^(]+\(panel\d+[,)]/ ) {
+
+                    # ignore
+                }
+                elsif ( $type == $tFIELD and $addr =~ /^[^(]+\(field\d+[,)]/ ) {
+
+                    # ignore
+                }
+                elsif ( $type == $tMENU and $addr =~ /^[^(]+\(menu\d+[,)]/ ) {
+
+                    # ignore
+                }
+                elsif ( $type == $tITEM and $addr =~ /^[^(]+\(item\d+[,)]/ ) {
+
+                    # ignore
+                }
+                else {
+                    printf "OOPS - expected type \"%s\", skipping\n>>$addr\n",
+                      $known_p1_types{$type};
+                }
+            }
+            elsif ( $type == $tSCREEN ) {
+                $scr_addr{$addr} = ++$scr_nums;
+                $arg = &transaddr($arg);
+            }
+            elsif ( $type == $tWINDOW ) {
+                $win_addr{$addr} = ++$win_nums;
+                $arg = &transaddr($arg);
+            }
+            elsif ( $type == $tTERMINAL ) {
+                $trm_addr{$addr} = ++$trm_nums;
+                $arg = &transaddr($arg);
+            }
+            elsif ( $type == $tPANEL ) {
+                $pan_addr{$addr} = ++$pan_nums;
+                $arg = &transaddr($arg);
+            }
+            elsif ( $type == $tFIELD ) {
+                $fld_addr{$addr} = ++$fld_nums;
+                $arg = &transaddr($arg);
+            }
+            elsif ( $type == $tFORM ) {
+                $frm_addr{$addr} = ++$frm_nums;
+                $arg = &transaddr($arg);
+            }
+            elsif ( $type == $tMENU ) {
+                $mnu_addr{$addr} = ++$mnu_nums;
+                $arg = &transaddr($arg);
+            }
+            elsif ( $type == $tITEM ) {
+                $itm_addr{$addr} = ++$itm_nums;
+                $arg = &transaddr($arg);
+            }
+        }
+    }
+
+    return $arg;
+}
+
+sub muncher($) {
+    my $STDIN = shift;
+
+    while (<$STDIN>) {
+        my $addr;
+        my $n;
+        my $awaiting = "";
+
+      CLASSIFY: {
+
+            next unless $_;
+
+            # just in case someone tries a file with cr/lf line-endings:
+            $_ =~ s/\r\n/\n/g;
+            $_ =~ s/\r/\n/g;
+
+            if ( $_ =~
+                /^TRACING NCURSES version.*\(tracelevel=(0x[[:xdigit:]]+)\)/ )
+            {
+                $tracelevel = hex $1;
+                print;
+                next;
+            }
+
+            my $thread = "";
+            if ( $_ =~ /^(0x[[:xdigit:]]+):/ ) {
+                $thr_addr{$1} = ++$thr_nums unless defined $thr_addr{$1};
+                $thread = "thread" . $thr_addr{$1} . ":";
+                $_ =~ s/^[^:]*://;
+            }
+
+            # Transform window pointer addresses to make it easier to compare logs
+            $awaiting = "curscr" if ( $_ =~ /creating curscr/ );
+            $awaiting = "newscr" if ( $_ =~ /creating newscr/ );
+            $awaiting = "stdscr" if ( $_ =~ /creating stdscr/ );
+            $awaiting = "screen" if ( $_ =~ /^(\+ )*called \{new_prescr\(\)/ );
+            if ( $_ =~ /^create :window 0x([[:xdigit:]]+)/ ) {
+                $addr = "0x$1";
+                if ( $awaiting eq "curscr" ) {
+                    $curscr = $addr;
+                }
+                elsif ( $awaiting eq "newscr" ) {
+                    $newscr = $addr;
+                }
+                elsif ( $awaiting eq "stdscr" ) {
+                    $stdscr = $addr;
+                }
+                else {
+                    $win_addr{$addr} = $win_nums++;
+                }
+                $awaiting = "";
+            }
+            elsif ( $_ =~ /^create :(root|new)_panel 0x([[:xdigit:]]+)/ ) {
+                $addr            = "0x$2";
+                $pan_addr{$addr} = $pan_nums++;
+                $_               = &transaddr($_);
+            }
+            elsif ( $_ =~ /^create :user_ptr 0x([[:xdigit:]]+)/ ) {
+                $addr            = "0x$1";
+                $usr_addr{$addr} = $usr_nums++;
+                $_               = &transaddr($_);
+            }
+            elsif ( $_ =~ /^create :field 0x([[:xdigit:]]+)/ ) {
+                $addr            = "0x$1";
+                $fld_addr{$addr} = $fld_nums++;
+                $_               = &transaddr($_);
+            }
+            elsif ( $_ =~ /^create :form 0x([[:xdigit:]]+)/ ) {
+                $addr            = "0x$1";
+                $frm_addr{$addr} = $frm_nums++;
+                $_               = &transaddr($_);
+            }
+            elsif ( $_ =~ /^create :menu 0x([[:xdigit:]]+)/ ) {
+                $addr            = "0x$1";
+                $mnu_addr{$addr} = $mnu_nums++;
+                $_               = &transaddr($_);
+            }
+            elsif ( $_ =~ /^create :item 0x([[:xdigit:]]+)/ ) {
+                $addr            = "0x$1";
+                $itm_addr{$addr} = $itm_nums++;
+                $_               = &transaddr($_);
+            }
+            elsif ( $_ =~ /^(\+ )*called \{set_curterm\((0x[[:xdigit:]]+)\)/ ) {
+                $trm_addr{$2} = ++$trm_nums unless defined $trm_addr{$2};
+            }
+            elsif ( $_ =~ /^(\+ )*called \{_nc_add_to_try\((0x[[:xdigit:]]+),/ )
+            {
+                $try_addr{$2} = ++$try_nums unless defined $try_addr{$2};
+            }
+            elsif ( $_ =~ /^(\+ )*_nc_alloc_screen_sp 0x([[:xdigit:]]+)/ ) {
+                $addr = "0x$2";
+                $scr_addr{$addr} = ++$scr_nums unless ( $scr_addr{$addr} );
+                $awaiting = "";
+            }
+            elsif ( $_ =~ /^(\+ )*return }0x([[:xdigit:]]+)/ ) {
+                $addr = "0x$2";
+                if ( $awaiting eq "screen" ) {
+                    $scr_addr{$addr} = ++$scr_nums unless ( $scr_addr{$addr} );
+                }
+            }
+            elsif ( $_ =~ /^\.\.\.deleted win=0x([[:xdigit:]]+)/ ) {
+                $addr = "0x$1";
+                $_    = &transaddr($_);
+                if ( $addr eq $curscr ) {
+                    $curscr = "";
+                }
+                elsif ( $addr eq $newscr ) {
+                    $newscr = "";
+                }
+                elsif ( $addr eq $stdscr ) {
+                    $stdscr = "";
+                }
+                else {
+                    undef $win_addr{$addr};
+                }
+            }
+            elsif ( $_ =~ /^\.\.\.deleted pan=\"0x([[:xdigit:]]+)\"/ ) {
+                $addr = "0x$1";
+                $_    = &transaddr($_);
+                undef $pan_addr{$addr};
+            }
+            elsif ( $_ =~ /^([+ ])*called \{free_field\(0x([[:xdigit:]]+)\)/ ) {
+                $addr = "0x$2";
+                $_    = &transaddr($_);
+                undef $fld_addr{$addr};
+            }
+            elsif ( $_ =~ /^([+ ])*called \{free_form\(0x([[:xdigit:]]+)\)/ ) {
+                $addr = "0x$2";
+                $_    = &transaddr($_);
+                undef $frm_addr{$addr};
+            }
+            elsif ( $_ =~ /^([+ ])*called \{free_menu\(0x([[:xdigit:]]+)\)/ ) {
+                $addr = "0x$2";
+                $_    = &transaddr($_);
+                undef $mnu_addr{$addr};
+            }
+            elsif ( $_ =~ /^([+ ])*called \{free_item\(0x([[:xdigit:]]+)\)/ ) {
+                $addr = "0x$2";
+                $_    = &transaddr($_);
+                undef $itm_addr{$addr};
+            }
+
+            # Compactify runs of PutAttrChar
+            if ( ( ( $tracelevel & $TR{CHARPUT} ) != 0 ) and $_ =~ /$putattr/ )
+            {
+                my $putattr_chars = $1;
+                my $starty        = $2;
+                my $startx        = $3;
+                while (<$STDIN>) {
+                    if ( $_ =~ /$putattr/ ) {
+                        $putattr_chars .= $1;
+                    }
+                    else {
+                        next if ( $_ =~ /^PUTC 0x[[:xdigit:]]+.*/ );
+                        next if ( $_ =~ /^\.\.\.skip.*/ );
+                        next if ( $_ =~ /^forced to blank.*/ );
+                        last;
+                    }
+                }
+                print "RUN of PutAttrChar()s:"
+                  . " \"$putattr_chars\" from ${starty}, ${startx}\n";
+                redo CLASSIFY;
+            }
+
+            # Compactify runs of waddnstr calls
+            if ( ( ( $tracelevel & $TR{CALLS} ) != 0 ) and $_ =~ /$waddnstr/ ) {
+                my $waddnstr_chars = $2;
+                my $winaddr        = $1;
+                while (<$STDIN>) {
+                    next if ( $_ =~ /^return \}0/ );
+                    if ( $_ =~ /$waddnstr/ && $1 eq $winaddr ) {
+                        $waddnstr_chars .= $2;
+                    }
+                    else {
+                        last;
+                    }
+                }
+                my $winaddstr = &transaddr($winaddr);
+                print "RUN of waddnstr()s:"
+                  . " $winaddstr, \"$waddnstr_chars\"\n";
+                redo CLASSIFY;
+            }
+
+            # More transformations can go here
+
+            # Repeated runs of anything
+            my $anyline     = &transaddr($_);
+            my $repeatcount = 1;
+            while (<$STDIN>) {
+                if ( &transaddr($_) eq $anyline ) {
+                    $repeatcount++;
+                }
+                else {
+                    last;
+                }
+            }
+            if ( $repeatcount > 1 ) {
+                print "${repeatcount} REPEATS OF $anyline";
+            }
+            else {
+                print $thread . $anyline;
+            }
+            redo CLASSIFY if $_;
+
+        }    # :CLASSIFY
+    }
+}
+
+for my $tr ( keys %TR ) {
+    $TR{$tr} = hex $TR{$tr};
+}
+
+if ( $#ARGV >= 0 ) {
+    while ( $#ARGV >= 0 ) {
+        my $file = shift @ARGV;
+        open my $ifh, "<", $file or die $!;
+        &muncher($ifh);
+    }
+}
+else {
+    &muncher( \*STDIN );
+}
+
+# tracemunch ends here

@@ -1,0 +1,149 @@
+#!/usr/bin/make -f
+# Made with the aid of dh_make, by Craig Small
+# Sample debian/rules that uses debhelper. GNU copyright 1997 by Joey Hess.
+# Some lines taken from debmake, by Cristoph Lameter.
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+# These are used for cross-compiling and for saving the configure script
+# from having to guess our platform (since we know it already)
+DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+MY_ABI=6
+
+BUILD_CC = gcc
+
+CC_NORMAL = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wshadow -Wconversion
+CC_STRICT = $(CC_NORMAL) -W -Wbad-function-cast -Wcast-align -Wcast-qual -Wmissing-declarations -Wnested-externs -Wpointer-arith -Wwrite-strings -ansi -pedantic
+
+TARGET    = i686-w64-mingw32
+MINGW_BIN = /usr/bin
+MINGW_TOP = /usr/$(TARGET)
+MINGW_TMP = $(CURDIR)/debian/mingw32-ncurses$(MY_ABI)
+
+CFLAGS = $(CC_NORMAL)
+
+verbose = # -v
+
+CONFIG_OPTIONS = \
+	--disable-db-install \
+	--disable-echo \
+	--disable-getcap \
+	--disable-hard-tabs \
+	--disable-leaks \
+	--disable-macros \
+	--disable-overwrite \
+	--disable-termcap \
+	--enable-interop \
+	--enable-opaque-curses \
+	--enable-opaque-form \
+	--enable-opaque-menu \
+	--enable-opaque-panel \
+	--enable-pc-files \
+	--enable-term-driver \
+	--enable-warnings \
+	--enable-widec \
+	--verbose \
+	--with-abi-version=$(MY_ABI) \
+	--with-cxx-shared \
+	--with-develop \
+	--with-fallbacks=unknown,rxvt \
+	--with-tic-path=/usr/bin/tic$(MY_ABI) \
+	--with-infocmp-path=/usr/bin/infocmp$(MY_ABI) \
+	--with-shared \
+	--with-trace \
+	--with-xterm-kbs=DEL \
+	--without-ada \
+	--without-debug \
+	--without-manpages \
+	--without-progs \
+	--without-tests
+
+export CFLAGS BUILD_CC
+
+ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+        CFLAGS += -O0
+else
+        CFLAGS += -O2
+endif
+ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+        INSTALL_PROGRAM += -s
+endif
+
+configure: configure-stamp
+configure-stamp:
+	dh_testdir
+
+	CC=$(TARGET)-gcc \
+	CFLAGS="$(CFLAGS)" \
+	./configure \
+		--host=$(TARGET) \
+		--target=$(TARGET) \
+		--prefix=$(MINGW_TOP) \
+		--with-build-cc=$(BUILD_CC) \
+		--with-pc-suffix=$(MY_ABI) \
+		--with-pkg-config-libdir=/usr/$(TARGET)/lib/pkgconfig \
+		$(CONFIG_OPTIONS)
+
+	touch configure-stamp
+
+build: build-stamp
+build-stamp: configure-stamp
+	dh_testdir
+
+	$(MAKE)
+
+	touch build-stamp
+
+clean:
+	dh_testdir
+	dh_testroot
+
+	[ ! -f makefile ] || $(MAKE) distclean
+
+	rm -f configure-stamp build-stamp install-stamp
+
+	dh_clean
+
+install: install-stamp
+install-stamp: build-stamp
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs      $(verbose)
+
+	$(MAKE) install.libs DESTDIR=$(MINGW_TMP)
+
+	mkdir -p $(MINGW_TMP)$(MINGW_BIN)
+	for name in $(MINGW_TMP)$(MINGW_TOP)/bin/*-config; \
+	do \
+		base=`basename $$name`; \
+		ln -v $$name $(MINGW_TMP)$(MINGW_BIN)/$(TARGET)-$$base; \
+	done
+
+	touch install-stamp
+
+# Build architecture-independent files here.
+binary-indep: build install
+# No binary-indep target.
+
+# Build architecture-dependent files here.
+binary-arch: build install
+	dh_testdir
+	dh_testroot          $(verbose)
+	dh_lintian           $(verbose)
+	dh_installdocs       $(verbose)
+	dh_installchangelogs $(verbose) NEWS
+	# dh_strip
+	dh_compress          $(verbose)
+	dh_fixperms          $(verbose)
+	dh_installdeb        $(verbose)
+	dh_shlibdeps         $(verbose)
+	dh_gencontrol        $(verbose)
+	dh_md5sums           $(verbose)
+	dh_builddeb          $(verbose)
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install install-stamp

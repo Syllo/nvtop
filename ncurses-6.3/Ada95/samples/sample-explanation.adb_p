@@ -1,0 +1,441 @@
+------------------------------------------------------------------------------
+--                                                                          --
+--                       GNAT ncurses Binding Samples                       --
+--                                                                          --
+--                           Sample.Explanation                             --
+--                                                                          --
+--                                 B O D Y                                  --
+--                                                                          --
+------------------------------------------------------------------------------
+-- Copyright 2019,2020 Thomas E. Dickey                                     --
+--                                                                          --
+-- Permission is hereby granted, free of charge, to any person obtaining a  --
+-- copy of this software and associated documentation files (the            --
+-- "Software"), to deal in the Software without restriction, including      --
+-- without limitation the rights to use, copy, modify, merge, publish,      --
+-- distribute, distribute with modifications, sublicense, and/or sell       --
+-- copies of the Software, and to permit persons to whom the Software is    --
+-- furnished to do so, subject to the following conditions:                 --
+--                                                                          --
+-- The above copyright notice and this permission notice shall be included  --
+-- in all copies or substantial portions of the Software.                   --
+--                                                                          --
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --
+-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --
+-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --
+-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --
+-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --
+-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --
+-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --
+--                                                                          --
+-- Except as contained in this notice, the name(s) of the above copyright   --
+-- holders shall not be used in advertising or otherwise to promote the     --
+-- sale, use or other dealings in this Software without prior written       --
+-- authorization.                                                           --
+------------------------------------------------------------------------------
+--  Author:  Juergen Pfeifer, 1996
+--  Version Control
+--  $Revision: 1.5 $
+--  $Date: 2020/02/02 23:34:34 $
+--  Binding Version 01.00
+------------------------------------------------------------------------------
+--  Poor mans help system. This scans a sequential file for key lines and
+--  then reads the lines up to the next key. Those lines are presented in
+--  a window as help or explanation.
+--
+with Ada.Text_IO; use Ada.Text_IO;
+with Ada.Unchecked_Deallocation;
+with Terminal_Interface.Curses; use Terminal_Interface.Curses;
+with Terminal_Interface.Curses.Panels; use Terminal_Interface.Curses.Panels;
+
+with Sample.Keyboard_Handler; use Sample.Keyboard_Handler;
+with Sample.Manifest; use Sample.Manifest;
+with Sample.Function_Key_Setting; use Sample.Function_Key_Setting;
+with Sample.Helpers; use Sample.Helpers;
+
+package body Sample.Explanation is
+
+   Help_Keys : constant String := "HELPKEYS";
+   In_Help   : constant String := "INHELP";
+
+   File_Name : constant String := "explain.txt";
+   F : File_Type;
+
+   type Help_Line;
+   type Help_Line_Access is access Help_Line;
+   pragma Controlled (Help_Line_Access);
+   type String_Access is access String;
+   pragma Controlled (String_Access);
+
+   type Help_Line is
+      record
+         Prev, Next : Help_Line_Access;
+         Line : String_Access;
+      end record;
+
+   procedure Explain (Key : String;
+                      Win : Window);
+
+   procedure Release_String is
+     new Ada.Unchecked_Deallocation (String,
+                                     String_Access);
+   procedure Release_Help_Line is
+     new Ada.Unchecked_Deallocation (Help_Line,
+                                     Help_Line_Access);
+
+   function Search (Key : String) return Help_Line_Access;
+   procedure Release_Help (Root : in out Help_Line_Access);
+
+   function Check_File (Name : String) return Boolean;
+
+   procedure Explain (Key : String)
+   is
+   begin
+      Explain (Key, Null_Window);
+   end Explain;
+
+   procedure Explain (Key : String;
+                      Win : Window)
+   is
+      --  Retrieve the text associated with this key and display it in this
+      --  window. If no window argument is passed, the routine will create
+      --  a temporary window and use it.
+
+      function Filter_Key return Real_Key_Code;
+      procedure Unknown_Key;
+      procedure Redo;
+      procedure To_Window (C   : in out Help_Line_Access;
+                          More : in out Boolean);
+
+      Frame : Window := Null_Window;
+
+      W : Window := Win;
+      K : Real_Key_Code;
+      P : Panel;
+
+      Height   : Line_Count;
+      Width    : Column_Count;
+      Help     : Help_Line_Access := Search (Key);
+      Current  : Help_Line_Access;
+      Top_Line : Help_Line_Access;
+
+      Has_More : Boolean := True;
+
+      procedure Unknown_Key
+      is
+      begin
+         Add (W, "Help message with ID ");
+         Add (W, Key);
+         Add (W, " not found.");
+         Add (W, Character'Val (10));
+         Add (W, "Press the Function key labeled 'Quit' key to continue.");
+      end Unknown_Key;
+
+      procedure Redo
+      is
+         H : Help_Line_Access := Top_Line;
+      begin
+         if Top_Line /= null then
+            for L in 0 .. (Height - 1) loop
+               Add (W, L, 0, H.all.Line.all);
+               exit when H.all.Next = null;
+               H := H.all.Next;
+            end loop;
+         else
+            Unknown_Key;
+         end if;
+      end Redo;
+
+      function Filter_Key return Real_Key_Code
+      is
+         K : Real_Key_Code;
+      begin
+         loop
+            K := Get_Key (W);
+            if K in Special_Key_Code'Range then
+               case K is
+                  when HELP_CODE =>
+                     if not Find_Context (In_Help) then
+                        Push_Environment (In_Help, False);
+                        Explain (In_Help, W);
+                        Pop_Environment;
+                        Redo;
+                     end if;
+                  when EXPLAIN_CODE =>
+                     if not Find_Context (Help_Keys) then
+                        Push_Environment (Help_Keys, False);
+                        Explain (Help_Keys, W);
+                        Pop_Environment;
+                        Redo;
+                     end if;
+                  when others => exit;
+               end case;
+            else
+               exit;
+            end if;
+         end loop;
+         return K;
+      end Filter_Key;
+
+      procedure To_Window (C   : in out Help_Line_Access;
+                          More : in out Boolean)
+      is
+         L : Line_Position := 0;
+      begin
+         loop
+            Add (W, L, 0, C.all.Line.all);
+            L := L + 1;
+            exit when C.all.Next = null or else L = Height;
+            C := C.all.Next;
+         end loop;
+         if C.all.Next /= null then
+            pragma Assert (L = Height);
+            More := True;
+         else
+            More := False;
+         end if;
+      end To_Window;
+
+   begin
+      if W = Null_Window then
+         Push_Environment ("HELP");
+         Default_Labels;
+         Frame := New_Window (Lines - 2, Columns, 0, 0);
+         if Has_Colors then
+            Set_Background (Win => Frame,
+                            Ch  => (Ch    => ' ',
+                                    Color => Help_Color,
+                                    Attr  => Normal_Video));
+            Set_Character_Attributes (Win   => Frame,
+                                      Attr  => Normal_Video,
+                                      Color => Help_Color);
+            Erase (Frame);
+         end if;
+         Box (Frame);
+         Set_Character_Attributes (Frame, (Reverse_Video => True,
+                                           others        => False));
+         Add (Frame, Lines - 3, 2, "Cursor Up/Down scrolls");
+         Set_Character_Attributes (Frame); -- Back to default.
+         Window_Title (Frame, "Explanation");
+         W := Derived_Window (Frame, Lines - 4, Columns - 2, 1, 1);
+         Refresh_Without_Update (Frame);
+         Get_Size (W, Height, Width);
+         Set_Meta_Mode (W);
+         Set_KeyPad_Mode (W);
+         Allow_Scrolling (W, True);
+         Set_Echo_Mode (False);
+         P := Create (Frame);
+         Top (P);
+         Update_Panels;
+      else
+         Clear (W);
+         Refresh_Without_Update (W);
+      end if;
+
+      Current := Help; Top_Line := Help;
+
+      if null = Help then
+         Unknown_Key;
+         loop
+            K := Filter_Key;
+            exit when K = QUIT_CODE;
+         end loop;
+      else
+         To_Window (Current, Has_More);
+         if Has_More then
+            --  This means there are more lines available, so we have to go
+            --  into a scroll manager.
+            loop
+               K := Filter_Key;
+               if K in Special_Key_Code'Range then
+                  case K is
+                     when Key_Cursor_Down =>
+                        if Current.all.Next /= null then
+                           Move_Cursor (W, Height - 1, 0);
+                           Scroll (W, 1);
+                           Current := Current.all.Next;
+                           Top_Line := Top_Line.all.Next;
+                           Add (W, Current.all.Line.all);
+                        end if;
+                     when Key_Cursor_Up =>
+                        if Top_Line.all.Prev /= null then
+                           Move_Cursor (W, 0, 0);
+                           Scroll (W, -1);
+                           Top_Line := Top_Line.all.Prev;
+                           Current := Current.all.Prev;
+                           Add (W, Top_Line.all.Line.all);
+                        end if;
+                     when QUIT_CODE => exit;
+                        when others => null;
+                  end case;
+               end if;
+            end loop;
+         else
+            loop
+               K := Filter_Key;
+               exit when K = QUIT_CODE;
+            end loop;
+         end if;
+      end if;
+
+      Clear (W);
+
+      if Frame /= Null_Window then
+         Clear (Frame);
+         Delete (P);
+         Delete (W);
+         Delete (Frame);
+         Pop_Environment;
+      end if;
+
+      Update_Panels;
+      Update_Screen;
+
+      Release_Help (Help);
+
+   end Explain;
+
+   function Search (Key : String) return Help_Line_Access
+   is
+      Last    : Natural;
+      Buffer  : String (1 .. 256);
+      Root    : Help_Line_Access := null;
+      Current : Help_Line_Access;
+      Tail    : Help_Line_Access := null;
+
+      function Next_Line return Boolean;
+
+      function Next_Line return Boolean
+      is
+         H_End : constant String := "#END";
+      begin
+         Get_Line (F, Buffer, Last);
+         if Last = H_End'Length and then H_End = Buffer (1 .. Last) then
+            return False;
+         else
+            return True;
+         end if;
+      end Next_Line;
+   begin
+      Reset (F);
+      Outer :
+      loop
+         exit Outer when not Next_Line;
+         if Last = (1 + Key'Length)
+           and then Key = Buffer (2 .. Last)
+           and then Buffer (1) = '#'
+         then
+            loop
+               exit when not Next_Line;
+               exit when Buffer (1) = '#';
+               Current := new Help_Line'(null, null,
+                                         new String'(Buffer (1 .. Last)));
+               if Tail = null then
+                  Release_Help (Root);
+                  Root := Current;
+               else
+                  Tail.all.Next := Current;
+                  Current.all.Prev := Tail;
+               end if;
+               Tail := Current;
+            end loop;
+            exit Outer;
+         end if;
+      end loop Outer;
+      return Root;
+   end Search;
+
+   procedure Release_Help (Root : in out Help_Line_Access)
+   is
+      Next : Help_Line_Access;
+   begin
+      loop
+         exit when Root = null;
+         Next := Root.all.Next;
+         Release_String (Root.all.Line);
+         Release_Help_Line (Root);
+         Root := Next;
+      end loop;
+   end Release_Help;
+
+   procedure Explain_Context
+   is
+   begin
+      Explain (Context);
+   end Explain_Context;
+
+   procedure Notepad (Key : String)
+   is
+      H : constant Help_Line_Access := Search (Key);
+      T : Help_Line_Access := H;
+      N : Line_Count := 1;
+      L : Line_Position := 0;
+      W : Window;
+      P : Panel;
+   begin
+      if H /= null then
+         loop
+            T := T.all.Next;
+            exit when T = null;
+            N := N + 1;
+         end loop;
+         W := New_Window (N + 2, Columns, Lines - N - 2, 0);
+         if Has_Colors then
+            Set_Background (Win => W,
+                            Ch  => (Ch    => ' ',
+                                    Color => Notepad_Color,
+                                    Attr  => Normal_Video));
+            Set_Character_Attributes (Win   => W,
+                                      Attr  => Normal_Video,
+                                      Color => Notepad_Color);
+            Erase (W);
+         end if;
+         Box (W);
+         Window_Title (W, "Notepad");
+         P := New_Panel (W);
+         T := H;
+         loop
+            Add (W, L + 1, 1, T.all.Line.all, Integer (Columns - 2));
+            L := L + 1;
+            T := T.all.Next;
+            exit when T = null;
+         end loop;
+         T := H;
+         Release_Help (T);
+         Refresh_Without_Update (W);
+         Notepad_To_Context (P);
+      end if;
+   end Notepad;
+
+   function Check_File (Name : String) return Boolean is
+      The_File : File_Type;
+   begin
+      Open (The_File, In_File, Name);
+      Close (The_File);
+      return True;
+   exception
+      when Name_Error =>
+         return False;
+   end Check_File;
+
+begin
+   if Check_File
+      ($THIS_DATADIR
+       & File_Name)
+   then
+      Open (F, In_File,
+            $THIS_DATADIR
+            & File_Name);
+   elsif Check_File (File_Name) then
+      Open (F, In_File, File_Name);
+   else
+      Put_Line (Standard_Error,
+                "The file "
+                & File_Name
+                & " was not found in "
+                & $THIS_DATADIR
+                );
+      raise Name_Error;
+   end if;
+end Sample.Explanation;
+--  vile:adamode

@@ -1,5 +1,13 @@
-NVTOP
+NVTOP-Local
 =====
+
+What is this repository about?
+-----------------
+
+This repository provides the packed nvtop along with its dependency (`ncurses 6.3`) and the installation script for non-privileged users. 
+
+Note that this repo doesn't provide the *NVML* and the CUDA driver as both requires root access.
+
 
 What is NVTOP?
 --------------
@@ -7,63 +15,15 @@ What is NVTOP?
 Nvtop stands for NVidia TOP, a (h)top like task monitor for NVIDIA GPUs. It can
 handle multiple GPUs and print information about them in a htop familiar way.
 
-Because a picture is worth a thousand words:
+For detailed introduction, please refer to the original [site](https://github.com/Syllo/nvtop/blob/master/README.markdown)
 
-![NVTOP interface](/screenshot/NVTOP_ex1.png)
 
 Table of Contents
 -----------------
 
-- [NVTOP Options and Interactive Commands](#nvtop-options-and-interactive-commands)
-  - [Interactive Setup Window](#interactive-setup-window)
-  - [Saving Preferences](#saving-preferences)
-  - [NVTOP Manual and Command line Options](#nvtop-manual-and-command-line-options)
-- [GPU Support](#gpu-support)
-- [Build](#build)
-- [Distribution Specific Installation Process](#distribution-specific-installation-process)
-  - [Ubuntu / Debian](#ubuntu--debian)
-    - [Ubuntu disco (19.04) / Debian buster (stable)](#ubuntu-disco-1904--debian-buster-stable)
-  - [Fedora / RedHat / CentOS](#fedora--redhat--centos)
-  - [OpenSUSE](#opensuse)
-  - [Arch Linux](#arch-linux)
-  - [Docker](#docker)
-- [NVTOP Build](#nvtop-build)
+- [Build](#nvtop-build)
 - [Troubleshoot](#troubleshoot)
 - [License](#license)
-
-NVTOP Options and Interactive Commands
---------------------------------------
-### Interactive Setup Window
-
-NVTOP has a builtin setup utility that provides a way to specialize the interface to your needs.
-Simply press ``F2`` and select the options that are the best for you.
-
-![NVTOP Setup Window](/screenshot/Nvtop-config.png)
-
-### Saving Preferences
-
-You can save the preferences set in the setup window by pressing ``F12``.
-The preferences will be loaded the next time you run ``nvtop``.
-
-### NVTOP Manual and Command line Options
-
-NVTOP comes with a manpage!
-```bash
-man nvtop
-```
-For quick command line arguments help
-```bash
-nvtop -h
-nvtop --help
-```
-
-GPU Support
------------
-
-The *NVML library* does not support some of the queries for GPUs coming before the
-Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
-successor should work fine. For more information about supported GPUs please
-take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
 Build
 -----
@@ -72,72 +32,11 @@ Two libraries are required in order for NVTOP to display GPU information:
 
 * The *NVIDIA Management Library* (*NVML*) which comes with the GPU driver.
   * This queries the GPU for information.
+  * Ask the administrator if you do not have it installed nor do you have privileged access.
 * The *ncurses* library driving the user interface.
   * This makes the screen look beautiful.
+  * Provided in this repository.
 
-## Distribution Specific Installation Process
-
-### Ubuntu / Debian
-
-#### Ubuntu disco (19.04) / Debian buster (stable)
-
-- ```bash
-  sudo apt install nvtop
-  ```
-
-#### Older
-
-- NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
-- CMake, ncurses and git
-  ```bash
-  sudo apt install cmake libncurses5-dev libncursesw5-dev git
-  ```
-- NVTOP
-  - Follow the [NVTOP Build](#nvtop-build)
-
-### Fedora / RedHat / CentOS
-
-- NVIDIA drivers, **CUDA required for nvml libraries** (see [RPM Fusion](https://rpmfusion.org/Howto/NVIDIA))
-- CMake, ncurses and git
-  ```bash
-  sudo dnf install cmake ncurses-devel git
-  ```
-- NVTOP
-  - Follow the [NVTOP Build](#nvtop-build)
-
-### OpenSUSE
-
-- NVIDIA drivers (see [SUSE Support Database](https://en.opensuse.org/SDB:NVIDIA_drivers))
-- CMake, ncurses and git
-  ```bash
-  sudo zypper install cmake ncurses-devel git
-  ```
-- NVTOP
-  - Follow the [NVTOP Build](#nvtop-build)
-
-### Arch Linux
-
-- ```bash
-  sudo pacman -S nvtop
-  ```
-
-### Gentoo
-
-- ```bash
-  sudo layman -a guru && sudo emerge -av nvtop
-  ```
-
-### Docker
-
-- NVIDIA drivers (same as above)
-
-- [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) (See  [Container Toolkit Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker))
-
-- ```bash
-  git clone https://github.com/Syllo/nvtop.git && cd nvtop
-  sudo docker build --tag nvtop .
-  sudo docker run -it --rm --runtime=nvidia --gpus=all --pid=host nvtop
-  ```
 
 ## NVTOP Build
 
@@ -161,15 +60,6 @@ The build system supports multiple build type (e.g. -DCMAKE_BUILD_TYPE=RelWithDe
 * Release: Binary without debug information
 * RelWithDebInfo: Binary with debug information
 * Debug: Compile with warning flags and address/undefined sanitizers enabled (for development purposes)
-
-Troubleshoot
-------------
-
-- The plot looks bad:
-  - Verify that you installed the wide character version of the NCurses library (libncurses**w**5-dev for Debian / Ubuntu), clean the build directory
-    and restart the build process.
-- **Putty**: Tell putty not to lie about its capabilities (`$TERM`) by setting the field ``Terminal-type string`` to ``putty`` in the menu
-  ``Connection > Data > Terminal Details``.
 
 License
 -------

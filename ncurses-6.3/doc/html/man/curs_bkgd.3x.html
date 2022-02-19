@@ -1,0 +1,193 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 1998-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_bkgd.3x,v 1.32 2021/06/17 21:30:22 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_bkgd 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_bkgd 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>                                                    <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>bkgdset</STRONG>,  <STRONG>wbkgdset</STRONG>,  <STRONG>bkgd</STRONG>,  <STRONG>wbkgd</STRONG>,  <STRONG>getbkgd</STRONG>  - <STRONG>curses</STRONG> window background
+       manipulation routines
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>void</STRONG> <STRONG>bkgdset(chtype</STRONG> <EM>ch</EM><STRONG>);</STRONG>
+       <STRONG>void</STRONG> <STRONG>wbkgdset(WINDOW</STRONG> <STRONG>*</STRONG><EM>win,</EM> <EM>chtype</EM> <EM>ch</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>bkgd(chtype</STRONG> <EM>ch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wbkgd(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <EM>ch</EM><STRONG>);</STRONG>
+
+       <STRONG>chtype</STRONG> <STRONG>getbkgd(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+
+</PRE><H3><a name="h3-bkgdset">bkgdset</a></H3><PRE>
+       The <STRONG>bkgdset</STRONG> and <STRONG>wbkgdset</STRONG> routines  manipulate  the  background  of  the
+       named  window.   The  window  background  is a <STRONG>chtype</STRONG> consisting of any
+       combination of attributes  (i.e.,  rendition)  and  a  character.   The
+       attribute part of the background is combined (OR'ed) with all non-blank
+       characters that are written into the  window  with  <STRONG>waddch</STRONG>.   Both  the
+       character  and  attribute parts of the background are combined with the
+       blank characters.  The background becomes a property of  the  character
+       and  moves  with  the character through any scrolling and insert/delete
+       line/character operations.
+
+       To the extent possible on a particular terminal, the attribute part  of
+       the  background  is displayed as the graphic rendition of the character
+       put on the screen.
+
+
+</PRE><H3><a name="h3-bkgd">bkgd</a></H3><PRE>
+       The <STRONG>bkgd</STRONG> and <STRONG>wbkgd</STRONG> functions set the background property of the current
+       or  specified  window  and  then  apply this setting to every character
+       position in that window.  According to  X/Open  Curses,  it  should  do
+       this:
+
+       <STRONG>o</STRONG>   The  rendition  of  every character on the screen is changed to the
+           new background rendition.
+
+       <STRONG>o</STRONG>   Wherever the former background character appears, it is changed  to
+           the new background character.
+
+       Neither  X/Open Curses nor the SVr4 manual pages give details about the
+       way the rendition of characters on the screen is updated when  <STRONG>bkgd</STRONG>  or
+       <STRONG>wbkgd</STRONG> is used to change the background character.
+
+       This  implementation,  like  SVr4 curses, does not store the background
+       and window attribute contributions to each cell separately.  It updates
+       the  rendition  by  comparing  the  character, non-color attributes and
+       colors contained in the background.   For  each  cell  in  the  window,
+       whether or not it is blank:
+
+       <STRONG>o</STRONG>   The  library  first  compares  the <EM>character</EM>, and if it matches the
+           current character part of the background, it replaces that with the
+           new background character.
+
+       <STRONG>o</STRONG>   The  library  then  checks  if the cell uses color, i.e., its color
+           pair value is nonzero.  If not, it simply replaces  the  attributes
+           and  color  pair  in  the  cell  with those from the new background
+           character.
+
+       <STRONG>o</STRONG>   If the cell uses color, and that matches the color in  the  current
+           background, the library removes attributes which may have come from
+           the current background and adds attributes from the new background.
+           It  finishes  by  setting  the  cell  to use the color from the new
+           background.
+
+       <STRONG>o</STRONG>   If the cell uses color, and that does not match the  color  in  the
+           current   background,   the  library  updates  only  the  non-color
+           attributes, first removing those  which  may  have  come  from  the
+           current  background,  and  then  adding  attributes  from  the  new
+           background.
+
+       If the background's character value is zero, a space is assumed.
+
+       If the terminal does not support  color,  or  if  color  has  not  been
+       started   with   <STRONG>start_color</STRONG>,  the  new  background  character's  color
+       attribute will be ignored.
+
+
+</PRE><H3><a name="h3-getbkgd">getbkgd</a></H3><PRE>
+       The <STRONG>getbkgd</STRONG> function returns  the  given  window's  current  background
+       character/attribute pair.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       These  functions are described in the XSI Curses standard, Issue 4.  It
+       specifies that <STRONG>bkgd</STRONG> and <STRONG>wbkgd</STRONG> return  <STRONG>ERR</STRONG>  on  failure,  but  gives  no
+       failure conditions.
+
+       The  routines  <STRONG>bkgd</STRONG> and <STRONG>wbkgd</STRONG> return the integer <STRONG>OK</STRONG>, unless the library
+       has not been initialized.
+
+       In contrast, the SVr4.0 manual says <STRONG>bkgd</STRONG> and <STRONG>wbkgd</STRONG> may return <STRONG>OK</STRONG> "or  a
+       non-negative  integer  if  <STRONG>immedok</STRONG>  is set", which refers to the return
+       value from <STRONG>wrefresh</STRONG> (used to implement the immediate repainting).   The
+       SVr4  curses  <STRONG>wrefresh</STRONG>  returns the number of characters written to the
+       screen during the refresh.  This implementation does not do that.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that <STRONG>bkgdset</STRONG> and <STRONG>bkgd</STRONG> may be macros.
+
+       X/Open Curses mentions that the character part of the  background  must
+       be  a  single-byte  value.   This  implementation, like SVr4, checks to
+       ensure that, and will reuse the old background character if  the  check
+       fails.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These  functions  are  described  in  the  XSI Curses standard, Issue 4
+       (X/Open Curses).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>, <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>, <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>
+
+
+
+                                                                 <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-bkgdset">bkgdset</a></li>
+<li><a href="#h3-bkgd">bkgd</a></li>
+<li><a href="#h3-getbkgd">getbkgd</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

@@ -1,0 +1,1537 @@
+<!--
+  * t
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 1998-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: ncurses.3x,v 1.153 2021/08/22 17:17:16 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>ncurses 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">ncurses 3x</H1>
+<PRE>
+<STRONG><A HREF="ncurses.3x.html">ncurses(3x)</A></STRONG>                                                        <STRONG><A HREF="ncurses.3x.html">ncurses(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>ncurses</STRONG> - CRT screen handling and optimization package
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The  <STRONG>ncurses</STRONG>  library  routines  give  the  user a terminal-independent
+       method of updating  character  screens  with  reasonable  optimization.
+       This  implementation  is  "new  curses"  (ncurses)  and is the approved
+       replacement for 4.4BSD classic curses,  which  has  been  discontinued.
+       This describes <STRONG>ncurses</STRONG> version 6.3 (patch 20211021).
+
+       The  <STRONG>ncurses</STRONG>  library emulates the curses library of System V Release 4
+       UNIX, and XPG4 (X/Open Portability Guide) curses  (also  known  as  XSI
+       curses).   XSI  stands  for  X/Open  System  Interfaces Extension.  The
+       <STRONG>ncurses</STRONG> library is freely redistributable in source form.   Differences
+       from   the   SVr4  curses  are  summarized  under  the  <STRONG>EXTENSIONS</STRONG>  and
+       <STRONG>PORTABILITY</STRONG> sections below and described in detail  in  the  respective
+       <STRONG>EXTENSIONS</STRONG>, <STRONG>PORTABILITY</STRONG> and <STRONG>BUGS</STRONG> sections of individual man pages.
+
+       The  <STRONG>ncurses</STRONG>  library  also  provides  many  useful  extensions,  i.e.,
+       features which cannot be implemented by a  simple  add-on  library  but
+       which require access to the internals of the library.
+
+       A  program  using  these  routines  must  be  linked with the <STRONG>-lncurses</STRONG>
+       option, or (if it  has  been  generated)  with  the  debugging  library
+       <STRONG>-lncurses_g</STRONG>.   (Your  system  integrator  may also have installed these
+       libraries under the names  <STRONG>-lcurses</STRONG>  and  <STRONG>-lcurses_g</STRONG>.)   The  ncurses_g
+       library  generates  trace logs (in a file called "trace" in the current
+       directory) that describe curses  actions.   See  also  the  section  on
+       <STRONG>ALTERNATE</STRONG> <STRONG>CONFIGURATIONS</STRONG>.
+
+       The   <STRONG>ncurses</STRONG>   package   supports:  overall  screen,  window  and  pad
+       manipulation; output to  windows  and  pads;  reading  terminal  input;
+       control  over terminal and <STRONG>curses</STRONG> input and output options; environment
+       query routines; color manipulation; use of soft  label  keys;  terminfo
+       capabilities; and access to low-level terminal-manipulation routines.
+
+
+</PRE><H3><a name="h3-Initialization">Initialization</a></H3><PRE>
+       The  library uses the locale which the calling program has initialized.
+       That is normally done with <STRONG>setlocale</STRONG>:
+
+           <STRONG>setlocale(LC_ALL,</STRONG> <STRONG>"");</STRONG>
+
+       If the locale is not initialized, the library assumes  that  characters
+       are  printable  as in ISO-8859-1, to work with certain legacy programs.
+       You should initialize the locale and not rely on  specific  details  of
+       the library when the locale has not been setup.
+
+       The  function  <STRONG>initscr</STRONG>  or  <STRONG>newterm</STRONG>  must  be  called to initialize the
+       library before any of the other routines that  deal  with  windows  and
+       screens  are  used.   The  routine  <STRONG><A HREF="curs_initscr.3x.html">endwin(3x)</A></STRONG>  must  be  called before
+       exiting.
+
+       To get character-at-a-time input  without  echoing  (most  interactive,
+       screen  oriented  programs want this), the following sequence should be
+       used:
+
+           <STRONG>initscr();</STRONG> <STRONG>cbreak();</STRONG> <STRONG>noecho();</STRONG>
+
+       Most programs would additionally use the sequence:
+
+           <STRONG>intrflush(stdscr,</STRONG> <STRONG>FALSE);</STRONG>
+           <STRONG>keypad(stdscr,</STRONG> <STRONG>TRUE);</STRONG>
+
+       Before a <STRONG>curses</STRONG> program is run, the tab stops of the terminal should be
+       set  and  its initialization strings, if defined, must be output.  This
+       can be done  by  executing  the  <STRONG>tput</STRONG>  <STRONG>init</STRONG>  command  after  the  shell
+       environment  variable  <STRONG>TERM</STRONG>  has  been  exported.   <STRONG>tset(1)</STRONG>  is usually
+       responsible for doing this.  [See <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG> for further details.]
+
+
+</PRE><H3><a name="h3-Datatypes">Datatypes</a></H3><PRE>
+       The <STRONG>ncurses</STRONG> library permits manipulation  of  data  structures,  called
+       <EM>windows</EM>,   which  can  be  thought  of  as  two-dimensional  arrays  of
+       characters representing all or part of a CRT screen.  A default  window
+       called  <STRONG>stdscr</STRONG>,  which is the size of the terminal screen, is supplied.
+       Others may be created with <STRONG>newwin</STRONG>.
+
+       Note that <STRONG>curses</STRONG> does not handle overlapping windows,  that's  done  by
+       the  <STRONG><A HREF="panel.3x.html">panel(3x)</A></STRONG>  library.   This means that you can either use <STRONG>stdscr</STRONG> or
+       divide the screen into tiled windows  and  not  using  <STRONG>stdscr</STRONG>  at  all.
+       Mixing the two will result in unpredictable, and undesired, effects.
+
+       Windows  are referred to by variables declared as <STRONG>WINDOW</STRONG> <STRONG>*</STRONG>.  These data
+       structures are manipulated with routines described here  and  elsewhere
+       in  the <STRONG>ncurses</STRONG> manual pages.  Among those, the most basic routines are
+       <STRONG>move</STRONG> and <STRONG>addch</STRONG>.  More general versions of these routines  are  included
+       with  names  beginning  with  <STRONG>w</STRONG>, allowing the user to specify a window.
+       The routines not beginning with <STRONG>w</STRONG> affect <STRONG>stdscr</STRONG>.
+
+       After using routines to manipulate a  window,  <STRONG><A HREF="curs_refresh.3x.html">refresh(3x)</A></STRONG>  is  called,
+       telling  <STRONG>curses</STRONG>  to  make  the user's CRT screen look like <STRONG>stdscr</STRONG>.  The
+       characters in a window are actually  of  type  <STRONG>chtype</STRONG>,  (character  and
+       attribute  data) so that other information about the character may also
+       be stored with each character.
+
+       Special windows called <EM>pads</EM> may also be manipulated.  These are windows
+       which  are not constrained to the size of the screen and whose contents
+       need  not  be  completely  displayed.   See   <STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>   for   more
+       information.
+
+       In  addition  to drawing characters on the screen, video attributes and
+       colors may be supported, causing the characters  to  show  up  in  such
+       modes  as  underlined,  in reverse video, or in color on terminals that
+       support such display enhancements.   Line  drawing  characters  may  be
+       specified  to  be  output.   On input, <STRONG>curses</STRONG> is also able to translate
+       arrow and function keys that  transmit  escape  sequences  into  single
+       values.   The  video  attributes,  line  drawing  characters, and input
+       values use names, defined in <STRONG>&lt;curses.h&gt;</STRONG>, such as <STRONG>A_REVERSE</STRONG>,  <STRONG>ACS_HLINE</STRONG>,
+       and <STRONG>KEY_LEFT</STRONG>.
+
+
+</PRE><H3><a name="h3-Environment-variables">Environment variables</a></H3><PRE>
+       If  the  environment  variables  <STRONG>LINES</STRONG>  and  <STRONG>COLUMNS</STRONG> are set, or if the
+       program  is  executing  in  a  window  environment,  line  and   column
+       information  in  the  environment  will  override  information  read by
+       <EM>terminfo</EM>.  This would affect a program running in an  AT&amp;T  630  layer,
+       for   example,   where   the  size  of  a  screen  is  changeable  (see
+       <STRONG>ENVIRONMENT</STRONG>).
+
+       If the environment variable <STRONG>TERMINFO</STRONG>  is  defined,  any  program  using
+       <STRONG>curses</STRONG>  checks  for  a local terminal definition before checking in the
+       standard place.  For example, if <STRONG>TERM</STRONG>  is  set  to  <STRONG>att4424</STRONG>,  then  the
+       compiled terminal definition is found in
+
+           <STRONG>/usr/share/terminfo/a/att4424</STRONG>.
+
+       (The  <STRONG>a</STRONG> is copied from the first letter of <STRONG>att4424</STRONG> to avoid creation of
+       huge directories.)  However,  if  <STRONG>TERMINFO</STRONG>  is  set  to  <STRONG>$HOME/myterms</STRONG>,
+       <STRONG>curses</STRONG> first checks
+
+           <STRONG>$HOME/myterms/a/att4424</STRONG>,
+
+       and if that fails, it then checks
+
+           <STRONG>/usr/share/terminfo/a/att4424</STRONG>.
+
+       This  is  useful  for developing experimental definitions or when write
+       permission in <STRONG>/usr/share/terminfo</STRONG> is not available.
+
+       The integer variables <STRONG>LINES</STRONG> and <STRONG>COLS</STRONG> are defined in <STRONG>&lt;curses.h&gt;</STRONG> and will
+       be  filled  in  by  <STRONG>initscr</STRONG> with the size of the screen.  The constants
+       <STRONG>TRUE</STRONG> and <STRONG>FALSE</STRONG> have the values <STRONG>1</STRONG> and <STRONG>0</STRONG>, respectively.
+
+       The <STRONG>curses</STRONG> routines also define the <STRONG>WINDOW</STRONG> <STRONG>*</STRONG> variable <STRONG>curscr</STRONG>  which  is
+       used  for  certain  low-level  operations like clearing and redrawing a
+       screen containing garbage.  The <STRONG>curscr</STRONG>  can  be  used  in  only  a  few
+       routines.
+
+
+</PRE><H3><a name="h3-Routine-and-Argument-Names">Routine and Argument Names</a></H3><PRE>
+       Many  <STRONG>curses</STRONG> routines have two or more versions.  The routines prefixed
+       with <STRONG>w</STRONG> require a window argument.  The routines prefixed with <STRONG>p</STRONG> require
+       a pad argument.  Those without a prefix generally use <STRONG>stdscr</STRONG>.
+
+       The  routines  prefixed with <STRONG>mv</STRONG> require a <EM>y</EM> and <EM>x</EM> coordinate to move to
+       before performing the appropriate action.  The <STRONG>mv</STRONG> routines imply a call
+       to  <STRONG>move</STRONG> before the call to the other routine.  The coordinate <EM>y</EM> always
+       refers to the row (of the window), and <EM>x</EM> always refers to  the  column.
+       The upper left-hand corner is always (0,0), not (1,1).
+
+       The  routines prefixed with <STRONG>mvw</STRONG> take both a window argument and <EM>x</EM> and <EM>y</EM>
+       coordinates.  The  window  argument  is  always  specified  before  the
+       coordinates.
+
+       In  each case, <EM>win</EM> is the window affected, and <EM>pad</EM> is the pad affected;
+       <EM>win</EM> and <EM>pad</EM> are always pointers to type <STRONG>WINDOW</STRONG>.
+
+       Option setting routines require a Boolean flag <EM>bf</EM> with the  value  <STRONG>TRUE</STRONG>
+       or  <STRONG>FALSE</STRONG>;  <EM>bf</EM>  is always of type <STRONG>bool</STRONG>.  Most of the data types used in
+       the library routines, such as <STRONG>WINDOW</STRONG>,  <STRONG>SCREEN</STRONG>,  <STRONG>bool</STRONG>,  and  <STRONG>chtype</STRONG>  are
+       defined  in  <STRONG>&lt;curses.h&gt;</STRONG>.   Types used for the terminfo routines such as
+       <STRONG>TERMINAL</STRONG> are defined in <STRONG>&lt;term.h&gt;</STRONG>.
+
+       This  manual  page  describes  functions  which  may  appear   in   any
+       configuration  of  the library.  There are two common configurations of
+       the library:
+
+          <EM>ncurses</EM>
+               the "normal" library,  which  handles  8-bit  characters.   The
+               normal   (8-bit)   library   stores  characters  combined  with
+               attributes in <STRONG>chtype</STRONG> data.
+
+               Attributes alone (no corresponding character) may be stored  in
+               <STRONG>chtype</STRONG> or the equivalent <STRONG>attr_t</STRONG> data.  In either case, the data
+               is stored in something like an integer.
+
+               Each cell (row and column) in a <STRONG>WINDOW</STRONG> is stored as a <STRONG>chtype</STRONG>.
+
+          <EM>ncursesw</EM>
+               the  so-called  "wide"   library,   which   handles   multibyte
+               characters  (see the section on <STRONG>ALTERNATE</STRONG> <STRONG>CONFIGURATIONS</STRONG>).  The
+               "wide" library includes all of  the  calls  from  the  "normal"
+               library.   It  adds about one third more calls using data types
+               which store multibyte characters:
+
+               <STRONG>cchar_t</STRONG>
+                    corresponds to <STRONG>chtype</STRONG>.  However it is a structure, because
+                    more  data  is  stored  than can fit into an integer.  The
+                    characters are large enough  to  require  a  full  integer
+                    value - and there may be more than one character per cell.
+                    The video attributes and  color  are  stored  in  separate
+                    fields of the structure.
+
+                    Each  cell  (row  and  column)  in a <STRONG>WINDOW</STRONG> is stored as a
+                    <STRONG>cchar_t</STRONG>.
+
+                    The <STRONG><A HREF="curs_getcchar.3x.html">setcchar(3x)</A></STRONG>  and  <STRONG><A HREF="curs_getcchar.3x.html">getcchar(3x)</A></STRONG>  functions  store  and
+                    retrieve the data from a <STRONG>cchar_t</STRONG> structure.
+
+               <STRONG>wchar_t</STRONG>
+                    stores  a  "wide"  character.  Like <STRONG>chtype</STRONG>, this may be an
+                    integer.
+
+               <STRONG>wint_t</STRONG>
+                    stores a <STRONG>wchar_t</STRONG> or <STRONG>WEOF</STRONG> - not the same, though  both  may
+                    have the same size.
+
+               The  "wide"  library provides new functions which are analogous
+               to functions in  the  "normal"  library.   There  is  a  naming
+               convention  which  relates  many of the normal/wide variants: a
+               "_w" is inserted into the name.  For  example,  <STRONG>waddch</STRONG>  becomes
+               <STRONG>wadd_wch</STRONG>.
+
+
+</PRE><H3><a name="h3-Routine-Name-Index">Routine Name Index</a></H3><PRE>
+       The  following table lists the <STRONG>curses</STRONG> routines provided in the "normal"
+       and "wide" libraries and the names of the manual pages  on  which  they
+       are  described.   Routines  flagged  with "*" are ncurses-specific, not
+       described by XPG4 or present in SVr4.
+
+                    <STRONG>curses</STRONG> Routine Name      Manual Page Name
+                    ---------------------------------------------
+                    COLOR_PAIR               <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>
+                    PAIR_NUMBER              <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    add_wch                  <STRONG><A HREF="curs_add_wch.3x.html">curs_add_wch(3x)</A></STRONG>
+                    add_wchnstr              <STRONG><A HREF="curs_add_wchstr.3x.html">curs_add_wchstr(3x)</A></STRONG>
+                    add_wchstr               <STRONG><A HREF="curs_add_wchstr.3x.html">curs_add_wchstr(3x)</A></STRONG>
+                    addch                    <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>
+                    addchnstr                <STRONG><A HREF="curs_addchstr.3x.html">curs_addchstr(3x)</A></STRONG>
+                    addchstr                 <STRONG><A HREF="curs_addchstr.3x.html">curs_addchstr(3x)</A></STRONG>
+                    addnstr                  <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>
+                    addnwstr                 <STRONG><A HREF="curs_addwstr.3x.html">curs_addwstr(3x)</A></STRONG>
+                    addstr                   <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>
+                    addwstr                  <STRONG><A HREF="curs_addwstr.3x.html">curs_addwstr(3x)</A></STRONG>
+                    alloc_pair               <STRONG><A HREF="new_pair.3x.html">new_pair(3x)</A></STRONG>*
+                    assume_default_colors    <STRONG><A HREF="default_colors.3x.html">default_colors(3x)</A></STRONG>*
+                    attr_get                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    attr_off                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    attr_on                  <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    attr_set                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    attroff                  <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    attron                   <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    attrset                  <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    baudrate                 <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    beep                     <STRONG><A HREF="curs_beep.3x.html">curs_beep(3x)</A></STRONG>
+                    bkgd                     <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>
+                    bkgdset                  <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>
+                    bkgrnd                   <STRONG><A HREF="curs_bkgrnd.3x.html">curs_bkgrnd(3x)</A></STRONG>
+                    bkgrndset                <STRONG><A HREF="curs_bkgrnd.3x.html">curs_bkgrnd(3x)</A></STRONG>
+                    border                   <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+
+                    border_set               <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    box                      <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    box_set                  <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    can_change_color         <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>
+                    cbreak                   <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    chgat                    <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    clear                    <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+                    clearok                  <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>
+                    clrtobot                 <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+                    clrtoeol                 <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+                    color_content            <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>
+                    color_set                <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    copywin                  <STRONG><A HREF="curs_overlay.3x.html">curs_overlay(3x)</A></STRONG>
+                    curs_set                 <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    curses_trace             <STRONG><A HREF="curs_trace.3x.html">curs_trace(3x)</A></STRONG>*
+                    curses_version           <STRONG><A HREF="curs_extend.3x.html">curs_extend(3x)</A></STRONG>*
+                    def_prog_mode            <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    def_shell_mode           <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    define_key               <STRONG><A HREF="define_key.3x.html">define_key(3x)</A></STRONG>*
+                    del_curterm              <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    delay_output             <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    delch                    <STRONG><A HREF="curs_delch.3x.html">curs_delch(3x)</A></STRONG>
+                    deleteln                 <STRONG><A HREF="curs_deleteln.3x.html">curs_deleteln(3x)</A></STRONG>
+                    delscreen                <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>
+                    delwin                   <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    derwin                   <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    doupdate                 <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>
+                    dupwin                   <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    echo                     <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    echo_wchar               <STRONG><A HREF="curs_add_wch.3x.html">curs_add_wch(3x)</A></STRONG>
+                    echochar                 <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>
+                    endwin                   <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>
+                    erase                    <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+                    erasechar                <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    erasewchar               <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    exit_curses              <STRONG><A HREF="curs_memleaks.3x.html">curs_memleaks(3x)</A></STRONG>*
+                    exit_terminfo            <STRONG><A HREF="curs_memleaks.3x.html">curs_memleaks(3x)</A></STRONG>*
+                    extended_color_content   <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>*
+                    extended_pair_content    <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>*
+                    extended_slk_color       <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>*
+                    filter                   <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    find_pair                <STRONG><A HREF="new_pair.3x.html">new_pair(3x)</A></STRONG>*
+                    flash                    <STRONG><A HREF="curs_beep.3x.html">curs_beep(3x)</A></STRONG>
+                    flushinp                 <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    free_pair                <STRONG><A HREF="new_pair.3x.html">new_pair(3x)</A></STRONG>*
+                    get_wch                  <STRONG><A HREF="curs_get_wch.3x.html">curs_get_wch(3x)</A></STRONG>
+                    get_wstr                 <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+                    getattrs                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    getbegx                  <STRONG><A HREF="curs_legacy.3x.html">curs_legacy(3x)</A></STRONG>*
+                    getbegy                  <STRONG><A HREF="curs_legacy.3x.html">curs_legacy(3x)</A></STRONG>*
+                    getbegyx                 <STRONG><A HREF="curs_getyx.3x.html">curs_getyx(3x)</A></STRONG>
+                    getbkgd                  <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>
+                    getbkgrnd                <STRONG><A HREF="curs_bkgrnd.3x.html">curs_bkgrnd(3x)</A></STRONG>
+                    getcchar                 <STRONG><A HREF="curs_getcchar.3x.html">curs_getcchar(3x)</A></STRONG>
+                    getch                    <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>
+                    getcurx                  <STRONG><A HREF="curs_legacy.3x.html">curs_legacy(3x)</A></STRONG>*
+                    getcury                  <STRONG><A HREF="curs_legacy.3x.html">curs_legacy(3x)</A></STRONG>*
+                    getmaxx                  <STRONG><A HREF="curs_legacy.3x.html">curs_legacy(3x)</A></STRONG>*
+                    getmaxy                  <STRONG><A HREF="curs_legacy.3x.html">curs_legacy(3x)</A></STRONG>*
+                    getmaxyx                 <STRONG><A HREF="curs_getyx.3x.html">curs_getyx(3x)</A></STRONG>
+                    getmouse                 <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>*
+                    getn_wstr                <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+                    getnstr                  <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+                    getparx                  <STRONG><A HREF="curs_legacy.3x.html">curs_legacy(3x)</A></STRONG>*
+                    getpary                  <STRONG><A HREF="curs_legacy.3x.html">curs_legacy(3x)</A></STRONG>*
+
+                    getparyx                 <STRONG><A HREF="curs_getyx.3x.html">curs_getyx(3x)</A></STRONG>
+                    getstr                   <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+                    getsyx                   <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    getwin                   <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    getyx                    <STRONG><A HREF="curs_getyx.3x.html">curs_getyx(3x)</A></STRONG>
+                    halfdelay                <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    has_colors               <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>
+                    has_ic                   <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    has_il                   <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    has_key                  <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>*
+                    has_mouse                <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>*
+                    hline                    <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    hline_set                <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    idcok                    <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>
+                    idlok                    <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>
+                    immedok                  <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>
+                    in_wch                   <STRONG><A HREF="curs_in_wch.3x.html">curs_in_wch(3x)</A></STRONG>
+                    in_wchnstr               <STRONG><A HREF="curs_in_wchstr.3x.html">curs_in_wchstr(3x)</A></STRONG>
+                    in_wchstr                <STRONG><A HREF="curs_in_wchstr.3x.html">curs_in_wchstr(3x)</A></STRONG>
+                    inch                     <STRONG><A HREF="curs_inch.3x.html">curs_inch(3x)</A></STRONG>
+                    inchnstr                 <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+                    inchstr                  <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+                    init_color               <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>
+                    init_extended_color      <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>*
+                    init_extended_pair       <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>*
+                    init_pair                <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>
+                    initscr                  <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>
+                    innstr                   <STRONG><A HREF="curs_instr.3x.html">curs_instr(3x)</A></STRONG>
+                    innwstr                  <STRONG><A HREF="curs_inwstr.3x.html">curs_inwstr(3x)</A></STRONG>
+                    ins_nwstr                <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+                    ins_wch                  <STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>
+                    ins_wstr                 <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+                    insch                    <STRONG><A HREF="curs_insch.3x.html">curs_insch(3x)</A></STRONG>
+                    insdelln                 <STRONG><A HREF="curs_deleteln.3x.html">curs_deleteln(3x)</A></STRONG>
+                    insertln                 <STRONG><A HREF="curs_deleteln.3x.html">curs_deleteln(3x)</A></STRONG>
+                    insnstr                  <STRONG><A HREF="curs_insstr.3x.html">curs_insstr(3x)</A></STRONG>
+                    insstr                   <STRONG><A HREF="curs_insstr.3x.html">curs_insstr(3x)</A></STRONG>
+                    instr                    <STRONG><A HREF="curs_instr.3x.html">curs_instr(3x)</A></STRONG>
+                    intrflush                <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    inwstr                   <STRONG><A HREF="curs_inwstr.3x.html">curs_inwstr(3x)</A></STRONG>
+                    is_cleared               <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_idcok                 <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_idlok                 <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_immedok               <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_keypad                <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_leaveok               <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_linetouched           <STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>
+                    is_nodelay               <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_notimeout             <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_pad                   <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_scrollok              <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_subwin                <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_syncok                <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    is_term_resized          <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>*
+                    is_wintouched            <STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>
+                    isendwin                 <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>
+                    key_defined              <STRONG><A HREF="key_defined.3x.html">key_defined(3x)</A></STRONG>*
+                    key_name                 <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    keybound                 <STRONG><A HREF="keybound.3x.html">keybound(3x)</A></STRONG>*
+                    keyname                  <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    keyok                    <STRONG><A HREF="keyok.3x.html">keyok(3x)</A></STRONG>*
+                    keypad                   <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    killchar                 <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    killwchar                <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    leaveok                  <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>
+
+                    longname                 <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    mcprint                  <STRONG><A HREF="curs_print.3x.html">curs_print(3x)</A></STRONG>*
+                    meta                     <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    mouse_trafo              <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>*
+                    mouseinterval            <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>*
+                    mousemask                <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>*
+                    move                     <STRONG><A HREF="curs_move.3x.html">curs_move(3x)</A></STRONG>
+                    mvadd_wch                <STRONG><A HREF="curs_add_wch.3x.html">curs_add_wch(3x)</A></STRONG>
+                    mvadd_wchnstr            <STRONG><A HREF="curs_add_wchstr.3x.html">curs_add_wchstr(3x)</A></STRONG>
+                    mvadd_wchstr             <STRONG><A HREF="curs_add_wchstr.3x.html">curs_add_wchstr(3x)</A></STRONG>
+                    mvaddch                  <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>
+                    mvaddchnstr              <STRONG><A HREF="curs_addchstr.3x.html">curs_addchstr(3x)</A></STRONG>
+                    mvaddchstr               <STRONG><A HREF="curs_addchstr.3x.html">curs_addchstr(3x)</A></STRONG>
+                    mvaddnstr                <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>
+                    mvaddnwstr               <STRONG><A HREF="curs_addwstr.3x.html">curs_addwstr(3x)</A></STRONG>
+                    mvaddstr                 <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>
+                    mvaddwstr                <STRONG><A HREF="curs_addwstr.3x.html">curs_addwstr(3x)</A></STRONG>
+                    mvchgat                  <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    mvcur                    <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    mvdelch                  <STRONG><A HREF="curs_delch.3x.html">curs_delch(3x)</A></STRONG>
+                    mvderwin                 <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    mvget_wch                <STRONG><A HREF="curs_get_wch.3x.html">curs_get_wch(3x)</A></STRONG>
+                    mvget_wstr               <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+                    mvgetch                  <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>
+                    mvgetn_wstr              <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+                    mvgetnstr                <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+                    mvgetstr                 <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+                    mvhline                  <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    mvhline_set              <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    mvin_wch                 <STRONG><A HREF="curs_in_wch.3x.html">curs_in_wch(3x)</A></STRONG>
+                    mvin_wchnstr             <STRONG><A HREF="curs_in_wchstr.3x.html">curs_in_wchstr(3x)</A></STRONG>
+                    mvin_wchstr              <STRONG><A HREF="curs_in_wchstr.3x.html">curs_in_wchstr(3x)</A></STRONG>
+                    mvinch                   <STRONG><A HREF="curs_inch.3x.html">curs_inch(3x)</A></STRONG>
+                    mvinchnstr               <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+                    mvinchstr                <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+                    mvinnstr                 <STRONG><A HREF="curs_instr.3x.html">curs_instr(3x)</A></STRONG>
+                    mvinnwstr                <STRONG><A HREF="curs_inwstr.3x.html">curs_inwstr(3x)</A></STRONG>
+                    mvins_nwstr              <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+                    mvins_wch                <STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>
+                    mvins_wstr               <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+                    mvinsch                  <STRONG><A HREF="curs_insch.3x.html">curs_insch(3x)</A></STRONG>
+                    mvinsnstr                <STRONG><A HREF="curs_insstr.3x.html">curs_insstr(3x)</A></STRONG>
+                    mvinsstr                 <STRONG><A HREF="curs_insstr.3x.html">curs_insstr(3x)</A></STRONG>
+                    mvinstr                  <STRONG><A HREF="curs_instr.3x.html">curs_instr(3x)</A></STRONG>
+                    mvinwstr                 <STRONG><A HREF="curs_inwstr.3x.html">curs_inwstr(3x)</A></STRONG>
+                    mvprintw                 <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
+                    mvscanw                  <STRONG><A HREF="curs_scanw.3x.html">curs_scanw(3x)</A></STRONG>
+                    mvvline                  <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    mvvline_set              <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    mvwadd_wch               <STRONG><A HREF="curs_add_wch.3x.html">curs_add_wch(3x)</A></STRONG>
+                    mvwadd_wchnstr           <STRONG><A HREF="curs_add_wchstr.3x.html">curs_add_wchstr(3x)</A></STRONG>
+                    mvwadd_wchstr            <STRONG><A HREF="curs_add_wchstr.3x.html">curs_add_wchstr(3x)</A></STRONG>
+                    mvwaddch                 <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>
+                    mvwaddchnstr             <STRONG><A HREF="curs_addchstr.3x.html">curs_addchstr(3x)</A></STRONG>
+                    mvwaddchstr              <STRONG><A HREF="curs_addchstr.3x.html">curs_addchstr(3x)</A></STRONG>
+                    mvwaddnstr               <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>
+                    mvwaddnwstr              <STRONG><A HREF="curs_addwstr.3x.html">curs_addwstr(3x)</A></STRONG>
+                    mvwaddstr                <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>
+                    mvwaddwstr               <STRONG><A HREF="curs_addwstr.3x.html">curs_addwstr(3x)</A></STRONG>
+                    mvwchgat                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    mvwdelch                 <STRONG><A HREF="curs_delch.3x.html">curs_delch(3x)</A></STRONG>
+                    mvwget_wch               <STRONG><A HREF="curs_get_wch.3x.html">curs_get_wch(3x)</A></STRONG>
+                    mvwget_wstr              <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+                    mvwgetch                 <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>
+                    mvwgetn_wstr             <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+
+                    mvwgetnstr               <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+                    mvwgetstr                <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+                    mvwhline                 <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    mvwhline_set             <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    mvwin                    <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    mvwin_wch                <STRONG><A HREF="curs_in_wch.3x.html">curs_in_wch(3x)</A></STRONG>
+                    mvwin_wchnstr            <STRONG><A HREF="curs_in_wchstr.3x.html">curs_in_wchstr(3x)</A></STRONG>
+                    mvwin_wchstr             <STRONG><A HREF="curs_in_wchstr.3x.html">curs_in_wchstr(3x)</A></STRONG>
+                    mvwinch                  <STRONG><A HREF="curs_inch.3x.html">curs_inch(3x)</A></STRONG>
+                    mvwinchnstr              <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+                    mvwinchstr               <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+                    mvwinnstr                <STRONG><A HREF="curs_instr.3x.html">curs_instr(3x)</A></STRONG>
+                    mvwinnwstr               <STRONG><A HREF="curs_inwstr.3x.html">curs_inwstr(3x)</A></STRONG>
+                    mvwins_nwstr             <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+                    mvwins_wch               <STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>
+                    mvwins_wstr              <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+                    mvwinsch                 <STRONG><A HREF="curs_insch.3x.html">curs_insch(3x)</A></STRONG>
+                    mvwinsnstr               <STRONG><A HREF="curs_insstr.3x.html">curs_insstr(3x)</A></STRONG>
+                    mvwinsstr                <STRONG><A HREF="curs_insstr.3x.html">curs_insstr(3x)</A></STRONG>
+                    mvwinstr                 <STRONG><A HREF="curs_instr.3x.html">curs_instr(3x)</A></STRONG>
+                    mvwinwstr                <STRONG><A HREF="curs_inwstr.3x.html">curs_inwstr(3x)</A></STRONG>
+                    mvwprintw                <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
+                    mvwscanw                 <STRONG><A HREF="curs_scanw.3x.html">curs_scanw(3x)</A></STRONG>
+                    mvwvline                 <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    mvwvline_set             <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    napms                    <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    newpad                   <STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>
+                    newterm                  <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>
+                    newwin                   <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    nl                       <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    nocbreak                 <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    nodelay                  <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    noecho                   <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    nofilter                 <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>*
+                    nonl                     <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    noqiflush                <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    noraw                    <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    notimeout                <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    overlay                  <STRONG><A HREF="curs_overlay.3x.html">curs_overlay(3x)</A></STRONG>
+                    overwrite                <STRONG><A HREF="curs_overlay.3x.html">curs_overlay(3x)</A></STRONG>
+                    pair_content             <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>
+                    pecho_wchar              <STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>*
+                    pechochar                <STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>
+                    pnoutrefresh             <STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>
+                    prefresh                 <STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>
+                    printw                   <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
+                    putp                     <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    putwin                   <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    qiflush                  <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    raw                      <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    redrawwin                <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>
+                    refresh                  <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>
+                    reset_color_pairs        <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>*
+                    reset_prog_mode          <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    reset_shell_mode         <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    resetty                  <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    resize_term              <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>*
+                    resizeterm               <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>*
+                    restartterm              <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    ripoffline               <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    savetty                  <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    scanw                    <STRONG><A HREF="curs_scanw.3x.html">curs_scanw(3x)</A></STRONG>
+                    scr_dump                 <STRONG><A HREF="curs_scr_dump.3x.html">curs_scr_dump(3x)</A></STRONG>
+                    scr_init                 <STRONG><A HREF="curs_scr_dump.3x.html">curs_scr_dump(3x)</A></STRONG>
+                    scr_restore              <STRONG><A HREF="curs_scr_dump.3x.html">curs_scr_dump(3x)</A></STRONG>
+
+                    scr_set                  <STRONG><A HREF="curs_scr_dump.3x.html">curs_scr_dump(3x)</A></STRONG>
+                    scrl                     <STRONG><A HREF="curs_scroll.3x.html">curs_scroll(3x)</A></STRONG>
+                    scroll                   <STRONG><A HREF="curs_scroll.3x.html">curs_scroll(3x)</A></STRONG>
+                    scrollok                 <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>
+                    set_curterm              <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    set_term                 <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>
+                    setcchar                 <STRONG><A HREF="curs_getcchar.3x.html">curs_getcchar(3x)</A></STRONG>
+                    setscrreg                <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>
+                    setsyx                   <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+                    setupterm                <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    slk_attr                 <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>*
+                    slk_attr_off             <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_attr_on              <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_attr_set             <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_attroff              <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_attron               <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_attrset              <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_clear                <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_color                <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_init                 <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_label                <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_noutrefresh          <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_refresh              <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_restore              <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_set                  <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_touch                <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+                    slk_wset                 <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>*
+                    standend                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    standout                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    start_color              <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>
+                    subpad                   <STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>
+                    subwin                   <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    syncok                   <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    term_attrs               <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    termattrs                <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    termname                 <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>
+                    tgetent                  <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>
+                    tgetflag                 <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>
+                    tgetnum                  <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>
+                    tgetstr                  <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>
+                    tgoto                    <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>
+                    tigetflag                <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    tigetnum                 <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    tigetstr                 <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    timeout                  <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    tiparm                   <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>*
+                    touchline                <STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>
+                    touchwin                 <STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>
+                    tparm                    <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    tputs                    <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>
+                    tputs                    <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    trace                    <STRONG><A HREF="curs_trace.3x.html">curs_trace(3x)</A></STRONG>*
+                    typeahead                <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    unctrl                   <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    unget_wch                <STRONG><A HREF="curs_get_wch.3x.html">curs_get_wch(3x)</A></STRONG>
+                    ungetch                  <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>
+                    ungetmouse               <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>*
+                    untouchwin               <STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>
+                    use_default_colors       <STRONG><A HREF="default_colors.3x.html">default_colors(3x)</A></STRONG>*
+                    use_env                  <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    use_extended_names       <STRONG><A HREF="curs_extend.3x.html">curs_extend(3x)</A></STRONG>*
+                    use_legacy_coding        <STRONG><A HREF="legacy_coding.3x.html">legacy_coding(3x)</A></STRONG>*
+                    use_tioctl               <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>*
+                    vid_attr                 <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    vid_puts                 <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+
+                    vidattr                  <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    vidputs                  <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>
+                    vline                    <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    vline_set                <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    vw_printw                <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
+                    vw_scanw                 <STRONG><A HREF="curs_scanw.3x.html">curs_scanw(3x)</A></STRONG>
+                    vwprintw                 <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
+                    vwscanw                  <STRONG><A HREF="curs_scanw.3x.html">curs_scanw(3x)</A></STRONG>
+                    wadd_wch                 <STRONG><A HREF="curs_add_wch.3x.html">curs_add_wch(3x)</A></STRONG>
+                    wadd_wchnstr             <STRONG><A HREF="curs_add_wchstr.3x.html">curs_add_wchstr(3x)</A></STRONG>
+                    wadd_wchstr              <STRONG><A HREF="curs_add_wchstr.3x.html">curs_add_wchstr(3x)</A></STRONG>
+                    waddch                   <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>
+                    waddchnstr               <STRONG><A HREF="curs_addchstr.3x.html">curs_addchstr(3x)</A></STRONG>
+                    waddchstr                <STRONG><A HREF="curs_addchstr.3x.html">curs_addchstr(3x)</A></STRONG>
+                    waddnstr                 <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>
+                    waddnwstr                <STRONG><A HREF="curs_addwstr.3x.html">curs_addwstr(3x)</A></STRONG>
+                    waddstr                  <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>
+                    waddwstr                 <STRONG><A HREF="curs_addwstr.3x.html">curs_addwstr(3x)</A></STRONG>
+                    wattr_get                <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wattr_off                <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wattr_on                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wattr_set                <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wattroff                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wattron                  <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wattrset                 <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wbkgd                    <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>
+                    wbkgdset                 <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>
+                    wbkgrnd                  <STRONG><A HREF="curs_bkgrnd.3x.html">curs_bkgrnd(3x)</A></STRONG>
+                    wbkgrndset               <STRONG><A HREF="curs_bkgrnd.3x.html">curs_bkgrnd(3x)</A></STRONG>
+                    wborder                  <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    wborder_set              <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    wchgat                   <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wclear                   <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+                    wclrtobot                <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+                    wclrtoeol                <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+                    wcolor_set               <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wcursyncup               <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    wdelch                   <STRONG><A HREF="curs_delch.3x.html">curs_delch(3x)</A></STRONG>
+                    wdeleteln                <STRONG><A HREF="curs_deleteln.3x.html">curs_deleteln(3x)</A></STRONG>
+                    wecho_wchar              <STRONG><A HREF="curs_add_wch.3x.html">curs_add_wch(3x)</A></STRONG>
+                    wechochar                <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>
+                    wenclose                 <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>*
+                    werase                   <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+                    wget_wch                 <STRONG><A HREF="curs_get_wch.3x.html">curs_get_wch(3x)</A></STRONG>
+                    wget_wstr                <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+                    wgetbkgrnd               <STRONG><A HREF="curs_bkgrnd.3x.html">curs_bkgrnd(3x)</A></STRONG>
+                    wgetch                   <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>
+                    wgetdelay                <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    wgetn_wstr               <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+                    wgetnstr                 <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+                    wgetparent               <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    wgetscrreg               <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>*
+                    wgetstr                  <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+                    whline                   <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    whline_set               <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+                    win_wch                  <STRONG><A HREF="curs_in_wch.3x.html">curs_in_wch(3x)</A></STRONG>
+                    win_wchnstr              <STRONG><A HREF="curs_in_wchstr.3x.html">curs_in_wchstr(3x)</A></STRONG>
+                    win_wchstr               <STRONG><A HREF="curs_in_wchstr.3x.html">curs_in_wchstr(3x)</A></STRONG>
+                    winch                    <STRONG><A HREF="curs_inch.3x.html">curs_inch(3x)</A></STRONG>
+                    winchnstr                <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+                    winchstr                 <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+                    winnstr                  <STRONG><A HREF="curs_instr.3x.html">curs_instr(3x)</A></STRONG>
+                    winnwstr                 <STRONG><A HREF="curs_inwstr.3x.html">curs_inwstr(3x)</A></STRONG>
+                    wins_nwstr               <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+                    wins_wch                 <STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>
+
+                    wins_wstr                <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+                    winsch                   <STRONG><A HREF="curs_insch.3x.html">curs_insch(3x)</A></STRONG>
+                    winsdelln                <STRONG><A HREF="curs_deleteln.3x.html">curs_deleteln(3x)</A></STRONG>
+                    winsertln                <STRONG><A HREF="curs_deleteln.3x.html">curs_deleteln(3x)</A></STRONG>
+                    winsnstr                 <STRONG><A HREF="curs_insstr.3x.html">curs_insstr(3x)</A></STRONG>
+                    winsstr                  <STRONG><A HREF="curs_insstr.3x.html">curs_insstr(3x)</A></STRONG>
+                    winstr                   <STRONG><A HREF="curs_instr.3x.html">curs_instr(3x)</A></STRONG>
+                    winwstr                  <STRONG><A HREF="curs_inwstr.3x.html">curs_inwstr(3x)</A></STRONG>
+                    wmouse_trafo             <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>*
+                    wmove                    <STRONG><A HREF="curs_move.3x.html">curs_move(3x)</A></STRONG>
+                    wnoutrefresh             <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>
+                    wprintw                  <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
+                    wredrawln                <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>
+                    wrefresh                 <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>
+                    wresize                  <STRONG><A HREF="wresize.3x.html">wresize(3x)</A></STRONG>*
+                    wscanw                   <STRONG><A HREF="curs_scanw.3x.html">curs_scanw(3x)</A></STRONG>
+                    wscrl                    <STRONG><A HREF="curs_scroll.3x.html">curs_scroll(3x)</A></STRONG>
+                    wsetscrreg               <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>
+                    wstandend                <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wstandout                <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+                    wsyncdown                <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    wsyncup                  <STRONG><A HREF="curs_window.3x.html">curs_window(3x)</A></STRONG>
+                    wtimeout                 <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+                    wtouchln                 <STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>
+                    wunctrl                  <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>
+                    wvline                   <STRONG><A HREF="curs_border.3x.html">curs_border(3x)</A></STRONG>
+                    wvline_set               <STRONG><A HREF="curs_border_set.3x.html">curs_border_set(3x)</A></STRONG>
+
+       Depending on the configuration, additional sets  of  functions  may  be
+       available:
+
+          <STRONG><A HREF="curs_memleaks.3x.html">curs_memleaks(3x)</A></STRONG> - curses memory-leak checking
+
+          <STRONG><A HREF="curs_sp_funcs.3x.html">curs_sp_funcs(3x)</A></STRONG> - curses screen-pointer extension
+
+          <STRONG><A HREF="curs_threads.3x.html">curs_threads(3x)</A></STRONG> - curses thread support
+
+          <STRONG><A HREF="curs_trace.3x.html">curs_trace(3x)</A></STRONG> - curses debugging routines
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Routines  that return an integer return <STRONG>ERR</STRONG> upon failure and an integer
+       value other than <STRONG>ERR</STRONG> upon successful completion, unless otherwise noted
+       in the routine descriptions.
+
+       As  a  general  rule,  routines  check  for  null  pointers  passed  as
+       parameters, and handle this as an error.
+
+       All macros return  the  value  of  the  <STRONG>w</STRONG>  version,  except  <STRONG>setscrreg</STRONG>,
+       <STRONG>wsetscrreg</STRONG>,  <STRONG>getyx</STRONG>,  <STRONG>getbegyx</STRONG>,  and  <STRONG>getmaxyx</STRONG>.   The  return  values of
+       <STRONG>setscrreg</STRONG>, <STRONG>wsetscrreg</STRONG>, <STRONG>getyx</STRONG>,  <STRONG>getbegyx</STRONG>,  and  <STRONG>getmaxyx</STRONG>  are  undefined
+       (i.e.,  these  should  not be used as the right-hand side of assignment
+       statements).
+
+       Functions with a "mv" prefix first  perform  a  cursor  movement  using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer  is  null.   Most  "mv"-prefixed  functions  (except
+       variadic  functions  such  as <STRONG>mvprintw</STRONG>) are provided both as macros and
+       functions.
+
+       Routines that return pointers return <STRONG>NULL</STRONG> on error.
+
+
+</PRE><H2><a name="h2-ENVIRONMENT">ENVIRONMENT</a></H2><PRE>
+       The following  environment  symbols  are  useful  for  customizing  the
+       runtime  behavior of the <STRONG>ncurses</STRONG> library.  The most important ones have
+       been already discussed in detail.
+
+
+</PRE><H3><a name="h3-CC-command-character">CC command-character</a></H3><PRE>
+       When set, change occurrences of the command_character (i.e., the  <STRONG>cmdch</STRONG>
+       capability)  of  the  loaded  terminfo  entries  to  the  value of this
+       variable.  Very few terminfo entries provide this feature.
+
+       Because this name is also used in development environments to represent
+       the C compiler's name, <STRONG>ncurses</STRONG> ignores it if it does not happen to be a
+       single character.
+
+
+</PRE><H3><a name="h3-BAUDRATE">BAUDRATE</a></H3><PRE>
+       The  debugging  library  checks  this  environment  variable  when  the
+       application  has  redirected  output to a file.  The variable's numeric
+       value is used for the baudrate.  If no value  is  found,  <STRONG>ncurses</STRONG>  uses
+       9600.  This allows testers to construct repeatable test-cases that take
+       into account costs that depend on baudrate.
+
+
+</PRE><H3><a name="h3-COLUMNS">COLUMNS</a></H3><PRE>
+       Specify the width of the screen in characters.  Applications running in
+       a  windowing  environment  usually  are able to obtain the width of the
+       window in which they are executing.  If neither the <STRONG>COLUMNS</STRONG>  value  nor
+       the  terminal's  screen  size is available, <STRONG>ncurses</STRONG> uses the size which
+       may be specified in the terminfo database (i.e., the <STRONG>cols</STRONG> capability).
+
+       It is important that your  application  use  a  correct  size  for  the
+       screen.   This  is  not always possible because your application may be
+       running on a host which does not honor NAWS (Negotiations About  Window
+       Size),  or  because  you  are  temporarily  running  as  another  user.
+       However, setting <STRONG>COLUMNS</STRONG> and/or <STRONG>LINES</STRONG> overrides the  library's  use  of
+       the screen size obtained from the operating system.
+
+       Either  <STRONG>COLUMNS</STRONG>  or <STRONG>LINES</STRONG> symbols may be specified independently.  This
+       is  mainly  useful  to  circumvent  legacy  misfeatures   of   terminal
+       descriptions,  e.g.,  xterm  which commonly specifies a 65 line screen.
+       For best results, <STRONG>lines</STRONG> and <STRONG>cols</STRONG> should not be specified in a  terminal
+       description for terminals which are run as emulations.
+
+       Use  the  <STRONG>use_env</STRONG>  function  to disable all use of external environment
+       (but not including system calls) to determine the screen size.  Use the
+       <STRONG>use_tioctl</STRONG> function to update <STRONG>COLUMNS</STRONG> or <STRONG>LINES</STRONG> to match the screen size
+       obtained from system calls or the terminal database.
+
+
+</PRE><H3><a name="h3-ESCDELAY">ESCDELAY</a></H3><PRE>
+       Specifies the total time, in milliseconds, for which ncurses will await
+       a  character  sequence,  e.g., a function key.  The default value, 1000
+       milliseconds, is enough for most uses.  However, it is made a  variable
+       to accommodate unusual applications.
+
+       The  most common instance where you may wish to change this value is to
+       work with slow hosts, e.g., running on a network.  If the  host  cannot
+       read  characters rapidly enough, it will have the same effect as if the
+       terminal did not send characters  rapidly  enough.   The  library  will
+       still see a timeout.
+
+       Note  that  xterm  mouse  events  are built up from character sequences
+       received from the xterm.   If  your  application  makes  heavy  use  of
+       multiple-clicking,  you may wish to lengthen this default value because
+       the timeout applies to the composed multi-click event as  well  as  the
+       individual clicks.
+
+       In addition to the environment variable, this implementation provides a
+       global variable with the same name.  Portable applications  should  not
+       rely  upon  the  presence  of  ESCDELAY in either form, but setting the
+       environment variable rather than the global variable  does  not  create
+       problems when compiling an application.
+
+
+</PRE><H3><a name="h3-HOME">HOME</a></H3><PRE>
+       Tells  <STRONG>ncurses</STRONG> where your home directory is.  That is where it may read
+       and write auxiliary terminal descriptions:
+
+           $HOME/.termcap
+           $HOME/.terminfo
+
+
+</PRE><H3><a name="h3-LINES">LINES</a></H3><PRE>
+       Like COLUMNS, specify the height of  the  screen  in  characters.   See
+       COLUMNS for a detailed description.
+
+
+</PRE><H3><a name="h3-MOUSE_BUTTONS_123">MOUSE_BUTTONS_123</a></H3><PRE>
+       This  applies  only  to  the  OS/2 EMX port.  It specifies the order of
+       buttons on the mouse.  OS/2 numbers  a  3-button  mouse  inconsistently
+       from other platforms:
+
+           1 = left
+           2 = right
+           3 = middle.
+
+       This variable lets you customize the mouse.  The variable must be three
+       numeric digits 1-3 in any order, e.g.,  123  or  321.   If  it  is  not
+       specified, <STRONG>ncurses</STRONG> uses 132.
+
+
+</PRE><H3><a name="h3-NCURSES_ASSUMED_COLORS">NCURSES_ASSUMED_COLORS</a></H3><PRE>
+       Override  the compiled-in assumption that the terminal's default colors
+       are  white-on-black  (see  <STRONG><A HREF="default_colors.3x.html">default_colors(3x)</A></STRONG>).   You   may   set   the
+       foreground  and  background color values with this environment variable
+       by proving a 2-element list: foreground,background.   For  example,  to
+       tell  ncurses  to  not  assume  anything  about the colors, set this to
+       "-1,-1".  To make it green-on-black, set it  to  "2,0".   Any  positive
+       value from zero to the terminfo <STRONG>max_colors</STRONG> value is allowed.
+
+
+</PRE><H3><a name="h3-NCURSES_CONSOLE2">NCURSES_CONSOLE2</a></H3><PRE>
+       This applies only to the MinGW port of ncurses.
+
+       The  <STRONG>Console2</STRONG>  program's  handling  of  the  Microsoft Console API call
+       <STRONG>CreateConsoleScreenBuffer</STRONG> is defective.  Applications  which  use  this
+       will hang.  However, it is possible to simulate the action of this call
+       by mapping coordinates, explicitly saving and  restoring  the  original
+       screen  contents.   Setting the environment variable <STRONG>NCGDB</STRONG> has the same
+       effect.
+
+
+</PRE><H3><a name="h3-NCURSES_GPM_TERMS">NCURSES_GPM_TERMS</a></H3><PRE>
+       This applies only to ncurses configured to use the GPM interface.
+
+       If present, the environment variable is a list of one or more  terminal
+       names  against which the <STRONG>TERM</STRONG> environment variable is matched.  Setting
+       it to an empty value disables the GPM  interface;  using  the  built-in
+       support for xterm, etc.
+
+       If the environment variable is absent, ncurses will attempt to open GPM
+       if <STRONG>TERM</STRONG> contains "linux".
+
+
+</PRE><H3><a name="h3-NCURSES_NO_HARD_TABS">NCURSES_NO_HARD_TABS</a></H3><PRE>
+       <STRONG>Ncurses</STRONG> may use tabs as part of the cursor movement  optimization.   In
+       some  cases,  your  terminal driver may not handle these properly.  Set
+       this environment variable to disable the feature.  You can also  adjust
+       your <STRONG>stty</STRONG> settings to avoid the problem.
+
+
+</PRE><H3><a name="h3-NCURSES_NO_MAGIC_COOKIE">NCURSES_NO_MAGIC_COOKIE</a></H3><PRE>
+       Some  terminals  use  a  magic-cookie  feature  which  requires special
+       handling to  make  highlighting  and  other  video  attributes  display
+       properly.   You  can  suppress  the  highlighting  entirely  for  these
+       terminals by setting this environment variable.
+
+
+</PRE><H3><a name="h3-NCURSES_NO_PADDING">NCURSES_NO_PADDING</a></H3><PRE>
+       Most of the terminal descriptions in the terminfo database are  written
+       for  real  "hardware"  terminals.   Many  people use terminal emulators
+       which run in a windowing environment and use curses-based applications.
+       Terminal  emulators  can  duplicate  all  of the important aspects of a
+       hardware terminal, but they do not  have  the  same  limitations.   The
+       chief  limitation  of  a  hardware terminal from the standpoint of your
+       application is the management of  dataflow,  i.e.,  timing.   Unless  a
+       hardware  terminal  is  interfaced  into a terminal concentrator (which
+       does flow control), it (or  your  application)  must  manage  dataflow,
+       preventing  overruns.   The cheapest solution (no hardware cost) is for
+       your program to do this by pausing after operations that  the  terminal
+       does slowly, such as clearing the display.
+
+       As  a  result,  many  terminal  descriptions (including the vt100) have
+       delay times embedded.  You may wish to use these descriptions, but  not
+       want to pay the performance penalty.
+
+       Set  the  NCURSES_NO_PADDING  environment  variable  to disable all but
+       mandatory padding.  Mandatory padding is used  as  a  part  of  special
+       control sequences such as <EM>flash</EM>.
+
+
+</PRE><H3><a name="h3-NCURSES_NO_SETBUF">NCURSES_NO_SETBUF</a></H3><PRE>
+       This setting is obsolete.  Before changes
+
+          <STRONG>o</STRONG>   started with 5.9 patch 20120825 and
+
+          <STRONG>o</STRONG>   continued though 5.9 patch 20130126
+
+       <STRONG>ncurses</STRONG>  enabled  buffered output during terminal initialization.  This
+       was done (as in SVr4 curses)  for  performance  reasons.   For  testing
+       purposes,  both  of  <STRONG>ncurses</STRONG> and certain applications, this feature was
+       made optional.  Setting the NCURSES_NO_SETBUF variable disabled  output
+       buffering,  leaving  the output in the original (usually line buffered)
+       mode.
+
+       In the current implementation, ncurses performs its own  buffering  and
+       does  not require this workaround.  It does not modify the buffering of
+       the standard output.
+
+       The reason for the change was to make the behavior for  interrupts  and
+       other   signals   more   robust.    One   drawback   is   that  certain
+       nonconventional programs would mix ordinary stdio  calls  with  ncurses
+       calls  and (usually) work.  This is no longer possible since ncurses is
+       not using the buffered standard output but its own output (to the  same
+       file  descriptor).  As a special case, the low-level calls such as <STRONG>putp</STRONG>
+       still use the standard output.  But high-level curses calls do not.
+
+
+</PRE><H3><a name="h3-NCURSES_NO_UTF8_ACS">NCURSES_NO_UTF8_ACS</a></H3><PRE>
+       During initialization, the <STRONG>ncurses</STRONG> library  checks  for  special  cases
+       where VT100 line-drawing (and the corresponding alternate character set
+       capabilities) described in  the  terminfo  are  known  to  be  missing.
+       Specifically,  when  running  in  a  UTF-8  locale,  the  Linux console
+       emulator and the GNU screen program ignore these.  Ncurses  checks  the
+       <STRONG>TERM</STRONG>  environment  variable  for  these.   For other special cases, you
+       should set this environment variable.  Doing this tells ncurses to  use
+       Unicode values which correspond to the VT100 line-drawing glyphs.  That
+       works for the special cases cited, and is likely to work  for  terminal
+       emulators.
+
+       When  setting  this  variable,  you  should  set it to a nonzero value.
+       Setting it to zero (or to a nonnumber) disables the special  check  for
+       "linux" and "screen".
+
+       As  an  alternative  to the environment variable, ncurses checks for an
+       extended terminfo capability <STRONG>U8</STRONG>.  This is a  numeric  capability  which
+       can be compiled using <STRONG>tic</STRONG> <STRONG>-x</STRONG>.  For example
+
+          # linux console, if patched to provide working
+          # VT100 shift-in/shift-out, with corresponding font.
+          linux-vt100|linux console with VT100 line-graphics,
+                  U8#0, use=linux,
+
+          # uxterm with vt100Graphics resource set to false
+          xterm-utf8|xterm relying on UTF-8 line-graphics,
+                  U8#1, use=xterm,
+
+       The  name  "U8" is chosen to be two characters, to permit it to be used
+       by applications that use ncurses' termcap interface.
+
+
+</PRE><H3><a name="h3-NCURSES_TRACE">NCURSES_TRACE</a></H3><PRE>
+       During  initialization,  the  <STRONG>ncurses</STRONG>  debugging  library  checks   the
+       NCURSES_TRACE  environment  variable.   If  it is defined, to a numeric
+       value, <STRONG>ncurses</STRONG> calls the  <STRONG>trace</STRONG>  function,  using  that  value  as  the
+       argument.
+
+       The  argument  values,  which  are defined in <STRONG>curses.h</STRONG>, provide several
+       types  of  information.   When  running  with  traces   enabled,   your
+       application will write the file <STRONG>trace</STRONG> to the current directory.
+
+       See <STRONG><A HREF="curs_trace.3x.html">curs_trace(3x)</A></STRONG> for more information.
+
+
+</PRE><H3><a name="h3-TERM">TERM</a></H3><PRE>
+       Denotes  your  terminal  type.   Each terminal type is distinct, though
+       many are similar.
+
+       <STRONG>TERM</STRONG> is commonly set by terminal emulators to help applications find  a
+       workable   terminal  description.   Some  of  those  choose  a  popular
+       approximation, e.g., "ansi", "vt100", "xterm" rather than an exact fit.
+       Not  infrequently,  your  application  will  have  problems  with  that
+       approach, e.g., incorrect function-key definitions.
+
+       If you set <STRONG>TERM</STRONG> in your environment, it has no effect on the  operation
+       of  the  terminal  emulator.  It only affects the way applications work
+       within the terminal.  Likewise, as a general rule (<STRONG>xterm</STRONG> being  a  rare
+       exception),  terminal  emulators  which  allow you to specify <STRONG>TERM</STRONG> as a
+       parameter or configuration value do not change their behavior to  match
+       that setting.
+
+
+</PRE><H3><a name="h3-TERMCAP">TERMCAP</a></H3><PRE>
+       If  the  <STRONG>ncurses</STRONG>  library  has  been  configured  with <EM>termcap</EM> support,
+       <STRONG>ncurses</STRONG> will check for a terminal's description in termcap form  if  it
+       is not available in the terminfo database.
+
+       The <STRONG>TERMCAP</STRONG> environment variable contains either a terminal description
+       (with newlines  stripped  out),  or  a  file  name  telling  where  the
+       information denoted by the <STRONG>TERM</STRONG> environment variable exists.  In either
+       case, setting it directs <STRONG>ncurses</STRONG> to ignore the  usual  place  for  this
+       information, e.g., /etc/termcap.
+
+
+</PRE><H3><a name="h3-TERMINFO">TERMINFO</a></H3><PRE>
+       <STRONG>ncurses</STRONG>  can  be  configured  to read from multiple terminal databases.
+       The <STRONG>TERMINFO</STRONG> variable overrides the location for the  default  terminal
+       database.   Terminal  descriptions  (in  terminal format) are stored in
+       terminal databases:
+
+       <STRONG>o</STRONG>   Normally these are stored in a directory tree, using subdirectories
+           named by the first letter of the terminal names therein.
+
+           This is the scheme used in System V, which legacy Unix systems use,
+           and the <STRONG>TERMINFO</STRONG> variable is used by <EM>curses</EM> applications  on  those
+           systems to override the default location of the terminal database.
+
+       <STRONG>o</STRONG>   If  <STRONG>ncurses</STRONG>  is  built  to use hashed databases, then each entry in
+           this list may be the path of a hashed database file, e.g.,
+
+               /usr/share/terminfo.db
+
+           rather than
+
+               /usr/share/terminfo/
+
+           The hashed database uses less disk-space and  is  a  little  faster
+           than  the  directory  tree.   However, some applications assume the
+           existence of the directory tree, reading it  directly  rather  than
+           using the terminfo library calls.
+
+       <STRONG>o</STRONG>   If  <STRONG>ncurses</STRONG>  is  built  with  a  support  for reading termcap files
+           directly, then an entry in this list may be the path of  a  termcap
+           file.
+
+       <STRONG>o</STRONG>   If the <STRONG>TERMINFO</STRONG> variable begins with "hex:" or "b64:", <STRONG>ncurses</STRONG> uses
+           the remainder of that variable as a compiled terminal  description.
+           You might produce the base64 format using <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>:
+
+               TERMINFO="$(infocmp -0 -Q2 -q)"
+               export TERMINFO
+
+           The  compiled description is used if it corresponds to the terminal
+           identified by the <STRONG>TERM</STRONG> variable.
+
+       Setting <STRONG>TERMINFO</STRONG> is the simplest, but not the only way to set  location
+       of  the  default  terminal  database.   The  complete  list of database
+       locations in order follows:
+
+          <STRONG>o</STRONG>   the last terminal database to which <STRONG>ncurses</STRONG> wrote,  if  any,  is
+              searched first
+
+          <STRONG>o</STRONG>   the location specified by the TERMINFO environment variable
+
+          <STRONG>o</STRONG>   $HOME/.terminfo
+
+          <STRONG>o</STRONG>   locations listed in the TERMINFO_DIRS environment variable
+
+          <STRONG>o</STRONG>   one  or  more  locations whose names are configured and compiled
+              into the ncurses library, i.e.,
+
+             <STRONG>o</STRONG>   no  default  value  (corresponding   to   the   TERMINFO_DIRS
+                 variable)
+
+             <STRONG>o</STRONG>   /usr/share/terminfo (corresponding to the TERMINFO variable)
+
+
+</PRE><H3><a name="h3-TERMINFO_DIRS">TERMINFO_DIRS</a></H3><PRE>
+       Specifies  a  list  of  locations  to search for terminal descriptions.
+       Each location in the list is a terminal database as  described  in  the
+       section  on  the  <STRONG>TERMINFO</STRONG>  variable.   The list is separated by colons
+       (i.e., ":") on Unix, semicolons on OS/2 EMX.
+
+       There is no corresponding feature  in  System  V  terminfo;  it  is  an
+       extension developed for <STRONG>ncurses</STRONG>.
+
+
+</PRE><H3><a name="h3-TERMPATH">TERMPATH</a></H3><PRE>
+       If  <STRONG>TERMCAP</STRONG>  does not hold a file name then <STRONG>ncurses</STRONG> checks the <STRONG>TERMPATH</STRONG>
+       environment variable.  This is a list of filenames separated by  spaces
+       or colons (i.e., ":") on Unix, semicolons on OS/2 EMX.
+
+       If  the  <STRONG>TERMPATH</STRONG> environment variable is not set, <STRONG>ncurses</STRONG> looks in the
+       files
+
+           /etc/termcap, /usr/share/misc/termcap and $HOME/.termcap,
+
+       in that order.
+
+       The library may be configured to disregard the following variables when
+       the  current  user  is the superuser (root), or if the application uses
+       setuid or setgid permissions:
+
+           $TERMINFO, $TERMINFO_DIRS, $TERMPATH, as well as $HOME.
+
+
+</PRE><H2><a name="h2-ALTERNATE-CONFIGURATIONS">ALTERNATE CONFIGURATIONS</a></H2><PRE>
+       Several  different  configurations  are  possible,  depending  on   the
+       configure  script  options used when building <STRONG>ncurses</STRONG>.  There are a few
+       main options whose effects are visible to  the  applications  developer
+       using <STRONG>ncurses</STRONG>:
+
+       --disable-overwrite
+            The standard include for <STRONG>ncurses</STRONG> is as noted in <STRONG>SYNOPSIS</STRONG>:
+
+                <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+            This  option  is  used to avoid filename conflicts when <STRONG>ncurses</STRONG> is
+            not the main implementation of curses of the computer.  If <STRONG>ncurses</STRONG>
+            is  installed  disabling  overwrite,  it  puts  its  headers  in a
+            subdirectory, e.g.,
+
+                <STRONG>#include</STRONG> <STRONG>&lt;ncurses/curses.h&gt;</STRONG>
+
+            It also omits a  symbolic  link  which  would  allow  you  to  use
+            <STRONG>-lcurses</STRONG> to build executables.
+
+       --enable-widec
+            The   configure   script   renames   the   library   and  (if  the
+            <STRONG>--disable-overwrite</STRONG> option is used) puts the  header  files  in  a
+            different  subdirectory.   All  of  the  library  names have a "w"
+            appended to them, i.e., instead of
+
+                <STRONG>-lncurses</STRONG>
+
+            you link with
+
+                <STRONG>-lncursesw</STRONG>
+
+            You must also enable the wide-character  features  in  the  header
+            file  when  compiling  for  the  wide-character library to use the
+            extended (wide-character) functions.   The  symbol  which  enables
+            these features has changed since XSI Curses, Issue 4:
+
+            <STRONG>o</STRONG>   Originally,  the  wide-character  feature  required the symbol
+                <STRONG>_XOPEN_SOURCE_EXTENDED</STRONG>  but  that  was  only  valid  for  XPG4
+                (1996).
+
+            <STRONG>o</STRONG>   Later,  that was deemed conflicting with <STRONG>_XOPEN_SOURCE</STRONG> defined
+                to 500.
+
+            <STRONG>o</STRONG>   As of mid-2018, none of the features  in  this  implementation
+                require  a  <STRONG>_XOPEN_SOURCE</STRONG>  feature greater than 600.  However,
+                X/Open Curses, Issue 7 (2009) recommends defining it to 700.
+
+            <STRONG>o</STRONG>   Alternatively,  you  can  enable  the  feature   by   defining
+                <STRONG>NCURSES_WIDECHAR</STRONG>  with  the caveat that some other header file
+                than <STRONG>curses.h</STRONG> may require a specific value  for  <STRONG>_XOPEN_SOURCE</STRONG>
+                (or a system-specific symbol).
+
+            The  <STRONG>curses.h</STRONG>  file  which  is  installed  for  the wide-character
+            library is designed to be compatible  with  the  normal  library's
+            header.   Only  the size of the <STRONG>WINDOW</STRONG> structure differs, and very
+            few applications require more than a pointer to <STRONG>WINDOW</STRONG>s.
+
+            If  the  headers  are  installed  allowing  overwrite,  the  wide-
+            character  library's  headers  should  be installed last, to allow
+            applications to be built using either library from the same set of
+            headers.
+
+       --with-pthread
+            The  configure  script  renames  the  library.  All of the library
+            names have a "t"  appended  to  them  (before  any  "w"  added  by
+            <STRONG>--enable-widec</STRONG>).
+
+            The global variables such as <STRONG>LINES</STRONG> are replaced by macros to allow
+            read-only access.  At the same time, setter-functions are provided
+            to  set  these  values.   Some applications (very few) may require
+            changes to work with this convention.
+
+       --with-shared
+
+       --with-normal
+
+       --with-debug
+
+       --with-profile
+            The shared and normal  (static)  library  names  differ  by  their
+            suffixes,  e.g.,  <STRONG>libncurses.so</STRONG>  and  <STRONG>libncurses.a</STRONG>.  The debug and
+            profiling libraries add a "_g"  and  a  "_p"  to  the  root  names
+            respectively, e.g., <STRONG>libncurses_g.a</STRONG> and <STRONG>libncurses_p.a</STRONG>.
+
+       --with-termlib
+            Low-level  functions  which do not depend upon whether the library
+            supports wide-characters, are provided in the tinfo library.
+
+            By doing this, it is possible to share the tinfo  library  between
+            wide/normal  configurations  as  well  as  reduce  the size of the
+            library when only low-level functions are needed.
+
+            Those functions are described in these pages:
+
+            <STRONG>o</STRONG>   <STRONG><A HREF="curs_extend.3x.html">curs_extend(3x)</A></STRONG> - miscellaneous curses extensions
+
+            <STRONG>o</STRONG>   <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG> - <STRONG>curses</STRONG> input options
+
+            <STRONG>o</STRONG>   <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG> - low-level <STRONG>curses</STRONG> routines
+
+            <STRONG>o</STRONG>   <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG> - <STRONG>curses</STRONG> environment query routines
+
+            <STRONG>o</STRONG>   <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG> - <STRONG>curses</STRONG> emulation of termcap
+
+            <STRONG>o</STRONG>   <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG> - <STRONG>curses</STRONG> interfaces to terminfo database
+
+            <STRONG>o</STRONG>   <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG> - miscellaneous <STRONG>curses</STRONG> utility routines
+
+       --with-trace
+            The <STRONG>trace</STRONG> function normally resides in the debug library,  but  it
+            is  sometimes  useful  to  configure  this  in the shared library.
+            Configure scripts should check for the function's existence rather
+            than assuming it is always in the debug library.
+
+
+</PRE><H2><a name="h2-FILES">FILES</a></H2><PRE>
+       /usr/share/tabset
+            directory   containing   initialization  files  for  the  terminal
+            capability  database   /usr/share/terminfo   terminal   capability
+            database
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>  and  related  pages whose names begin "curs_" for detailed
+       routine descriptions.
+       <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>
+       <STRONG><A HREF="user_caps.5.html">user_caps(5)</A></STRONG> for user-defined capabilities
+
+
+</PRE><H2><a name="h2-EXTENSIONS">EXTENSIONS</a></H2><PRE>
+       The <STRONG>ncurses</STRONG> library can be compiled with an option (<STRONG>-DUSE_GETCAP</STRONG>)  that
+       falls  back  to  the  old-style /etc/termcap file if the terminal setup
+       code cannot find a terminfo entry corresponding to <STRONG>TERM</STRONG>.  Use  of  this
+       feature  is  not  recommended,  as  it  essentially  includes an entire
+       termcap compiler in the <STRONG>ncurses</STRONG> startup code, at  significant  cost  in
+       core and startup cycles.
+
+       The  <STRONG>ncurses</STRONG>  library includes facilities for capturing mouse events on
+       certain terminals (including xterm).   See  the  <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>  manual
+       page for details.
+
+       The  <STRONG>ncurses</STRONG>  library  includes  facilities  for  responding  to window
+       resizing  events,  e.g.,  when  running   in   an   xterm.    See   the
+       <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>  and <STRONG><A HREF="wresize.3x.html">wresize(3x)</A></STRONG> manual pages for details.  In addition,
+       the library may be configured with a <STRONG>SIGWINCH</STRONG> handler.
+
+       The <STRONG>ncurses</STRONG> library extends the fixed set of function key  capabilities
+       of  terminals by allowing the application designer to define additional
+       key sequences at runtime.  See the <STRONG><A HREF="define_key.3x.html">define_key(3x)</A></STRONG> <STRONG><A HREF="key_defined.3x.html">key_defined(3x)</A></STRONG>,  and
+       <STRONG><A HREF="keyok.3x.html">keyok(3x)</A></STRONG> manual pages for details.
+
+       The  <STRONG>ncurses</STRONG>  library  can  exploit the capabilities of terminals which
+       implement the ISO-6429 SGR 39 and  SGR  49  controls,  which  allow  an
+       application  to  reset  the  terminal  to  its  original foreground and
+       background colors.  From the users'  perspective,  the  application  is
+       able  to  draw  colored  text  on  a  background  whose  color  is  set
+       independently, providing better control over color contrasts.  See  the
+       <STRONG><A HREF="default_colors.3x.html">default_colors(3x)</A></STRONG> manual page for details.
+
+       The  <STRONG>ncurses</STRONG>  library  includes  a  function  for directing application
+       output  to  a  printer  attached  to  the  terminal  device.   See  the
+       <STRONG><A HREF="curs_print.3x.html">curs_print(3x)</A></STRONG> manual page for details.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       The  <STRONG>ncurses</STRONG>  library  is intended to be BASE-level conformant with XSI
+       Curses.   The  EXTENDED  XSI  Curses  functionality  (including   color
+       support) is supported.
+
+       A  small  number  of local differences (that is, individual differences
+       between the XSI Curses and <STRONG>ncurses</STRONG> calls) are described in  <STRONG>PORTABILITY</STRONG>
+       sections of the library man pages.
+
+
+</PRE><H3><a name="h3-Error-checking">Error checking</a></H3><PRE>
+       In  many cases, X/Open Curses is vague about error conditions, omitting
+       some of the SVr4 documentation.
+
+       Unlike other  implementations,  this  one  checks  parameters  such  as
+       pointers  to  WINDOW  structures to ensure they are not null.  The main
+       reason for providing this  behavior  is  to  guard  against  programmer
+       error.   The  standard interface does not provide a way for the library
+       to tell an application which of several possible errors were  detected.
+       Relying  on  this  (or  some other) extension will adversely affect the
+       portability of curses applications.
+
+
+</PRE><H3><a name="h3-Extensions-versus-portability">Extensions versus portability</a></H3><PRE>
+       Most of the extensions provided by ncurses have not been  standardized.
+       Some  have  been  incorporated  into  other  implementations,  such  as
+       PDCurses or NetBSD curses.  Here are a few to consider:
+
+       <STRONG>o</STRONG>   The routine <STRONG>has_key</STRONG> is not part of XPG4, nor is it present in SVr4.
+           See the <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG> manual page for details.
+
+       <STRONG>o</STRONG>   The  routine  <STRONG>slk_attr</STRONG>  is  not  part of XPG4, nor is it present in
+           SVr4.  See the <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG> manual page for details.
+
+       <STRONG>o</STRONG>   The routines <STRONG>getmouse</STRONG>, <STRONG>mousemask</STRONG>,  <STRONG>ungetmouse</STRONG>,  <STRONG>mouseinterval</STRONG>,  and
+           <STRONG>wenclose</STRONG>  relating  to  mouse interfacing are not part of XPG4, nor
+           are they present in SVr4.  See the <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG> manual  page  for
+           details.
+
+       <STRONG>o</STRONG>   The  routine  <STRONG>mcprint</STRONG>  was  not  present  in  any  previous  curses
+           implementation.  See the <STRONG><A HREF="curs_print.3x.html">curs_print(3x)</A></STRONG> manual page for details.
+
+       <STRONG>o</STRONG>   The routine <STRONG>wresize</STRONG> is not part of XPG4, nor is it present in SVr4.
+           See the <STRONG><A HREF="wresize.3x.html">wresize(3x)</A></STRONG> manual page for details.
+
+       <STRONG>o</STRONG>   The   WINDOW  structure's  internal  details  can  be  hidden  from
+           application programs.  See <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG> for  the  discussion  of
+           <STRONG>is_scrollok</STRONG>, etc.
+
+       <STRONG>o</STRONG>   This  implementation  can  be  configured  to  provide  rudimentary
+           support for multi-threaded applications.  See <STRONG><A HREF="curs_threads.3x.html">curs_threads(3x)</A></STRONG>  for
+           details.
+
+       <STRONG>o</STRONG>   This  implementation  can  also  be  configured to provide a set of
+           functions which improve the ability  to  manage  multiple  screens.
+           See <STRONG><A HREF="curs_sp_funcs.3x.html">curs_sp_funcs(3x)</A></STRONG> for details.
+
+
+</PRE><H3><a name="h3-Padding-differences">Padding differences</a></H3><PRE>
+       In  historic  curses  versions, delays embedded in the capabilities <STRONG>cr</STRONG>,
+       <STRONG>ind</STRONG>, <STRONG>cub1</STRONG>, <STRONG>ff</STRONG> and <STRONG>tab</STRONG> activated corresponding delay bits  in  the  UNIX
+       tty driver.  In this implementation, all padding is done by sending NUL
+       bytes.  This  method  is  slightly  more  expensive,  but  narrows  the
+       interface  to the UNIX kernel significantly and increases the package's
+       portability correspondingly.
+
+
+</PRE><H3><a name="h3-Header-files">Header files</a></H3><PRE>
+       The header file <STRONG>&lt;curses.h&gt;</STRONG>  automatically  includes  the  header  files
+       <STRONG>&lt;stdio.h&gt;</STRONG> and <STRONG>&lt;unctrl.h&gt;</STRONG>.
+
+       X/Open Curses has more to say, but does not finish the story:
+
+           The  inclusion  of &lt;curses.h&gt; may make visible all symbols from the
+           headers &lt;stdio.h&gt;, &lt;term.h&gt;, &lt;termios.h&gt;, and &lt;wchar.h&gt;.
+
+       Here is a more complete story:
+
+       <STRONG>o</STRONG>   Starting  with  BSD  curses,  all  implementations  have   included
+           &lt;stdio.h&gt;.
+
+           BSD  curses  included  &lt;curses.h&gt;  and  &lt;unctrl.h&gt; from an internal
+           header "curses.ext" ("ext" was a short name for <EM>externs</EM>).
+
+           BSD curses used &lt;stdio.h&gt; internally (for <STRONG>printw</STRONG>  and  <STRONG>scanw</STRONG>),  but
+           nothing in &lt;curses.h&gt; itself relied upon &lt;stdio.h&gt;.
+
+       <STRONG>o</STRONG>   SVr2  curses  added <STRONG><A HREF="curs_initscr.3x.html">newterm(3x)</A></STRONG>, which relies upon &lt;stdio.h&gt;.  That
+           is, the function prototype uses <STRONG>FILE</STRONG>.
+
+           SVr4 curses added <STRONG>putwin</STRONG> and <STRONG>getwin</STRONG>, which also use &lt;stdio.h&gt;.
+
+           X/Open Curses documents all three of these functions.
+
+           SVr4 curses and X/Open Curses  do  not  require  the  developer  to
+           include  &lt;stdio.h&gt;  before  including  &lt;curses.h&gt;.   Both  document
+           curses showing &lt;curses.h&gt; as the only required header.
+
+           As a result, standard &lt;curses.h&gt; will always include &lt;stdio.h&gt;.
+
+       <STRONG>o</STRONG>   X/Open Curses  is  inconsistent  with  respect  to  SVr4  regarding
+           &lt;unctrl.h&gt;.
+
+           As   noted  in  <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>,  ncurses  includes  &lt;unctrl.h&gt;  from
+           &lt;curses.h&gt; (like SVr4).
+
+       <STRONG>o</STRONG>   X/Open's comments about &lt;term.h&gt; and &lt;termios.h&gt; may refer to HP-UX
+           and AIX:
+
+           HP-UX curses includes &lt;term.h&gt; from &lt;curses.h&gt; to declare <STRONG>setupterm</STRONG>
+           in curses.h, but ncurses (and Solaris curses) do not.
+
+           AIX curses includes &lt;term.h&gt; and &lt;termios.h&gt;.  Again, ncurses  (and
+           Solaris curses) do not.
+
+       <STRONG>o</STRONG>   X/Open  says  that &lt;curses.h&gt; <EM>may</EM> include &lt;term.h&gt;, but there is no
+           requirement that it do that.
+
+           Some  programs  use  functions  declared  in  both  &lt;curses.h&gt;  and
+           &lt;term.h&gt;,  and  must include both headers in the same module.  Very
+           old versions of AIX curses  required  including  &lt;curses.h&gt;  before
+           including &lt;term.h&gt;.
+
+           Because  ncurses  header files include the headers needed to define
+           datatypes used in the headers, ncurses header files can be included
+           in  any  order.  But for portability, you should include &lt;curses.h&gt;
+           before &lt;term.h&gt;.
+
+       <STRONG>o</STRONG>   X/Open Curses says <EM>"may</EM> <EM>make</EM> <EM>visible"</EM> because  including  a  header
+           file does not necessarily make all symbols in it visible (there are
+           ifdef's to consider).
+
+           For instance, in ncurses &lt;wchar.h&gt; <EM>may</EM> be included  if  the  proper
+           symbol  is defined, and if ncurses is configured for wide-character
+           support.  If the header  is  included,  its  symbols  may  be  made
+           visible.   That depends on the value used for <STRONG>_XOPEN_SOURCE</STRONG> feature
+           test macro.
+
+       <STRONG>o</STRONG>   X/Open Curses documents one required header,  in  a  special  case:
+           &lt;stdarg.h&gt;   before  &lt;curses.h&gt;  to  prototype  the  <STRONG>vw_printw</STRONG>  and
+           <STRONG>vw_scanw</STRONG> functions (as  well  as  the  obsolete  the  <STRONG>vwprintw</STRONG>  and
+           <STRONG>vwscanw</STRONG> functions).  Each of those uses a <STRONG>va_list</STRONG> parameter.
+
+           The  two  obsolete  functions  were  introduced in SVr3.  The other
+           functions were introduced  in  X/Open  Curses.   In  between,  SVr4
+           curses  provided  for  the  possibility  that  an application might
+           include either &lt;varargs.h&gt; or &lt;stdarg.h&gt;.  Initially, that was done
+           by  using  <STRONG>void*</STRONG>  for the <STRONG>va_list</STRONG> parameter.  Later, a special type
+           (defined in &lt;stdio.h&gt;) was introduced, to allow for compiler  type-
+           checking.  That special type is always available, because &lt;stdio.h&gt;
+           is always included by &lt;curses.h&gt;.
+
+           None of the X/Open Curses implementations require an application to
+           include  &lt;stdarg.h&gt;  before  &lt;curses.h&gt;  because  they  either have
+           allowed for a special type, or (like  ncurses)  include  &lt;stdarg.h&gt;
+           directly to provide a portable interface.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       If  standard  output from a <STRONG>ncurses</STRONG> program is re-directed to something
+       which is not a tty, screen updates will be directed to standard  error.
+       This was an undocumented feature of AT&amp;T System V Release 3 curses.
+
+
+</PRE><H2><a name="h2-AUTHORS">AUTHORS</a></H2><PRE>
+       Zeyd M. Ben-Halim, Eric S. Raymond, Thomas E. Dickey.  Based on pcurses
+       by Pavel Curtis.
+
+
+
+                                                                   <STRONG><A HREF="ncurses.3x.html">ncurses(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-Initialization">Initialization</a></li>
+<li><a href="#h3-Datatypes">Datatypes</a></li>
+<li><a href="#h3-Environment-variables">Environment variables</a></li>
+<li><a href="#h3-Routine-and-Argument-Names">Routine and Argument Names</a></li>
+<li><a href="#h3-Routine-Name-Index">Routine Name Index</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-ENVIRONMENT">ENVIRONMENT</a>
+<ul>
+<li><a href="#h3-CC-command-character">CC command-character</a></li>
+<li><a href="#h3-BAUDRATE">BAUDRATE</a></li>
+<li><a href="#h3-COLUMNS">COLUMNS</a></li>
+<li><a href="#h3-ESCDELAY">ESCDELAY</a></li>
+<li><a href="#h3-HOME">HOME</a></li>
+<li><a href="#h3-LINES">LINES</a></li>
+<li><a href="#h3-MOUSE_BUTTONS_123">MOUSE_BUTTONS_123</a></li>
+<li><a href="#h3-NCURSES_ASSUMED_COLORS">NCURSES_ASSUMED_COLORS</a></li>
+<li><a href="#h3-NCURSES_CONSOLE2">NCURSES_CONSOLE2</a></li>
+<li><a href="#h3-NCURSES_GPM_TERMS">NCURSES_GPM_TERMS</a></li>
+<li><a href="#h3-NCURSES_NO_HARD_TABS">NCURSES_NO_HARD_TABS</a></li>
+<li><a href="#h3-NCURSES_NO_MAGIC_COOKIE">NCURSES_NO_MAGIC_COOKIE</a></li>
+<li><a href="#h3-NCURSES_NO_PADDING">NCURSES_NO_PADDING</a></li>
+<li><a href="#h3-NCURSES_NO_SETBUF">NCURSES_NO_SETBUF</a></li>
+<li><a href="#h3-NCURSES_NO_UTF8_ACS">NCURSES_NO_UTF8_ACS</a></li>
+<li><a href="#h3-NCURSES_TRACE">NCURSES_TRACE</a></li>
+<li><a href="#h3-TERM">TERM</a></li>
+<li><a href="#h3-TERMCAP">TERMCAP</a></li>
+<li><a href="#h3-TERMINFO">TERMINFO</a></li>
+<li><a href="#h3-TERMINFO_DIRS">TERMINFO_DIRS</a></li>
+<li><a href="#h3-TERMPATH">TERMPATH</a></li>
+</ul>
+</li>
+<li><a href="#h2-ALTERNATE-CONFIGURATIONS">ALTERNATE CONFIGURATIONS</a></li>
+<li><a href="#h2-FILES">FILES</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-EXTENSIONS">EXTENSIONS</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a>
+<ul>
+<li><a href="#h3-Error-checking">Error checking</a></li>
+<li><a href="#h3-Extensions-versus-portability">Extensions versus portability</a></li>
+<li><a href="#h3-Padding-differences">Padding differences</a></li>
+<li><a href="#h3-Header-files">Header files</a></li>
+</ul>
+</li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-AUTHORS">AUTHORS</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

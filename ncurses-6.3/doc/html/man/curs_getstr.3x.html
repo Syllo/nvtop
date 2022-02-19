@@ -1,0 +1,236 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 1998-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_getstr.3x,v 1.33 2021/05/22 21:36:35 tom Exp @
+  * X/Open says also until EOf
+  * X/Open says then an EOS is added to the result
+  * X/Open doesn't mention n&lt;0
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_getstr 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_getstr 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>                                                <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>getstr</STRONG>, <STRONG>getnstr</STRONG>, <STRONG>wgetstr</STRONG>, <STRONG>wgetnstr</STRONG>, <STRONG>mvgetstr</STRONG>, <STRONG>mvgetnstr</STRONG>, <STRONG>mvwgetstr</STRONG>,
+       <STRONG>mvwgetnstr</STRONG> - accept character strings from <STRONG>curses</STRONG> terminal keyboard
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>getstr(char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>getnstr(char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wgetstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wgetnstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>mvgetstr(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwgetstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvgetnstr(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwgetnstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>str</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The function <STRONG>getstr</STRONG> is equivalent to a series of calls to <STRONG>getch</STRONG>,  until
+       a  newline or carriage return is received (the terminating character is
+       not included in the returned string).  The resulting value is placed in
+       the area pointed to by the character pointer <EM>str</EM>, followed by a NUL.
+
+       The  <STRONG>getnstr</STRONG>  function reads from the <EM>stdscr</EM> default window.  The other
+       functions, such as <STRONG>wgetnstr</STRONG>, read from the window given as a parameter.
+
+       <STRONG>getnstr</STRONG> reads at most <EM>n</EM> characters, thus preventing a possible overflow
+       of  the input buffer.  Any attempt to enter more characters (other than
+       the terminating newline or carriage return) causes  a  beep.   Function
+       keys also cause a beep and are ignored.
+
+       The user's <EM>erase</EM> and <EM>kill</EM> characters are interpreted:
+
+       <STRONG>o</STRONG>   The  <EM>erase</EM>  character (e.g., <STRONG>^H</STRONG>) erases the character at the end of
+           the buffer, moving the cursor to the left.
+
+           If <EM>keypad</EM> mode is on for the window, <STRONG>KEY_LEFT</STRONG> and <STRONG>KEY_BACKSPACE</STRONG> are
+           both considered equivalent to the user's erase character.
+
+       <STRONG>o</STRONG>   The <EM>kill</EM> character (e.g., <STRONG>^U</STRONG>) erases the entire buffer, leaving the
+           cursor at the beginning of the buffer.
+
+       Characters input are echoed only if <STRONG>echo</STRONG>  is  currently  on.   In  that
+       case,  backspace is echoed as deletion of the previous character (typi-
+       cally a left motion).
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       All routines return the integer <STRONG>ERR</STRONG> upon failure and an <STRONG>OK</STRONG> (SVr4 speci-
+       fies  only  "an  integer value other than <STRONG>ERR</STRONG>") upon successful comple-
+       tion.
+
+       X/Open defines no error conditions.
+
+       In this implementation, these functions return an error if  the  window
+       pointer is null, or if its timeout expires without having any data.
+
+       This  implementation  provides an extension as well.  If a <STRONG>SIGWINCH</STRONG> in-
+       terrupts the function, it will return <STRONG>KEY_RESIZE</STRONG> rather than <STRONG>OK</STRONG> or <STRONG>ERR</STRONG>.
+
+       Functions with a "mv" prefix first  perform  a  cursor  movement  using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that <STRONG>getstr</STRONG>, <STRONG>mvgetstr</STRONG>, and <STRONG>mvwgetstr</STRONG> may be macros.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These functions are described in the  XSI  Curses  standard,  Issue  4.
+       They  read  single-byte  characters only.  The standard does not define
+       any error conditions.  This implementation returns <STRONG>ERR</STRONG>  if  the  window
+       pointer is null, or if the lower-level <STRONG><A HREF="curs_getch.3x.html">wgetch(3x)</A></STRONG> call returns an <STRONG>ERR</STRONG>.
+
+       SVr3  and  early  SVr4  curses  implementations did not reject function
+       keys; the SVr4.0 documentation claimed that  "special  keys"  (such  as
+       function  keys, "home" key, "clear" key, <EM>etc</EM>.) are "interpreted", with-
+       out giving details.  It lied.  In fact, the "character" value  appended
+       to  the  string by those implementations was predictable but not useful
+       (being, in fact, the low-order eight bits of the key's KEY_ value).
+
+       The functions <STRONG>getnstr</STRONG>, <STRONG>mvgetnstr</STRONG>, and <STRONG>mvwgetnstr</STRONG> were present  but  not
+       documented in SVr4.
+
+       X/Open Curses, Issue 5 (2007) stated that these functions "read at most
+       <EM>n</EM> bytes" but did not state whether the terminating NUL  is  counted  in
+       that  limit.   X/Open  Curses,  Issue 7 (2009) changed that to say they
+       "read at most <EM>n</EM>-1 bytes" to allow for the terminating NUL.  As of 2018,
+       some implementations do, some do not count it:
+
+       <STRONG>o</STRONG>   ncurses  6.1  and PDCurses do not count the NUL in the given limit,
+           while
+
+       <STRONG>o</STRONG>   Solaris SVr4 and NetBSD curses count the NUL as part of the limit.
+
+       <STRONG>o</STRONG>   Solaris xcurses provides both:  its  wide-character  <STRONG>wget_nstr</STRONG>  re-
+           serves a NUL, but its <STRONG>wgetnstr</STRONG> does not count the NUL consistently.
+
+       In SVr4 curses, a negative value of <EM>n</EM> tells <STRONG>wgetnstr</STRONG> to assume that the
+       caller's buffer is large enough to hold the result, i.e., to  act  like
+       <STRONG>wgetstr</STRONG>.   X/Open  Curses does not mention this (or anything related to
+       negative or zero values of <EM>n</EM>), however  most  implementations  use  the
+       feature, with different limits:
+
+       <STRONG>o</STRONG>   Solaris  SVr4  curses  and  PDCurses limit the result to 255 bytes.
+           Other Unix systems than Solaris are likely to use the same limit.
+
+       <STRONG>o</STRONG>   Solaris xcurses limits the result to <STRONG>LINE_MAX</STRONG> bytes.
+
+       <STRONG>o</STRONG>   NetBSD 7 assumes no particular limit for the result  from  <STRONG>wgetstr</STRONG>.
+           However,  it  limits  the <STRONG>wgetnstr</STRONG> parameter <EM>n</EM> to ensure that it is
+           greater than zero.
+
+           A comment in NetBSD's source code states that this is specified  in
+           SUSv2.
+
+       <STRONG>o</STRONG>   ncurses  (before  6.2)  assumes  no particular limit for the result
+           from <STRONG>wgetstr</STRONG>, and treats the <EM>n</EM>  parameter  of  <STRONG>wgetnstr</STRONG>  like  SVr4
+           curses.
+
+       <STRONG>o</STRONG>   ncurses  6.2  uses  <STRONG>LINE_MAX</STRONG>,  or a larger (system-dependent) value
+           which the <STRONG>sysconf</STRONG> function may provide.   If  neither  <STRONG>LINE_MAX</STRONG>  or
+           <STRONG>sysconf</STRONG>  is available, ncurses uses the POSIX value for <STRONG>LINE_MAX</STRONG> (a
+           2048 byte limit).  In either case, it reserves a byte for the  ter-
+           minating NUL.
+
+       Although  <STRONG>getnstr</STRONG>  is equivalent to a series of calls to <STRONG>getch</STRONG>, it also
+       makes changes to the curses modes to allow simple editing of the  input
+       buffer:
+
+       <STRONG>o</STRONG>   <STRONG>getnstr</STRONG>  saves  the  current  value of the <STRONG>nl</STRONG>, <STRONG>echo</STRONG>, <STRONG>raw</STRONG> and <STRONG>cbreak</STRONG>
+           modes, and sets <STRONG>nl</STRONG>, <STRONG>noecho</STRONG>, <STRONG>noraw</STRONG>, and <STRONG>cbreak</STRONG>.
+
+           <STRONG>getnstr</STRONG> handles the echoing of characters, rather than  relying  on
+           the caller to set an appropriate mode.
+
+       <STRONG>o</STRONG>   It  also  obtains  the <EM>erase</EM> and <EM>kill</EM> characters from <STRONG>erasechar</STRONG> and
+           <STRONG>killchar</STRONG>, respectively.
+
+       <STRONG>o</STRONG>   On return, <STRONG>getnstr</STRONG> restores the modes to their previous values.
+
+       Other implementations differ in their treatment of special characters:
+
+       <STRONG>o</STRONG>   While they may set the <EM>echo</EM> mode, other implementations do not mod-
+           ify  the  <EM>raw</EM> mode, They may take the <EM>cbreak</EM> mode set by the caller
+           into account when deciding whether to handle echoing within <STRONG>getnstr</STRONG>
+           or as a side-effect of the <STRONG>getch</STRONG> calls.
+
+       <STRONG>o</STRONG>   The original ncurses (as pcurses in 1986) set <STRONG>noraw</STRONG> and <STRONG>cbreak</STRONG> when
+           accepting input for <STRONG>getnstr</STRONG>.  That may have been done to make func-
+           tion- and cursor-keys work; it is not necessary with ncurses.
+
+           Since  1995, ncurses has provided signal handlers for INTR and QUIT
+           (e.g., <STRONG>^C</STRONG> or <STRONG>^\</STRONG>).  With the <STRONG>noraw</STRONG> and <STRONG>cbreak</STRONG>  settings,  those  may
+           catch  a  signal  and stop the program, where other implementations
+           allow one to enter those characters in the buffer.
+
+       <STRONG>o</STRONG>   Starting in 2021 (ncurses 6.3), <STRONG>getnstr</STRONG> sets <STRONG>raw</STRONG>, rather than <STRONG>noraw</STRONG>
+           and  <STRONG>cbreak</STRONG> for better compatibility with SVr4-curses, e.g., allow-
+           ing one to enter a <STRONG>^C</STRONG> into the buffer.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>, <STRONG><A HREF="curs_termattrs.3x.html">curs_termattrs(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>.
+
+
+
+                                                               <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

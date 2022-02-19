@@ -1,0 +1,131 @@
+#!/bin/sh
+##############################################################################
+# Copyright 2020 Thomas E. Dickey                                            #
+# Copyright 2016 Free Software Foundation, Inc.                              #
+#                                                                            #
+# Permission is hereby granted, free of charge, to any person obtaining a    #
+# copy of this software and associated documentation files (the "Software"), #
+# to deal in the Software without restriction, including without limitation  #
+# the rights to use, copy, modify, merge, publish, distribute, distribute    #
+# with modifications, sublicense, and/or sell copies of the Software, and to #
+# permit persons to whom the Software is furnished to do so, subject to the  #
+# following conditions:                                                      #
+#                                                                            #
+# The above copyright notice and this permission notice shall be included in #
+# all copies or substantial portions of the Software.                        #
+#                                                                            #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR #
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   #
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    #
+# THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER      #
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    #
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        #
+# DEALINGS IN THE SOFTWARE.                                                  #
+#                                                                            #
+# Except as contained in this notice, the name(s) of the above copyright     #
+# holders shall not be used in advertising or otherwise to promote the sale, #
+# use or other dealings in this Software without prior written               #
+# authorization.                                                             #
+##############################################################################
+# $Id: tput-colorcube,v 1.2 2020/02/02 23:34:34 tom Exp $
+# Use this script to print an xterm-style color cube, e.g., as done in
+# the xterm 88colors2.pl and 256colors2.pl scripts.
+
+failed() {
+	printf "?? $*\n" >&2
+	exit 1
+}
+
+newline() {
+	tput op
+	printf "\n"
+}
+
+if [ $# = 1 ]
+then
+	myterm=$1
+elif [ $# = 0 ]
+then
+	myterm=$TERM
+else
+	failed "expected one parameter or none"
+fi
+
+colors=$(tput -T $myterm colors 2>/dev/null)
+if [ ${colors:-0} -le 0 ]
+then
+	myterm=${myterm%%-color}
+	colors=$(tput -T $myterm colors 2>/dev/null)
+fi
+if [ ${colors:-0} -le 0 ]
+then
+	failed "terminal $myterm does not support color"
+fi
+
+printf "System colors:\n"
+
+color=0
+inrow=$colors
+to_do=$colors
+[ $colors -gt 256 ] && colors=256
+[ $inrow  -gt   8 ] && inrow=8
+[ $to_do  -gt  16 ] && to_do=16
+while [ $color -lt $to_do ]
+do
+	[ $color = $inrow ] && newline
+	tput setab $color
+	printf '  '
+	color=$(expr $color + 1)
+done
+newline
+
+[ $colors -le 16 ] && exit
+
+if [ $colors = 256 ]
+then
+	cube=6
+	ramp=232
+elif [ $colors -ge 88 ]
+then
+	cube=4
+	ramp=80
+else
+	exit
+fi
+
+printf "\n"
+printf "Color cube, ${cube}x${cube}x${cube}:\n"
+g=0
+cube2=$(expr $cube \* $cube)
+while [ $g -lt $cube ]
+do
+	r=0
+	while [ $r -lt $cube ]
+	do
+		b=0
+		while [ $b -lt $cube ]
+		do
+			color=$(expr 16 + \( $r \* $cube2 \) + \( $g \* $cube \) + $b)
+			tput setab $color
+			printf '  '
+			b=$(expr $b + 1)
+		done
+		tput op
+		printf ' '
+		r=$(expr $r + 1)
+	done
+	newline
+	g=$(expr $g + 1)
+done
+
+printf "\n"
+printf "Grayscale ramp:\n"
+color=$ramp
+while [ $color -lt $colors ]
+do
+	tput setab $color
+	printf '  '
+	color=$(expr $color + 1)
+done
+newline
+# vi:ts=4 sw=4

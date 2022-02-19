@@ -1,0 +1,149 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018,2020 Thomas E. Dickey                                     *
+  * Copyright 1998-2010,2016 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_clear.3x,v 1.20 2020/10/24 09:19:37 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_clear 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_clear 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>                                                  <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>erase</STRONG>, <STRONG>werase</STRONG>, <STRONG>clear</STRONG>, <STRONG>wclear</STRONG>, <STRONG>clrtobot</STRONG>, <STRONG>wclrtobot</STRONG>, <STRONG>clrtoeol</STRONG>, <STRONG>wclrtoeol</STRONG>
+       - clear all or part of a <STRONG>curses</STRONG> window
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>erase(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>werase(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>clear(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wclear(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>clrtobot(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wclrtobot(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>clrtoeol(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wclrtoeol(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The <STRONG>erase</STRONG> and <STRONG>werase</STRONG> routines copy blanks to every position in the win-
+       dow, clearing the screen.
+
+       The  <STRONG>clear</STRONG> and <STRONG>wclear</STRONG> routines are like <STRONG>erase</STRONG> and <STRONG>werase</STRONG>, but they also
+       call <STRONG>clearok</STRONG>, so that the screen is cleared completely on the next call
+       to <STRONG>wrefresh</STRONG> for that window and repainted from scratch.
+
+       The <STRONG>clrtobot</STRONG> and <STRONG>wclrtobot</STRONG> routines erase from the cursor to the end of
+       screen.  That is, they erase all lines below the cursor in the  window.
+       Also,  the  current  line  to  the  right  of the cursor, inclusive, is
+       erased.
+
+       The <STRONG>clrtoeol</STRONG> and <STRONG>wclrtoeol</STRONG> routines erase the current line to the right
+       of the cursor, inclusive, to the end of the current line.
+
+       Blanks created by erasure have the current background rendition (as set
+       by <STRONG>wbkgdset</STRONG>) merged into them.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       All routines return the integer <STRONG>OK</STRONG> on success and <STRONG>ERR</STRONG> on failure.
+
+       X/Open defines no error conditions.  In this implementation,
+
+       <STRONG>o</STRONG>   functions using a window pointer parameter return an error if it is
+           null
+
+       <STRONG>o</STRONG>   <STRONG>wclrtoeol</STRONG> returns an error if the cursor position is about to wrap.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note  that  <STRONG>erase</STRONG>, <STRONG>werase</STRONG>, <STRONG>clear</STRONG>, <STRONG>wclear</STRONG>, <STRONG>clrtobot</STRONG>, and <STRONG>clrtoeol</STRONG> may be
+       macros.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These functions are described in the XSI Curses standard, Issue 4.  The
+       standard  specifies  that  they return <STRONG>ERR</STRONG> on failure, but specifies no
+       error conditions.
+
+       The SVr4.0 manual says that these functions could return  "a  non-nega-
+       tive  integer if <STRONG>immedok</STRONG> is set", referring to the return-value of <STRONG>wre-</STRONG>
+       <STRONG>fresh</STRONG>.  In that implementation, <STRONG>wrefresh</STRONG> would return a  count  of  the
+       number of characters written to the terminal.
+
+       Some  historic  curses implementations had, as an undocumented feature,
+       the ability to do the equivalent of <STRONG>clearok(...,</STRONG> <STRONG>1)</STRONG>  by  saying  <STRONG>touch-</STRONG>
+       <STRONG>win(stdscr)</STRONG> or <STRONG>clear(stdscr)</STRONG>.  This will not work under ncurses.
+
+       This implementation, and others such as Solaris, sets the current posi-
+       tion to 0,0 after erasing via <STRONG>werase</STRONG> and <STRONG>wclear</STRONG>.  That fact is not doc-
+       umented  in  other  implementations, and may not be true of implementa-
+       tions which were not derived from SVr4 source.
+
+       Not obvious from the description, most implementations clear the screen
+       after  <STRONG>wclear</STRONG>  even  for  a subwindow or derived window.  If you do not
+       want to clear the screen during the next <STRONG>wrefresh</STRONG>, use <STRONG>werase</STRONG> instead.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>, <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>
+
+
+
+                                                                <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

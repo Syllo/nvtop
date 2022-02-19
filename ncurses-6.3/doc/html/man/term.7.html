@@ -1,0 +1,231 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 1998-2011,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: term.7,v 1.30 2021/08/15 19:39:57 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>term 7</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">term 7</H1>
+<PRE>
+<STRONG><A HREF="term.7.html">term(7)</A></STRONG>                Miscellaneous Information Manual                <STRONG><A HREF="term.7.html">term(7)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       term - conventions for naming terminal types
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The  environment variable <STRONG>TERM</STRONG> should normally contain the type name of
+       the terminal, console or  display-device  type  you  are  using.   This
+       information  is  critical  for  all screen-oriented programs, including
+       your editor and mailer.
+
+       A default <STRONG>TERM</STRONG> value  will  be  set  on  a  per-line  basis  by  either
+       <STRONG>/etc/inittab</STRONG>  (e.g.,  System-V-like  UNIXes) or <STRONG>/etc/ttys</STRONG> (BSD UNIXes).
+       This will nearly  always  suffice  for  workstation  and  microcomputer
+       consoles.
+
+       If  you  use a dialup line, the type of device attached to it may vary.
+       Older UNIX systems pre-set a very dumb terminal  type  like  "dumb"  or
+       "dialup"  on  dialup lines.  Newer ones may pre-set "vt100", reflecting
+       the prevalence of DEC VT100-compatible terminals and  personal-computer
+       emulators.
+
+       Modern  telnets pass your <STRONG>TERM</STRONG> environment variable from the local side
+       to the remote one.  There can be problems if  the  remote  terminfo  or
+       termcap  entry  for  your  type  is not compatible with yours, but this
+       situation is rare and  can  almost  always  be  avoided  by  explicitly
+       exporting  "vt100"  (assuming  you  are  in fact using a VT100-superset
+       console, terminal, or terminal emulator).
+
+       In any case, you are free to override the system <STRONG>TERM</STRONG> setting  to  your
+       taste in your shell profile.  The <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG> utility may be of assistance;
+       you can give it a set of rules for deducing or  requesting  a  terminal
+       type based on the tty device and baud rate.
+
+       Setting  your  own  <STRONG>TERM</STRONG> value may also be useful if you have created a
+       custom entry incorporating options (such as  visual  bell  or  reverse-
+       video)  which  you  wish  to  override the system default type for your
+       line.
+
+       Terminal type descriptions are  stored  as  files  of  capability  data
+       underneath /usr/share/terminfo.  To browse a list of all terminal names
+       recognized by the system, do
+
+            toe | more
+
+       from your shell.   These  capability  files  are  in  a  binary  format
+       optimized for retrieval speed (unlike the old text-based <STRONG>termcap</STRONG> format
+       they replace); to examine  an  entry,  you  must  use  the  <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>
+       command.  Invoke it as follows:
+
+            infocmp <EM>entry</EM><STRONG>_</STRONG><EM>name</EM>
+
+       where  <EM>entry</EM><STRONG>_</STRONG><EM>name</EM>  is the name of the type you wish to examine (and the
+       name of its capability file  the  subdirectory  of  /usr/share/terminfo
+       named  for  its first letter).  This command dumps a capability file in
+       the text format described by <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+
+       The first line of a <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG> description gives the  names  by  which
+       terminfo  knows a terminal, separated by "|" (pipe-bar) characters with
+       the last name field terminated by a comma.  The first name field is the
+       type's <EM>primary</EM> <EM>name</EM>, and is the one to use when setting <STRONG>TERM</STRONG>.  The last
+       name field (if distinct from the first) is actually  a  description  of
+       the  terminal  type  (it  may contain blanks; the others must be single
+       words).  Name fields between  the  first  and  last  (if  present)  are
+       aliases  for  the  terminal,  usually  historical  names  retained  for
+       compatibility.
+
+       There are some conventions for how to  choose  terminal  primary  names
+       that  help  keep  them  informative and unique.  Here is a step-by-step
+       guide to naming terminals that also explains how to parse them:
+
+       First, choose a root name.  The  root  will  consist  of  a  lower-case
+       letter  followed by up to seven lower-case letters or digits.  You need
+       to avoid using punctuation characters in root names, because  they  are
+       used and interpreted as filenames and shell meta-characters (such as !,
+       $, *, ?, etc.) embedded in them may cause odd and  unhelpful  behavior.
+       The  slash  (/),  or  any  other  character  that may be interpreted by
+       anyone's file system (\, $, [, ]), is especially dangerous (terminfo is
+       platform-independent,  and choosing names with special characters could
+       someday make life difficult for users of a future port).  The  dot  (.)
+       character  is  relatively safe as long as there is at most one per root
+       name; some historical terminfo names use it.
+
+       The root name for a terminal or workstation console type should  almost
+       always  begin  with a vendor prefix (such as <STRONG>hp</STRONG> for Hewlett-Packard, <STRONG>wy</STRONG>
+       for Wyse, or <STRONG>att</STRONG> for AT&amp;T terminals), or a common name of the  terminal
+       line  (<STRONG>vt</STRONG>  for  the  VT  series  of  terminals from DEC, or <STRONG>sun</STRONG> for Sun
+       Microsystems workstation  consoles,  or  <STRONG>regent</STRONG>  for  the  ADDS  Regent
+       series.   You  can  list  the  terminfo  tree  to see what prefixes are
+       already in common use.  The root name prefix should  be  followed  when
+       appropriate by a model number; thus <STRONG>vt100</STRONG>, <STRONG>hp2621</STRONG>, <STRONG>wy50</STRONG>.
+
+       The  root  name for a PC-Unix console type should be the OS name, i.e.,
+       <STRONG>linux</STRONG>, <STRONG>bsdos</STRONG>, <STRONG>freebsd</STRONG>, <STRONG>netbsd</STRONG>.  It should <EM>not</EM> be <STRONG>console</STRONG> or  any  other
+       generic that might cause confusion in a multi-platform environment!  If
+       a model number follows, it should indicate either the OS release  level
+       or the console driver release level.
+
+       The  root name for a terminal emulator (assuming it does not fit one of
+       the standard ANSI or vt100 types) should  be  the  program  name  or  a
+       readily recognizable abbreviation of it (i.e., <STRONG>versaterm</STRONG>, <STRONG>ctrm</STRONG>).
+
+       Following  the  root name, you may add any reasonable number of hyphen-
+       separated feature suffixes.
+
+       2p   Has two pages of memory.  Likewise 4p, 8p, etc.
+
+       mc   Magic-cookie.  Some  terminals  (notably  older  Wyses)  can  only
+            support  one  attribute  without magic-cookie lossage.  Their base
+            entry is usually paired with another that has this suffix and uses
+            magic cookies to support multiple attributes.
+
+       -am  Enable auto-margin (right-margin wraparound).
+
+       -m   Mono mode - suppress color support.
+
+       -na  No  arrow  keys  -  termcap  ignores arrow keys which are actually
+            there on the terminal, so the user can use the arrow keys locally.
+
+       -nam No auto-margin - suppress am capability.
+
+       -nl  No labels - suppress soft labels.
+
+       -nsl No status line - suppress status line.
+
+       -pp  Has a printer port which is used.
+
+       -rv  Terminal in reverse video mode (black on white).
+
+       -s   Enable status line.
+
+       -vb  Use visible bell (flash) rather than beep.
+
+       -w   Wide; terminal is in 132-column mode.
+
+       Conventionally, if your terminal type is a variant intended to  specify
+       a  line  height,  that  suffix should go first.  So, for a hypothetical
+       FuBarCo model 2317 terminal in 30-line mode with  reverse  video,  best
+       form would be <STRONG>fubar-30-rv</STRONG> (rather than, say, "fubar-rv-30").
+
+       Terminal  types  that are written not as standalone entries, but rather
+       as components to be plugged into other entries  via  <STRONG>use</STRONG>  capabilities,
+       are distinguished by using embedded plus signs rather than dashes.
+
+       Commands which use a terminal type to control display often accept a -T
+       option that accepts a terminal name  argument.   Such  programs  should
+       fall  back  on  the  <STRONG>TERM</STRONG>  environment  variable  when  no -T option is
+       specified.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       For maximum compatibility with older System V UNIXes, names and aliases
+       should be unique within the first 14 characters.
+
+
+</PRE><H2><a name="h2-FILES">FILES</a></H2><PRE>
+       /usr/share/terminfo/?/*
+            compiled terminal capability database
+
+       /etc/inittab
+            tty line initialization (AT&amp;T-like UNIXes)
+
+       /etc/ttys
+            tty line initialization (BSD-like UNIXes)
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>, <STRONG><A HREF="term.5.html">term(5)</A></STRONG>.
+
+
+
+                                                                       <STRONG><A HREF="term.7.html">term(7)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-FILES">FILES</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

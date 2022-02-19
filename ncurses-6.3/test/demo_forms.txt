@@ -1,0 +1,20 @@
+# $Id: demo_forms.txt,v 1.3 2013/06/08 14:10:15 tom Exp $
+First Name:John
+.
+Middle Name:Don
+.
+MI:D
+.
+Last Name:Smith
+.
+Comments:Hello
+World!
+.
+Host Name:localhost@localdomain
+.
+IP Address:192.168.1.100
+.
+Four digits:1234
+.
+Numeric:32768
+.

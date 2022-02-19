@@ -1,0 +1,146 @@
+<!--
+  ****************************************************************************
+  * Copyright 2019-2020,2021 Thomas E. Dickey                                *
+  * Copyright 2010-2014,2016 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: MKada_config.in,v 1.13 2021/06/17 21:26:02 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>ADACURSES 1   User Commands</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">ADACURSES 1   User Commands</H1>
+<PRE>
+<STRONG>ADACURSES(1)</STRONG>                     User Commands                    <STRONG>ADACURSES(1)</STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       adacurses6-config - helper script for AdaCurses libraries
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>adacurses6-config</STRONG> [<EM>options</EM>]
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       This  is  a shell script which simplifies configuring an application to
+       use the AdaCurses library binding to ncurses.
+
+
+</PRE><H2><a name="h2-OPTIONS">OPTIONS</a></H2><PRE>
+       <STRONG>--cflags</STRONG>
+              echos the gnat (Ada  compiler)  flags  needed  to  compile  with
+              AdaCurses.
+
+       <STRONG>--libs</STRONG> echos the gnat libraries needed to link with AdaCurses.
+
+       <STRONG>--version</STRONG>
+              echos  the  release+patchdate  version  of the ncurses libraries
+              used to configure and build AdaCurses.
+
+       <STRONG>--help</STRONG> prints a list of the <STRONG>adacurses6-config</STRONG> script's options.
+
+       If no options are given, <STRONG>adacurses6-config</STRONG> prints  the  combination  of
+       <STRONG>--cflags</STRONG> and <STRONG>--libs</STRONG> that <STRONG>gnatmake</STRONG> expects (see example).
+
+
+</PRE><H2><a name="h2-EXAMPLE">EXAMPLE</a></H2><PRE>
+       For  example,  supposing  that  you  want to compile the "Hello World!"
+       program for AdaCurses.  Make a file named "hello.adb":
+              with Terminal_Interface.Curses; use Terminal_Interface.Curses;
+
+              procedure Hello is
+
+                 Visibility : Cursor_Visibility := Invisible;
+                 done : Boolean := False;
+                 c : Key_Code;
+
+              begin
+
+                 Init_Screen;
+                 Set_Echo_Mode (False);
+
+                 Set_Cursor_Visibility (Visibility);
+                 Set_Timeout_Mode (Standard_Window, Non_Blocking, 0);
+
+                 Move_Cursor (Line =&gt; Lines / 2, Column =&gt; (Columns - 12) / 2);
+                 Add (Str =&gt; "Hello World!");
+
+                 while not done loop
+
+                    c := Get_Keystroke (Standard_Window);
+                    case c is
+                    when Character'Pos ('q') =&gt; done := True;
+                    when others =&gt; null;
+                    end case;
+
+                    Nap_Milli_Seconds (50);
+                 end loop;
+
+                 End_Windows;
+
+              end Hello;
+
+       Then, using
+              gnatmake `adacurses-config --cflags`  hello  -largs  `adacurses-
+              config --libs`
+
+       or (simpler):
+              gnatmake hello `adacurses-config`
+
+       you will compile and link the program.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+
+       This describes <STRONG>ncurses</STRONG> version 6.3 (patch 20211021).
+
+
+
+                                                                  <STRONG>ADACURSES(1)</STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-OPTIONS">OPTIONS</a></li>
+<li><a href="#h2-EXAMPLE">EXAMPLE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

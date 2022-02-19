@@ -1,0 +1,131 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018,2020 Thomas E. Dickey                                     *
+  * Copyright 1998-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_inchstr.3x,v 1.21 2020/10/18 00:24:36 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_inchstr 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_inchstr 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>                                              <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>inchstr</STRONG>, <STRONG>inchnstr</STRONG>, <STRONG>winchstr</STRONG>, <STRONG>winchnstr</STRONG>, <STRONG>mvinchstr</STRONG>, <STRONG>mvinchnstr</STRONG>,
+       <STRONG>mvwinchstr</STRONG>, <STRONG>mvwinchnstr</STRONG> - get a string of characters (and attributes)
+       from a <STRONG>curses</STRONG> window
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>inchstr(chtype</STRONG> <STRONG>*</STRONG><EM>chstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>inchnstr(chtype</STRONG> <STRONG>*</STRONG><EM>chstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>winchstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <STRONG>*</STRONG><EM>chstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>winchnstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <STRONG>*</STRONG><EM>chstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>mvinchstr(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <STRONG>*</STRONG><EM>chstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvinchnstr(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <STRONG>*</STRONG><EM>chstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwinchstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <STRONG>*</STRONG><EM>chstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwinchnstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <STRONG>*</STRONG><EM>chstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       These  routines  return  a  NULL-terminated array of <STRONG>chtype</STRONG> quantities,
+       starting at the current cursor position in the named window and  ending
+       at  the  right  margin of the window.  The four functions with <EM>n</EM> as the
+       last argument, return a leading substring at  most  <EM>n</EM>  characters  long
+       (exclusive of the trailing (chtype)0).  Constants defined in <STRONG>&lt;curses.h&gt;</STRONG>
+       can be used with the <STRONG>&amp;</STRONG> (logical AND) operator to extract the  character
+       or   the   attribute   alone  from  any  position  in  the  <EM>chstr</EM>  [see
+       <STRONG><A HREF="curs_inch.3x.html">curs_inch(3x)</A></STRONG>].
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       All routines return the integer <STRONG>ERR</STRONG> upon failure and an  integer  value
+       other than <STRONG>ERR</STRONG> upon successful completion (the number of characters re-
+       trieved, exclusive of the trailing 0).
+
+       X/Open Curses defines no error conditions.  In this implementation:
+
+       <STRONG>o</STRONG>   If the <EM>win</EM> parameter is null, an error is returned,
+
+       <STRONG>o</STRONG>   If the <EM>chstr</EM> parameter is null, an error is returned,
+
+       Functions with a "mv" prefix first  perform  a  cursor  movement  using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that all routines except <STRONG>winchnstr</STRONG> may be macros.  SVr4  does  not
+       document whether the result string is zero-terminated; it does not doc-
+       ument whether a length limit argument includes any trailing 0;  and  it
+       does not document the meaning of the return value.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These  functions are described in the XSI Curses standard, Issue 4.  It
+       is no more specific than the SVr4 documentation on the trailing 0.   It
+       does specify that the successful return of the functions is <STRONG>OK</STRONG>.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_inch.3x.html">curs_inch(3x)</A></STRONG>.
+
+       Comparable  functions  in the wide-character (ncursesw) library are de-
+       scribed in <STRONG><A HREF="curs_in_wchstr.3x.html">curs_in_wchstr(3x)</A></STRONG>.
+
+
+
+                                                              <STRONG><A HREF="curs_inchstr.3x.html">curs_inchstr(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

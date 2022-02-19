@@ -1,0 +1,89 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-text_io-integer_io.adb</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-text_io-integer_io.adb </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--               Terminal_Interface.Curses.Text_IO.Integer_IO               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 B O D Y                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1999-2003,2009 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.12 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>with</b> Ada.Text_IO;
+<b>with</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__ads.htm#ref_45_35">Text_IO</A>.<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_43_51">Aux</A>;
+
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__ads.htm#ref_45_35">Text_IO</A>.<span class="symbol"><A NAME="ref_45_48" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_45_43">Integer_IO</A></span> <b>is</b>
+
+   <b>package</b> <span class="symbol"><A NAME="ref_47_12">Aux</A></span> <b>renames</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__ads.htm#ref_45_35">Text_IO</A>.<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_43_51">Aux</A>;
+   <b>package</b> IIO <b>is</b> <b>new</b> Ada.Text_IO.Integer_IO (<A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_43_9">Num</A>);
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_50_14" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_50_14">Put</A></span>
+     (<span class="symbol"><A NAME="ref_51_7" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_51_7">Win</A></span>   : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>;
+      <span class="symbol"><A NAME="ref_52_7" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_52_7">Item</A></span>  : <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_43_9">Num</A>;
+      <span class="symbol"><A NAME="ref_53_7" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_53_7">Width</A></span> : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_47_4">Default_Width</A>;
+      <span class="symbol"><A NAME="ref_54_7" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_54_7">Base</A></span>  : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_52_12">Number_Base</A> := <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_48_4">Default_Base</A>)
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_56_7">Buf</A></span> : String (1 .. <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A>'Last);
+   <b>begin</b>
+      IIO.Put (<A HREF="terminal_interface-curses-text_io-integer_io__adb.htm#ref_56_7">Buf</A>, <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_52_7">Item</A>, <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_54_7">Base</A>);
+      <A HREF="terminal_interface-curses-text_io-integer_io__adb.htm#ref_47_12">Aux</A>.<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_49_14">Put_Buf</A> (<A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_51_7">Win</A>, <A HREF="terminal_interface-curses-text_io-integer_io__adb.htm#ref_56_7">Buf</A>, <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_53_7">Width</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_50_14">Put</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_62_14" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_56_14">Put</A></span>
+     (<span class="symbol"><A NAME="ref_63_7" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_57_7">Item</A></span>  : <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_43_9">Num</A>;
+      <span class="symbol"><A NAME="ref_64_7" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_58_7">Width</A></span> : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_47_4">Default_Width</A>;
+      <span class="symbol"><A NAME="ref_65_7" HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_59_7">Base</A></span>  : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_52_12">Number_Base</A> := <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_48_4">Default_Base</A>)
+   <b>is</b>
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_50_14">Put</A> (<A HREF="terminal_interface-curses-text_io__ads.htm#ref_63_13">Get_Window</A>, <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_57_7">Item</A>, <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_58_7">Width</A>, <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_59_7">Base</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_56_14">Put</A>;
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__ads.htm#ref_45_35">Text_IO</A>.<A HREF="terminal_interface-curses-text_io-integer_io__ads.htm#ref_45_43">Integer_IO</A>;
+</PRE></BODY></HTML>

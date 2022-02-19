@@ -1,0 +1,290 @@
+.\"***************************************************************************
+.\" Copyright 2019,2020 Thomas E. Dickey                                     *
+.\" Copyright 2000-2016,2017 Free Software Foundation, Inc.                  *
+.\"                                                                          *
+.\" Permission is hereby granted, free of charge, to any person obtaining a  *
+.\" copy of this software and associated documentation files (the            *
+.\" "Software"), to deal in the Software without restriction, including      *
+.\" without limitation the rights to use, copy, modify, merge, publish,      *
+.\" distribute, distribute with modifications, sublicense, and/or sell       *
+.\" copies of the Software, and to permit persons to whom the Software is    *
+.\" furnished to do so, subject to the following conditions:                 *
+.\"                                                                          *
+.\" The above copyright notice and this permission notice shall be included  *
+.\" in all copies or substantial portions of the Software.                   *
+.\"                                                                          *
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+.\" IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+.\"                                                                          *
+.\" Except as contained in this notice, the name(s) of the above copyright   *
+.\" holders shall not be used in advertising or otherwise to promote the     *
+.\" sale, use or other dealings in this Software without prior written       *
+.\" authorization.                                                           *
+.\"***************************************************************************
+.\"
+.\" $Id: curs_trace.3x,v 1.21 2020/02/02 23:34:34 tom Exp $
+.ie \n(.g .ds `` \(lq
+.el       .ds `` ``
+.ie \n(.g .ds '' \(rq
+.el       .ds '' ''
+.de bP
+.ie n  .IP \(bu 4
+.el    .IP \(bu 2
+..
+.TH curs_trace 3X ""
+.na
+.hy 0
+.SH NAME
+\fBcurses_trace\fR,
+\fBtrace\fR,
+\fB_tracef\fR,
+\fB_traceattr\fR,
+\fB_traceattr2\fR,
+\fB_tracecchar_t\fR,
+\fB_tracecchar_t2\fR,
+\fB_tracechar\fR,
+\fB_tracechtype\fR,
+\fB_tracechtype2\fR,
+\fB_nc_tracebits\fR,
+\fB_tracedump\fR,
+\fB_tracemouse\fR \- \fBcurses\fR debugging routines
+.ad
+.hy
+.SH SYNOPSIS
+\fB#include <curses.h>\fR
+.sp
+\fBunsigned curses_trace(const unsigned \fP\fIparam\fP\fB);\fR
+.sp
+\fBvoid _tracef(const char *\fP\fIformat\fP\fB, ...);\fR
+.sp
+\fBchar *_traceattr(attr_t \fP\fIattr\fP\fB);\fR
+.br
+\fBchar *_traceattr2(int \fP\fIbuffer\fP\fB, chtype \fP\fIch\fP\fB);\fR
+.br
+\fBchar *_tracecchar_t(const cchar_t *\fP\fIstring\fP\fB);\fR
+.br
+\fBchar *_tracecchar_t2(int \fP\fIbuffer\fP\fB, const cchar_t *\fP\fIstring\fP\fB);\fR
+.br
+\fBchar *_tracechar(int \fP\fIch\fP\fB);\fR
+.br
+\fBchar *_tracechtype(chtype \fP\fIch\fP\fB);\fR
+.br
+\fBchar *_tracechtype2(int \fP\fIbuffer\fP\fB, chtype \fP\fIch\fP\fB);\fR
+.sp
+\fBvoid _tracedump(const char *\fP\fIlabel\fP\fB, WINDOW *\fP\fIwin\fP\fB);\fR
+.br
+\fBchar *_nc_tracebits(void);\fR
+.br
+\fBchar *_tracemouse(const MEVENT *\fP\fIevent\fP\fB);\fR
+.sp
+/* deprecated */
+.br
+\fBvoid trace(const unsigned int \fP\fIparam\fP\fB);\fR
+.SH DESCRIPTION
+The \fIcurses trace\fR routines are used for debugging the ncurses libraries,
+as well as applications which use the ncurses libraries.
+Some limitations apply:
+.bP
+Aside from \fBcurses_trace\fP,
+the other functions are normally available only with the debugging library
+e.g., \fIlibncurses_g.a\fR.
+.IP
+All of the trace functions may be compiled into any model (shared, static,
+profile) by defining the symbol \fBTRACE\fR.
+.bP
+Additionally, the functions which use \fBcchar_t\fP
+are only available with the wide-character configuration of the libraries.
+.SS Functions
+The principal parts of this interface are
+.bP
+\fBcurses_trace\fR, which selectively enables different tracing features, and
+.bP
+\fB_tracef\fR, which writes formatted data to the \fItrace\fR file.
+.IP
+The other functions either return a pointer to a string-area
+(allocated by the corresponding function), or return no value
+(such as \fB_tracedump\fP,
+which implements the screen dump for \fBTRACE_UPDATE\fP).
+The caller should not free these strings,
+since the allocation is reused on successive calls.
+To work around the problem of a single string-area per function,
+some use a buffer-number parameter, telling the library to allocate
+additional string-areas.
+.PP
+The \fBcurses_trace\fR function is always available,
+whether or not the other trace functions are available:
+.bP
+If tracing is available,
+calling \fBcurses_trace\fR with a nonzero parameter
+updates the trace mask,
+and returns the previous trace mask.
+.IP
+When the trace mask is nonzero,
+ncurses creates the file \*(``trace\*('' in the current directory for output.
+If the file already exists, no tracing is done.
+.bP
+If tracing is not available, \fBcurses_trace\fP returns zero (0).
+.SS Trace Parameter
+The trace parameter is formed by OR'ing
+values from the list of \fBTRACE_\fP\fIxxx\fR definitions in \fB<curses.h>\fR.
+These include:
+.TP 5
+.B TRACE_DISABLE
+turn off tracing by passing a zero parameter.
+.IP
+The library flushes the output file,
+but retains an open file-descriptor to the trace file
+so that it can resume tracing later if a nonzero parameter is passed
+to the \fBcurses_trace\fP function.
+.TP 5
+.B TRACE_TIMES
+trace user and system times of updates.
+.TP 5
+.B TRACE_TPUTS
+trace \fBtputs\fP(3X) calls.
+.TP 5
+.B TRACE_UPDATE
+trace update actions, old & new screens.
+.TP 5
+.B TRACE_MOVE
+trace cursor movement and scrolling.
+.TP 5
+.B TRACE_CHARPUT
+trace all character outputs.
+.TP 5
+.B TRACE_ORDINARY
+trace all update actions.
+The old and new screen contents are written to the trace file
+for each refresh.
+.TP 5
+.B TRACE_CALLS
+trace all curses calls.
+The parameters for each call are traced, as well as return values.
+.TP 5
+.B TRACE_VIRTPUT
+trace virtual character puts, i.e., calls to \fBaddch\fR.
+.TP 5
+.B TRACE_IEVENT
+trace low-level input processing, including timeouts.
+.TP 5
+.B TRACE_BITS
+trace state of TTY control bits.
+.TP 5
+.B TRACE_ICALLS
+trace internal/nested calls.
+.TP 5
+.B TRACE_CCALLS
+trace per-character calls.
+.TP 5
+.B TRACE_DATABASE
+trace read/write of terminfo/termcap data.
+.TP 5
+.B TRACE_ATTRS
+trace changes to video attributes and colors.
+.TP 5
+.B TRACE_MAXIMUM
+maximum trace level, enables all of the separate trace features.
+.PP
+Some tracing features are enabled whenever the \fBcurses_trace\fR parameter
+is nonzero.
+Some features overlap.
+The specific names are used as a guideline.
+.SS Initialization
+These functions check the \fBNCURSES_TRACE\fP environment variable,
+to set the tracing feature as if \fBcurses_trace\fP was called:
+.RS 4
+.PP
+.na
+.hy 0
+filter,
+initscr,
+new_prescr,
+newterm,
+nofilter,
+restartterm,
+ripoffline,
+setupterm,
+slk_init,
+tgetent,
+use_env,
+use_extended_names,
+use_tioctl
+.hy
+.ad
+.RE
+.SS Command-line Utilities
+.PP
+The command-line utilities such as \fBtic\fP(1) provide a verbose option
+which extends the set of messages written using the \fBcurses_trace\fP function.
+Both of these (\fB\-v\fP and \fBcurses_trace\fP)
+use the same variable (\fB_nc_tracing\fP),
+which determines the messages which are written.
+.PP
+Because the command-line utilities may call initialization functions
+such as \fBsetupterm\fP, \fBtgetent\fP or \fBuse_extended_names\fP,
+some of their debugging output may be directed to the \fItrace\fP file
+if the \fBNCURSES_TRACE\fP environment variable is set:
+.bP
+messages produced in the utility are written to the standard error.
+.bP
+messages produced by the underlying library are written to \fItrace\fP.
+.PP
+If ncurses is built without tracing, none of the latter are produced,
+and fewer diagnostics are provided by the command-line utilities.
+.SH RETURN VALUE
+Routines which return a value are designed to be used as parameters
+to the \fB_tracef\fR routine.
+.SH PORTABILITY
+These functions are not part of the XSI interface.
+Some other curses implementations are known to
+have similar features,
+but they are not compatible with ncurses:
+.bP
+SVr4 provided \fBtraceon\fP and \fBtraceoff\fP,
+to control whether debugging information was written
+to the \*(``trace\*('' file.
+While the functions were always available,
+this feature was only enabled
+if \fBDEBUG\fP was defined when building the library.
+.IP
+The SVr4 tracing feature is undocumented.
+.bP
+PDCurses provides \fBtraceon\fP and \fBtraceoff\fP,
+which (like SVr4) are always available,
+and enable tracing
+to the \*(``trace\*('' file
+only when a debug-library is built.
+.IP
+PDCurses has a short description of these functions,
+with a note that they are not present in X/Open Curses,
+ncurses or NetBSD.
+It does not mention SVr4,
+but the functions' inclusion in a header file section
+labeled \*(``Quasi-standard\*('' hints at the origin.
+.bP
+NetBSD does not provide functions for enabling/disabling traces.
+It uses environment variables
+\fBCURSES_TRACE_MASK\fP and
+\fBCURSES_TRACE_FILE\fP to determine what is traced,
+and where the results are written.
+This is available only when a debug-library is built.
+.IP
+The NetBSD tracing feature is undocumented.
+.PP
+A few ncurses functions are not provided when symbol versioning is used:
+.RS 4
+.PP
+_nc_tracebits,
+_tracedump,
+_tracemouse
+.RE
+.PP
+The original \fBtrace\fP routine was deprecated because
+it often conflicted with application names.
+.SH SEE ALSO
+\fBcurses\fR(3X).

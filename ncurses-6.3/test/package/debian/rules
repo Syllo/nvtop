@@ -1,0 +1,164 @@
+#!/usr/bin/make -f
+# Made with the aid of dh_make, by Craig Small
+# Sample debian/rules that uses debhelper. GNU copyright 1997 by Joey Hess.
+# Some lines taken from debmake, by Cristoph Lameter.
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+# packages
+NCURSES_PKG = ncurses-examples
+NCURSEST_PKG = ncursest-examples
+
+PACKAGES.indep = # ncurses-examples-docs
+PACKAGES.arch  = $(NCURSES_PKG) $(NCURSEST_PKG)
+
+# These are used for cross-compiling and for saving the configure script
+# from having to guess our platform (since we know it already)
+DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+CFLAGS   = $(shell dpkg-buildflags --get CFLAGS)
+CPPFLAGS = $(shell dpkg-buildflags --get CPPFLAGS)
+LDFLAGS  = $(shell dpkg-buildflags --get LDFLAGS)
+
+ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+        CFLAGS += -O0
+else
+        CFLAGS += -O2
+endif
+ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+        INSTALL_PROGRAM += -s
+endif
+
+verbose = # -v
+
+configure = \
+	CFLAGS="$(CFLAGS)" \
+	CPPFLAGS="$(CPPFLAGS)" \
+	LDFLAGS="$(LDFLAGS)" ../../configure \
+		--host=$(DEB_HOST_GNU_TYPE) \
+		--build=$(DEB_BUILD_GNU_TYPE) \
+		--prefix=/usr \
+		--disable-rpath-hack
+
+.PHONY: all config build install binary clean config-indep config-arch \
+    build-indep build-arch install-indep install-arch binary-indep \
+    binary-arch
+
+all: build
+
+config: config-indep config-arch
+build: build-indep build-arch
+install: install-indep install-arch
+binary: binary-indep binary-arch
+clean:
+	dh_testdir
+	dh_testroot
+	dh_clean $(verbose)
+	rm -rf t
+
+config-indep: $(PACKAGES.indep:%=config-%-stamp)
+config-arch: $(PACKAGES.arch:%=config-%-stamp)
+
+build-indep: $(PACKAGES.indep:%=build-%-stamp)
+build-arch: $(PACKAGES.arch:%=build-%-stamp)
+
+install-indep: $(PACKAGES.indep:%=install-%-stamp)
+install-arch: $(PACKAGES.arch:%=install-%-stamp)
+
+config-$(NCURSES_PKG)-stamp:
+	dh_testdir
+
+	rm -rf t/ncurses6
+	mkdir -p t/ncurses6
+
+	cd t/ncurses6; $(configure) \
+		--bindir=\$${prefix}/bin/$(NCURSES_PKG) \
+		--datadir=\$${prefix}/share/$(NCURSES_PKG) \
+		--with-screen=ncursesw6
+
+	touch $@
+
+config-$(NCURSEST_PKG)-stamp:
+	dh_testdir
+
+	rm -rf t/ncursest6
+	mkdir -p t/ncursest6
+
+	cd t/ncursest6; $(configure) \
+		--bindir=\$${prefix}/bin/$(NCURSEST_PKG) \
+		--datadir=\$${prefix}/share/$(NCURSEST_PKG) \
+		--with-screen=ncursestw6
+
+	touch $@
+
+build-$(NCURSES_PKG)-stamp: config-$(NCURSES_PKG)-stamp
+	dh_testdir
+
+	$(MAKE) -C t/ncurses6
+
+	touch $@
+
+build-$(NCURSEST_PKG)-stamp: config-$(NCURSEST_PKG)-stamp
+	dh_testdir
+
+	$(MAKE) -C t/ncursest6
+
+	touch $@
+
+install-$(NCURSES_PKG)-stamp: build-$(NCURSES_PKG)-stamp
+	dh_testdir
+	dh_testroot
+	dh_installdirs $(verbose)
+	dh_prep        $(verbose) -p$(NCURSES_PKG)
+
+	$(MAKE) -C t/ncurses6 install DESTDIR=$(CURDIR)/debian/$(NCURSES_PKG)
+
+	touch $@
+
+install-$(NCURSEST_PKG)-stamp: build-$(NCURSEST_PKG)-stamp
+	dh_testdir
+	dh_testroot
+	dh_installdirs $(verbose)
+	dh_prep        $(verbose) -p$(NCURSEST_PKG)
+
+	$(MAKE) -C t/ncursest6 install DESTDIR=$(CURDIR)/debian/$(NCURSEST_PKG)
+
+	touch $@
+
+# Build architecture-independent files here.
+binary-indep: install-indep
+ifneq ($(PACKAGES.indep),)
+	rm -f $(PACKAGES.indep:%=install-%-stamp)
+	dh_testdir
+	dh_testroot
+	dh_installdocs       $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_installman        $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_installexamples   $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_installchangelogs $(verbose) $(PACKAGES.indep:%=-p%) NEWS
+	dh_compress          $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_fixperms          $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_installdeb        $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_gencontrol        $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_md5sums           $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_builddeb          $(verbose) $(PACKAGES.indep:%=-p%)
+endif
+
+# Build architecture-dependent files here.
+binary-arch: install-arch
+ifneq ($(PACKAGES.arch),)
+	rm -f $(PACKAGES.arch:%=install-%-stamp)
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs $(verbose) $(PACKAGES.arch:%=-p%)  NEWS
+	dh_strip             $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_compress          $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_fixperms          $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_installdeb        $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_makeshlibs        $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_shlibdeps         $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_gencontrol        $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_md5sums           $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_builddeb          $(verbose) $(PACKAGES.arch:%=-p%)
+endif

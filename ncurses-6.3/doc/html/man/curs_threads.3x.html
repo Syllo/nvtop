@@ -1,0 +1,629 @@
+<!--
+  ****************************************************************************
+  * Copyright 2020 Thomas E. Dickey                                          *
+  * Copyright 2008-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_threads.3x,v 1.27 2020/12/30 18:28:51 tom Exp @
+  * ***************************************************************************
+  * ***************************************************************************
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_threads 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_threads 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_threads.3x.html">curs_threads(3x)</A></STRONG>                                              <STRONG><A HREF="curs_threads.3x.html">curs_threads(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>curs_threads</STRONG> - <STRONG>curses</STRONG> thread support
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>typedef</STRONG> <STRONG>int</STRONG> <STRONG>(*NCURSES_WINDOW_CB)(WINDOW</STRONG> <STRONG>*,</STRONG> <STRONG>void</STRONG> <STRONG>*);</STRONG>
+       <STRONG>typedef</STRONG> <STRONG>int</STRONG> <STRONG>(*NCURSES_SCREEN_CB)(SCREEN</STRONG> <STRONG>*,</STRONG> <STRONG>void</STRONG> <STRONG>*);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>get_escdelay(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>set_escdelay(int</STRONG> <EM>ms</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>set_tabsize(int</STRONG> <EM>cols</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>use_screen(SCREEN</STRONG> <STRONG>*</STRONG><EM>scr</EM><STRONG>,</STRONG> <STRONG>NCURSES_SCREEN_CB</STRONG> <EM>func</EM><STRONG>,</STRONG> <STRONG>void</STRONG> <STRONG>*</STRONG><EM>data</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>use_window(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>NCURSES_WINDOW_CB</STRONG> <EM>func</EM><STRONG>,</STRONG> <STRONG>void</STRONG> <STRONG>*</STRONG><EM>data</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       This  implementation  can  be configured to provide rudimentary support
+       for multi-threaded applications.  This makes a  different  set  of  li-
+       braries, e.g., <EM>libncursest</EM> since the binary interfaces are different.
+
+       Rather  than  modify  the interfaces to pass a thread specifier to each
+       function, it adds a few functions which can be used in  any  configura-
+       tion  which  hide  the  mutex's needed to prevent concurrent use of the
+       global variables when configured for threading.
+
+       In addition to forcing access to members of the <STRONG>WINDOW</STRONG> structure to  be
+       via  functions  (see <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>), it makes functions of the common
+       global variables, e.g., COLORS,  COLOR_PAIRS,  COLS,  ESCDELAY,  LINES,
+       TABSIZE  curscr, newscr and ttytype.  Those variables are maintained as
+       read-only values, stored in the <STRONG>SCREEN</STRONG> structure.
+
+       Even this is not enough to make a thread-safe application using curses.
+       A multi-threaded application would be expected to have threads updating
+       separate windows (within the same  device),  or  updating  on  separate
+       screens  (on  different  devices).  Also, a few of the global variables
+       are considered writable by some applications.  The functions  described
+       here address these special situations.
+
+       The ESCDELAY and TABSIZE global variables are modified by some applica-
+       tions.  To modify them in any configuration, use  the  <STRONG>set_escdelay</STRONG>  or
+       <STRONG>set_tabsize</STRONG> functions.  Other global variables are not modifiable.
+
+       The <STRONG>get_escdelay</STRONG> function returns the value for ESCDELAY.
+
+       The  <STRONG>use_window</STRONG> and <STRONG>use_screen</STRONG> functions provide coarse granularity mu-
+       texes for their respective <STRONG>WINDOW</STRONG> and <STRONG>SCREEN</STRONG> parameters, and call a us-
+       er-supplied  function,  passing  it a <EM>data</EM> parameter, and returning the
+       value from the user-supplied function to the application.
+
+
+</PRE><H3><a name="h3-USAGE">USAGE</a></H3><PRE>
+       All of the ncurses library functions assume that the locale is not  al-
+       tered during operation.  In addition, they use data which is maintained
+       within a hierarchy of scopes.
+
+          <STRONG>o</STRONG>   global data, e.g., used in the low-level terminfo or termcap in-
+              terfaces.
+
+          <STRONG>o</STRONG>   terminal data, e.g., associated with a call to <EM>set</EM><STRONG>_</STRONG><EM>curterm</EM>.  The
+              terminal data are initialized when screens are created.
+
+          <STRONG>o</STRONG>   screen data, e.g., associated with a call to <EM>newterm</EM> or <EM>initscr</EM>.
+
+          <STRONG>o</STRONG>   window data, e.g., associated with a call to <EM>newwin</EM>  or  <EM>subwin</EM>.
+              Windows  are  associated with screens.  Pads are not necessarily
+              associated with a particular screen.
+
+              Most curses applications operate on one or more windows within a
+              single screen.
+
+          <STRONG>o</STRONG>   reentrant, i.e., it uses only the data passed as parameters.
+
+       This  table lists the scope of data used for each symbol in the ncurses
+       library when it is configured to support threading:
+
+            Symbol                  Scope
+            -------------------------------------------------------------
+            BC                      global
+            COLORS                  screen (readonly)
+            COLOR_PAIR              reentrant
+            COLOR_PAIRS             screen (readonly)
+            COLS                    screen (readonly)
+            ESCDELAY                screen (readonly, see <EM>set</EM><STRONG>_</STRONG><EM>escdelay</EM>)
+            LINES                   screen (readonly)
+            PAIR_NUMBER             reentrant
+            PC                      global
+            SP                      global
+            TABSIZE                 screen (readonly)
+            UP                      global
+            acs_map                 screen (readonly)
+            add_wch                 window (stdscr)
+            add_wchnstr             window (stdscr)
+            add_wchstr              window (stdscr)
+            addch                   window (stdscr)
+            addchnstr               window (stdscr)
+            addchstr                window (stdscr)
+            addnstr                 window (stdscr)
+            addnwstr                window (stdscr)
+            addstr                  window (stdscr)
+            addwstr                 window (stdscr)
+            assume_default_colors   screen
+            attr_get                window (stdscr)
+            attr_off                window (stdscr)
+            attr_on                 window (stdscr)
+            attr_set                window (stdscr)
+            attroff                 window (stdscr)
+            attron                  window (stdscr)
+            attrset                 window (stdscr)
+            baudrate                screen
+            beep                    screen
+            bkgd                    window (stdscr)
+            bkgdset                 window (stdscr)
+            bkgrnd                  window (stdscr)
+            bkgrndset               window (stdscr)
+            boolcodes               global (readonly)
+            boolfnames              global (readonly)
+            boolnames               global (readonly)
+            border                  window (stdscr)
+            border_set              window (stdscr)
+            box                     window (stdscr)
+            box_set                 window (stdscr)
+            can_change_color        terminal
+            cbreak                  screen
+            chgat                   window (stdscr)
+            clear                   window (stdscr)
+            clearok                 window
+            clrtobot                window (stdscr)
+            clrtoeol                window (stdscr)
+            color_content           screen
+
+            color_set               window (stdscr)
+            copywin                 window locks(source, target)
+            cur_term                terminal
+            curs_set                screen
+            curscr                  screen (readonly)
+            curses_version          global (readonly)
+            def_prog_mode           terminal
+            def_shell_mode          terminal
+            define_key              screen
+            del_curterm             screen
+            delay_output            screen
+            delch                   window (stdscr)
+            deleteln                window (stdscr)
+            delscreen               global locks(screenlist, screen)
+            delwin                  global locks(windowlist)
+            derwin                  screen
+            doupdate                screen
+            dupwin                  screen locks(window)
+            echo                    screen
+            echo_wchar              window (stdscr)
+            echochar                window (stdscr)
+            endwin                  screen
+            erase                   window (stdscr)
+            erasechar               window (stdscr)
+            erasewchar              window (stdscr)
+            filter                  global
+            flash                   terminal
+            flushinp                screen
+            get_wch                 screen (input-operation)
+            get_wstr                screen (input-operation)
+            getattrs                window
+            getbegx                 window
+            getbegy                 window
+            getbkgd                 window
+            getbkgrnd               window
+            getcchar                reentrant
+            getch                   screen (input-operation)
+            getcurx                 window
+            getcury                 window
+            getmaxx                 window
+            getmaxy                 window
+            getmouse                screen (input-operation)
+            getn_wstr               screen (input-operation)
+            getnstr                 screen (input-operation)
+            getparx                 window
+            getpary                 window
+            getstr                  screen (input-operation)
+            getwin                  screen (input-operation)
+            halfdelay               screen
+            has_colors              terminal
+            has_ic                  terminal
+            has_il                  terminal
+            has_key                 screen
+            hline                   window (stdscr)
+            hline_set               window (stdscr)
+            idcok                   window
+            idlok                   window
+            immedok                 window
+            in_wch                  window (stdscr)
+            in_wchnstr              window (stdscr)
+            in_wchstr               window (stdscr)
+            inch                    window (stdscr)
+            inchnstr                window (stdscr)
+            inchstr                 window (stdscr)
+            init_color              screen
+            init_pair               screen
+
+            initscr                 global locks(screenlist)
+            innstr                  window (stdscr)
+            innwstr                 window (stdscr)
+            ins_nwstr               window (stdscr)
+            ins_wch                 window (stdscr)
+            ins_wstr                window (stdscr)
+            insch                   window (stdscr)
+            insdelln                window (stdscr)
+            insertln                window (stdscr)
+            insnstr                 window (stdscr)
+            insstr                  window (stdscr)
+            instr                   window (stdscr)
+            intrflush               terminal
+            inwstr                  window (stdscr)
+            is_cleared              window
+            is_idcok                window
+            is_idlok                window
+            is_immedok              window
+            is_keypad               window
+            is_leaveok              window
+            is_linetouched          window
+            is_nodelay              window
+            is_notimeout            window
+            is_scrollok             window
+            is_syncok               window
+            is_term_resized         terminal
+            is_wintouched           window
+            isendwin                screen
+            key_defined             screen
+            key_name                global (static data)
+            keybound                screen
+            keyname                 global (static data)
+            keyok                   screen
+            keypad                  window
+            killchar                terminal
+            killwchar               terminal
+            leaveok                 window
+            longname                screen
+            mcprint                 terminal
+            meta                    screen
+            mouse_trafo             window (stdscr)
+            mouseinterval           screen
+            mousemask               screen
+            move                    window (stdscr)
+            mvadd_wch               window (stdscr)
+            mvadd_wchnstr           window (stdscr)
+            mvadd_wchstr            window (stdscr)
+            mvaddch                 window (stdscr)
+            mvaddchnstr             window (stdscr)
+            mvaddchstr              window (stdscr)
+            mvaddnstr               window (stdscr)
+            mvaddnwstr              window (stdscr)
+            mvaddstr                window (stdscr)
+            mvaddwstr               window (stdscr)
+            mvchgat                 window (stdscr)
+            mvcur                   screen
+            mvdelch                 window (stdscr)
+            mvderwin                window (stdscr)
+            mvget_wch               screen (input-operation)
+            mvget_wstr              screen (input-operation)
+            mvgetch                 screen (input-operation)
+            mvgetn_wstr             screen (input-operation)
+            mvgetnstr               screen (input-operation)
+            mvgetstr                screen (input-operation)
+            mvhline                 window (stdscr)
+            mvhline_set             window (stdscr)
+
+            mvin_wch                window (stdscr)
+            mvin_wchnstr            window (stdscr)
+            mvin_wchstr             window (stdscr)
+            mvinch                  window (stdscr)
+            mvinchnstr              window (stdscr)
+            mvinchstr               window (stdscr)
+            mvinnstr                window (stdscr)
+            mvinnwstr               window (stdscr)
+            mvins_nwstr             window (stdscr)
+            mvins_wch               window (stdscr)
+            mvins_wstr              window (stdscr)
+            mvinsch                 window (stdscr)
+            mvinsnstr               window (stdscr)
+            mvinsstr                window (stdscr)
+            mvinstr                 window (stdscr)
+            mvinwstr                window (stdscr)
+            mvprintw                window (stdscr)
+            mvscanw                 screen
+            mvvline                 window (stdscr)
+            mvvline_set             window (stdscr)
+            mvwadd_wch              window
+            mvwadd_wchnstr          window
+            mvwadd_wchstr           window
+            mvwaddch                window
+            mvwaddchnstr            window
+            mvwaddchstr             window
+            mvwaddnstr              window
+            mvwaddnwstr             window
+            mvwaddstr               window
+            mvwaddwstr              window
+            mvwchgat                window
+            mvwdelch                window
+            mvwget_wch              screen (input-operation)
+            mvwget_wstr             screen (input-operation)
+            mvwgetch                screen (input-operation)
+            mvwgetn_wstr            screen (input-operation)
+            mvwgetnstr              screen (input-operation)
+            mvwgetstr               screen (input-operation)
+            mvwhline                window
+            mvwhline_set            window
+            mvwin                   window
+            mvwin_wch               window
+            mvwin_wchnstr           window
+            mvwin_wchstr            window
+            mvwinch                 window
+            mvwinchnstr             window
+            mvwinchstr              window
+            mvwinnstr               window
+            mvwinnwstr              window
+            mvwins_nwstr            window
+            mvwins_wch              window
+            mvwins_wstr             window
+            mvwinsch                window
+            mvwinsnstr              window
+            mvwinsstr               window
+            mvwinstr                window
+            mvwinwstr               window
+            mvwprintw               window
+            mvwscanw                screen
+            mvwvline                window
+            mvwvline_set            window
+            napms                   reentrant
+            newpad                  global locks(windowlist)
+            newscr                  screen (readonly)
+            newterm                 global locks(screenlist)
+            newwin                  global locks(windowlist)
+
+            nl                      screen
+            nocbreak                screen
+            nodelay                 window
+            noecho                  screen
+            nofilter                global
+            nonl                    screen
+            noqiflush               terminal
+            noraw                   screen
+            notimeout               window
+            numcodes                global (readonly)
+            numfnames               global (readonly)
+            numnames                global (readonly)
+            ospeed                  global
+            overlay                 window locks(source, target)
+            overwrite               window locks(source, target)
+            pair_content            screen
+            pecho_wchar             screen
+            pechochar               screen
+            pnoutrefresh            screen
+            prefresh                screen
+            printw                  window
+            putp                    global
+            putwin                  window
+            qiflush                 terminal
+            raw                     screen
+            redrawwin               window
+            refresh                 screen
+            reset_prog_mode         screen
+            reset_shell_mode        screen
+            resetty                 terminal
+            resize_term             screen locks(windowlist)
+            resizeterm              screen
+            restartterm             screen
+            ripoffline              global (static data)
+            savetty                 terminal
+            scanw                   screen
+            scr_dump                screen
+            scr_init                screen
+            scr_restore             screen
+            scr_set                 screen
+            scrl                    window (stdscr)
+            scroll                  window
+            scrollok                window
+            set_curterm             screen
+            set_escdelay            screen
+            set_tabsize             screen
+            set_term                global locks(screenlist, screen)
+            setcchar                reentrant
+            setscrreg               window (stdscr)
+            setupterm               global
+            slk_attr                screen
+            slk_attr_off            screen
+            slk_attr_on             screen
+            slk_attr_set            screen
+            slk_attroff             screen
+            slk_attron              screen
+            slk_attrset             screen
+            slk_clear               screen
+            slk_color               screen
+            slk_init                screen
+            slk_label               screen
+            slk_noutrefresh         screen
+            slk_refresh             screen
+            slk_restore             screen
+            slk_set                 screen
+            slk_touch               screen
+
+            slk_wset                screen
+            standend                window
+            standout                window
+            start_color             screen
+            stdscr                  screen (readonly)
+            strcodes                global (readonly)
+            strfnames               global (readonly)
+            strnames                global (readonly)
+            subpad                  window
+            subwin                  window
+            syncok                  window
+            term_attrs              screen
+            termattrs               screen
+            termname                terminal
+            tgetent                 global
+            tgetflag                global
+            tgetnum                 global
+            tgetstr                 global
+            tgoto                   global
+            tigetflag               terminal
+            tigetnum                terminal
+            tigetstr                terminal
+            timeout                 window (stdscr)
+            touchline               window
+            touchwin                window
+            tparm                   global (static data)
+            tputs                   screen
+            trace                   global (static data)
+            ttytype                 screen (readonly)
+            typeahead               screen
+            unctrl                  screen
+            unget_wch               screen (input-operation)
+            ungetch                 screen (input-operation)
+            ungetmouse              screen (input-operation)
+            untouchwin              window
+            use_default_colors      screen
+            use_env                 global (static data)
+            use_extended_names      global (static data)
+            use_legacy_coding       screen
+            use_screen              global locks(screenlist, screen)
+            use_window              global locks(windowlist, window)
+            vid_attr                screen
+            vid_puts                screen
+            vidattr                 screen
+            vidputs                 screen
+            vline                   window (stdscr)
+            vline_set               window (stdscr)
+            vw_printw               window
+            vw_scanw                screen
+            vwprintw                window
+            vwscanw                 screen
+            wadd_wch                window
+            wadd_wchnstr            window
+            wadd_wchstr             window
+            waddch                  window
+            waddchnstr              window
+            waddchstr               window
+            waddnstr                window
+            waddnwstr               window
+            waddstr                 window
+            waddwstr                window
+            wattr_get               window
+            wattr_off               window
+            wattr_on                window
+            wattr_set               window
+            wattroff                window
+
+            wattron                 window
+            wattrset                window
+            wbkgd                   window
+            wbkgdset                window
+            wbkgrnd                 window
+            wbkgrndset              window
+            wborder                 window
+            wborder_set             window
+            wchgat                  window
+            wclear                  window
+            wclrtobot               window
+            wclrtoeol               window
+            wcolor_set              window
+            wcursyncup              screen (affects window plus parents)
+            wdelch                  window
+            wdeleteln               window
+            wecho_wchar             window
+            wechochar               window
+            wenclose                window
+            werase                  window
+            wget_wch                screen (input-operation)
+            wget_wstr               screen (input-operation)
+            wgetbkgrnd              window
+            wgetch                  screen (input-operation)
+            wgetdelay               window
+            wgetn_wstr              screen (input-operation)
+            wgetnstr                screen (input-operation)
+            wgetparent              window
+            wgetscrreg              window
+            wgetstr                 screen (input-operation)
+            whline                  window
+            whline_set              window
+            win_wch                 window
+            win_wchnstr             window
+            win_wchstr              window
+            winch                   window
+            winchnstr               window
+            winchstr                window
+            winnstr                 window
+            winnwstr                window
+            wins_nwstr              window
+            wins_wch                window
+            wins_wstr               window
+            winsch                  window
+            winsdelln               window
+            winsertln               window
+            winsnstr                window
+            winsstr                 window
+            winstr                  window
+            winwstr                 window
+            wmouse_trafo            window
+            wmove                   window
+            wnoutrefresh            screen
+            wprintw                 window
+            wredrawln               window
+            wrefresh                screen
+            wresize                 window locks(windowlist)
+            wscanw                  screen
+            wscrl                   window
+            wsetscrreg              window
+            wstandend               window
+            wstandout               window
+            wsyncdown               screen (affects window plus parents)
+            wsyncup                 screen (affects window plus parents)
+            wtimeout                window
+            wtouchln                window
+
+            wunctrl                 global (static data)
+            wvline                  window
+            wvline_set              window
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       These functions all return <STRONG>TRUE</STRONG> or <STRONG>FALSE</STRONG>, except as noted.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Both a macro and a function are provided for each name.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These routines are specific to ncurses.  They  were  not  supported  on
+       Version 7, BSD or System V implementations.  It is recommended that any
+       code depending on ncurses extensions be conditioned using  NCURSES_VER-
+       SION.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>.
+
+
+
+                                                              <STRONG><A HREF="curs_threads.3x.html">curs_threads(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-USAGE">USAGE</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

@@ -1,0 +1,159 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_printw.3x,v 1.28 2020/10/24 09:22:45 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_printw 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_printw 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>                                                <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>printw</STRONG>, <STRONG>wprintw</STRONG>, <STRONG>mvprintw</STRONG>, <STRONG>mvwprintw</STRONG>, <STRONG>vwprintw</STRONG>, <STRONG>vw_printw</STRONG> - print
+       formatted output in <STRONG>curses</STRONG> windows
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>printw(const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>fmt</EM><STRONG>,</STRONG> <STRONG>...);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wprintw(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>fmt</EM><STRONG>,</STRONG> <STRONG>...);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvprintw(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>fmt</EM><STRONG>,</STRONG> <STRONG>...);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwprintw(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>fmt</EM><STRONG>,</STRONG> <STRONG>...);</STRONG>
+       <STRONG>int</STRONG> <STRONG>vw_printw(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>fmt</EM><STRONG>,</STRONG> <STRONG>va_list</STRONG> <EM>varglist</EM><STRONG>);</STRONG>
+
+       /* obsolete */
+       <STRONG>int</STRONG> <STRONG>vwprintw(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>fmt</EM><STRONG>,</STRONG> <STRONG>va_list</STRONG> <EM>varglist</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The <STRONG>printw</STRONG>, <STRONG>wprintw</STRONG>, <STRONG>mvprintw</STRONG> and <STRONG>mvwprintw</STRONG> routines are  analogous  to
+       <STRONG>printf</STRONG>  [see <STRONG>printf(3)</STRONG>].  In effect, the string that would be output by
+       <STRONG>printf</STRONG> is output instead as though <STRONG>waddstr</STRONG> were used on the given  win-
+       dow.
+
+       The  <STRONG>vwprintw</STRONG>  and  <STRONG>vw_printw</STRONG>  routines  are  analogous to <STRONG>vprintf</STRONG> [see
+       <STRONG>printf(3)</STRONG>] and perform a <STRONG>wprintw</STRONG> using a variable argument  list.   The
+       third  argument  is a <STRONG>va_list</STRONG>, a pointer to a list of arguments, as de-
+       fined in <STRONG>&lt;stdarg.h&gt;</STRONG>.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Routines that return an integer return <STRONG>ERR</STRONG> upon failure  and  <STRONG>OK</STRONG>  (SVr4
+       only  specifies "an integer value other than <STRONG>ERR</STRONG>") upon successful com-
+       pletion.
+
+       X/Open defines no error conditions.  In this implementation,  an  error
+       may be returned if it cannot allocate enough memory for the buffer used
+       to format the results.  It will return an error if the  window  pointer
+       is null.
+
+       Functions  with  a  "mv"  prefix  first perform a cursor movement using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+
+</PRE><H2><a name="h2-HISTORY">HISTORY</a></H2><PRE>
+       While <STRONG>printw</STRONG> was implemented in 4BSD, it was unused until 4.2BSD (which
+       used it in games).  That early version of curses was before the ANSI  C
+       standard.   It  did not use &lt;varargs.h&gt;, though that was available.  In
+       1991 (a couple of years after SVr4 was generally available,  and  after
+       the  C  standard  was published), other developers updated the library,
+       using &lt;stdarg.h&gt; internally in 4.4BSD curses.  Even with this  improve-
+       ment, BSD curses did not use function prototypes (or even declare func-
+       tions) in the &lt;curses.h&gt; header until 1992.
+
+       SVr2 documented <STRONG>printw</STRONG>, <STRONG>wprintw</STRONG>  tersely  as  "printf  on  <EM>stdscr</EM>"  and
+       tersely as "printf on <EM>win</EM>", respectively.
+
+       SVr3  added  <STRONG>mvprintw</STRONG>,  and <STRONG>mvwprintw</STRONG>, with a three-line summary saying
+       that they were analogous to <STRONG>printf(3)</STRONG>, explaining that the string which
+       would be output from <STRONG>printf(3)</STRONG> would instead be output using <STRONG>waddstr</STRONG> on
+       the given window.  SVr3 also added <STRONG>vwprintw</STRONG>, saying that the third  pa-
+       rameter  is a <STRONG>va_list</STRONG>, defined in &lt;varargs.h&gt;, and referring the reader
+       to the manual pages for <EM>varargs</EM> and <EM>vprintf</EM> for detailed descriptions.
+
+       SVr4 added  no  new  variations  of  <STRONG>printw</STRONG>,  but  provided  for  using
+       &lt;varargs.h&gt; or &lt;stdarg.h&gt; to define the <STRONG>va_list</STRONG> type.
+
+       X/Open  Curses  added  <STRONG>vw_printw</STRONG>  to replace <STRONG>vwprintw</STRONG>, stating that its
+       <STRONG>va_list</STRONG> definition requires &lt;stdarg.h&gt;.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       In this implementation, <STRONG>vw_printw</STRONG> and <STRONG>vwprintw</STRONG> are equivalent, to  sup-
+       port legacy applications.  However, the latter (<STRONG>vwprintw</STRONG>) is obsolete:
+
+       <STRONG>o</STRONG>   The  XSI  Curses  standard, Issue 4 described these functions.  The
+           function <STRONG>vwprintw</STRONG> is marked TO BE WITHDRAWN, and is to be  replaced
+           by a function <STRONG>vw_printw</STRONG> using the <STRONG>&lt;stdarg.h&gt;</STRONG> interface.
+
+       <STRONG>o</STRONG>   The  Single Unix Specification, Version 2 states that <STRONG>vw_printw</STRONG>  is
+           preferred  to  <STRONG>vwprintw</STRONG>  since  the   latter   requires   including
+           <STRONG>&lt;varargs.h&gt;</STRONG>,  which  cannot be used in the same file as <STRONG>&lt;stdarg.h&gt;</STRONG>.
+           This implementation uses <STRONG>&lt;stdarg.h&gt;</STRONG> for both, because  that  header
+           is included in <STRONG>&lt;curses.h</STRONG>&gt;.
+
+       <STRONG>o</STRONG>   X/Open  Curses, Issue 5 (December 2007) marked <STRONG>vwprintw</STRONG> (along with
+           <STRONG>vwscanw</STRONG> and the termcap interface) as withdrawn.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_addstr.3x.html">curs_addstr(3x)</A></STRONG>, <STRONG><A HREF="curs_scanw.3x.html">curs_scanw(3x)</A></STRONG>, <STRONG><A HREF="curs_termcap.3x.html">curs_termcap(3x)</A></STRONG>,
+       <STRONG>printf(3)</STRONG>, <STRONG>vprintf(3)</STRONG>.
+
+
+
+                                                               <STRONG><A HREF="curs_printw.3x.html">curs_printw(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-HISTORY">HISTORY</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

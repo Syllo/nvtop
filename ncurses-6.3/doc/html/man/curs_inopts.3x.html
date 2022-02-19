@@ -1,0 +1,335 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2016,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_inopts.3x,v 1.33 2020/12/05 19:38:18 Benno.Schulenberg Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_inopts 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_inopts 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>                                                <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>cbreak</STRONG>, <STRONG>nocbreak</STRONG>, <STRONG>echo</STRONG>, <STRONG>noecho</STRONG>, <STRONG>halfdelay</STRONG>, <STRONG>intrflush</STRONG>, <STRONG>keypad</STRONG>, <STRONG>meta</STRONG>, <STRONG>nl</STRONG>,
+       <STRONG>nonl</STRONG>, <STRONG>nodelay</STRONG>, <STRONG>notimeout</STRONG>, <STRONG>raw</STRONG>, <STRONG>noraw</STRONG>, <STRONG>qiflush</STRONG>, <STRONG>noqiflush</STRONG>, <STRONG>timeout</STRONG>,
+       <STRONG>wtimeout</STRONG>, <STRONG>typeahead</STRONG> - <STRONG>curses</STRONG> input options
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>cbreak(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>nocbreak(void);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>echo(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>noecho(void);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>intrflush(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>bool</STRONG> <EM>bf</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>keypad(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>bool</STRONG> <EM>bf</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>meta(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>bool</STRONG> <EM>bf</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>nodelay(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>bool</STRONG> <EM>bf</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>notimeout(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>bool</STRONG> <EM>bf</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>nl(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>nonl(void);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>raw(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>noraw(void);</STRONG>
+
+       <STRONG>void</STRONG> <STRONG>qiflush(void);</STRONG>
+       <STRONG>void</STRONG> <STRONG>noqiflush(void);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>halfdelay(int</STRONG> <EM>tenths</EM><STRONG>);</STRONG>
+       <STRONG>void</STRONG> <STRONG>timeout(int</STRONG> <EM>delay</EM><STRONG>);</STRONG>
+       <STRONG>void</STRONG> <STRONG>wtimeout(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>delay</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>typeahead(int</STRONG> <EM>fd</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The <STRONG>ncurses</STRONG> library provides several functions which let an application
+       change the way input from the terminal is handled.   Some  are  global,
+       applying to all windows.  Others apply only to a specific window.  Win-
+       dow-specific settings are not automatically applied to new  or  derived
+       windows.   An  application must apply these to each window, if the same
+       behavior is needed.
+
+
+</PRE><H3><a name="h3-cbreak_nocbreak">cbreak/nocbreak</a></H3><PRE>
+       Normally, the tty driver buffers typed characters until  a  newline  or
+       carriage  return  is typed.  The <STRONG>cbreak</STRONG> routine disables line buffering
+       and erase/kill character-processing (interrupt and flow control charac-
+       ters  are  unaffected), making characters typed by the user immediately
+       available to the program.  The <STRONG>nocbreak</STRONG> routine returns the terminal to
+       normal (cooked) mode.
+
+       Initially the terminal may or may not be in <STRONG>cbreak</STRONG> mode, as the mode is
+       inherited; therefore, a program should call <STRONG>cbreak</STRONG> or <STRONG>nocbreak</STRONG>  explic-
+       itly.   Most  interactive  programs  using  <STRONG>curses</STRONG> set the <STRONG>cbreak</STRONG> mode.
+       Note that <STRONG>cbreak</STRONG> overrides <STRONG>raw</STRONG>.  [See <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG> for  a  discussion
+       of how these routines interact with <STRONG>echo</STRONG> and <STRONG>noecho</STRONG>.]
+
+
+</PRE><H3><a name="h3-echo_noecho">echo/noecho</a></H3><PRE>
+       The  <STRONG>echo</STRONG>  and  <STRONG>noecho</STRONG> routines control whether characters typed by the
+       user are echoed by <STRONG><A HREF="curs_getch.3x.html">getch(3x)</A></STRONG> as they are typed.   Echoing  by  the  tty
+       driver  is  always  disabled,  but  initially <STRONG>getch</STRONG> is in echo mode, so
+       characters typed are echoed.  Authors of most interactive programs pre-
+       fer  to do their own echoing in a controlled area of the screen, or not
+       to echo at all, so  they  disable  echoing  by  calling  <STRONG>noecho</STRONG>.   [See
+       <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>  for  a  discussion  of how these routines interact with
+       <STRONG>cbreak</STRONG> and <STRONG>nocbreak</STRONG>.]
+
+
+</PRE><H3><a name="h3-halfdelay">halfdelay</a></H3><PRE>
+       The <STRONG>halfdelay</STRONG> routine is used for half-delay mode, which is similar  to
+       <STRONG>cbreak</STRONG> mode in that characters typed by the user are immediately avail-
+       able to the program.  However, after blocking for <EM>tenths</EM> tenths of sec-
+       onds,  <STRONG>ERR</STRONG>  is returned if nothing has been typed.  The value of <EM>tenths</EM>
+       must be a number between 1 and 255.  Use <STRONG>nocbreak</STRONG> to  leave  half-delay
+       mode.
+
+
+</PRE><H3><a name="h3-intrflush">intrflush</a></H3><PRE>
+       If  the  <STRONG>intrflush</STRONG> option is enabled (<EM>bf</EM> is <STRONG>TRUE</STRONG>), and an interrupt key
+       is pressed on the keyboard (interrupt, break, quit), all output in  the
+       tty  driver queue will be flushed, giving the effect of faster response
+       to the interrupt, but causing <STRONG>curses</STRONG> to have the wrong idea of what  is
+       on  the screen.  Disabling the option (<EM>bf</EM> is <STRONG>FALSE</STRONG>) prevents the flush.
+       The default for the option is inherited from the tty  driver  settings.
+       The window argument is ignored.
+
+
+</PRE><H3><a name="h3-keypad">keypad</a></H3><PRE>
+       The  <STRONG>keypad</STRONG>  option  enables the keypad of the user's terminal.  If en-
+       abled (<EM>bf</EM> is <STRONG>TRUE</STRONG>), the user can press a function key (such as an arrow
+       key)  and  <STRONG><A HREF="curs_getch.3x.html">wgetch(3x)</A></STRONG>  returns a single value representing the function
+       key, as in <STRONG>KEY_LEFT</STRONG>.  If disabled (<EM>bf</EM> is <STRONG>FALSE</STRONG>), <STRONG>curses</STRONG> does not  treat
+       function keys specially and the program has to interpret the escape se-
+       quences itself.  If the keypad in the terminal can be turned  on  (made
+       to  transmit)  and  off  (made to work locally), turning on this option
+       causes the terminal keypad to be turned on when <STRONG><A HREF="curs_getch.3x.html">wgetch(3x)</A></STRONG>  is  called.
+       The default value for keypad is <STRONG>FALSE</STRONG>.
+
+
+</PRE><H3><a name="h3-meta">meta</a></H3><PRE>
+       Initially,  whether the terminal returns 7 or 8 significant bits on in-
+       put depends on the control mode of the tty driver [see <STRONG>termios(3)</STRONG>].  To
+       force  8  bits  to be returned, invoke <STRONG>meta</STRONG>(<EM>win</EM>, <STRONG>TRUE</STRONG>); this is equiva-
+       lent, under POSIX, to setting the CS8 flag on the terminal.  To force 7
+       bits to be returned, invoke <STRONG>meta</STRONG>(<EM>win</EM>, <STRONG>FALSE</STRONG>); this is equivalent, under
+       POSIX, to setting the CS7 flag on the terminal.  The  window  argument,
+       <EM>win</EM>, is always ignored.  If the terminfo capabilities <STRONG>smm</STRONG> (meta_on) and
+       <STRONG>rmm</STRONG> (meta_off) are defined for the terminal, <STRONG>smm</STRONG> is sent to the  termi-
+       nal  when  <STRONG>meta</STRONG>(<EM>win</EM>,  <STRONG>TRUE</STRONG>)  is  called  and <STRONG>rmm</STRONG> is sent when <STRONG>meta</STRONG>(<EM>win</EM>,
+       <STRONG>FALSE</STRONG>) is called.
+
+
+</PRE><H3><a name="h3-nl_nonl">nl/nonl</a></H3><PRE>
+       The <STRONG>nl</STRONG> and <STRONG>nonl</STRONG> routines control whether the underlying display  device
+       translates the return key into newline on input.
+
+
+</PRE><H3><a name="h3-nodelay">nodelay</a></H3><PRE>
+       The <STRONG>nodelay</STRONG> option causes <STRONG>getch</STRONG> to be a non-blocking call.  If no input
+       is ready, <STRONG>getch</STRONG> returns <STRONG>ERR</STRONG>.  If disabled (<EM>bf</EM> is  <STRONG>FALSE</STRONG>),  <STRONG>getch</STRONG>  waits
+       until a key is pressed.
+
+
+</PRE><H3><a name="h3-notimeout">notimeout</a></H3><PRE>
+       When  interpreting  an  escape  sequence, <STRONG><A HREF="curs_getch.3x.html">wgetch(3x)</A></STRONG> sets a timer while
+       waiting for the next character.  If  <STRONG>notimeout(</STRONG><EM>win</EM>,  <STRONG>TRUE</STRONG>)  is  called,
+       then  <STRONG>wgetch</STRONG>  does  not  set a timer.  The purpose of the timeout is to
+       differentiate between sequences received from a function key and  those
+       typed by a user.
+
+
+</PRE><H3><a name="h3-raw_noraw">raw/noraw</a></H3><PRE>
+       The  <STRONG>raw</STRONG> and <STRONG>noraw</STRONG> routines place the terminal into or out of raw mode.
+       Raw mode is similar to <STRONG>cbreak</STRONG> mode, in that characters typed are  imme-
+       diately  passed  through to the user program.  The differences are that
+       in raw mode, the interrupt, quit, suspend, and flow control  characters
+       are  all  passed through uninterpreted, instead of generating a signal.
+       The behavior of the BREAK key depends on other bits in the  tty  driver
+       that are not set by <STRONG>curses</STRONG>.
+
+
+</PRE><H3><a name="h3-qiflush_noqiflush">qiflush/noqiflush</a></H3><PRE>
+       When  the  <STRONG>noqiflush</STRONG>  routine is used, normal flush of input and output
+       queues associated with the <STRONG>INTR</STRONG>, <STRONG>QUIT</STRONG> and <STRONG>SUSP</STRONG> characters will  not  be
+       done  [see  <STRONG>termios(3)</STRONG>].   When  <STRONG>qiflush</STRONG>  is called, the queues will be
+       flushed when these control characters are read.  You may want  to  call
+       <STRONG>noqiflush</STRONG>  in a signal handler if you want output to continue as though
+       the interrupt had not occurred, after the handler exits.
+
+
+</PRE><H3><a name="h3-timeout_wtimeout">timeout/wtimeout</a></H3><PRE>
+       The <STRONG>timeout</STRONG> and <STRONG>wtimeout</STRONG> routines set blocking or non-blocking read for
+       a  given  window.   If  <EM>delay</EM> is negative, blocking read is used (i.e.,
+       waits indefinitely for input).  If <EM>delay</EM>  is  zero,  then  non-blocking
+       read is used (i.e., read returns <STRONG>ERR</STRONG> if no input is waiting).  If <EM>delay</EM>
+       is positive, then read blocks for <EM>delay</EM> milliseconds, and  returns  <STRONG>ERR</STRONG>
+       if  there  is  still  no input.  Hence, these routines provide the same
+       functionality as <STRONG>nodelay</STRONG>, plus the additional capability of being  able
+       to block for only <EM>delay</EM> milliseconds (where <EM>delay</EM> is positive).
+
+
+</PRE><H3><a name="h3-typeahead">typeahead</a></H3><PRE>
+       The <STRONG>curses</STRONG> library does "line-breakout optimization" by looking for ty-
+       peahead periodically while updating the screen.  If input is found, and
+       it  is  coming  from  a  tty, the current update is postponed until <STRONG>re-</STRONG>
+       <STRONG><A HREF="refresh.3x.html">fresh(3x)</A></STRONG> or <STRONG>doupdate</STRONG> is called again.  This allows faster response  to
+       commands  typed in advance.  Normally, the input FILE pointer passed to
+       <STRONG>newterm</STRONG>, or <STRONG>stdin</STRONG> in the case that <STRONG>initscr</STRONG> was used, will be used to do
+       this typeahead checking.  The <STRONG>typeahead</STRONG> routine specifies that the file
+       descriptor <EM>fd</EM> is to be used to check for typeahead instead.  If  <EM>fd</EM>  is
+       -1, then no typeahead checking is done.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       All  routines  that  return  an  integer return <STRONG>ERR</STRONG> upon failure and <STRONG>OK</STRONG>
+       (SVr4 specifies only "an integer value other than <STRONG>ERR</STRONG>") upon successful
+       completion,  unless  otherwise  noted in the preceding routine descrip-
+       tions.
+
+       X/Open does not define any error conditions.  In  this  implementation,
+       functions  with  a window parameter will return an error if it is null.
+       Any function will also return an error if the terminal was not initial-
+       ized.  Also,
+
+              <STRONG>halfdelay</STRONG>
+                   returns  an  error  if  its  parameter is outside the range
+                   1..255.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These functions are described in the XSI Curses standard, Issue 4.
+
+       The ncurses library obeys the XPG4 standard and the historical practice
+       of  the  AT&amp;T  curses  implementations, in that the echo bit is cleared
+       when curses initializes the terminal state.  BSD curses  differed  from
+       this  slightly;  it left the echo bit on at initialization, but the BSD
+       <STRONG>raw</STRONG> call turned it off as a side-effect.   For  best  portability,  set
+       <STRONG>echo</STRONG>  or <STRONG>noecho</STRONG> explicitly just after initialization, even if your pro-
+       gram remains in cooked mode.
+
+       The XSI Curses standard is ambiguous on the  question  of  whether  <STRONG>raw</STRONG>
+       should  disable  the  CRLF translations controlled by <STRONG>nl</STRONG> and <STRONG>nonl</STRONG>.  BSD
+       curses did turn off these translations; AT&amp;T curses (at least  as  late
+       as  SVr1)  did not.  We chose to do so, on the theory that a programmer
+       requesting raw input wants a clean  (ideally  8-bit  clean)  connection
+       that the operating system will not alter.
+
+       When <STRONG>keypad</STRONG> is first enabled, ncurses loads the key-definitions for the
+       current terminal description.  If the terminal description includes ex-
+       tended string capabilities, e.g., from using the <STRONG>-x</STRONG> option of <STRONG>tic</STRONG>, then
+       ncurses also defines keys for the capabilities whose names  begin  with
+       "k".  The corresponding keycodes are generated and (depending on previ-
+       ous loads of terminal descriptions) may differ from one execution of  a
+       program to the next.  The generated keycodes are recognized by the <STRONG>key-</STRONG>
+       <STRONG>name</STRONG> function (which will then return a name beginning with "k"  denot-
+       ing  the terminfo capability name rather than "K", used for curses key-
+       names).  On the other hand, an application can use <STRONG>define_key</STRONG> to estab-
+       lish a specific keycode for a given string.  This makes it possible for
+       an application to check for  an  extended  capability's  presence  with
+       <STRONG>tigetstr</STRONG>, and reassign the keycode to match its own needs.
+
+       Low-level applications can use <STRONG>tigetstr</STRONG> to obtain the definition of any
+       particular string capability.  Higher-level applications which use  the
+       curses  <STRONG>wgetch</STRONG>  and  similar functions to return keycodes rely upon the
+       order in which the strings are loaded.  If more than one key definition
+       has  the  same  string  value, then <STRONG>wgetch</STRONG> can return only one keycode.
+       Most curses implementations (including ncurses) load key definitions in
+       the  order  defined  by the array of string capability names.  The last
+       key to be loaded determines the keycode which  will  be  returned.   In
+       ncurses,  you  may  also  have extended capabilities interpreted as key
+       definitions.  These are loaded after the predefined keys, and if a  ca-
+       pability's value is the same as a previously-loaded key definition, the
+       later definition is the one used.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that <STRONG>echo</STRONG>, <STRONG>noecho</STRONG>, <STRONG>halfdelay</STRONG>, <STRONG>intrflush</STRONG>, <STRONG>meta</STRONG>, <STRONG>nl</STRONG>, <STRONG>nonl</STRONG>,  <STRONG>nodelay</STRONG>,
+       <STRONG>notimeout</STRONG>, <STRONG>noqiflush</STRONG>, <STRONG>qiflush</STRONG>, <STRONG>timeout</STRONG>, and <STRONG>wtimeout</STRONG> may be macros.
+
+       The  <STRONG>noraw</STRONG>  and  <STRONG>nocbreak</STRONG> calls follow historical practice in that they
+       attempt to restore to normal ("cooked") mode from raw and cbreak  modes
+       respectively.   Mixing raw/noraw and cbreak/nocbreak calls leads to tty
+       driver control states that are hard to predict or understand; it is not
+       recommended.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,   <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>,   <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>,   <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>,  <STRONG>de-</STRONG>
+       <STRONG><A HREF="define_key.3x.html">fine_key(3x)</A></STRONG>, <STRONG>termios(3)</STRONG>
+
+
+
+                                                               <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-cbreak_nocbreak">cbreak/nocbreak</a></li>
+<li><a href="#h3-echo_noecho">echo/noecho</a></li>
+<li><a href="#h3-halfdelay">halfdelay</a></li>
+<li><a href="#h3-intrflush">intrflush</a></li>
+<li><a href="#h3-keypad">keypad</a></li>
+<li><a href="#h3-meta">meta</a></li>
+<li><a href="#h3-nl_nonl">nl/nonl</a></li>
+<li><a href="#h3-nodelay">nodelay</a></li>
+<li><a href="#h3-notimeout">notimeout</a></li>
+<li><a href="#h3-raw_noraw">raw/noraw</a></li>
+<li><a href="#h3-qiflush_noqiflush">qiflush/noqiflush</a></li>
+<li><a href="#h3-timeout_wtimeout">timeout/wtimeout</a></li>
+<li><a href="#h3-typeahead">typeahead</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

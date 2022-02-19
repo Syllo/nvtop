@@ -1,0 +1,428 @@
+##############################################################################
+# Copyright 2018-2020,2021 Thomas E. Dickey                                  #
+# Copyright 1999-2016,2018 Free Software Foundation, Inc.                    #
+#                                                                            #
+# Permission is hereby granted, free of charge, to any person obtaining a    #
+# copy of this software and associated documentation files (the "Software"), #
+# to deal in the Software without restriction, including without limitation  #
+# the rights to use, copy, modify, merge, publish, distribute, distribute    #
+# with modifications, sublicense, and/or sell copies of the Software, and to #
+# permit persons to whom the Software is furnished to do so, subject to the  #
+# following conditions:                                                      #
+#                                                                            #
+# The above copyright notice and this permission notice shall be included in #
+# all copies or substantial portions of the Software.                        #
+#                                                                            #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR #
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   #
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    #
+# THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER      #
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    #
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        #
+# DEALINGS IN THE SOFTWARE.                                                  #
+#                                                                            #
+# Except as contained in this notice, the name(s) of the above copyright     #
+# holders shall not be used in advertising or otherwise to promote the sale, #
+# use or other dealings in this Software without prior written               #
+# authorization.                                                             #
+##############################################################################
+#
+#  Author:  Juergen Pfeifer, 1996
+#
+#  $Id: Makefile.in,v 1.96 2021/07/03 15:45:33 tom Exp $
+#
+.SUFFIXES:
+
+SHELL		= @SHELL@
+VPATH		= @srcdir@
+THIS		= Makefile
+
+ADA_MFLAGS 	= @cf_cv_makeflags@
+@SET_MAKE@
+
+MODEL		= ../../@DFT_OBJ_SUBDIR@
+
+DESTDIR		= @DESTDIR@
+
+top_srcdir	= @top_srcdir@
+srcdir		= @srcdir@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+includedir	= @includedir@
+libdir		= @libdir@
+
+LIBDIR		= $(DESTDIR)$(libdir)
+ADA_INCLUDE	= $(DESTDIR)@ADA_INCLUDE@
+ADA_OBJECTS	= $(DESTDIR)@ADA_OBJECTS@
+
+INSTALL		= @INSTALL@ @INSTALL_OPT_O@
+INSTALL_LIB	= @INSTALL@ @INSTALL_LIB@
+
+AR		= @AR@
+ARFLAGS		= @ARFLAGS@
+AWK		= @AWK@
+LN_S		= @LN_S@
+
+CC		= @CC@
+CFLAGS		= @CFLAGS@ @EXTRA_CFLAGS@
+
+CPPFLAGS	= @ACPPFLAGS@ @CPPFLAGS@ \
+		  -DHAVE_CONFIG_H -I$(srcdir)
+
+CCFLAGS		= $(CPPFLAGS) $(CFLAGS)
+
+CFLAGS_NORMAL	= $(CCFLAGS) -DNCURSES_STATIC
+CFLAGS_DEBUG	= $(CCFLAGS) -DNCURSES_STATIC @CC_G_OPT@ -DTRACE
+CFLAGS_PROFILE	= $(CCFLAGS) -DNCURSES_STATIC -pg
+CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
+
+CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
+
+LINK		= $(CC)
+LDFLAGS		= @LDFLAGS@ @LD_MODEL@ @LIBS@
+
+RANLIB		= @RANLIB@
+
+################################################################################
+ADA		= @cf_ada_compiler@
+ADAPREP		= gnatprep
+ADAFLAGS	= @ADAFLAGS@ -I. -I$(srcdir)
+
+LIB_NAME	= @ADA_LIBNAME@
+SONAME		= @ADA_SHAREDLIB@
+
+GNAT_PROJECT	= @ADA_LIBNAME@.gpr
+
+# build/source are the Ada95 tree
+BUILD_DIR	= ..
+SOURCE_DIR	= ..
+
+BUILD_DIR_LIB	= $(BUILD_DIR)/lib
+SOURCE_DIR_SRC	= $(SOURCE_DIR)/src
+
+ADAMAKE		= @cf_ada_make@
+ADAMAKEFLAGS	= \
+	-P$(GNAT_PROJECT) \
+	-XBUILD_DIR=`cd $(BUILD_DIR);pwd` \
+	-XSOURCE_DIR=`cd $(SOURCE_DIR);pwd` \
+	-XSOURCE_DIR2=`cd $(srcdir);pwd` \
+	-XLIB_NAME=$(LIB_NAME) \
+	-XSONAME=$(SONAME)
+
+CARGS           = -cargs $(ADAFLAGS)
+LARGS           =
+
+STATIC_LIBNAME	= lib$(LIB_NAME).a
+SHARED_LIBNAME	= $(SONAME)
+SHARED_SYMLINK	= lib$(LIB_NAME).so
+
+ALIB            = @cf_ada_package@
+ABASE           = $(ALIB)-curses
+################################################################################
+GENERATED_SOURCES=$(ABASE).ads         			\
+		  $(ABASE).adb         			\
+	          $(ABASE)-aux.ads   			\
+	          $(ABASE)-trace.ads   			\
+	          $(ABASE)-menus.ads   			\
+	          $(ABASE)-forms.ads   			\
+	          $(ABASE)-mouse.ads 			\
+	          $(ABASE)-panels.ads			\
+	          $(ABASE)-menus-menu_user_data.ads	\
+	          $(ABASE)-menus-item_user_data.ads	\
+	          $(ABASE)-forms-form_user_data.ads	\
+	          $(ABASE)-forms-field_types.ads	\
+	          $(ABASE)-forms-field_user_data.ads	\
+	          $(ABASE)-panels-user_data.ads
+################################################################################
+LIBOBJS=$(ALIB).o                			\
+	$(ABASE)-aux.o           			\
+	$(ABASE).o               			\
+	$(ABASE)-terminfo.o				\
+	$(ABASE)-termcap.o				\
+	$(ABASE)-putwin.o				\
+	$(ABASE)-trace.o				\
+	$(ABASE)-mouse.o         			\
+	$(ABASE)-panels.o        			\
+	$(ABASE)-menus.o         			\
+	$(ABASE)-forms.o         			\
+	$(ABASE)-forms-field_types.o      		\
+	$(ABASE)-forms-field_types-alpha.o      	\
+	$(ABASE)-forms-field_types-alphanumeric.o	\
+	$(ABASE)-forms-field_types-intfield.o     	\
+	$(ABASE)-forms-field_types-numeric.o     	\
+	$(ABASE)-forms-field_types-regexp.o       	\
+	$(ABASE)-forms-field_types-enumeration.o	\
+	$(ABASE)-forms-field_types-ipv4_address.o	\
+	$(ABASE)-forms-field_types-user.o 		\
+	$(ABASE)-forms-field_types-user-choice.o 	\
+	$(ABASE)-text_io.o       			\
+	$(ABASE)-text_io-aux.o
+
+# Ada object files for generic packages. Since gnat 3.10 they are
+# also compiled
+GENOBJS=$(ABASE)-menus-menu_user_data.o			\
+	$(ABASE)-menus-item_user_data.o			\
+	$(ABASE)-forms-form_user_data.o			\
+	$(ABASE)-forms-field_user_data.o		\
+	$(ABASE)-forms-field_types-enumeration-ada.o	\
+	$(ABASE)-panels-user_data.o			\
+	$(ABASE)-text_io-integer_io.o			\
+	$(ABASE)-text_io-float_io.o			\
+	$(ABASE)-text_io-fixed_io.o			\
+	$(ABASE)-text_io-decimal_io.o			\
+	$(ABASE)-text_io-enumeration_io.o		\
+	$(ABASE)-text_io-modular_io.o			\
+	$(ABASE)-text_io-complex_io.o
+
+################################################################################
+
+@MAKE_PHONY@.PHONY :	all
+@MAKE_PHONY@.PHONY :	clean
+@MAKE_PHONY@.PHONY :	distclean
+@MAKE_PHONY@.PHONY :	install
+@MAKE_PHONY@.PHONY :	install.libs
+@MAKE_PHONY@.PHONY :	libs
+@MAKE_PHONY@.PHONY :	mostlyclean
+@MAKE_PHONY@.PHONY :	realclean
+@MAKE_PHONY@.PHONY :	sources
+@MAKE_PHONY@.PHONY :	uninstall
+@MAKE_PHONY@.PHONY :	uninstall.libs
+
+all ::  $(BUILD_DIR_LIB)/$(STATIC_LIBNAME)
+	@echo done
+
+$(ADA_INCLUDE) \
+$(ADA_OBJECTS) \
+$(LIBDIR) \
+$(BUILD_DIR_LIB) :
+	mkdir -p $@
+
+$(GENERATED_SOURCES) :
+	( cd ../gen; $(MAKE) $(ADA_MFLAGS) )
+
+sources : $(GENERATED_SOURCES)
+	@echo made $@
+
+libs \
+install \
+install.libs :: \
+		$(BUILD_DIR_LIB)/$(STATIC_LIBNAME)
+	@echo made $(STATIC_LIBNAME)
+
+#OLD:BEGIN
+install \
+install.libs :: \
+		$(BUILD_DIR_LIB)/$(STATIC_LIBNAME) \
+		$(ADA_OBJECTS)
+	@$(INSTALL_LIB) \
+		$(BUILD_DIR_LIB)/$(STATIC_LIBNAME) \
+		$(ADA_OBJECTS)
+
+uninstall \
+uninstall.libs ::
+	@rm -f $(ADA_OBJECTS)/$(STATIC_LIBNAME)
+#OLD:END
+
+mostlyclean ::
+	rm -f *.o *.ali b_t*.* *.s $(PROGS) a.out core b_*_test.c *.xr[bs] *.a
+
+clean :: mostlyclean
+	rm -f $(ABASE)-trace.adb
+
+distclean :: clean
+	rm -f Makefile library.gpr
+
+realclean :: distclean
+
+BASEDEPS=$(ABASE).ads $(ABASE)-aux.ads $(ABASE).adb
+
+$(ABASE)-trace.adb : $(srcdir)/$(ABASE)-trace.adb_p
+	rm -f $@
+	$(ADAPREP) -DADA_TRACE=@ADA_TRACE@ @GNATPREP_OPTS@ $(srcdir)/$(ABASE)-trace.adb_p $@
+
+###############################################################################
+# Use these definitions when building a shared library.
+SHARED_C_OBJS	= c_varargs_to_ada.o c_threaded_variables.o ncurses_compat.o
+SHARED_OBJS 	= $(SHARED_C_OBJS) @USE_OLD_MAKERULES@$(LIBOBJS) @cf_generic_objects@
+
+c_varargs_to_ada.o :	$(srcdir)/c_varargs_to_ada.c
+	$(CC) $(CFLAGS_DEFAULT) -c -o $@ $(srcdir)/c_varargs_to_ada.c
+
+c_threaded_variables.o : $(srcdir)/c_threaded_variables.c
+	$(CC) $(CFLAGS_DEFAULT) -c -o $@ $(srcdir)/c_threaded_variables.c
+
+ncurses_compat.o :	$(srcdir)/ncurses_compat.c
+	$(CC) $(CFLAGS_DEFAULT) -c -o $@ $(srcdir)/ncurses_compat.c
+
+###############################################################################
+# Use these definitions when building a static library.
+STATIC_C_OBJS	= static_c_varargs_to_ada.o static_c_threaded_variables.o static_ncurses_compat.o
+STATIC_OBJS 	= $(STATIC_C_OBJS) @USE_OLD_MAKERULES@$(LIBOBJS) @cf_generic_objects@
+
+static_c_varargs_to_ada.o :	$(srcdir)/c_varargs_to_ada.c
+	$(CC) $(CFLAGS_NORMAL) -c -o $@ $(srcdir)/c_varargs_to_ada.c
+
+static_c_threaded_variables.o : $(srcdir)/c_threaded_variables.c
+	$(CC) $(CFLAGS_NORMAL) -c -o $@ $(srcdir)/c_threaded_variables.c
+
+static_ncurses_compat.o :	$(srcdir)/ncurses_compat.c
+	$(CC) $(CFLAGS_NORMAL) -c -o $@ $(srcdir)/ncurses_compat.c
+
+###############################################################################
+
+@USE_OLD_MAKERULES@$(BUILD_DIR_LIB)/$(STATIC_LIBNAME) :: \
+@USE_OLD_MAKERULES@		$(BUILD_DIR_LIB) \
+@USE_OLD_MAKERULES@		$(STATIC_OBJS)
+@USE_OLD_MAKERULES@	$(AR) $(ARFLAGS) $@ $(STATIC_OBJS)
+
+$(BUILD_DIR)/static-ali : ; mkdir -p $@
+$(BUILD_DIR)/static-obj : ; mkdir -p $@
+
+STATIC_DIRS = \
+	$(BUILD_DIR_LIB) \
+	$(BUILD_DIR)/static-ali \
+	$(BUILD_DIR)/static-obj
+
+@USE_GNAT_PROJECTS@$(BUILD_DIR_LIB)/$(STATIC_LIBNAME) :: \
+@USE_GNAT_PROJECTS@		$(ABASE)-trace.adb \
+@USE_GNAT_PROJECTS@		$(STATIC_C_OBJS) \
+@USE_GNAT_PROJECTS@		$(STATIC_DIRS)
+@USE_GNAT_PROJECTS@	@cf_ada_config@gprconfig --batch --config=Ada --config=C,,,,@cf_ada_config_C@
+@USE_GNAT_PROJECTS@	-rm -f $(GNAT_PROJECT)
+@USE_GNAT_PROJECTS@	$(SHELL) $(srcdir)/library-cfg.sh static library.gpr $(CFLAGS_NORMAL) >$(GNAT_PROJECT)
+@USE_GNAT_PROJECTS@	@echo "Using GNAT Project:"
+@USE_GNAT_MAKE_GPR@	@-$(SHELL) -c "diff -c $(srcdir)/library.gpr $(GNAT_PROJECT); exit 0"
+@USE_GNAT_MAKE_GPR@	$(ADAMAKE) $(ADAMAKEFLAGS) -XLIB_KIND=static
+@USE_GNAT_MAKE_GPR@	$(AR) $(ARFLAGS) $@ $(STATIC_C_OBJS)
+@USE_GNAT_MAKE_GPR@	-rm -f $(GNAT_PROJECT)
+@USE_GNAT_GPRBUILD@	@-$(SHELL) -c "diff -c library.gpr $(GNAT_PROJECT); exit 0"
+@USE_GNAT_GPRBUILD@	gprbuild -p $(ADAMAKEFLAGS) -XLIB_KIND=static
+@USE_GNAT_GPRBUILD@	-rm -f $(GNAT_PROJECT)
+
+#OLD:BEGIN
+@USE_GNAT_LIBRARIES@install \
+@USE_GNAT_LIBRARIES@install.libs :: \
+@USE_GNAT_LIBRARIES@		$(ADA_OBJECTS)
+@USE_GNAT_LIBRARIES@	$(INSTALL_LIB) \
+@USE_GNAT_LIBRARIES@		$(BUILD_DIR)/static-ali/*.ali \
+@USE_GNAT_LIBRARIES@		$(ADA_OBJECTS)
+#OLD:END
+# While gprinstall is the "recommended" tool, it is rather brittle, with
+# hardcoded assumptions about the use of the install-name which prevent using
+# that tool to make the directory layout of older versions of the AdaCurses
+# package.
+#
+# In principle, one might just do
+#	--install-name=""
+# and in dry-run mode, gprinstall pretends to handle it properly (trimming the
+# empty directory level), but without the dry-run option, it fails (tested
+# with gnat 10.1.1).
+#NEW:BEGIN
+#@USE_GNAT_LIBRARIES@install \
+#@USE_GNAT_LIBRARIES@install.libs ::
+#@USE_GNAT_LIBRARIES@	@cf_ada_config@gprconfig --batch --config=Ada --config=C,,,,@cf_ada_config_C@
+#@USE_GNAT_LIBRARIES@	-rm -f $(GNAT_PROJECT)
+#@USE_GNAT_LIBRARIES@	$(SHELL) $(srcdir)/library-cfg.sh static library.gpr $(CFLAGS_NORMAL) >$(GNAT_PROJECT)
+#@USE_GNAT_LIBRARIES@	@echo "Using GNAT Project:"
+#@USE_GNAT_LIBRARIES@	@-$(SHELL) -c "diff -c library.gpr $(GNAT_PROJECT); exit 0"
+#@USE_GNAT_LIBRARIES@
+#@USE_GNAT_LIBRARIES@	gprinstall -m -v -f -p \
+#@USE_GNAT_LIBRARIES@		--prefix="$(DESTDIR)$(prefix)" \
+#@USE_GNAT_LIBRARIES@		$(ADAMAKEFLAGS) -XLIB_KIND=static \
+#@USE_GNAT_LIBRARIES@		--lib-subdir="$(DESTDIR)$(prefix)"/lib \
+#@USE_GNAT_LIBRARIES@		--ali-subdir="$(DESTDIR)$(prefix)"/lib/ada/adalib \
+#@USE_GNAT_LIBRARIES@		--sources-subdir="$(DESTDIR)$(prefix)"/share/ada/adainclude
+#@USE_GNAT_LIBRARIES@
+#@USE_GNAT_LIBRARIES@	-rm -f $(GNAT_PROJECT)
+#NEW:END
+
+#OLD:BEGIN
+uninstall \
+uninstall.libs ::
+	@rm -f $(ADA_OBJECTS)/$(STATIC_LIBNAME)
+#OLD:END
+#NEW:BEGIN
+#@USE_GNAT_LIBRARIES@uninstall \
+#@USE_GNAT_LIBRARIES@uninstall.libs ::
+#@USE_GNAT_LIBRARIES@	@cf_ada_config@gprconfig --batch --config=Ada --config=C,,,,@cf_ada_config_C@
+#@USE_GNAT_LIBRARIES@	-rm -f $(GNAT_PROJECT)
+#@USE_GNAT_LIBRARIES@	$(SHELL) $(srcdir)/library-cfg.sh static library.gpr $(CFLAGS_NORMAL) >$(GNAT_PROJECT)
+#@USE_GNAT_LIBRARIES@	@echo "Using GNAT Project:"
+#@USE_GNAT_LIBRARIES@	@-$(SHELL) -c "diff -c library.gpr $(GNAT_PROJECT); exit 0"
+#@USE_GNAT_LIBRARIES@
+#@USE_GNAT_LIBRARIES@	gprinstall -v -f --prefix="$(DESTDIR)$(prefix)" --uninstall $(ADAMAKEFLAGS) -XLIB_KIND=static
+#@USE_GNAT_LIBRARIES@
+#@USE_GNAT_LIBRARIES@	-rm -f $(GNAT_PROJECT)
+#NEW:END
+
+@USE_GNAT_LIBRARIES@uninstall \
+@USE_GNAT_LIBRARIES@uninstall.libs ::
+@USE_GNAT_LIBRARIES@	@$(SHELL) -c 'for name in $(BUILD_DIR)/static-ali/*.ali ; do rm -f $(ADA_OBJECTS)/`basename $$name`; done'
+
+$(BUILD_DIR)/dynamic-ali : ; mkdir -p $@
+$(BUILD_DIR)/dynamic-obj : ; mkdir -p $@
+
+SHARED_DIRS = \
+	$(BUILD_DIR_LIB) \
+	$(BUILD_DIR)/dynamic-ali \
+	$(BUILD_DIR)/dynamic-obj
+
+@MAKE_ADA_SHAREDLIB@all :: $(BUILD_DIR_LIB)/$(SHARED_LIBNAME)
+@MAKE_ADA_SHAREDLIB@$(BUILD_DIR_LIB)/$(SHARED_LIBNAME) :: \
+@MAKE_ADA_SHAREDLIB@		$(ABASE)-trace.adb \
+@MAKE_ADA_SHAREDLIB@		$(SHARED_DIRS) \
+@MAKE_ADA_SHAREDLIB@		$(SHARED_OBJS)
+@MAKE_ADA_SHAREDLIB@	cp $(SHARED_OBJS) $(BUILD_DIR)/dynamic-obj/
+@MAKE_ADA_SHAREDLIB@	@cf_ada_config@gprconfig --batch --config=Ada --config=C,,,,@cf_ada_config_C@
+@MAKE_ADA_SHAREDLIB@	-rm -f $(GNAT_PROJECT)
+@MAKE_ADA_SHAREDLIB@	$(SHELL) $(srcdir)/library-cfg.sh dynamic library.gpr $(CFLAGS_SHARED) >$(GNAT_PROJECT)
+@MAKE_ADA_SHAREDLIB@	@echo "Making Ada shared-lib:"
+@MAKE_ADA_SHAREDLIB@	@-$(SHELL) -c "diff -c library.gpr $(GNAT_PROJECT); exit 0"
+@MAKE_ADA_SHAREDLIB@	$(ADAMAKE) $(ADAMAKEFLAGS) -XLIB_KIND=dynamic
+@MAKE_ADA_SHAREDLIB@	-rm -f $(GNAT_PROJECT)
+
+install \
+install.libs :: $(ADA_INCLUDE)
+	$(INSTALL_LIB) \
+		$(SOURCE_DIR_SRC)/*.ad[sb] \
+		$(ADA_INCLUDE)
+
+install \
+install.libs :: $(ADA_INCLUDE)
+	$(INSTALL_LIB) \
+		$(GENERATED_SOURCES) \
+		$(ADA_INCLUDE)
+
+uninstall \
+uninstall.libs ::
+	$(SHELL) -c 'for name in $(SOURCE_DIR_SRC)/*.ad[sb] $(GENERATED_SOURCES); do rm -f $(ADA_INCLUDE)/`basename $$name`; done'
+
+@MAKE_ADA_SHAREDLIB@install \
+@MAKE_ADA_SHAREDLIB@install.libs :: $(ADA_OBJECTS) $(LIBDIR)
+@MAKE_ADA_SHAREDLIB@	$(INSTALL_LIB) \
+@MAKE_ADA_SHAREDLIB@		$(BUILD_DIR)/dynamic-ali/* \
+@MAKE_ADA_SHAREDLIB@		$(ADA_OBJECTS)
+@MAKE_ADA_SHAREDLIB@	$(INSTALL_LIB) \
+@MAKE_ADA_SHAREDLIB@		$(BUILD_DIR_LIB)/$(SHARED_LIBNAME) \
+@MAKE_ADA_SHAREDLIB@		$(LIBDIR)
+@MAKE_ADA_SHAREDLIB@	( cd $(LIBDIR) && $(LN_S) $(SHARED_LIBNAME) $(SHARED_SYMLINK) )
+@MAKE_ADA_SHAREDLIB@
+@MAKE_ADA_SHAREDLIB@uninstall \
+@MAKE_ADA_SHAREDLIB@uninstall.libs ::
+@MAKE_ADA_SHAREDLIB@	$(SHELL) -c 'for name in $(BUILD_DIR)/dynamic-ali/* ; do rm -f $(ADA_OBJECTS)/`basename $$name`; done'
+@MAKE_ADA_SHAREDLIB@
+@MAKE_ADA_SHAREDLIB@uninstall \
+@MAKE_ADA_SHAREDLIB@uninstall.libs ::
+@MAKE_ADA_SHAREDLIB@	rm -f $(LIBDIR)/$(SHARED_SYMLINK)
+@MAKE_ADA_SHAREDLIB@	rm -f $(LIBDIR)/$(SHARED_LIBNAME)
+
+#rm-docs :
+#	gnatdoc --enable-build $(ADAMAKEFLAGS) -XLIB_KIND=static
+
+clean ::
+	-rm -f default.cgpr
+	-rm -rf $(BUILD_DIR)/*-ali
+	-rm -rf $(BUILD_DIR)/*-obj
+	-rm -rf $(BUILD_DIR_LIB)
+#@USE_GNAT_PROJECTS@	gprclean $(ADAMAKEFLAGS) -XLIB_KIND=static
+#@MAKE_ADA_SHAREDLIB@	gprclean $(ADAMAKEFLAGS) -XLIB_KIND=dynamic

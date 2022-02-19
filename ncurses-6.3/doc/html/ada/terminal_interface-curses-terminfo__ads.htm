@@ -1,0 +1,100 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-terminfo.ads</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-terminfo.ads </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                     Terminal_Interface.Curses.Terminfo                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 S P E C                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 2000-2002,2003 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.5 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+
+<b>with</b> <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C;
+
+<b>package</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<span class="symbol"><A NAME="ref_45_35" HREF="terminal_interface-curses-terminfo__adb.htm#ref_49_40">Terminfo</A></span> <b>is</b>
+   <b>pragma</b> Preelaborate (<A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-terminfo__ads.htm#ref_45_35">Terminfo</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page curs_terminfo.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  Not implemented:  setupterm, setterm, set_curterm, del_curterm,</EM></span>
+   <span class="comment"><EM>--                    restartterm, tparm, putp, vidputs,  vidattr,</EM></span>
+   <span class="comment"><EM>--                    mvcur</EM></span>
+
+   <b>type</b> Terminfo_String <b>is</b> <b>new</b> String;
+
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_58_14" HREF="terminal_interface-curses-terminfo__adb.htm#ref_84_14">Get_String</A></span> (<span class="symbol"><A NAME="ref_58_26" HREF="terminal_interface-curses-terminfo__adb.htm#ref_84_26">Name</A></span>   : String;
+                         <span class="symbol"><A NAME="ref_59_26" HREF="terminal_interface-curses-terminfo__adb.htm#ref_85_26">Value</A></span>  : <b>out</b> Terminfo_String;
+                         <span class="symbol"><A NAME="ref_60_26" HREF="terminal_interface-curses-terminfo__adb.htm#ref_86_26">Result</A></span> : <b>out</b> Boolean);
+   <b>function</b> <span class="symbol"><A NAME="ref_61_13" HREF="terminal_interface-curses-terminfo__adb.htm#ref_107_13">Has_String</A></span> (<span class="symbol"><A NAME="ref_61_25" HREF="terminal_interface-curses-terminfo__adb.htm#ref_107_25">Name</A></span> : String) <b>return</b> Boolean;
+   <span class="comment"><EM>--  AKA: tigetstr()</EM></span>
+
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_65_13" HREF="terminal_interface-curses-terminfo__adb.htm#ref_68_13">Get_Flag</A></span> (<span class="symbol"><A NAME="ref_65_23" HREF="terminal_interface-curses-terminfo__adb.htm#ref_68_23">Name</A></span> : String) <b>return</b> Boolean;
+   <span class="comment"><EM>--  AKA: tigetflag()</EM></span>
+
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_69_13" HREF="terminal_interface-curses-terminfo__adb.htm#ref_127_13">Get_Number</A></span> (<span class="symbol"><A NAME="ref_69_25" HREF="terminal_interface-curses-terminfo__adb.htm#ref_127_25">Name</A></span> : String) <b>return</b> Integer;
+   <span class="comment"><EM>--  AKA: tigetnum()</EM></span>
+
+   <b>type</b> <span class="symbol"><A NAME="ref_72_9">putctype</A></span> <b>is</b> <b>access</b> <b>function</b> (<span class="symbol"><A NAME="ref_72_38" HREF="terminal_interface-curses-terminfo__ads.htm#ref_72_9">c</A></span> : <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.int)
+                                    <b>return</b> <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.int;
+   <b>pragma</b> Convention (C, <A HREF="terminal_interface-curses-terminfo__ads.htm#ref_72_9">putctype</A>);
+
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_77_14" HREF="terminal_interface-curses-terminfo__adb.htm#ref_138_14">Put_String</A></span> (<span class="symbol"><A NAME="ref_77_26" HREF="terminal_interface-curses-terminfo__adb.htm#ref_138_26">Str</A></span>    : Terminfo_String;
+                         <span class="symbol"><A NAME="ref_78_26" HREF="terminal_interface-curses-terminfo__adb.htm#ref_139_26">affcnt</A></span> : Natural := 1;
+                         <span class="symbol"><A NAME="ref_79_26" HREF="terminal_interface-curses-terminfo__adb.htm#ref_140_26">putc</A></span>   : <A HREF="terminal_interface-curses-terminfo__ads.htm#ref_72_9">putctype</A> := <b>null</b>);
+   <span class="comment"><EM>--  AKA: tputs()</EM></span>
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-terminfo__ads.htm#ref_45_35">Terminfo</A>;
+</PRE></BODY></HTML>

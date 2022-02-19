@@ -1,0 +1,115 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018,2020 Thomas E. Dickey                                     *
+  * Copyright 1998-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_print.3x,v 1.16 2020/10/24 09:25:14 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_print 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_print 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_print.3x.html">curs_print(3x)</A></STRONG>                                                  <STRONG><A HREF="curs_print.3x.html">curs_print(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>mcprint</STRONG> - ship binary data to printer
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>mcprint(char</STRONG> <STRONG>*</STRONG><EM>data</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>len</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       This  function  uses  the <STRONG>mc5p</STRONG> or <STRONG>mc4</STRONG> and <STRONG>mc5</STRONG> capabilities, if they are
+       present, to ship given data to a printer attached to the terminal.
+
+       Note that the <STRONG>mcprint</STRONG> code has no way  to  do  flow  control  with  the
+       printer  or  to  know  how  much buffering it has.  Your application is
+       responsible for keeping the rate of writes to  the  printer  below  its
+       continuous  throughput  rate  (typically  about half of its nominal cps
+       rating).   Dot-matrix  printers  and   6-page-per-minute   lasers   can
+       typically  handle  80cps,  so  a  good conservative rule of thumb is to
+       sleep for a second after shipping each 80-character line.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       The <STRONG>mcprint</STRONG> function returns <STRONG>ERR</STRONG> if the  write  operation  aborted  for
+       some  reason.   In  this  case,  <STRONG>errno</STRONG>  will  contain  either  an error
+       associated with <STRONG>write(2)</STRONG> or one of the following:
+
+       ENODEV
+            Capabilities for printer redirection do not exist.
+
+       ENOMEM
+            Couldn't allocate sufficient memory to buffer the printer write.
+
+       When <STRONG>mcprint</STRONG> succeeds, it returns the  number  of  characters  actually
+       sent to the printer.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       The <STRONG>mcprint</STRONG> call was designed for <STRONG><A HREF="ncurses.3x.html">ncurses(3x)</A></STRONG>, and is not found in SVr4
+       curses, 4.4BSD curses, or any other previous version of curses.
+
+
+</PRE><H2><a name="h2-BUGS">BUGS</a></H2><PRE>
+       Padding in the <STRONG>mc5p</STRONG>, <STRONG>mc4</STRONG> and <STRONG>mc5</STRONG> capabilities will not be interpreted.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+
+
+
+                                                                <STRONG><A HREF="curs_print.3x.html">curs_print(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-BUGS">BUGS</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

@@ -1,0 +1,292 @@
+# $Id: Makefile.in,v 1.133 2021/07/03 18:53:57 tom Exp $
+##############################################################################
+# Copyright 2018-2020,2021 Thomas E. Dickey                                  #
+# Copyright 1998-2015,2016 Free Software Foundation, Inc.                    #
+#                                                                            #
+# Permission is hereby granted, free of charge, to any person obtaining a    #
+# copy of this software and associated documentation files (the "Software"), #
+# to deal in the Software without restriction, including without limitation  #
+# the rights to use, copy, modify, merge, publish, distribute, distribute    #
+# with modifications, sublicense, and/or sell copies of the Software, and to #
+# permit persons to whom the Software is furnished to do so, subject to the  #
+# following conditions:                                                      #
+#                                                                            #
+# The above copyright notice and this permission notice shall be included in #
+# all copies or substantial portions of the Software.                        #
+#                                                                            #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR #
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   #
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    #
+# THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER      #
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    #
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        #
+# DEALINGS IN THE SOFTWARE.                                                  #
+#                                                                            #
+# Except as contained in this notice, the name(s) of the above copyright     #
+# holders shall not be used in advertising or otherwise to promote the sale, #
+# use or other dealings in this Software without prior written               #
+# authorization.                                                             #
+##############################################################################
+#
+# Author: Thomas E. Dickey
+#
+#  Simple makefile for c++ window class demo
+
+# turn off _all_ suffix rules; we'll generate our own
+.SUFFIXES:
+
+SHELL		= @SHELL@
+VPATH		= @srcdir@
+
+CF_MFLAGS 	= @cf_cv_makeflags@
+@SET_MAKE@
+x		= @EXEEXT@
+o		= .@OBJEXT@
+
+MODEL		= ../@DFT_OBJ_SUBDIR@
+DESTDIR		= @DESTDIR@
+top_srcdir	= @top_srcdir@
+srcdir		= @srcdir@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+libdir		= @libdir@
+includedir	= @includedir@
+includesubdir	= @includesubdir@
+
+INCLUDEDIR	= $(DESTDIR)$(includedir)$(includesubdir)
+
+PACKAGE		= @PACKAGE@
+
+LIBTOOL		= @LIBTOOL_CXX@
+LIBTOOL_OPTS	= @LIBTOOL_OPTS@ @LIBTOOL_OPTS_CXX@
+LIBTOOL_CLEAN	= @LIB_CLEAN@
+LIBTOOL_COMPILE	= @LIB_COMPILE@
+LIBTOOL_LINK	= @LIB_LINK@
+LIBTOOL_INSTALL	= @LIB_INSTALL@
+LIBTOOL_UNINSTALL = @LIB_UNINSTALL@
+LIBTOOL_VERSION = @LIBTOOL_VERSION@
+LT_UNDEF	= @LT_UNDEF@
+
+INSTALL		= @INSTALL@
+INSTALL_LIB	= $(INSTALL) @INSTALL_LIB@
+INSTALL_DATA	= @INSTALL_DATA@
+INSTALL_OPT_P	= @INSTALL_OPT_P@
+
+AR		= @AR@
+ARFLAGS		= @ARFLAGS@
+AWK		= @AWK@
+LD		= @LD@
+LN_S		= @LN_S@
+
+CXX_AR		= @CXX_AR@
+CXX_ARFLAGS	= @CXX_ARFLAGS@
+RANLIB		= @LIB_PREP@
+
+CXX		= @CXX@
+CPP		= @CXXCPP@
+CXXFLAGS	= @CXXFLAGS@ @EXTRA_CXXFLAGS@
+CXXLIBS		= @CXXLIBS@
+
+INCDIR		= ../include
+CPPFLAGS	= -DHAVE_CONFIG_H -DBUILDING_NCURSES_CXX -I../c++ @CPPFLAGS@
+
+CTAGS		= @CTAGS@
+ETAGS		= @ETAGS@
+
+CC		= ${CXX}
+CCFLAGS		= $(CPPFLAGS) $(CXXFLAGS)
+
+CFLAGS_LIBTOOL	= $(CCFLAGS)
+CFLAGS_NORMAL	= $(CCFLAGS) -DNCURSES_STATIC
+CFLAGS_DEBUG	= $(CCFLAGS) -DNCURSES_STATIC @CXX_G_OPT@ -DTRACE
+CFLAGS_PROFILE	= $(CCFLAGS) -DNCURSES_STATIC -pg
+CFLAGS_SHARED	= $(CCFLAGS) @CC_SHARED_OPTS@
+
+CFLAGS_DEFAULT	= $(CFLAGS_@DFT_UPR_MODEL@)
+
+NCURSES_MAJOR	= @NCURSES_MAJOR@
+NCURSES_MINOR	= @NCURSES_MINOR@
+REL_VERSION     = @cf_cv_rel_version@
+ABI_VERSION	= @cf_cv_abi_version@
+
+LOCAL_LIBDIR	= @top_builddir@/lib
+
+LINK		= @LINK_PROGS@ $(LIBTOOL_LINK) @CXXLDFLAGS@
+SHLIB_DIRS	= -L../lib
+SHLIB_LIST	= $(SHLIB_DIRS) \
+		-l@FORM_NAME@@USE_LIB_SUFFIX@ \
+		-l@MENU_NAME@@USE_LIB_SUFFIX@ \
+		-l@PANEL_NAME@@USE_LIB_SUFFIX@ \
+		-lncurses@USE_LIB_SUFFIX@ @SHLIB_LIST@
+
+LIBROOT		= ncurses++
+
+LIBNAME_LIBTOOL	= @LIB_PREFIX@$(LIBROOT)@USE_LIB_SUFFIX@.la
+LIBNAME_NORMAL	= @LIB_PREFIX@$(LIBROOT)@USE_LIB_SUFFIX@.a
+LIBNAME		= @LIB_PREFIX@$(LIBROOT)@CXX_LIB_SUFFIX@
+
+LIBRARIES	= @Libs_To_Make@
+
+LINT		= @LINT@
+LINT_OPTS	= @LINT_OPTS@
+LINT_LIBS	= -lncurses @LIBS@
+
+LINK_FLAGS	= @EXTRA_LDFLAGS@ -L../lib -l$(LIBROOT)@USE_LIB_SUFFIX@
+RPATH_LIST	= @RPATH_LIST@
+MK_SHARED_LIB	= @MK_SHARED_LIB@
+
+LINK_LIBTOOL	= @EXTRA_LDFLAGS@ -L../lib $(LIBRARIES)
+LINK_NORMAL	= $(LINK_FLAGS)
+LINK_DEBUG	= $(LINK_FLAGS)
+LINK_PROFILE	= $(LINK_FLAGS)
+LINK_SHARED	= $(LINK_FLAGS)
+
+# flags for test-programs
+TEST_LIBS	= @TEST_LIBS@
+TEST_ARGS	= @LDFLAGS_STATIC@ @TEST_ARGS@ @LDFLAGS_SHARED@
+TEST_LDFLAGS	= $(TEST_ARGS) @LDFLAGS@ \
+	@LD_MODEL@ $(TEST_LIBS) @LIBS@ @LOCAL_LDFLAGS@ $(CXXLIBS)
+
+LDFLAGS_LIBTOOL	= $(TEST_LDFLAGS) $(CFLAGS_LIBTOOL)
+LDFLAGS_NORMAL	= $(TEST_LDFLAGS) $(CFLAGS_NORMAL)
+LDFLAGS_DEBUG	= $(TEST_LDFLAGS) $(CFLAGS_DEBUG)
+LDFLAGS_PROFILE	= $(TEST_LDFLAGS) $(CFLAGS_PROFILE)
+LDFLAGS_SHARED	= $(TEST_LDFLAGS) $(CFLAGS_SHARED) @LD_SHARED_OPTS@
+
+LDFLAGS_DEFAULT	= $(LINK_@DFT_UPR_MODEL@) $(LDFLAGS_@DFT_UPR_MODEL@)
+
+# flags for library built by this makefile
+LDFLAGS		= $(TEST_ARGS) @LDFLAGS@ \
+	@LD_MODEL@ $(TEST_LIBS) @LIBS@ $(CXXLIBS)
+
+AUTO_SRC	= \
+		etip.h
+
+################################################################################
+
+@MAKE_PHONY@.PHONY :	all
+@MAKE_PHONY@.PHONY :	check
+@MAKE_PHONY@.PHONY :	clean
+@MAKE_PHONY@.PHONY :	depend
+@MAKE_PHONY@.PHONY :	distclean
+@MAKE_PHONY@.PHONY :	install
+@MAKE_PHONY@.PHONY :	install.libs
+@MAKE_PHONY@.PHONY :	libs
+@MAKE_PHONY@.PHONY :	mostlyclean
+@MAKE_PHONY@.PHONY :	realclean
+@MAKE_PHONY@.PHONY :	sources
+@MAKE_PHONY@.PHONY :	uninstall
+@MAKE_PHONY@.PHONY :	uninstall.libs
+
+all \
+libs ::		$(AUTO_SRC) $(LIBRARIES)
+
+@MAKE_TESTS@all ::		demo$x
+
+depend :
+
+sources :	$(AUTO_SRC)
+
+tags:
+	$(CTAGS) *.[h] *.cc
+
+$(DESTDIR)$(libdir) :
+	mkdir -p $@
+
+mostlyclean ::
+	-rm -f core tags TAGS *~ *.bak *.i *.ii *.ln *.atac trace
+
+clean :: mostlyclean
+	-$(SHELL) -c "if test -n '$x' ; then $(MAKE) clean x=''; fi"
+	-rm -rf $(MODEL)/SunWS_cache
+	-$(LIBTOOL_CLEAN) rm -f demo$x $(AUTO_SRC) $(LIBRARIES) $(OBJS_DEMO)
+	-rm -rf .libs *.dSYM
+
+distclean :: clean
+	-rm -f Makefile
+
+realclean :: distclean
+
+###############################################################################
+
+HEADER_DEPS	= @INTERNALS_HDR@ \
+	etip.h \
+	../include/curses.h \
+	../include/eti.h \
+	../include/form.h \
+	../include/menu.h \
+	../include/ncurses_cfg.h \
+	../include/ncurses_def.h \
+	../include/ncurses_dll.h \
+	../include/panel.h \
+	../include/unctrl.h \
+	$(INCDIR)/nc_string.h \
+	$(srcdir)/cursesp.h \
+	$(srcdir)/cursesw.h \
+	$(srcdir)/cursslk.h \
+	$(srcdir)/internal.h
+
+cursesw_h	= $(srcdir)/cursesw.h \
+		  $(HEADER_DEPS)
+
+cursesp_h	= $(srcdir)/cursesp.h \
+		  $(cursesw_h)
+
+cursesf_h	= $(srcdir)/cursesf.h \
+		  $(cursesp_h)
+
+cursesm_h	= $(srcdir)/cursesm.h \
+		  $(cursesp_h)
+
+cursslk_h	= $(srcdir)/cursslk.h \
+		  $(cursesw_h)
+
+cursesapp_h	= $(srcdir)/cursesapp.h \
+		  $(cursslk_h)
+
+$(INCDIR)/form.h :
+	( cd ../form && $(MAKE) $@ )
+
+$(INCDIR)/menu.h :
+	( cd ../menu && $(MAKE) $@ )
+
+$(INCDIR)/panel.h :
+	( cd ../panel && $(MAKE) $@ )
+
+###############################################################################
+
+OBJS_DEMO = $(MODEL)/demo$o
+
+$(MODEL)/demo$o : $(srcdir)/demo.cc \
+		$(HEADER_DEPS) \
+		$(cursesf_h) \
+		$(cursesm_h) \
+		$(cursesapp_h)
+	@echo 'compiling demo (obj_s)'
+	@( cd $(MODEL) && $(LIBTOOL_COMPILE) $(CXX) $(CFLAGS_DEFAULT) -c $(top_srcdir)/c++/demo.cc -o $@ )
+
+demo$x:	$(OBJS_DEMO) \
+	$(LIBRARIES)  \
+	@TEST_DEPS@
+	@ECHO_LD@ $(LINK) -o $@ $(OBJS_DEMO) $(LDFLAGS_DEFAULT)
+
+etip.h:	$(srcdir)/etip.h.in $(srcdir)/edit_cfg.sh
+	cp $(srcdir)/etip.h.in $@
+	$(SHELL) $(srcdir)/edit_cfg.sh ../include/ncurses_cfg.h $@
+
+# Verify that each header-file can be compiled without including another.
+check ::
+	@$(SHELL) -c "for header in *.h;\
+		do \
+			[ \$${header} = etip.h ] && continue; \
+			echo \"** testing \$${header}\" ; \
+			echo \"#include <\$${header}>\" >headers.cc; \
+			echo \"int main(int argc, char **argv) { (void) argc; (void) argv; return 0; }\" >>headers.cc; \
+			$(CXX) -c $(CXXFLAGS) $(CPPFLAGS) headers.cc; \
+		done"
+	-@rm -f headers.*
+
+###############################################################################
+# The remainder of this file is automatically generated during configuration
+###############################################################################

@@ -1,0 +1,969 @@
+<!--
+  $Id: hackguide.html,v 1.33 2020/02/02 23:34:34 tom Exp $
+  ****************************************************************************
+  * Copyright 2019,2020 Thomas E. Dickey                                     *
+  * Copyright 2000-2013,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+
+<html>
+<head>
+  <meta name="generator" content=
+  "HTML Tidy for HTML5 for Linux version 5.2.0">
+
+  <title>A Hacker's Guide to Ncurses Internals</title>
+  <link rel="author" href="mailto:bugs-ncurses@gnu.org">
+  <meta http-equiv="Content-Type" content=
+  "text/html; charset=us-ascii"><!--
+This document is self-contained, *except* that there is one relative link to
+the ncurses-intro.html document, expected to be in the same directory with
+this one.
+-->
+</head>
+
+<body>
+  <h1>A Hacker's Guide to NCURSES</h1>
+
+  <h1>Contents</h1>
+
+  <ul>
+    <li><a href="#abstract">Abstract</a></li>
+
+    <li>
+      <a href="#objective">Objective of the Package</a>
+
+      <ul>
+        <li><a href="#whysvr4">Why System V Curses?</a></li>
+
+        <li><a href="#extensions">How to Design Extensions</a></li>
+      </ul>
+    </li>
+
+    <li><a href="#portability">Portability and Configuration</a></li>
+
+    <li><a href="#documentation">Documentation Conventions</a></li>
+
+    <li><a href="#bugtrack">How to Report Bugs</a></li>
+
+    <li>
+      <a href="#ncurslib">A Tour of the Ncurses Library</a>
+
+      <ul>
+        <li><a href="#loverview">Library Overview</a></li>
+
+        <li><a href="#engine">The Engine Room</a></li>
+
+        <li><a href="#input">Keyboard Input</a></li>
+
+        <li><a href="#mouse">Mouse Events</a></li>
+
+        <li><a href="#output">Output and Screen Updating</a></li>
+      </ul>
+    </li>
+
+    <li><a href="#fmnote">The Forms and Menu Libraries</a></li>
+
+    <li>
+      <a href="#tic">A Tour of the Terminfo Compiler</a>
+
+      <ul>
+        <li><a href="#nonuse">Translation of
+        Non-<strong>use</strong> Capabilities</a></li>
+
+        <li><a href="#uses">Use Capability Resolution</a></li>
+
+        <li><a href="#translation">Source-Form Translation</a></li>
+      </ul>
+    </li>
+
+    <li><a href="#utils">Other Utilities</a></li>
+
+    <li><a href="#style">Style Tips for Developers</a></li>
+
+    <li><a href="#port">Porting Hints</a></li>
+  </ul>
+
+  <h1><a name="abstract" id="abstract">Abstract</a></h1>
+
+  <p>This document is a hacker's tour of the
+  <strong>ncurses</strong> library and utilities. It discusses
+  design philosophy, implementation methods, and the conventions
+  used for coding and documentation. It is recommended reading for
+  anyone who is interested in porting, extending or improving the
+  package.</p>
+
+  <h1><a name="objective" id="objective">Objective of the
+  Package</a></h1>
+
+  <p>The objective of the <strong>ncurses</strong> package is to
+  provide a free software API for character-cell terminals and
+  terminal emulators with the following characteristics:</p>
+
+  <ul>
+    <li>Source-compatible with historical curses implementations
+    (including the original BSD curses and System V curses.</li>
+
+    <li>Conformant with the XSI Curses standard issued as part of
+    XPG4 by X/Open.</li>
+
+    <li>High-quality &mdash; stable and reliable code, wide
+    portability, good packaging, superior documentation.</li>
+
+    <li>Featureful &mdash; should eliminate as much of the drudgery
+    of C interface programming as possible, freeing programmers to
+    think at a higher level of design.</li>
+  </ul>
+
+  <p>These objectives are in priority order. So, for example,
+  source compatibility with older version must trump featurefulness
+  &mdash; we cannot add features if it means breaking the portion
+  of the API corresponding to historical curses versions.</p>
+
+  <h2><a name="whysvr4" id="whysvr4">Why System V Curses?</a></h2>
+
+  <p>We used System V curses as a model, reverse-engineering their
+  API, in order to fulfill the first two objectives.</p>
+
+  <p>System V curses implementations can support BSD curses
+  programs with just a recompilation, so by capturing the System V
+  API we also capture BSD's.</p>
+
+  <p>More importantly for the future, the XSI Curses standard
+  issued by X/Open is explicitly and closely modeled on System V.
+  So conformance with System V took us most of the way to
+  base-level XSI conformance.</p>
+
+  <h2><a name="extensions" id="extensions">How to Design
+  Extensions</a></h2>
+
+  <p>The third objective (standards conformance) requires that it
+  be easy to condition source code using <strong>ncurses</strong>
+  so that the absence of nonstandard extensions does not break the
+  code.</p>
+
+  <p>Accordingly, we have a policy of associating with each
+  nonstandard extension a feature macro, so that ncurses client
+  code can use this macro to condition in or out the code that
+  requires the <strong>ncurses</strong> extension.</p>
+
+  <p>For example, there is a macro
+  <code>NCURSES_MOUSE_VERSION</code> which XSI Curses does not
+  define, but which is defined in the <strong>ncurses</strong>
+  library header. You can use this to condition the calls to the
+  mouse API calls.</p>
+
+  <h1><a name="portability" id="portability">Portability and
+  Configuration</a></h1>
+
+  <p>Code written for <strong>ncurses</strong> may assume an
+  ANSI-standard C compiler and POSIX-compatible OS interface. It
+  may also assume the presence of a System-V-compatible
+  <em>select(2)</em> call.</p>
+
+  <p>We encourage (but do not require) developers to make the code
+  friendly to less-capable UNIX environments wherever possible.</p>
+
+  <p>We encourage developers to support OS-specific optimizations
+  and methods not available under POSIX/ANSI, provided only
+  that:</p>
+
+  <ul>
+    <li>All such code is properly conditioned so the build process
+    does not attempt to compile it under a plain ANSI/POSIX
+    environment.</li>
+
+    <li>Adding such implementation methods does not introduce
+    incompatibilities in the <strong>ncurses</strong> API between
+    platforms.</li>
+  </ul>
+
+  <p>We use GNU <code>autoconf(1)</code> as a tool to deal with
+  portability issues. The right way to leverage an OS-specific
+  feature is to modify the autoconf specification files
+  (configure.in and aclocal.m4) to set up a new feature macro,
+  which you then use to condition your code.</p>
+
+  <h1><a name="documentation" id="documentation">Documentation
+  Conventions</a></h1>
+
+  <p>There are three kinds of documentation associated with this
+  package. Each has a different preferred format:</p>
+
+  <ul>
+    <li>Package-internal files (README, INSTALL, TO-DO etc.)</li>
+
+    <li>Manual pages.</li>
+
+    <li>Everything else (i.e., narrative documentation).</li>
+  </ul>
+
+  <p>Our conventions are simple:</p>
+
+  <ol>
+    <li><strong>Maintain package-internal files in plain
+    text.</strong> The expected viewer for them <em>more(1)</em> or
+    an editor window; there is no point in elaborate mark-up.</li>
+
+    <li><strong>Mark up manual pages in the man macros.</strong>
+    These have to be viewable through traditional <em>man(1)</em>
+    programs.</li>
+
+    <li><strong>Write everything else in HTML.</strong>
+    </li>
+  </ol>
+
+  <p>When in doubt, HTMLize a master and use <em>lynx(1)</em> to
+  generate plain ASCII (as we do for the announcement
+  document).</p>
+
+  <p>The reason for choosing HTML is that it is (a) well-adapted
+  for on-line browsing through viewers that are everywhere; (b)
+  more easily readable as plain text than most other mark-ups, if
+  you do not have a viewer; and (c) carries enough information that
+  you can generate a nice-looking printed version from it. Also, of
+  course, it make exporting things like the announcement document
+  to WWW pretty trivial.</p>
+
+  <h1><a name="bugtrack" id="bugtrack">How to Report Bugs</a></h1>
+
+  <p>The <a name="bugreport" id="bugreport">reporting address for
+  bugs</a> is <a href=
+  "mailto:bug-ncurses@gnu.org">bug-ncurses@gnu.org</a>. This is a
+  majordomo list; to join, write to
+  <code>bug-ncurses-request@gnu.org</code> with a message
+  containing the line:</p>
+
+  <pre>
+             subscribe &lt;name&gt;@&lt;host.domain&gt;
+</pre>
+
+  <p>The <code>ncurses</code> code is maintained by a small group
+  of volunteers. While we try our best to fix bugs promptly, we
+  simply do not have a lot of hours to spend on elementary
+  hand-holding. We rely on intelligent cooperation from our users.
+  If you think you have found a bug in <code>ncurses</code>, there
+  are some steps you can take before contacting us that will help
+  get the bug fixed quickly.</p>
+
+  <p>In order to use our bug-fixing time efficiently, we put people
+  who show us they have taken these steps at the head of our queue.
+  This means that if you do not, you will probably end up at the
+  tail end and have to wait a while.</p>
+
+  <ol>
+    <li>Develop a recipe to reproduce the bug.
+
+      <p>Bugs we can reproduce are likely to be fixed very quickly,
+      often within days. The most effective single thing you can do
+      to get a quick fix is develop a way we can duplicate the bad
+      behavior &mdash; ideally, by giving us source for a small,
+      portable test program that breaks the library. (Even better
+      is a keystroke recipe using one of the test programs provided
+      with the distribution.)</p>
+    </li>
+
+    <li>Try to reproduce the bug on a different terminal type.
+
+      <p>In our experience, most of the behaviors people report as
+      library bugs are actually due to subtle problems in terminal
+      descriptions. This is especially likely to be true if you are
+      using a traditional asynchronous terminal or PC-based
+      terminal emulator, rather than xterm or a UNIX console
+      entry.</p>
+
+      <p>It is therefore extremely helpful if you can tell us
+      whether or not your problem reproduces on other terminal
+      types. Usually you will have both a console type and xterm
+      available; please tell us whether or not your bug reproduces
+      on both.</p>
+
+      <p>If you have xterm available, it is also good to collect
+      xterm reports for different window sizes. This is especially
+      true if you normally use an unusual xterm window size &mdash;
+      a surprising number of the bugs we have seen are either
+      triggered or masked by these.</p>
+    </li>
+
+    <li>Generate and examine a trace file for the broken behavior.
+
+      <p>Recompile your program with the debugging versions of the
+      libraries. Insert a <code>trace()</code> call with the
+      argument set to <code>TRACE_UPDATE</code>. (See <a href=
+      "ncurses-intro.html#debugging">"Writing Programs with
+      NCURSES"</a> for details on trace levels.) Reproduce your
+      bug, then look at the trace file to see what the library was
+      actually doing.</p>
+
+      <p>Another frequent cause of apparent bugs is application
+      coding errors that cause the wrong things to be put on the
+      virtual screen. Looking at the virtual-screen dumps in the
+      trace file will tell you immediately if this is happening,
+      and save you from the possible embarrassment of being told
+      that the bug is in your code and is your problem rather than
+      ours.</p>
+
+      <p>If the virtual-screen dumps look correct but the bug
+      persists, it is possible to crank up the trace level to give
+      more and more information about the library's update actions
+      and the control sequences it issues to perform them. The test
+      directory of the distribution contains a tool for digesting
+      these logs to make them less tedious to wade through.</p>
+
+      <p>Often you will find terminfo problems at this stage by
+      noticing that the escape sequences put out for various
+      capabilities are wrong. If not, you are likely to learn
+      enough to be able to characterize any bug in the
+      screen-update logic quite exactly.</p>
+    </li>
+
+    <li>Report details and symptoms, not just interpretations.
+
+      <p>If you do the preceding two steps, it is very likely that
+      you will discover the nature of the problem yourself and be
+      able to send us a fix. This will create happy feelings all
+      around and earn you good karma for the first time you run
+      into a bug you really cannot characterize and fix
+      yourself.</p>
+
+      <p>If you are still stuck, at least you will know what to
+      tell us. Remember, we need details. If you guess about what
+      is safe to leave out, you are too likely to be wrong.</p>
+
+      <p>If your bug produces a bad update, include a trace file.
+      Try to make the trace at the <em>least</em> voluminous level
+      that pins down the bug. Logs that have been through
+      tracemunch are OK, it does not throw away any information
+      (actually they are better than un-munched ones because they
+      are easier to read).</p>
+
+      <p>If your bug produces a core-dump, please include a
+      symbolic stack trace generated by gdb(1) or your local
+      equivalent.</p>
+
+      <p>Tell us about every terminal on which you have reproduced
+      the bug &mdash; and every terminal on which you cannot.
+      Ideally, send us terminfo sources for all of these (yours
+      might differ from ours).</p>
+
+      <p>Include your ncurses version and your OS/machine type, of
+      course! You can find your ncurses version in the
+      <code>curses.h</code> file.</p>
+    </li>
+  </ol>
+
+  <p>If your problem smells like a logic error or in cursor
+  movement or scrolling or a bad capability, there are a couple of
+  tiny test frames for the library algorithms in the progs
+  directory that may help you isolate it. These are not part of the
+  normal build, but do have their own make productions.</p>
+
+  <p>The most important of these is <code>mvcur</code>, a test
+  frame for the cursor-movement optimization code. With this
+  program, you can see directly what control sequences will be
+  emitted for any given cursor movement or scroll/insert/delete
+  operations. If you think you have got a bad capability
+  identified, you can disable it and test again. The program is
+  command-driven and has on-line help.</p>
+
+  <p>If you think the vertical-scroll optimization is broken, or
+  just want to understand how it works better, build
+  <code>hashmap</code> and read the header comments of
+  <code>hardscroll.c</code> and <code>hashmap.c</code>; then try it
+  out. You can also test the hardware-scrolling optimization
+  separately with <code>hardscroll</code>.</p>
+
+  <h1><a name="ncurslib" id="ncurslib">A Tour of the Ncurses
+  Library</a></h1>
+
+  <h2><a name="loverview" id="loverview">Library Overview</a></h2>
+
+  <p>Most of the library is superstructure &mdash; fairly trivial
+  convenience interfaces to a small set of basic functions and data
+  structures used to manipulate the virtual screen (in particular,
+  none of this code does any I/O except through calls to more
+  fundamental modules described below). The files</p>
+
+  <blockquote>
+    <code>lib_addch.c lib_bkgd.c lib_box.c lib_chgat.c lib_clear.c
+    lib_clearok.c lib_clrbot.c lib_clreol.c lib_colorset.c
+    lib_data.c lib_delch.c lib_delwin.c lib_echo.c lib_erase.c
+    lib_gen.c lib_getstr.c lib_hline.c lib_immedok.c lib_inchstr.c
+    lib_insch.c lib_insdel.c lib_insstr.c lib_instr.c
+    lib_isendwin.c lib_keyname.c lib_leaveok.c lib_move.c
+    lib_mvwin.c lib_overlay.c lib_pad.c lib_printw.c lib_redrawln.c
+    lib_scanw.c lib_screen.c lib_scroll.c lib_scrollok.c
+    lib_scrreg.c lib_set_term.c lib_slk.c lib_slkatr_set.c
+    lib_slkatrof.c lib_slkatron.c lib_slkatrset.c lib_slkattr.c
+    lib_slkclear.c lib_slkcolor.c lib_slkinit.c lib_slklab.c
+    lib_slkrefr.c lib_slkset.c lib_slktouch.c lib_touch.c
+    lib_unctrl.c lib_vline.c lib_wattroff.c lib_wattron.c
+    lib_window.c</code>
+  </blockquote>
+
+  <p>are all in this category. They are very unlikely to need
+  change, barring bugs or some fundamental reorganization in the
+  underlying data structures.</p>
+
+  <p>These files are used only for debugging support:</p>
+
+  <blockquote>
+    <code>lib_trace.c lib_traceatr.c lib_tracebits.c lib_tracechr.c
+    lib_tracedmp.c lib_tracemse.c trace_buf.c</code>
+  </blockquote>
+
+  <p>It is rather unlikely you will ever need to change these,
+  unless you want to introduce a new debug trace level for some
+  reason.</p>
+
+  <p>There is another group of files that do direct I/O via
+  <em>tputs()</em>, computations on the terminal capabilities, or
+  queries to the OS environment, but nevertheless have only fairly
+  low complexity. These include:</p>
+
+  <blockquote>
+    <code>lib_acs.c lib_beep.c lib_color.c lib_endwin.c
+    lib_initscr.c lib_longname.c lib_newterm.c lib_options.c
+    lib_termcap.c lib_ti.c lib_tparm.c lib_tputs.c lib_vidattr.c
+    read_entry.c.</code>
+  </blockquote>
+
+  <p>They are likely to need revision only if ncurses is being
+  ported to an environment without an underlying terminfo
+  capability representation.</p>
+
+  <p>These files have serious hooks into the tty driver and signal
+  facilities:</p>
+
+  <blockquote>
+    <code>lib_kernel.c lib_baudrate.c lib_raw.c lib_tstp.c
+    lib_twait.c</code>
+  </blockquote>
+
+  <p>If you run into porting snafus moving the package to another
+  UNIX, the problem is likely to be in one of these files. The file
+  <code>lib_print.c</code> uses sleep(2) and also falls in this
+  category.</p>
+
+  <p>Almost all of the real work is done in the files</p>
+
+  <blockquote>
+    <code>hardscroll.c hashmap.c lib_addch.c lib_doupdate.c
+    lib_getch.c lib_mouse.c lib_mvcur.c lib_refresh.c lib_setup.c
+    lib_vidattr.c</code>
+  </blockquote>
+
+  <p>Most of the algorithmic complexity in the library lives in
+  these files. If there is a real bug in <strong>ncurses</strong>
+  itself, it is probably here. We will tour some of these files in
+  detail below (see <a href="#engine">The Engine Room</a>).</p>
+
+  <p>Finally, there is a group of files that is actually most of
+  the terminfo compiler. The reason this code lives in the
+  <strong>ncurses</strong> library is to support fallback to
+  /etc/termcap. These files include</p>
+
+  <blockquote>
+    <code>alloc_entry.c captoinfo.c comp_captab.c comp_error.c
+    comp_hash.c comp_parse.c comp_scan.c parse_entry.c
+    read_termcap.c write_entry.c</code>
+  </blockquote>
+
+  <p>We will discuss these in the compiler tour.</p>
+
+  <h2><a name="engine" id="engine">The Engine Room</a></h2>
+
+  <h3><a name="input" id="input">Keyboard Input</a></h3>
+
+  <p>All <code>ncurses</code> input funnels through the function
+  <code>wgetch()</code>, defined in <code>lib_getch.c</code>. This
+  function is tricky; it has to poll for keyboard and mouse events
+  and do a running match of incoming input against the set of
+  defined special keys.</p>
+
+  <p>The central data structure in this module is a FIFO queue,
+  used to match multiple-character input sequences against
+  special-key capabilities; also to implement pushback via
+  <code>ungetch()</code>.</p>
+
+  <p>The <code>wgetch()</code> code distinguishes between function
+  key sequences and the same sequences typed manually by doing a
+  timed wait after each input character that could lead a function
+  key sequence. If the entire sequence takes less than 1 second, it
+  is assumed to have been generated by a function key press.</p>
+
+  <p>Hackers bruised by previous encounters with variant
+  <code>select(2)</code> calls may find the code in
+  <code>lib_twait.c</code> interesting. It deals with the problem
+  that some BSD selects do not return a reliable time-left value.
+  The function <code>timed_wait()</code> effectively simulates a
+  System V select.</p>
+
+  <h3><a name="mouse" id="mouse">Mouse Events</a></h3>
+
+  <p>If the mouse interface is active, <code>wgetch()</code> polls
+  for mouse events each call, before it goes to the keyboard for
+  input. It is up to <code>lib_mouse.c</code> how the polling is
+  accomplished; it may vary for different devices.</p>
+
+  <p>Under xterm, however, mouse event notifications come in via
+  the keyboard input stream. They are recognized by having the
+  <strong>kmous</strong> capability as a prefix. This is kind of
+  klugey, but trying to wire in recognition of a mouse key prefix
+  without going through the function-key machinery would be just
+  too painful, and this turns out to imply having the prefix
+  somewhere in the function-key capabilities at terminal-type
+  initialization.</p>
+
+  <p>This kluge only works because <strong>kmous</strong> is not
+  actually used by any historic terminal type or curses
+  implementation we know of. Best guess is it is a relic of some
+  forgotten experiment in-house at Bell Labs that did not leave any
+  traces in the publicly-distributed System V terminfo files. If
+  System V or XPG4 ever gets serious about using it again, this
+  kluge may have to change.</p>
+
+  <p>Here are some more details about mouse event handling:</p>
+
+  <p>The <code>lib_mouse()</code> code is logically split into a
+  lower level that accepts event reports in a device-dependent
+  format and an upper level that parses mouse gestures and filters
+  events. The mediating data structure is a circular queue of event
+  structures.</p>
+
+  <p>Functionally, the lower level's job is to pick up primitive
+  events and put them on the circular queue. This can happen in one
+  of two ways: either (a) <code>_nc_mouse_event()</code> detects a
+  series of incoming mouse reports and queues them, or (b) code in
+  <code>lib_getch.c</code> detects the <strong>kmous</strong>
+  prefix in the keyboard input stream and calls _nc_mouse_inline to
+  queue up a series of adjacent mouse reports.</p>
+
+  <p>In either case, <code>_nc_mouse_parse()</code> should be
+  called after the series is accepted to parse the digested mouse
+  reports (low-level events) into a gesture (a high-level or
+  composite event).</p>
+
+  <h3><a name="output" id="output">Output and Screen Updating</a></h3>
+
+  <p>With the single exception of character echoes during a
+  <code>wgetnstr()</code> call (which simulates cooked-mode line
+  editing in an ncurses window), the library normally does all its
+  output at refresh time.</p>
+
+  <p>The main job is to go from the current state of the screen (as
+  represented in the <code>curscr</code> window structure) to the
+  desired new state (as represented in the <code>newscr</code>
+  window structure), while doing as little I/O as possible.</p>
+
+  <p>The brains of this operation are the modules
+  <code>hashmap.c</code>, <code>hardscroll.c</code> and
+  <code>lib_doupdate.c</code>; the latter two use
+  <code>lib_mvcur.c</code>. Essentially, what happens looks like
+  this:</p>
+
+  <ul>
+    <li>
+      <p>The <code>hashmap.c</code> module tries to detect vertical
+      motion changes between the real and virtual screens. This
+      information is represented by the oldindex members in the
+      newscr structure. These are modified by vertical-motion and
+      clear operations, and both are re-initialized after each
+      update. To this change-journalling information, the hashmap
+      code adds deductions made using a modified Heckel algorithm
+      on hash values generated from the line contents.</p>
+    </li>
+
+    <li>
+      <p>The <code>hardscroll.c</code> module computes an optimum
+      set of scroll, insertion, and deletion operations to make the
+      indices match. It calls <code>_nc_mvcur_scrolln()</code> in
+      <code>lib_mvcur.c</code> to do those motions.</p>
+    </li>
+
+    <li>
+      <p>Then <code>lib_doupdate.c</code> goes to work. Its job is
+      to do line-by-line transformations of <code>curscr</code>
+      lines to <code>newscr</code> lines. Its main tool is the
+      routine <code>mvcur()</code> in <code>lib_mvcur.c</code>.
+      This routine does cursor-movement optimization, attempting to
+      get from given screen location A to given location B in the
+      fewest output characters possible.</p>
+    </li>
+  </ul>
+
+  <p>If you want to work on screen optimizations, you should use
+  the fact that (in the trace-enabled version of the library)
+  enabling the <code>TRACE_TIMES</code> trace level causes a report
+  to be emitted after each screen update giving the elapsed time
+  and a count of characters emitted during the update. You can use
+  this to tell when an update optimization improves efficiency.</p>
+
+  <p>In the trace-enabled version of the library, it is also
+  possible to disable and re-enable various optimizations at
+  runtime by tweaking the variable
+  <code>_nc_optimize_enable</code>. See the file
+  <code>include/curses.h.in</code> for mask values, near the
+  end.</p>
+
+  <h1><a name="fmnote" id="fmnote">The Forms and Menu Libraries</a></h1>
+
+  <p>The forms and menu libraries should work reliably in any
+  environment you can port ncurses to. The only portability issue
+  anywhere in them is what flavor of regular expressions the
+  built-in form field type TYPE_REGEXP will recognize.</p>
+
+  <p>The configuration code prefers the POSIX regex facility,
+  modeled on System V's, but will settle for BSD regexps if the
+  former is not available.</p>
+
+  <p>Historical note: the panels code was written primarily to
+  assist in porting u386mon 2.0 (comp.sources.misc v14i001-4) to
+  systems lacking panels support; u386mon 2.10 and beyond use it.
+  This version has been slightly cleaned up for
+  <code>ncurses</code>.</p>
+
+  <h1><a name="tic" id="tic">A Tour of the Terminfo Compiler</a></h1>
+
+  <p>The <strong>ncurses</strong> implementation of
+  <strong>tic</strong> is rather complex internally; it has to do a
+  trying combination of missions. This starts with the fact that,
+  in addition to its normal duty of compiling terminfo sources into
+  loadable terminfo binaries, it has to be able to handle termcap
+  syntax and compile that too into terminfo entries.</p>
+
+  <p>The implementation therefore starts with a table-driven,
+  dual-mode lexical analyzer (in <code>comp_scan.c</code>). The
+  lexer chooses its mode (termcap or terminfo) based on the first
+  &ldquo;,&rdquo; or &ldquo;:&rdquo; it finds in each entry. The
+  lexer does all the work of recognizing capability names and
+  values; the grammar above it is trivial, just "parse entries till
+  you run out of file".</p>
+
+  <h2><a name="nonuse" id="nonuse">Translation of
+  Non-<strong>use</strong> Capabilities</a></h2>
+
+  <p>Translation of most things besides <strong>use</strong>
+  capabilities is pretty straightforward. The lexical analyzer's
+  tokenizer hands each capability name to a hash function, which
+  drives a table lookup. The table entry yields an index which is
+  used to look up the token type in another table, and controls
+  interpretation of the value.</p>
+
+  <p>One possibly interesting aspect of the implementation is the
+  way the compiler tables are initialized. All the tables are
+  generated by various awk/sed/sh scripts from a master table
+  <code>include/Caps</code>; these scripts actually write C
+  initializers which are linked to the compiler. Furthermore, the
+  hash table is generated in the same way, so it doesn't have to be
+  generated at compiler startup time (another benefit of this
+  organization is that the hash table can be in shareable text
+  space).</p>
+
+  <p>Thus, adding a new capability is usually pretty trivial, just
+  a matter of adding one line to the <code>include/Caps</code>
+  file. We will have more to say about this in the section on
+  <a href="#translation">Source-Form Translation</a>.</p>
+
+  <h2><a name="uses" id="uses">Use Capability Resolution</a></h2>
+
+  <p>The background problem that makes <strong>tic</strong> tricky
+  is not the capability translation itself, it is the resolution of
+  <strong>use</strong> capabilities. Older versions would not
+  handle forward <strong>use</strong> references for this reason
+  (that is, a using terminal always had to follow its use target in
+  the source file). By doing this, they got away with a simple
+  implementation tactic; compile everything as it blows by, then
+  resolve uses from compiled entries.</p>
+
+  <p>This will not do for <strong>ncurses</strong>. The problem is
+  that that the whole compilation process has to be embeddable in
+  the <strong>ncurses</strong> library so that it can be called by
+  the startup code to translate termcap entries on the fly. The
+  embedded version cannot go promiscuously writing everything it
+  translates out to disk &mdash; for one thing, it will typically
+  be running with non-root permissions.</p>
+
+  <p>So our <strong>tic</strong> is designed to parse an entire
+  terminfo file into a doubly-linked circular list of entry
+  structures in-core, and then do <strong>use</strong> resolution
+  in-memory before writing everything out. This design has other
+  advantages: it makes forward and back use-references equally easy
+  (so we get the latter for free), and it makes checking for name
+  collisions before they are written out easy to do.</p>
+
+  <p>And this is exactly how the embedded version works. But the
+  stand-alone user-accessible version of <strong>tic</strong>
+  partly reverts to the historical strategy; it writes to disk (not
+  keeping in core) any entry with no <strong>use</strong>
+  references.</p>
+
+  <p>This is strictly a core-economy kluge, implemented because the
+  terminfo master file is large enough that some core-poor systems
+  swap like crazy when you compile it all in memory...there have
+  been reports of this process taking <strong>three hours</strong>,
+  rather than the twenty seconds or less typical on the author's
+  development box.</p>
+
+  <p>So. The executable <strong>tic</strong> passes the
+  entry-parser a hook that <em>immediately</em> writes out the
+  referenced entry if it has no use capabilities. The compiler main
+  loop refrains from adding the entry to the in-core list when this
+  hook fires. If some other entry later needs to reference an entry
+  that got written immediately, that is OK; the resolution code
+  will fetch it off disk when it cannot find it in core.</p>
+
+  <p>Name collisions will still be detected, just not as cleanly.
+  The <code>write_entry()</code> code complains before overwriting
+  an entry that postdates the time of <strong>tic</strong>'s first
+  call to <code>write_entry()</code>, Thus it will complain about
+  overwriting entries newly made during the <strong>tic</strong>
+  run, but not about overwriting ones that predate it.</p>
+
+  <h2><a name="translation" id="translation">Source-Form
+  Translation</a></h2>
+
+  <p>Another use of <strong>tic</strong> is to do source
+  translation between various termcap and terminfo formats. There
+  are more variants out there than you might think; the ones we
+  know about are described in the <strong>captoinfo(1)</strong>
+  manual page.</p>
+
+  <p>The translation output code (<code>dump_entry()</code> in
+  <code>ncurses/dump_entry.c</code>) is shared with the
+  <strong>infocmp(1)</strong> utility. It takes the same internal
+  representation used to generate the binary form and dumps it to
+  standard output in a specified format.</p>
+
+  <p>The <code>include/Caps</code> file has a header comment
+  describing ways you can specify source translations for
+  nonstandard capabilities just by altering the master table. It is
+  possible to set up capability aliasing or tell the compiler to
+  plain ignore a given capability without writing any C code at
+  all.</p>
+
+  <p>For circumstances where you need to do algorithmic
+  translation, there are functions in <code>parse_entry.c</code>
+  called after the parse of each entry that are specifically
+  intended to encapsulate such translations. This, for example, is
+  where the AIX <strong>box1</strong> capability get translated to
+  an <strong>acsc</strong> string.</p>
+
+  <h1><a name="utils" id="utils">Other Utilities</a></h1>
+
+  <p>The <strong>infocmp</strong> utility is just a wrapper around
+  the same entry-dumping code used by <strong>tic</strong> for
+  source translation. Perhaps the one interesting aspect of the
+  code is the use of a predicate function passed in to
+  <code>dump_entry()</code> to control which capabilities are
+  dumped. This is necessary in order to handle both the ordinary
+  De-compilation case and entry difference reporting.</p>
+
+  <p>The <strong>tput</strong> and <strong>clear</strong> utilities
+  just do an entry load followed by a <code>tputs()</code> of a
+  selected capability.</p>
+
+  <h1><a name="style" id="style">Style Tips for Developers</a></h1>
+
+  <p>See the TO-DO file in the top-level directory of the source
+  distribution for additions that would be particularly useful.</p>
+
+  <p>The prefix <code>_nc_</code> should be used on library public
+  functions that are not part of the curses API in order to prevent
+  pollution of the application namespace. If you have to add to or
+  modify the function prototypes in curses.h.in, read
+  ncurses/MKlib_gen.sh first so you can avoid breaking XSI
+  conformance. Please join the ncurses mailing list. See the
+  INSTALL file in the top level of the distribution for details on
+  the list.</p>
+
+  <p>Look for the string <code>FIXME</code> in source files to tag
+  minor bugs and potential problems that could use fixing.</p>
+
+  <p>Do not try to auto-detect OS features in the main body of the
+  C code. That is the job of the configuration system.</p>
+
+  <p>To hold down complexity, do make your code data-driven.
+  Especially, if you can drive logic from a table filtered out of
+  <code>include/Caps</code>, do it. If you find you need to augment
+  the data in that file in order to generate the proper table, that
+  is still preferable to ad-hoc code &mdash; that is why the fifth
+  field (flags) is there.</p>
+
+  <p>Have fun!</p>
+
+  <h1><a name="port" id="port">Porting Hints</a></h1>
+
+  <p>The following notes are intended to be a first step towards
+  DOS and Macintosh ports of the ncurses libraries.</p>
+
+  <p>The following library modules are &ldquo;pure curses&rdquo;;
+  they operate only on the curses internal structures, do all
+  output through other curses calls (not including
+  <code>tputs()</code> and <code>putp()</code>) and do not call any
+  other UNIX routines such as signal(2) or the stdio library. Thus,
+  they should not need to be modified for single-terminal
+  ports.</p>
+
+  <blockquote>
+    <code>lib_addch.c lib_addstr.c lib_bkgd.c lib_box.c lib_clear.c
+    lib_clrbot.c lib_clreol.c lib_delch.c lib_delwin.c lib_erase.c
+    lib_inchstr.c lib_insch.c lib_insdel.c lib_insstr.c
+    lib_keyname.c lib_move.c lib_mvwin.c lib_newwin.c lib_overlay.c
+    lib_pad.c lib_printw.c lib_refresh.c lib_scanw.c lib_scroll.c
+    lib_scrreg.c lib_set_term.c lib_touch.c lib_tparm.c lib_tputs.c
+    lib_unctrl.c lib_window.c panel.c</code>
+  </blockquote>
+
+  <p>This module is pure curses, but calls outstr():</p>
+
+  <blockquote>
+    <code>lib_getstr.c</code>
+  </blockquote>
+
+  <p>These modules are pure curses, except that they use
+  <code>tputs()</code> and <code>putp()</code>:</p>
+
+  <blockquote>
+    <code>lib_beep.c lib_color.c lib_endwin.c lib_options.c
+    lib_slk.c lib_vidattr.c</code>
+  </blockquote>
+
+  <p>This modules assist in POSIX emulation on non-POSIX
+  systems:</p>
+
+  <dl>
+    <dt>sigaction.c</dt>
+
+    <dd>signal calls</dd>
+  </dl>
+
+  <p>The following source files will not be needed for a
+  single-terminal-type port.</p>
+
+  <blockquote>
+    <code>alloc_entry.c captoinfo.c clear.c comp_captab.c
+    comp_error.c comp_hash.c comp_main.c comp_parse.c comp_scan.c
+    dump_entry.c infocmp.c parse_entry.c read_entry.c tput.c
+    write_entry.c</code>
+  </blockquote>
+
+  <p>The following modules will use
+  open()/read()/write()/close()/lseek() on files, but no other OS
+  calls.</p>
+
+  <dl>
+    <dt>lib_screen.c</dt>
+
+    <dd>used to read/write screen dumps</dd>
+
+    <dt>lib_trace.c</dt>
+
+    <dd>used to write trace data to the logfile</dd>
+  </dl>
+
+  <p>Modules that would have to be modified for a port start
+  here:</p>
+
+  <p>The following modules are &ldquo;pure curses&rdquo; but
+  contain assumptions inappropriate for a memory-mapped port.</p>
+
+  <dl>
+    <dt>lib_longname.c</dt>
+
+    <dd>assumes there may be multiple terminals</dd>
+
+    <dt>lib_acs.c</dt>
+
+    <dd>assumes acs_map as a double indirection</dd>
+
+    <dt>lib_mvcur.c</dt>
+
+    <dd>assumes cursor moves have variable cost</dd>
+
+    <dt>lib_termcap.c</dt>
+
+    <dd>assumes there may be multiple terminals</dd>
+
+    <dt>lib_ti.c</dt>
+
+    <dd>assumes there may be multiple terminals</dd>
+  </dl>
+
+  <p>The following modules use UNIX-specific calls:</p>
+
+  <dl>
+    <dt>lib_doupdate.c</dt>
+
+    <dd>input checking</dd>
+
+    <dt>lib_getch.c</dt>
+
+    <dd>read()</dd>
+
+    <dt>lib_initscr.c</dt>
+
+    <dd>getenv()</dd>
+
+    <dt>lib_newterm.c</dt>
+
+    <dt>lib_baudrate.c</dt>
+
+    <dt>lib_kernel.c</dt>
+
+    <dd>various tty-manipulation and system calls</dd>
+
+    <dt>lib_raw.c</dt>
+
+    <dd>various tty-manipulation calls</dd>
+
+    <dt>lib_setup.c</dt>
+
+    <dd>various tty-manipulation calls</dd>
+
+    <dt>lib_restart.c</dt>
+
+    <dd>various tty-manipulation calls</dd>
+
+    <dt>lib_tstp.c</dt>
+
+    <dd>signal-manipulation calls</dd>
+
+    <dt>lib_twait.c</dt>
+
+    <dd>gettimeofday(), select().</dd>
+  </dl>
+
+  <hr>
+
+  <address>
+    Eric S. Raymond &lt;esr@snark.thyrsus.com&gt;
+  </address>
+  (Note: This is <em>not</em> the <a href="#bugtrack">bug
+  address</a>!)
+</body>
+</html>

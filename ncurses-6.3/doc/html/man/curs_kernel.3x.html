@@ -1,0 +1,232 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2016,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_kernel.3x,v 1.29 2020/10/17 23:22:35 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_kernel 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_kernel 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>                                                <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>def_prog_mode</STRONG>, <STRONG>def_shell_mode</STRONG>, <STRONG>reset_prog_mode</STRONG>, <STRONG>reset_shell_mode</STRONG>,
+       <STRONG>resetty</STRONG>, <STRONG>savetty</STRONG>, <STRONG>getsyx</STRONG>, <STRONG>setsyx</STRONG>, <STRONG>ripoffline</STRONG>, <STRONG>curs_set</STRONG>, <STRONG>napms</STRONG> - low-
+       level <STRONG>curses</STRONG> routines
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>def_prog_mode(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>def_shell_mode(void);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>reset_prog_mode(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>reset_shell_mode(void);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>resetty(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>savetty(void);</STRONG>
+
+       <STRONG>void</STRONG> <STRONG>getsyx(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>);</STRONG>
+       <STRONG>void</STRONG> <STRONG>setsyx(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>ripoffline(int</STRONG> <EM>line</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <STRONG>(*</STRONG><EM>init</EM><STRONG>)(WINDOW</STRONG> <STRONG>*,</STRONG> <STRONG>int));</STRONG>
+       <STRONG>int</STRONG> <STRONG>curs_set(int</STRONG> <EM>visibility</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>napms(int</STRONG> <EM>ms</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The following routines give low-level access to various <STRONG>curses</STRONG> capabil-
+       ities.  These routines typically are used inside library routines.
+
+
+</PRE><H3><a name="h3-def_prog_mode_-def_shell_mode">def_prog_mode, def_shell_mode</a></H3><PRE>
+       The <STRONG>def_prog_mode</STRONG> and <STRONG>def_shell_mode</STRONG> routines save the current terminal
+       modes as the "program" (in <STRONG>curses</STRONG>) or "shell" (not in <STRONG>curses</STRONG>) state for
+       use by the <STRONG>reset_prog_mode</STRONG> and <STRONG>reset_shell_mode</STRONG> routines.  This is done
+       automatically  by <STRONG>initscr</STRONG>.  There is one such save area for each screen
+       context allocated by <STRONG>newterm</STRONG>.
+
+
+</PRE><H3><a name="h3-reset_prog_mode_-reset_shell_mode">reset_prog_mode, reset_shell_mode</a></H3><PRE>
+       The <STRONG>reset_prog_mode</STRONG> and <STRONG>reset_shell_mode</STRONG> routines restore the  terminal
+       to  "program"  (in <STRONG>curses</STRONG>) or "shell" (out of <STRONG>curses</STRONG>) state.  These are
+       done automatically by <STRONG><A HREF="curs_initscr.3x.html">endwin(3x)</A></STRONG> and, after an <STRONG>endwin</STRONG>, by <STRONG>doupdate</STRONG>,  so
+       they normally are not called.
+
+
+</PRE><H3><a name="h3-resetty_-savetty">resetty, savetty</a></H3><PRE>
+       The <STRONG>resetty</STRONG> and <STRONG>savetty</STRONG> routines save and restore the state of the ter-
+       minal modes.  <STRONG>savetty</STRONG> saves the current state in a buffer  and  <STRONG>resetty</STRONG>
+       restores the state to what it was at the last call to <STRONG>savetty</STRONG>.
+
+
+</PRE><H3><a name="h3-getsyx">getsyx</a></H3><PRE>
+       The  <STRONG>getsyx</STRONG>  routine  returns  the  current  coordinates of the <EM>virtual</EM>
+       <EM>screen</EM> cursor in <EM>y</EM> and <EM>x</EM>.  If <STRONG>leaveok</STRONG> is currently <STRONG>TRUE</STRONG>, then <STRONG>-1</STRONG>,<STRONG>-1</STRONG>  is
+       returned.  If lines have been removed from the top of the screen, using
+       <STRONG>ripoffline</STRONG>, <EM>y</EM> and <EM>x</EM> include these lines; therefore, <EM>y</EM> and <EM>x</EM>  should  be
+       used only as arguments for <STRONG>setsyx</STRONG>.
+
+       Few applications will use this feature, most use <STRONG>getyx</STRONG> instead.
+
+
+</PRE><H3><a name="h3-setsyx">setsyx</a></H3><PRE>
+       The  <STRONG>setsyx</STRONG> routine sets the <EM>virtual</EM> <EM>screen</EM> cursor to <EM>y</EM>, <EM>x</EM>.  If <EM>y</EM> and <EM>x</EM>
+       are both <STRONG>-1</STRONG>, then <STRONG>leaveok</STRONG> is set.  The two routines <STRONG>getsyx</STRONG>  and  <STRONG>setsyx</STRONG>
+       are  designed to be used by a library routine, which manipulates <STRONG>curses</STRONG>
+       windows but does not want to change the current position  of  the  pro-
+       gram's cursor.  The library routine would call <STRONG>getsyx</STRONG> at the beginning,
+       do its manipulation of its own windows, do a <STRONG>wnoutrefresh</STRONG> on  its  win-
+       dows, call <STRONG>setsyx</STRONG>, and then call <STRONG>doupdate</STRONG>.
+
+       Few applications will use this feature, most use <STRONG>wmove</STRONG> instead.
+
+
+</PRE><H3><a name="h3-ripoffline">ripoffline</a></H3><PRE>
+       The  <STRONG>ripoffline</STRONG>  routine  provides  access  to  the  same facility that
+       <STRONG>slk_init</STRONG> [see <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>] uses to reduce  the  size  of  the  screen.
+       <STRONG>ripoffline</STRONG>  must be called before <STRONG>initscr</STRONG> or <STRONG>newterm</STRONG> is called, to pre-
+       pare these initial actions:
+
+       <STRONG>o</STRONG>   If <EM>line</EM> is positive, a line is removed from the top of <STRONG>stdscr</STRONG>.
+
+       <STRONG>o</STRONG>   if <EM>line</EM> is negative, a line is removed from the bottom.
+
+       When the resulting initialization is done inside <STRONG>initscr</STRONG>,  the  routine
+       <STRONG>init</STRONG> (supplied by the user) is called with two arguments:
+
+       <STRONG>o</STRONG>   a window pointer to the one-line window that has been allocated and
+
+       <STRONG>o</STRONG>   an integer with the number of columns in the window.
+
+       Inside  this  initialization  routine,  the integer variables <STRONG>LINES</STRONG> and
+       <STRONG>COLS</STRONG> (defined in <STRONG>&lt;curses.h&gt;</STRONG>) are not guaranteed to be accurate and <STRONG>wre-</STRONG>
+       <STRONG>fresh</STRONG> or <STRONG>doupdate</STRONG> must not be called.  It is allowable to call <STRONG>wnoutre-</STRONG>
+       <STRONG>fresh</STRONG> during the initialization routine.
+
+       <STRONG>ripoffline</STRONG> can be called up to five times  before  calling  <STRONG>initscr</STRONG>  or
+       <STRONG>newterm</STRONG>.
+
+
+</PRE><H3><a name="h3-curs_set">curs_set</a></H3><PRE>
+       The  <STRONG>curs_set</STRONG>  routine  sets  the cursor state to invisible, normal, or
+       very visible for <STRONG>visibility</STRONG> equal to <STRONG>0</STRONG>, <STRONG>1</STRONG>, or <STRONG>2</STRONG> respectively.   If  the
+       terminal  supports  the <EM>visibility</EM> requested, the previous <EM>cursor</EM> state
+       is returned; otherwise, <STRONG>ERR</STRONG> is returned.
+
+
+</PRE><H3><a name="h3-napms">napms</a></H3><PRE>
+       The <STRONG>napms</STRONG> routine is used to sleep for <EM>ms</EM> milliseconds.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Except for <STRONG>curs_set</STRONG>, these routines always return <STRONG>OK</STRONG>.
+
+       <STRONG>curs_set</STRONG> returns the previous cursor state, or  <STRONG>ERR</STRONG>  if  the  requested
+       <EM>visibility</EM> is not supported.
+
+       X/Open defines no error conditions.  In this implementation
+
+       <STRONG>def_prog_mode</STRONG>, <STRONG>def_shell_mode</STRONG>, <STRONG>reset_prog_mode</STRONG>, <STRONG>reset_shell_mode</STRONG>
+            return an error if the terminal was not initialized, or if the I/O
+            call to obtain the terminal settings fails.
+
+       <STRONG>ripoffline</STRONG>
+            returns an error if the maximum number of ripped-off lines exceeds
+            the maximum (NRIPS = 5).
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that <STRONG>getsyx</STRONG> is a macro, so <STRONG>&amp;</STRONG> is not necessary before the variables
+       <EM>y</EM> and <EM>x</EM>.
+
+       Older SVr4 man pages warn that the return value of  <STRONG>curs_set</STRONG>  "is  cur-
+       rently  incorrect".   This  implementation gets it right, but it may be
+       unwise to count on the correctness of the return value anywhere else.
+
+       Both ncurses and SVr4 will call <STRONG>curs_set</STRONG> in <STRONG>endwin</STRONG> if <STRONG>curs_set</STRONG> has been
+       called  to make the cursor other than normal, i.e., either invisible or
+       very visible.  There is no way for ncurses  to  determine  the  initial
+       cursor state to restore that.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       The <EM>virtual</EM> <EM>screen</EM> functions <STRONG>setsyx</STRONG> and <STRONG>getsyx</STRONG> are not described in the
+       XSI Curses standard, Issue 4.  All other functions are as described  in
+       XSI Curses.
+
+       The  SVr4  documentation  describes  <STRONG>setsyx</STRONG> and <STRONG>getsyx</STRONG> as having return
+       type int.  This is misleading, as they are macros  with  no  documented
+       semantics for the return value.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,   <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>,   <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>,   <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>,
+       <STRONG><A HREF="curs_scr_dump.3x.html">curs_scr_dump(3x)</A></STRONG>, <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>.
+
+
+
+                                                               <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-def_prog_mode_-def_shell_mode">def_prog_mode, def_shell_mode</a></li>
+<li><a href="#h3-reset_prog_mode_-reset_shell_mode">reset_prog_mode, reset_shell_mode</a></li>
+<li><a href="#h3-resetty_-savetty">resetty, savetty</a></li>
+<li><a href="#h3-getsyx">getsyx</a></li>
+<li><a href="#h3-setsyx">setsyx</a></li>
+<li><a href="#h3-ripoffline">ripoffline</a></li>
+<li><a href="#h3-curs_set">curs_set</a></li>
+<li><a href="#h3-napms">napms</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

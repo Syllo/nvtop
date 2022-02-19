@@ -1,0 +1,126 @@
+<!--
+  * t
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2010,2015 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: mitem_opts.3x,v 1.16 2020/10/17 23:52:26 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>mitem_opts 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">mitem_opts 3x</H1>
+<PRE>
+<STRONG><A HREF="mitem_opts.3x.html">mitem_opts(3x)</A></STRONG>                                                  <STRONG><A HREF="mitem_opts.3x.html">mitem_opts(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>set_item_opts</STRONG>,  <STRONG>item_opts_on</STRONG>,  <STRONG>item_opts_off</STRONG>,  <STRONG>item_opts</STRONG>  - set and get
+       menu item options
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;menu.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_item_opts(ITEM</STRONG> <STRONG>*</STRONG><EM>item</EM><STRONG>,</STRONG> <STRONG>Item_Options</STRONG> <EM>opts</EM><STRONG>);</STRONG>
+       <STRONG>Item_Options</STRONG> <STRONG>item_opts(const</STRONG> <STRONG>ITEM</STRONG> <STRONG>*</STRONG><EM>item</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>item_opts_on(ITEM</STRONG> <STRONG>*</STRONG><EM>item</EM><STRONG>,</STRONG> <STRONG>Item_Options</STRONG> <EM>opts</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>item_opts_off(ITEM</STRONG> <STRONG>*</STRONG><EM>item</EM><STRONG>,</STRONG> <STRONG>Item_Options</STRONG> <EM>opts</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The function <STRONG>set_item_opts</STRONG> sets all the given item's option bits  (menu
+       option bits may be logically-OR'ed together).
+
+       The  function  <STRONG>item_opts_on</STRONG>  turns on the given option bits, and leaves
+       others alone.
+
+       The function <STRONG>item_opts_off</STRONG> turns off the given option bits, and  leaves
+       others alone.
+
+       The function <STRONG>item_opts</STRONG> returns the item's current option bits.
+
+       There  is only one defined option bit mask, <STRONG>O_SELECTABLE</STRONG>.  When this is
+       on, the item may be  selected  during  menu  processing.   This  option
+       defaults to on.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Except for <STRONG>item_opts</STRONG>, each routine returns one of the following:
+
+       <STRONG>E_OK</STRONG> The routine succeeded.
+
+       <STRONG>E_SYSTEM_ERROR</STRONG>
+            System error occurred (see <STRONG>errno(3)</STRONG>).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="menu.3x.html">menu(3x)</A></STRONG>.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The  header  file  <STRONG>&lt;menu.h&gt;</STRONG>  automatically  includes  the  header  file
+       <STRONG>&lt;curses.h&gt;</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These routines emulate the  System  V  menu  library.   They  were  not
+       supported on Version 7 or BSD versions.
+
+
+</PRE><H2><a name="h2-AUTHORS">AUTHORS</a></H2><PRE>
+       Juergen Pfeifer.  Manual pages and adaptation for new curses by Eric S.
+       Raymond.
+
+
+
+                                                                <STRONG><A HREF="mitem_opts.3x.html">mitem_opts(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-AUTHORS">AUTHORS</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

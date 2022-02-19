@@ -1,0 +1,184 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-panels.adb</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-panels.adb </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                      Terminal_Interface.Curses.Panels                    --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 B O D Y                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1999-2004,2009 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.15 @</EM></span>
+<span class="comment"><EM>--  @Date: 2020/02/02 23:34:34 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>with</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A>; <b>use</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A>;
+<b>with</b> <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C;
+
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<span class="symbol"><A NAME="ref_46_40" HREF="terminal_interface-curses-panels__ads.htm#ref_45_35">Panels</A></span> <b>is</b>
+
+   <b>use</b> <b>type</b> <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.int;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_50_13" HREF="terminal_interface-curses-panels__ads.htm#ref_67_13">Create</A></span> (<span class="symbol"><A NAME="ref_50_21" HREF="terminal_interface-curses-panels__ads.htm#ref_67_21">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_52_16">Newpanel</A></span> (<span class="symbol"><A NAME="ref_52_26" HREF="terminal_interface-curses-panels__adb.htm#ref_52_16">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>;
+      <b>pragma</b> Import (C, Newpanel, "new_panel");
+
+      <span class="symbol"><A NAME="ref_55_7">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>;
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-panels__adb.htm#ref_55_7">Pan</A> := <A HREF="terminal_interface-curses-panels__adb.htm#ref_52_16">Newpanel</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_67_21">Win</A>);
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_55_7">Pan</A> = <A HREF="terminal_interface-curses-panels__ads.htm#ref_54_4">Null_Panel</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_60_4">Panel_Exception</A>;
+      <b>end</b> <b>if</b>;
+      <b>return</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_55_7">Pan</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_67_13">Create</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_64_14" HREF="terminal_interface-curses-panels__ads.htm#ref_77_14">Bottom</A></span> (<span class="symbol"><A NAME="ref_64_22" HREF="terminal_interface-curses-panels__ads.htm#ref_77_22">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_66_16">Bottompanel</A></span> (<span class="symbol"><A NAME="ref_66_29" HREF="terminal_interface-curses-panels__adb.htm#ref_66_16">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Bottompanel, "bottom_panel");
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_66_16">Bottompanel</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_77_22">Pan</A>) = <A HREF="terminal_interface-curses-aux__ads.htm#ref_64_4">Curses_Err</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_60_4">Panel_Exception</A>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_77_14">Bottom</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_74_14" HREF="terminal_interface-curses-panels__ads.htm#ref_82_14">Top</A></span> (<span class="symbol"><A NAME="ref_74_19" HREF="terminal_interface-curses-panels__ads.htm#ref_82_19">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_76_16">Toppanel</A></span> (<span class="symbol"><A NAME="ref_76_26" HREF="terminal_interface-curses-panels__adb.htm#ref_76_16">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Toppanel, "top_panel");
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_76_16">Toppanel</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_82_19">Pan</A>) = <A HREF="terminal_interface-curses-aux__ads.htm#ref_64_4">Curses_Err</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_60_4">Panel_Exception</A>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_82_14">Top</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_84_14" HREF="terminal_interface-curses-panels__ads.htm#ref_87_14">Show</A></span> (<span class="symbol"><A NAME="ref_84_20" HREF="terminal_interface-curses-panels__ads.htm#ref_87_20">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_86_16">Showpanel</A></span> (<span class="symbol"><A NAME="ref_86_27" HREF="terminal_interface-curses-panels__adb.htm#ref_86_16">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Showpanel, "show_panel");
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_86_16">Showpanel</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_87_20">Pan</A>) = <A HREF="terminal_interface-curses-aux__ads.htm#ref_64_4">Curses_Err</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_60_4">Panel_Exception</A>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_87_14">Show</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_94_14" HREF="terminal_interface-curses-panels__ads.htm#ref_97_14">Hide</A></span> (<span class="symbol"><A NAME="ref_94_20" HREF="terminal_interface-curses-panels__ads.htm#ref_97_20">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_96_16">Hidepanel</A></span> (<span class="symbol"><A NAME="ref_96_27" HREF="terminal_interface-curses-panels__adb.htm#ref_96_16">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Hidepanel, "hide_panel");
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_96_16">Hidepanel</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_97_20">Pan</A>) = <A HREF="terminal_interface-curses-aux__ads.htm#ref_64_4">Curses_Err</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_60_4">Panel_Exception</A>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_97_14">Hide</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_104_13" HREF="terminal_interface-curses-panels__ads.htm#ref_102_13">Get_Window</A></span> (<span class="symbol"><A NAME="ref_104_25" HREF="terminal_interface-curses-panels__ads.htm#ref_102_25">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_106_16">Panel_Win</A></span> (<span class="symbol"><A NAME="ref_106_27" HREF="terminal_interface-curses-panels__adb.htm#ref_106_16">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>;
+      <b>pragma</b> Import (C, Panel_Win, "panel_window");
+
+      <span class="symbol"><A NAME="ref_109_7">Win</A></span> : <b>constant</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A> := <A HREF="terminal_interface-curses-panels__adb.htm#ref_106_16">Panel_Win</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_102_25">Pan</A>);
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_109_7">Win</A> = <A HREF="terminal_interface-curses__ads.htm#ref_57_4">Null_Window</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_60_4">Panel_Exception</A>;
+      <b>end</b> <b>if</b>;
+      <b>return</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_109_7">Win</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_102_13">Get_Window</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_117_14" HREF="terminal_interface-curses-panels__ads.htm#ref_111_14">Replace</A></span> (<span class="symbol"><A NAME="ref_117_23" HREF="terminal_interface-curses-panels__ads.htm#ref_111_23">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>;
+                      <span class="symbol"><A NAME="ref_118_23" HREF="terminal_interface-curses-panels__ads.htm#ref_112_23">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_120_16">Replace_Pan</A></span> (<span class="symbol"><A NAME="ref_120_29" HREF="terminal_interface-curses-panels__adb.htm#ref_120_16">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>;
+                            <span class="symbol"><A NAME="ref_121_29" HREF="terminal_interface-curses-panels__adb.htm#ref_120_16">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Replace_Pan, "replace_panel");
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_120_16">Replace_Pan</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_111_23">Pan</A>, <A HREF="terminal_interface-curses-panels__ads.htm#ref_112_23">Win</A>) = <A HREF="terminal_interface-curses-aux__ads.htm#ref_64_4">Curses_Err</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_60_4">Panel_Exception</A>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_111_14">Replace</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_129_14" HREF="terminal_interface-curses-panels__ads.htm#ref_117_14">Move</A></span> (<span class="symbol"><A NAME="ref_129_20" HREF="terminal_interface-curses-panels__ads.htm#ref_117_20">Pan</A></span>    : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>;
+                   <span class="symbol"><A NAME="ref_130_20" HREF="terminal_interface-curses-panels__ads.htm#ref_118_20">Line</A></span>   : <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+                   <span class="symbol"><A NAME="ref_131_20" HREF="terminal_interface-curses-panels__ads.htm#ref_119_20">Column</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_133_16">Move</A></span> (<span class="symbol"><A NAME="ref_133_22" HREF="terminal_interface-curses-panels__adb.htm#ref_133_16">Pan</A></span>    : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>;
+                     <span class="symbol"><A NAME="ref_134_22" HREF="terminal_interface-curses-panels__adb.htm#ref_133_16">Line</A></span>   : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+                     <span class="symbol"><A NAME="ref_135_22" HREF="terminal_interface-curses-panels__adb.htm#ref_133_16">Column</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Move, "move_panel");
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_133_16">Move</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_117_20">Pan</A>, <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_118_20">Line</A>), <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_119_20">Column</A>)) = <A HREF="terminal_interface-curses-aux__ads.htm#ref_64_4">Curses_Err</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_60_4">Panel_Exception</A>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_117_14">Move</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_143_13" HREF="terminal_interface-curses-panels__ads.htm#ref_124_13">Is_Hidden</A></span> (<span class="symbol"><A NAME="ref_143_24" HREF="terminal_interface-curses-panels__ads.htm#ref_124_24">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>) <b>return</b> Boolean
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_145_16">Panel_Hidden</A></span> (<span class="symbol"><A NAME="ref_145_30" HREF="terminal_interface-curses-panels__adb.htm#ref_145_16">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Panel_Hidden, "panel_hidden");
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_145_16">Panel_Hidden</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_124_24">Pan</A>) = <A HREF="terminal_interface-curses-aux__ads.htm#ref_67_4">Curses_False</A> <b>then</b>
+         <b>return</b> False;
+      <b>else</b>
+         <b>return</b> True;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_124_13">Is_Hidden</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_155_14" HREF="terminal_interface-curses-panels__ads.htm#ref_139_14">Delete</A></span> (<span class="symbol"><A NAME="ref_155_22" HREF="terminal_interface-curses-panels__ads.htm#ref_139_22">Pan</A></span> : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_157_16">Del_Panel</A></span> (<span class="symbol"><A NAME="ref_157_27" HREF="terminal_interface-curses-panels__adb.htm#ref_157_16">Pan</A></span> : <A HREF="terminal_interface-curses-panels__ads.htm#ref_49_9">Panel</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Del_Panel, "del_panel");
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-panels__adb.htm#ref_157_16">Del_Panel</A> (<A HREF="terminal_interface-curses-panels__ads.htm#ref_139_22">Pan</A>) = <A HREF="terminal_interface-curses-aux__ads.htm#ref_64_4">Curses_Err</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_60_4">Panel_Exception</A>;
+      <b>end</b> <b>if</b>;
+      <A HREF="terminal_interface-curses-panels__ads.htm#ref_139_22">Pan</A> := <A HREF="terminal_interface-curses-panels__ads.htm#ref_54_4">Null_Panel</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-panels__ads.htm#ref_139_14">Delete</A>;
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-panels__ads.htm#ref_45_35">Panels</A>;
+</PRE></BODY></HTML>

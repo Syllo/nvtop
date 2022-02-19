@@ -1,0 +1,188 @@
+<!--
+  * t
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2014,2015 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: form_field_opts.3x,v 1.27 2020/10/18 00:11:45 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>form_field_opts 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">form_field_opts 3x</H1>
+<PRE>
+<STRONG><A HREF="form_field_opts.3x.html">form_field_opts(3x)</A></STRONG>                                        <STRONG><A HREF="form_field_opts.3x.html">form_field_opts(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>set_field_opts</STRONG>, <STRONG>field_opts_on</STRONG>, <STRONG>field_opts_off</STRONG>, <STRONG>field_opts</STRONG> - set and get
+       field options
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;form.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_field_opts(FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>,</STRONG> <STRONG>Field_Options</STRONG> <EM>opts</EM><STRONG>);</STRONG>
+       <STRONG>Field_Options</STRONG> <STRONG>field_opts(const</STRONG> <STRONG>FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>field_opts_on(FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>,</STRONG> <STRONG>Field_Options</STRONG> <EM>opts</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>field_opts_off(FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>,</STRONG> <STRONG>Field_Options</STRONG> <EM>opts</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The function <STRONG>set_field_opts</STRONG> sets all  the  given  field's  option  bits
+       (field option bits may be logically-OR'ed together).
+
+       The  function  <STRONG>field_opts_on</STRONG> turns on the given option bits, and leaves
+       others alone.
+
+       The function <STRONG>field_opts_off</STRONG> turns off the given option bits, and leaves
+       others alone.
+
+       The function <STRONG>field_opts</STRONG> returns the field's current option bits.
+
+       The following standard options are defined (all are on by default):
+
+       O_ACTIVE
+            The  field  is  visited during processing.  If this option is off,
+            the field will not be reachable by navigation keys.  Please notice
+            that an invisible field appears to be inactive also.
+
+       O_AUTOSKIP
+            Skip to the next field when this one fills.
+
+       O_BLANK
+            The  field is cleared whenever a character is entered at the first
+            position.
+
+       O_EDIT
+            The field can be edited.
+
+       O_NULLOK
+            Allow a blank field.
+
+       O_PASSOK
+            Validate field only if modified by user.
+
+       O_PUBLIC
+            The field contents are displayed as data is entered.
+
+       O_STATIC
+            Field buffers are fixed  to  field's  original  size.   Turn  this
+            option off to create a dynamic field.
+
+       O_VISIBLE
+            The  field  is  displayed.   If this option is off, display of the
+            field is suppressed.
+
+       O_WRAP
+            Words that do not fit on a line are  wrapped  to  the  next  line.
+            Words are blank-separated.
+
+       These extension options are defined (extensions are off by default):
+
+       O_DYNAMIC_JUSTIFY
+            Permit dynamic fields to be justified, like static fields.
+
+       O_NO_LEFT_STRIP
+            Preserve leading whitespace in the field buffer, which is normally
+            discarded.
+
+       O_EDGE_INSERT_STAY
+            When  inserting  into  a  field  up  to  the  boundary   position,
+            optionally   delay  the  scrolling,  so  that  the  last  inserted
+            character remains visible, but advance the cursor to  reflect  the
+            insertion.   This  allows the form library to display the inserted
+            character in one-character fields as well as allowing the  library
+            to maintain consistent state.
+
+       O_INPUT_FIELD
+            The <STRONG>set_max_field</STRONG> function checks for this extension, which allows
+            a dynamic field to shrink if the new limit  is  smaller  than  the
+            current field size.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Except for <STRONG>field_opts</STRONG>, each routine returns one of the following:
+
+       <STRONG>E_OK</STRONG> The routine succeeded.
+
+       <STRONG>E_BAD_ARGUMENT</STRONG>
+            Routine detected an incorrect or out-of-range argument.
+
+       <STRONG>E_CURRENT</STRONG>
+            The field is the current field.
+
+       <STRONG>E_SYSTEM_ERROR</STRONG>
+            System error occurred (see <STRONG>errno(3)</STRONG>).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="form.3x.html">form(3x)</A></STRONG>.  <STRONG><A HREF="form_field_just.3x.html">form_field_just(3x)</A></STRONG>.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The  header  file  <STRONG>&lt;form.h&gt;</STRONG>  automatically  includes  the  header  file
+       <STRONG>&lt;curses.h&gt;</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These routines emulate the System  V  forms  library.   They  were  not
+       supported on Version 7 or BSD versions.
+
+
+</PRE><H2><a name="h2-AUTHORS">AUTHORS</a></H2><PRE>
+       Juergen Pfeifer.  Manual pages and adaptation for new curses by Eric S.
+       Raymond.
+
+
+
+                                                           <STRONG><A HREF="form_field_opts.3x.html">form_field_opts(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-AUTHORS">AUTHORS</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

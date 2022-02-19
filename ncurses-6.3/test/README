@@ -1,0 +1,846 @@
+-------------------------------------------------------------------------------
+-- Copyright 2018-2020,2021 Thomas E. Dickey                                 --
+-- Copyright 1998-2017,2018 Free Software Foundation, Inc.                   --
+--                                                                           --
+-- Permission is hereby granted, free of charge, to any person obtaining a   --
+-- copy of this software and associated documentation files (the             --
+-- "Software"), to deal in the Software without restriction, including       --
+-- without limitation the rights to use, copy, modify, merge, publish,       --
+-- distribute, distribute with modifications, sublicense, and/or sell copies --
+-- of the Software, and to permit persons to whom the Software is furnished  --
+-- to do so, subject to the following conditions:                            --
+--                                                                           --
+-- The above copyright notice and this permission notice shall be included   --
+-- in all copies or substantial portions of the Software.                    --
+--                                                                           --
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS   --
+-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF                --
+-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN --
+-- NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,       --
+-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR     --
+-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE --
+-- USE OR OTHER DEALINGS IN THE SOFTWARE.                                    --
+--                                                                           --
+-- Except as contained in this notice, the name(s) of the above copyright    --
+-- holders shall not be used in advertising or otherwise to promote the      --
+-- sale, use or other dealings in this Software without prior written        --
+-- authorization.                                                            --
+-------------------------------------------------------------------------------
+-- $Id: README,v 1.73 2021/03/07 00:08:58 tom Exp $
+-------------------------------------------------------------------------------
+
+The programs in this directory are used to test and demonstrate ncurses.
+Some are interesting in themselves, while others merely show how some of
+the library calls are used.  Some date back to the initial releases of
+ncurses during the mid-1990s, such as:
+
+	blue       - Blue Moon, a nifty solitaire (uses color)
+	bs.c       - the game of Battleships (uses color)
+	firework.c - multi-colored fireworks (uses color)
+	gdc.c      - Great Digital Clock (uses color)
+	hanoi.c    - the game of hanoi (uses color essentially)
+	knight.c   - the game of Knight's Tour (uses color)
+	lrtest.c   - test of access to the lower-right corner
+	ncurses.c  - multi-test program (uses color)
+	newdemo.c  - another test from PDCurses (uses color)
+	rain.c     - rain drops keep falling on my head...
+	tclock.c   - analog/digital clock
+	testcurs.c - a test from the PDCurses people (uses color)
+	tracemunch - Perl script to make trace scripts easier to read
+	worm.c     - worms run all over your screen (uses color)
+	xmas.c     - Xmas greeting card
+
+Besides being built as part of ncurses, the programs are also packaged as
+"ncurses-examples".  Despite the name, the programs have been adjusted to
+allow them to build with other curses implementations, to provide a way to
+compare those with ncurses.
+
+You can build the programs by
+
+	./configure
+	make
+
+The configure script has several options which allow you to tell it more
+about the curses implementation for which you are building the examples.
+Use
+
+	./configure --help
+
+to list the options.
+
+-------------------------------------------------------------------------------
+-------------------------------------------------------------------------------
+
+These programs provide examples of use, but do not comprise a complete set of
+tests.  Here is a list of library externals, noting those that are used:
+
+libform:
+-------
+TYPE_ALNUM			test: demo_forms
+TYPE_ALPHA			test: demo_forms dup_field move_field ncurses
+TYPE_ENUM			test: demo_forms
+TYPE_INTEGER			test: demo_forms
+TYPE_IPV4			test: demo_forms
+TYPE_NUMERIC			test: demo_forms
+TYPE_REGEXP			test: demo_forms
+current_field			test: demo_forms dup_field edit_field move_field ncurses
+data_ahead			test: demo_forms
+data_behind			test: demo_forms
+dup_field			-
+dynamic_field_info		test: demo_forms
+field_arg			test: demo_forms
+field_back			test: demo_forms edit_field
+field_buffer			test: cardfile demo_forms ncurses
+field_count			test: demo_forms move_field
+field_fore			test: demo_forms
+field_index			test: demo_forms
+field_info			test: edit_field ncurses
+field_init			-
+field_just			-
+field_opts			test: demo_forms dup_field move_field ncurses
+field_opts_off			test: cardfile demo_forms form_driver_w
+field_opts_on			test: demo_forms
+field_pad			test: demo_forms
+field_status			test: demo_forms
+field_term			-
+field_type			test: demo_forms
+field_userptr			test: dup_field edit_field move_field ncurses
+form_driver			test: cardfile demo_forms dup_field edit_field move_field ncurses
+form_driver_w			test: form_driver_w
+form_fields			test: cardfile demo_forms move_field
+form_init			-
+form_opts			-
+form_opts_off			-
+form_opts_on			-
+form_page			test: demo_forms
+form_request_by_name		-
+form_request_name		test: dup_field edit_field move_field
+form_sub			test: cardfile demo_forms dup_field move_field ncurses
+form_term			-
+form_userptr			-
+form_win			test: cardfile demo_forms dup_field edit_field form_driver_w move_field ncurses
+free_field			test: cardfile demo_forms dup_field form_driver_w move_field ncurses
+free_fieldtype			test: ncurses
+free_form			test: cardfile demo_forms dup_field form_driver_w move_field ncurses
+link_field			-
+link_fieldtype			-
+move_field			test: move_field
+new_field			test: cardfile demo_forms dup_field form_driver_w move_field ncurses
+new_fieldtype			test: ncurses
+new_form			test: cardfile demo_forms dup_field form_driver_w move_field ncurses
+new_form_sp			-
+new_page			test: demo_forms
+pos_form_cursor			-
+post_form			test: cardfile demo_forms dup_field form_driver_w move_field ncurses
+scale_form			test: demo_forms ncurses
+set_current_field		test: demo_forms
+set_field_back			test: cardfile demo_forms dup_field edit_field form_driver_w move_field ncurses
+set_field_buffer		test: cardfile demo_forms dup_field edit_field move_field ncurses
+set_field_fore			test: demo_forms
+set_field_init			-
+set_field_just			test: cardfile demo_forms
+set_field_opts			test: demo_forms dup_field move_field ncurses
+set_field_pad			test: demo_forms
+set_field_status		test: demo_forms
+set_field_term			-
+set_field_type			test: demo_forms dup_field move_field ncurses
+set_field_userptr		test: edit_field ncurses
+set_fieldtype_arg		-
+set_fieldtype_choice		-
+set_form_fields			test: move_field
+set_form_init			-
+set_form_opts			-
+set_form_page			-
+set_form_sub			test: cardfile demo_forms ncurses
+set_form_term			-
+set_form_userptr		-
+set_form_win			test: cardfile demo_forms ncurses
+set_max_field			test: demo_forms
+set_new_page			test: demo_forms
+unfocus_current_field		-
+unpost_form			test: cardfile demo_forms dup_field form_driver_w move_field ncurses
+
+libmenu:
+-------
+current_item			test: demo_menus ncurses
+free_item			test: ncurses
+free_menu			test: demo_menus ncurses
+item_count			test: demo_menus
+item_description		-
+item_index			test: demo_menus ncurses
+item_init			-
+item_name			test: demo_menus ncurses
+item_opts			-
+item_opts_off			-
+item_opts_on			-
+item_term			-
+item_userptr			test: demo_menus
+item_value			test: demo_menus ncurses
+item_visible			-
+menu_back			-
+menu_driver			test: demo_menus ncurses
+menu_fore			-
+menu_format			-
+menu_grey			-
+menu_init			-
+menu_items			test: demo_menus ncurses
+menu_mark			test: demo_menus
+menu_opts			-
+menu_opts_off			test: demo_menus ncurses
+menu_opts_on			test: demo_menus
+menu_pad			-
+menu_pattern			test: demo_menus
+menu_request_by_name		-
+menu_request_name		-
+menu_spacing			test: demo_menus
+menu_sub			test: demo_menus
+menu_term			-
+menu_userptr			-
+menu_win			test: demo_menus ncurses
+new_item			test: demo_menus ncurses
+new_menu			test: demo_menus ncurses
+new_menu_sp			-
+pos_menu_cursor			lib: menu
+post_menu			test: demo_menus ncurses
+scale_menu			test: demo_menus ncurses
+set_current_item		-
+set_item_init			test: demo_menus
+set_item_opts			-
+set_item_term			test: demo_menus
+set_item_userptr		test: demo_menus
+set_item_value			test: demo_menus ncurses
+set_menu_back			test: demo_menus
+set_menu_fore			test: demo_menus
+set_menu_format			test: demo_menus ncurses
+set_menu_grey			-
+set_menu_init			test: demo_menus
+set_menu_items			-
+set_menu_mark			test: demo_menus
+set_menu_opts			-
+set_menu_pad			-
+set_menu_pattern		-
+set_menu_spacing		-
+set_menu_sub			test: demo_menus ncurses
+set_menu_term			test: demo_menus
+set_menu_userptr		-
+set_menu_win			test: demo_menus ncurses
+set_top_row			-
+top_row				-
+unpost_menu			test: demo_menus ncurses
+
+libncurses:
+----------
+BC				test: demo_termcap
+COLORS				test: color_content demo_new_pair dots_curses dots_xcurses echochar ncurses pair_content picsmap savescreen xmas
+COLOR_PAIR			test: background blue bs cardfile clip_printw demo_forms demo_menus demo_panels dots_curses dup_field echochar filter firework gdc hanoi ins_wide insdelln inserts knight move_field ncurses newdemo padview picsmap rain savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr testaddch testcurs view worm xmas
+COLOR_PAIRS			test: demo_new_pair dots_curses dots_xcurses echochar ncurses newdemo pair_content
+COLS				test: cardfile demo_altkeys demo_defkey demo_forms demo_keyok demo_menus demo_panels demo_tabs ditto dots_curses dots_xcurses echochar filter firework foldkeys hashtest inch_wide inchs ins_wide inserts lrtest movewindow ncurses newdemo padview picsmap rain savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs view worm
+ESCDELAY			test: test_opaque
+LINES				test: cardfile demo_defkey demo_keyok demo_menus demo_panels demo_tabs ditto dots_curses dots_xcurses echochar firework hanoi hashtest inch_wide inchs ins_wide inserts lrtest move_field movewindow ncurses newdemo padview picsmap rain savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs view worm xmas
+PAIR_NUMBER			test: dump_window ncurses
+PC				test: demo_termcap
+SP				lib: form
+TABSIZE				test: test_opaque
+UP				test: demo_termcap
+acs_map				test: back_ground background gdc ins_wide inserts knight movewindow ncurses newdemo savescreen test_add_wchstr test_addchstr test_addstr test_addwstr testcurs
+add_wch				test: demo_new_pair demo_panels ncurses picsmap savescreen test_add_wchstr test_addwstr
+add_wchnstr			test: test_add_wchstr
+add_wchstr			test: test_add_wchstr view
+addch				test: back_ground background blue bs color_content demo_tabs dots_curses echochar hashtest ncurses padview pair_content picsmap savescreen test_add_wchstr test_addchstr test_addstr test_addwstr test_opaque testaddch view worm
+addchnstr			test: test_addchstr
+addchstr			test: test_addchstr
+addnstr				test: test_addstr
+addnwstr			test: dots_xcurses ncurses test_addwstr
+addstr				test: blue bs cardfile filter gdc hanoi lrtest ncurses test_addstr
+addwstr				test: blue test_addwstr
+alloc_pair			test: demo_new_pair dots_xcurses
+alloc_pair_sp			-
+assume_default_colors		test: back_ground background ncurses
+assume_default_colors_sp	-
+attr_get			-
+attr_off			test: dots_xcurses ncurses
+attr_on				test: dots_xcurses ncurses
+attr_set			test: ncurses
+attroff				test: blue dots_curses echochar filter gdc ncurses tclock
+attron				test: blue bs dots_curses echochar filter gdc ncurses
+attrset				test: bs filter firework gdc hanoi insdelln ncurses picsmap rain tclock testaddch testcurs
+baudrate			test: ncurses
+baudrate_sp			test: sp_tinfo
+beep				test: blue bs cardfile chgat clip_printw demo_forms demo_menus demo_new_pair demo_panels dup_field edit_field firstlast hanoi inch_wide inchs ins_wide insdelln inserts knight move_field movewindow ncurses padview popup_msg rain savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs view xmas
+beep_sp				lib: ncurses
+bkgd				test: background cardfile demo_forms dup_field move_field ncurses padview savescreen tclock view
+bkgdset				test: background ncurses testaddch
+bkgrnd				test: ncurses
+bkgrndset			test: back_ground ncurses
+boolcodes			test: demo_termcap test_arrays progs: dump_entry
+boolfnames			test: demo_terminfo test_arrays progs: dump_entry
+boolnames			test: demo_terminfo test_arrays progs: dump_entry infocmp
+border				-
+border_set			-
+box				test: cardfile chgat clip_printw demo_forms demo_menus demo_panels ditto inch_wide inchs ins_wide insdelln inserts lrtest ncurses newdemo popup_msg redraw test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs
+box_set				test: ncurses
+can_change_color		test: color_content extended_color ncurses
+can_change_color_sp		test: extended_color
+cbreak				test: back_ground background blue bs cardfile chgat clip_printw color_content color_set demo_altkeys demo_defkey demo_forms demo_keyok demo_menus demo_new_pair demo_panels demo_tabs ditto dup_field extended_color filter firework foldkeys form_driver_w gdc hanoi hashtest inch_wide inchs ins_wide insdelln inserts knight lrtest move_field movewindow ncurses newdemo padview pair_content picsmap savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs view worm xmas
+cbreak_sp			test: sp_tinfo
+chgat				test: chgat
+clear				test: blue bs filter gdc ncurses padview testcurs xmas
+clearok				test: bs knight
+clrtobot			test: demo_menus move_field ncurses view
+clrtoeol			test: blue bs demo_altkeys filter foldkeys form_driver_w hanoi hashtest movewindow ncurses padview view
+color_content			test: color_content ncurses picsmap
+color_content_sp		-
+color_set			test: color_set dots_xcurses extended_color ncurses
+copywin				test: ncurses testcurs
+cur_term			test: demo_termcap demo_terminfo dots dots_mvcur filter list_keys lrtest sp_tinfo test_sgr test_tparm test_vid_puts test_vidputs progs: clear_cmd reset_cmd tabs tput tset
+curs_set			test: demo_new_pair echochar firework gdc hanoi lrtest ncurses newdemo picsmap rain savescreen tclock testcurs worm xmas
+curs_set_sp			test: sp_tinfo
+curscr				test: demo_panels knight lrtest ncurses popup_msg savescreen tclock
+curses_trace			test: demo_menus hashtest lrtest ncurses padview redraw test_sgr test_termattrs test_vid_puts test_vidputs testcurs view worm
+curses_version			test: ncurses progs: clear infocmp tabs tic toe tput tset
+def_prog_mode			test: bs ncurses
+def_prog_mode_sp		test: sp_tinfo
+def_shell_mode			-
+def_shell_mode_sp		test: sp_tinfo
+define_key			test: demo_altkeys demo_defkey foldkeys
+define_key_sp			test: sp_tinfo
+del_curterm			test: demo_terminfo sp_tinfo test_sgr test_tparm
+del_curterm_sp			lib: ncurses
+delay_output			test: newdemo
+delay_output_sp			test: sp_tinfo
+delch				-
+deleteln			test: insdelln
+delscreen			test: ditto dots_mvcur
+delwin				test: cardfile chgat clip_printw demo_forms demo_panels dup_field inch_wide inchs ins_wide insdelln inserts move_field ncurses newdemo popup_msg redraw test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs view
+derwin				test: cardfile chgat clip_printw demo_forms demo_menus ditto inch_wide inchs ins_wide insdelln inserts movewindow ncurses test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque
+doupdate			test: cardfile demo_menus demo_panels ditto ins_wide inserts knight movewindow ncurses padview popup_msg redraw savescreen test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr
+doupdate_sp			lib: ncurses
+dupwin				test: popup_msg
+echo				test: bs hanoi ncurses test_get_wstr test_getstr testcurs testscanw
+echo_sp				lib: ncurses
+echo_wchar			test: ncurses
+echochar			test: echochar ncurses
+endwin				test: back_ground background blue bs cardfile chgat clip_printw color_content color_set demo_altkeys demo_defkey demo_forms demo_keyok demo_menus demo_new_pair demo_panels demo_tabs ditto dots_curses dots_mvcur dots_xcurses dup_field echochar extended_color filter firework firstlast foldkeys form_driver_w gdc hanoi hashtest inch_wide inchs ins_wide insdelln inserts key_names keynames knight lrtest move_field movewindow ncurses newdemo padview pair_content picsmap rain redraw savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testaddch testcurs testscanw view worm xmas
+endwin_sp			lib: ncurses
+erase				test: cardfile demo_menus filter firework firstlast hanoi lrtest ncurses picsmap tclock test_opaque testcurs
+erasechar			test: ncurses
+erasechar_sp			test: sp_tinfo
+erasewchar			test: ncurses
+exit_curses			test: back_ground background blue bs cardfile chgat clip_printw color_content color_set demo_altkeys demo_defkey demo_forms demo_keyok demo_menus demo_new_pair demo_panels demo_tabs demo_termcap demo_terminfo ditto dots dots_curses dots_mvcur dots_termcap dots_xcurses dup_field echochar extended_color filter firework firstlast foldkeys form_driver_w gdc hanoi hashtest inch_wide inchs ins_wide insdelln inserts key_names keynames knight list_keys lrtest move_field movewindow ncurses newdemo padview pair_content picsmap railroad rain redraw savescreen sp_tinfo tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_arrays test_get_wstr test_getstr test_instr test_inwstr test_opaque test_setupterm test_sgr test_termattrs test_tparm test_vid_puts test_vidputs testaddch testcurs testscanw view worm xmas
+exit_terminfo			lib: ncurses
+extended_color_content		test: color_content extended_color
+extended_color_content_sp	test: extended_color
+extended_pair_content		test: extended_color pair_content
+extended_pair_content_sp	test: extended_color
+extended_slk_color		test: extended_color
+extended_slk_color_sp		test: extended_color
+filter				test: filter
+filter_sp			-
+find_pair			test: demo_new_pair
+find_pair_sp			-
+flash				test: cardfile filter lrtest movewindow ncurses tclock testcurs
+flash_sp			-
+flushinp			test: ncurses newdemo testcurs
+flushinp_sp			test: sp_tinfo
+free_pair			test: demo_new_pair
+free_pair_sp			-
+get_escdelay			-
+get_escdelay_sp			-
+get_wch				test: form_driver_w
+get_wstr			test: test_get_wstr
+getattrs			-
+getbegx				test: chgat clip_printw demo_menus demo_panels dump_window insdelln move_field movewindow ncurses newdemo redraw testcurs
+getbegy				test: chgat clip_printw demo_menus demo_panels dump_window insdelln move_field movewindow ncurses newdemo redraw testcurs
+getbkgd				test: ncurses
+getbkgrnd			test: ncurses
+getcchar			test: demo_new_pair ncurses savescreen view
+getch				test: back_ground background blue bs chgat color_content color_set demo_altkeys demo_new_pair demo_tabs extended_color filter firework firstlast foldkeys hanoi hashtest insdelln lrtest padview pair_content picsmap savescreen tclock test_opaque testaddch testcurs view xmas
+getcurx				test: bs chgat clip_printw demo_altkeys demo_defkey demo_panels dump_window extended_color filter firstlast foldkeys insdelln move_field movewindow ncurses redraw savescreen test_get_wstr test_getstr test_opaque testcurs view
+getcury				test: bs chgat clip_printw demo_altkeys demo_defkey demo_panels dump_window extended_color filter firstlast foldkeys insdelln move_field movewindow ncurses popup_msg redraw savescreen test_opaque testcurs view
+getmaxx				test: chgat clip_printw demo_panels dump_window firstlast inch_wide inchs insdelln movewindow ncurses newdemo popup_msg redraw test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs
+getmaxy				test: chgat clip_printw demo_forms demo_panels dump_window firstlast inch_wide inchs insdelln movewindow ncurses newdemo popup_msg redraw test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs
+getmouse			test: bs demo_menus knight movewindow ncurses testcurs
+getmouse_sp			-
+getn_wstr			test: test_get_wstr
+getnstr				test: filter ncurses test_getstr
+getparx				test: movewindow
+getpary				test: movewindow
+getstr				test: test_getstr
+getwin				test: ncurses
+getwin_sp			-
+halfdelay			test: padview view
+halfdelay_sp			test: sp_tinfo
+has_colors			test: back_ground background bs cardfile chgat clip_printw color_content color_set demo_forms demo_menus demo_new_pair demo_panels dots_curses dots_xcurses dup_field echochar extended_color filter firework gdc hanoi ins_wide insdelln inserts knight move_field ncurses newdemo padview pair_content picsmap rain savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr testcurs view worm xmas
+has_colors_sp			lib: ncurses
+has_ic				test: lrtest ncurses
+has_ic_sp			test: sp_tinfo
+has_il				test: ncurses
+has_il_sp			test: sp_tinfo
+has_key				-
+has_key_sp			test: sp_tinfo
+has_mouse			-
+has_mouse_sp			-
+hline				test: gdc ncurses
+hline_set			-
+idcok				test: test_opaque
+idlok				test: ncurses padview test_opaque testscanw view
+immedok				test: test_opaque
+in_wch				test: inch_wide
+in_wchnstr			test: inch_wide
+in_wchstr			test: inch_wide
+inch				test: inchs
+inchnstr			test: inchs
+inchstr				test: inchs
+init_color			test: color_content ncurses
+init_color_sp			-
+init_extended_color		test: color_content extended_color
+init_extended_color_sp		test: extended_color
+init_extended_pair		test: extended_color ncurses pair_content picsmap
+init_extended_pair_sp		test: extended_color
+init_pair			test: back_ground background blue bs cardfile chgat clip_printw color_set demo_forms demo_menus demo_new_pair demo_panels dots_curses dots_xcurses dup_field echochar filter firework gdc hanoi ins_wide insdelln inserts knight move_field ncurses newdemo padview pair_content picsmap rain savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr testaddch testcurs view worm xmas
+init_pair_sp			-
+initscr				test: back_ground background blue bs cardfile chgat clip_printw color_content color_set demo_defkey demo_forms demo_keyok demo_menus demo_panels demo_tabs dots_curses dots_xcurses dup_field echochar filter firework firstlast form_driver_w gdc hanoi hashtest inch_wide inchs ins_wide insdelln inserts knight lrtest move_field movewindow ncurses newdemo padview pair_content picsmap rain savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testaddch testcurs testscanw view worm xmas
+innstr				test: test_instr
+innwstr				test: test_inwstr
+ins_nwstr			test: ins_wide
+ins_wch				test: ins_wide
+ins_wstr			test: ins_wide
+insch				test: ins_wide inserts
+insdelln			test: insdelln
+insertln			test: insdelln
+insnstr				test: inserts
+insstr				test: inserts
+instr				test: test_instr
+intrflush			test: demo_forms dup_field move_field movewindow
+intrflush_sp			test: sp_tinfo
+inwstr				test: test_inwstr
+is_cleared			test: test_opaque
+is_idcok			test: test_opaque
+is_idlok			test: test_opaque
+is_immedok			test: test_opaque
+is_keypad			test: ncurses test_opaque
+is_leaveok			test: test_opaque
+is_linetouched			lib: form
+is_nodelay			test: test_opaque
+is_notimeout			test: test_opaque
+is_pad				test: test_opaque
+is_scrollok			test: ncurses test_opaque
+is_subwin			test: test_opaque
+is_syncok			test: test_opaque
+is_term_resized			-
+is_term_resized_sp		-
+is_wintouched			lib: ncurses
+isendwin			-
+isendwin_sp			-
+key_defined			test: demo_defkey foldkeys
+key_defined_sp			test: sp_tinfo
+key_name			test: key_names ncurses
+keybound			test: demo_altkeys demo_defkey
+keybound_sp			test: sp_tinfo
+keyname				test: demo_altkeys demo_defkey demo_keyok demo_menus dup_field edit_field foldkeys keynames move_field movewindow ncurses padview redraw test_getstr testcurs view progs: tic
+keyname_sp			test: sp_tinfo
+keyok				test: demo_keyok foldkeys
+keyok_sp			test: sp_tinfo
+keypad				test: bs cardfile chgat clip_printw demo_altkeys demo_defkey demo_forms demo_keyok demo_menus demo_new_pair demo_panels ditto dup_field filter firework foldkeys form_driver_w hashtest inch_wide inchs ins_wide insdelln inserts key_names keynames knight lrtest move_field movewindow ncurses padview popup_msg redraw savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs testscanw view
+killchar			test: ncurses
+killchar_sp			test: sp_tinfo
+killwchar			test: ncurses
+leaveok				test: hanoi test_opaque
+longname			test: ncurses testcurs progs: tput
+longname_sp			test: sp_tinfo
+mcprint				-
+mcprint_sp			-
+meta				test: key_names keynames ncurses
+mouse_trafo			lib: form
+mouseinterval			-
+mouseinterval_sp		-
+mousemask			test: bs demo_forms demo_menus knight movewindow ncurses testcurs
+mousemask_sp			-
+move				test: blue bs cardfile chgat demo_altkeys demo_menus demo_new_pair demo_tabs dots_curses dots_xcurses echochar filter foldkeys gdc hanoi hashtest inch_wide inchs ins_wide inserts knight lrtest move_field movewindow ncurses picsmap savescreen test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testscanw view xmas
+mvadd_wch			test: ncurses test_add_wchstr test_addwstr
+mvadd_wchnstr			test: test_add_wchstr
+mvadd_wchstr			test: test_add_wchstr
+mvaddch				test: bs gdc hanoi lrtest ncurses rain tclock test_add_wchstr test_addchstr test_addstr test_addwstr xmas
+mvaddchnstr			test: gdc test_addchstr
+mvaddchstr			test: test_addchstr
+mvaddnstr			test: test_addstr
+mvaddnwstr			test: test_addwstr
+mvaddstr			test: bs demo_forms gdc hanoi knight ncurses rain tclock test_addstr testcurs xmas
+mvaddwstr			test: test_addwstr
+mvchgat				test: chgat
+mvcur				test: dots_mvcur redraw
+mvcur_sp			-
+mvdelch				-
+mvderwin			test: movewindow
+mvget_wch			-
+mvget_wstr			test: test_get_wstr
+mvgetch				-
+mvgetn_wstr			test: test_get_wstr
+mvgetnstr			test: test_getstr
+mvgetstr			test: test_getstr
+mvhline				test: ncurses
+mvhline_set			test: ncurses
+mvin_wch			test: inch_wide
+mvin_wchnstr			test: inch_wide
+mvin_wchstr			test: inch_wide
+mvinch				test: inchs
+mvinchnstr			test: gdc inchs
+mvinchstr			test: inchs
+mvinnstr			test: test_instr
+mvinnwstr			test: test_inwstr
+mvins_nwstr			test: ins_wide
+mvins_wch			test: ins_wide
+mvins_wstr			test: ins_wide
+mvinsch				test: ins_wide inserts
+mvinsnstr			test: inserts
+mvinsstr			test: inserts
+mvinstr				test: test_instr
+mvinwstr			test: test_inwstr
+mvprintw			test: back_ground background bs firework form_driver_w hanoi move_field ncurses padview savescreen tclock view
+mvscanw				-
+mvvline				test: ncurses
+mvvline_set			test: ncurses
+mvwadd_wch			test: test_add_wchstr test_addwstr
+mvwadd_wchnstr			test: test_add_wchstr
+mvwadd_wchstr			test: inch_wide test_add_wchstr
+mvwaddch			test: movewindow ncurses newdemo test_add_wchstr test_addchstr test_addstr test_addwstr testcurs xmas
+mvwaddchnstr			test: test_addchstr
+mvwaddchstr			test: inchs test_addchstr
+mvwaddnstr			test: newdemo test_addstr testcurs
+mvwaddnwstr			test: test_addwstr
+mvwaddstr			test: ditto firstlast ins_wide inserts knight ncurses newdemo test_addstr test_addwstr test_instr testcurs xmas
+mvwaddwstr			test: test_addwstr test_inwstr
+mvwchgat			test: chgat
+mvwdelch			test: ncurses
+mvwget_wch			-
+mvwget_wstr			test: test_get_wstr
+mvwgetch			test: inch_wide inchs test_get_wstr test_getstr test_instr test_inwstr test_opaque
+mvwgetn_wstr			test: test_get_wstr
+mvwgetnstr			test: test_getstr
+mvwgetstr			test: test_getstr
+mvwhline			test: movewindow ncurses
+mvwhline_set			-
+mvwin				test: cardfile demo_menus movewindow ncurses testcurs xmas
+mvwin_wch			test: inch_wide
+mvwin_wchnstr			test: inch_wide
+mvwin_wchstr			test: inch_wide
+mvwinch				test: dump_window inchs newdemo testcurs
+mvwinchnstr			test: inchs
+mvwinchstr			test: inchs
+mvwinnstr			test: test_instr testcurs
+mvwinnwstr			test: test_inwstr
+mvwins_nwstr			test: ins_wide
+mvwins_wch			test: ins_wide
+mvwins_wstr			test: ins_wide
+mvwinsch			test: ins_wide inserts
+mvwinsnstr			test: inserts
+mvwinsstr			test: inserts testcurs
+mvwinstr			test: test_instr
+mvwinwstr			test: test_inwstr
+mvwprintw			test: demo_menus demo_panels inch_wide inchs ncurses test_instr test_inwstr testcurs
+mvwscanw			test: testcurs
+mvwvline			test: ins_wide inserts movewindow ncurses test_add_wchstr test_addchstr test_addstr test_addwstr
+mvwvline_set			-
+napms				test: demo_panels ditto dots dots_curses dots_mvcur dots_xcurses echochar extended_color firework firstlast gdc hanoi lrtest ncurses padview picsmap railroad rain tclock test_opaque testcurs view worm xmas progs: tset
+napms_sp			test: sp_tinfo
+new_prescr			test: sp_tinfo
+newpad				test: ncurses padview popup_msg testcurs
+newpad_sp			lib: ncurses
+newscr				lib: ncurses
+newterm				test: demo_altkeys demo_new_pair ditto dots_mvcur extended_color filter foldkeys gdc key_names keynames redraw test_setupterm test_termattrs
+newterm_sp			-
+newwin				test: cardfile chgat clip_printw demo_defkey demo_forms demo_keyok demo_menus demo_panels ditto firstlast inch_wide inchs ins_wide insdelln inserts knight movewindow ncurses newdemo popup_msg redraw test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs view xmas
+newwin_sp			lib: ncurses
+nl				test: demo_forms dup_field move_field ncurses rain testcurs
+nl_sp				lib: ncurses
+nocbreak			test: testcurs
+nocbreak_sp			test: sp_tinfo
+nodelay				test: demo_new_pair ditto extended_color firework gdc lrtest ncurses newdemo padview rain tclock test_opaque view worm xmas
+noecho				test: back_ground background bs cardfile chgat clip_printw color_content color_set demo_altkeys demo_defkey demo_forms demo_keyok demo_menus demo_new_pair demo_panels demo_tabs ditto dup_field extended_color firework firstlast foldkeys form_driver_w gdc hanoi hashtest inch_wide inchs ins_wide insdelln inserts knight lrtest move_field movewindow ncurses padview pair_content picsmap rain redraw savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs view worm xmas
+noecho_sp			lib: ncurses
+nofilter			-
+nofilter_sp			-
+nonl				test: bs demo_forms dup_field hashtest move_field movewindow ncurses padview view worm xmas
+nonl_sp				lib: ncurses
+noqiflush			-
+noqiflush_sp			test: sp_tinfo
+noraw				test: demo_forms demo_menus dup_field move_field ncurses testcurs
+noraw_sp			test: sp_tinfo
+notimeout			test: ncurses test_opaque
+numcodes			test: demo_termcap test_arrays progs: dump_entry
+numfnames			test: demo_terminfo test_arrays progs: dump_entry
+numnames			test: demo_terminfo test_arrays progs: dump_entry infocmp
+ospeed				test: demo_termcap progs: tset
+overlay				test: ncurses testcurs xmas
+overwrite			test: ncurses savescreen
+pair_content			test: back_ground background color_set pair_content
+pair_content_sp			lib: ncurses
+pecho_wchar			-
+pechochar			-
+pnoutrefresh			test: ncurses padview popup_msg
+prefresh			test: testcurs
+printw				test: back_ground background blue bs color_content color_set demo_altkeys demo_defkey demo_keyok demo_tabs extended_color filter foldkeys ncurses pair_content savescreen testcurs testscanw view
+putp				test: filter test_sgr progs: tput
+putp_sp				test: sp_tinfo
+putwin				test: ncurses
+qiflush				-
+qiflush_sp			test: sp_tinfo
+raw				test: demo_forms dup_field move_field ncurses redraw testcurs
+raw_sp				test: sp_tinfo
+redrawwin			test: padview redraw view
+refresh				test: blue bs color_content demo_defkey demo_forms demo_keyok demo_menus demo_panels demo_tabs dots_curses dots_mvcur dots_xcurses dup_field echochar filter firstlast form_driver_w gdc hanoi hashtest lrtest move_field movewindow ncurses pair_content picsmap savescreen tclock testcurs view xmas
+reset_color_pairs		test: picsmap
+reset_color_pairs_sp		-
+reset_prog_mode			test: filter ncurses
+reset_prog_mode_sp		test: sp_tinfo
+reset_shell_mode		test: bs filter savescreen test_setupterm
+reset_shell_mode_sp		test: sp_tinfo
+resetty				-
+resetty_sp			test: sp_tinfo
+resize_term			-
+resize_term_sp			-
+resizeterm			-
+resizeterm_sp			lib: ncurses
+restartterm			test: test_setupterm
+restartterm_sp			-
+ripoffline			test: demo_menus ncurses
+ripoffline_sp			-
+savetty				-
+savetty_sp			test: sp_tinfo
+scanw				test: testcurs testscanw
+scr_dump			test: savescreen
+scr_init			test: savescreen
+scr_init_sp			-
+scr_restore			test: savescreen
+scr_restore_sp			-
+scr_set				test: savescreen
+scr_set_sp			-
+scrl				test: view
+scroll				test: testcurs
+scrollok			test: clip_printw color_content demo_altkeys demo_defkey demo_keyok demo_new_pair demo_panels ditto foldkeys hashtest knight ncurses pair_content picsmap redraw test_opaque testcurs testscanw view
+set_curterm			test: list_keys sp_tinfo
+set_curterm_sp			test: sp_tinfo
+set_escdelay			test: test_opaque
+set_escdelay_sp			lib: ncurses
+set_tabsize			test: demo_tabs test_opaque
+set_tabsize_sp			test: sp_tinfo
+set_term			lib: ncurses
+setcchar			test: back_ground demo_new_pair demo_panels ins_wide ncurses picsmap savescreen test_add_wchstr test_addwstr
+setscrreg			test: view
+setupterm			test: demo_terminfo dots list_keys sp_tinfo test_setupterm test_sgr test_termattrs test_tparm test_vid_puts test_vidputs progs: clear tabs tput tset
+slk_attr			-
+slk_attr_off			-
+slk_attr_on			-
+slk_attr_set			test: ncurses
+slk_attr_set_sp			-
+slk_attr_sp			-
+slk_attroff			lib: ncurses
+slk_attroff_sp			-
+slk_attron			lib: ncurses
+slk_attron_sp			-
+slk_attrset			test: extended_color ncurses
+slk_attrset_sp			-
+slk_clear			test: ncurses
+slk_clear_sp			-
+slk_color			test: ncurses
+slk_color_sp			-
+slk_init			test: extended_color ncurses
+slk_init_sp			-
+slk_label			test: ncurses
+slk_label_sp			-
+slk_noutrefresh			test: extended_color ncurses
+slk_noutrefresh_sp		-
+slk_refresh			test: ncurses
+slk_refresh_sp			lib: ncurses
+slk_restore			test: ncurses
+slk_restore_sp			lib: ncurses
+slk_set				test: extended_color ncurses
+slk_set_sp			-
+slk_touch			test: extended_color ncurses
+slk_touch_sp			lib: ncurses
+slk_wset			test: ncurses
+standend			test: blue gdc ncurses
+standout			test: blue ncurses
+start_color			test: back_ground background blue bs cardfile chgat clip_printw color_content color_set demo_forms demo_menus demo_new_pair demo_panels dots_curses dots_xcurses dup_field echochar extended_color filter firework gdc hanoi ins_wide insdelln inserts knight move_field ncurses newdemo padview pair_content picsmap rain savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr testaddch testcurs view worm xmas
+start_color_sp			-
+stdscr				test: back_ground background bs chgat clip_printw color_content demo_altkeys demo_forms demo_menus demo_new_pair demo_panels ditto dup_field edit_field extended_color filter firework foldkeys form_driver_w gdc hanoi hashtest inch_wide inchs ins_wide insdelln inserts key_names keynames knight lrtest move_field movewindow ncurses padview pair_content picsmap rain redraw savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs testscanw view worm xmas
+strcodes			test: demo_termcap test_arrays progs: dump_entry
+strfnames			test: demo_terminfo list_keys test_arrays progs: dump_entry
+strnames			test: demo_terminfo foldkeys list_keys test_arrays test_tparm progs: dump_entry infocmp tic
+subpad				test: testcurs
+subwin				test: movewindow ncurses newdemo testcurs
+syncok				test: test_opaque
+term_attrs			test: ncurses test_termattrs
+term_attrs_sp			-
+termattrs			test: ncurses test_termattrs testcurs
+termattrs_sp			lib: ncurses
+termname			test: list_keys ncurses testcurs
+termname_sp			test: sp_tinfo
+tgetent				test: demo_termcap dots_termcap railroad
+tgetent_sp			test: sp_tinfo
+tgetflag			test: demo_termcap
+tgetflag_sp			test: sp_tinfo
+tgetnum				test: demo_termcap dots_termcap railroad
+tgetnum_sp			test: sp_tinfo
+tgetstr				test: demo_termcap dots_termcap railroad
+tgetstr_sp			test: sp_tinfo
+tgoto				test: dots_termcap railroad progs: tic
+tigetflag			test: demo_terminfo savescreen progs: tic tput
+tigetflag_sp			test: sp_tinfo
+tigetnum			test: demo_tabs demo_terminfo dots dots_mvcur ncurses savescreen progs: tput
+tigetnum_sp			test: sp_tinfo
+tigetstr			test: blue demo_defkey demo_new_pair demo_terminfo foldkeys list_keys savescreen test_sgr test_tparm testcurs progs: clear_cmd tic tput
+tigetstr_sp			test: sp_tinfo
+timeout				test: filter rain savescreen
+tiparm				-
+touchline			test: chgat clip_printw insdelln
+touchwin			test: chgat clip_printw demo_menus filter firstlast inch_wide inchs ins_wide insdelln inserts movewindow ncurses popup_msg redraw test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque xmas
+tparm				test: dots dots_mvcur test_sgr test_tparm progs: tic tput
+tputs				test: dots dots_mvcur dots_termcap railroad test_tparm test_vid_puts test_vidputs progs: clear_cmd reset_cmd tabs
+tputs_sp			test: sp_tinfo
+trace				-
+ttytype				test: demo_terminfo test_sgr
+typeahead			test: testcurs
+typeahead_sp			test: sp_tinfo
+unctrl				test: ncurses redraw test_add_wchstr test_addchstr testcurs
+unctrl_sp			test: sp_tinfo
+unget_wch			-
+unget_wch_sp			-
+ungetch				test: bs knight
+ungetch_sp			lib: ncurses
+ungetmouse			lib: menu
+ungetmouse_sp			-
+untouchwin			lib: form
+use_default_colors		test: back_ground background dots_curses dots_xcurses filter firework gdc hanoi knight ncurses picsmap rain tclock worm xmas
+use_default_colors_sp		-
+use_env				test: dots dots_curses dots_mvcur dots_xcurses ncurses progs: clear tput
+use_env_sp			test: sp_tinfo
+use_extended_names		test: demo_termcap demo_terminfo list_keys progs: infocmp tic
+use_legacy_coding		-
+use_legacy_coding_sp		-
+use_screen			test: ditto
+use_tioctl			test: ncurses progs: clear tput
+use_tioctl_sp			test: sp_tinfo
+use_window			test: rain worm
+vid_attr			test: test_vid_puts
+vid_attr_sp			-
+vid_puts			test: test_vid_puts
+vid_puts_sp			lib: ncurses
+vidattr				test: test_vidputs
+vidattr_sp			-
+vidputs				test: test_vidputs
+vidputs_sp			-
+vline				test: gdc ncurses
+vline_set			-
+vw_printw			test: clip_printw movewindow
+vw_scanw			-
+vwprintw			-
+vwscanw				-
+wadd_wch			test: inch_wide ncurses test_add_wchstr test_addwstr
+wadd_wchnstr			test: savescreen test_add_wchstr
+wadd_wchstr			test: test_add_wchstr
+waddch				test: demo_forms demo_panels ditto firstlast inch_wide inchs knight ncurses padview popup_msg redraw test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque view worm
+waddchnstr			test: test_addchstr
+waddchstr			test: test_addchstr
+waddnstr			test: demo_forms test_addstr
+waddnwstr			test: ncurses test_addwstr
+waddstr				test: chgat clip_printw demo_forms demo_panels firstlast ins_wide insdelln knight ncurses popup_msg redraw test_add_wchstr test_addstr test_addwstr testcurs
+waddwstr			test: ins_wide ncurses padview test_add_wchstr test_addwstr test_get_wstr view
+wattr_get			test: ncurses
+wattr_off			lib: ncurses
+wattr_on			lib: ncurses
+wattr_set			test: ncurses
+wattroff			test: demo_forms ncurses testcurs xmas
+wattron				test: testcurs xmas
+wattrset			test: clip_printw demo_forms insdelln ncurses newdemo padview test_get_wstr test_getstr testcurs xmas
+wbkgd				test: cardfile demo_forms demo_menus ncurses newdemo padview testcurs
+wbkgdset			test: demo_panels ins_wide inserts ncurses test_add_wchstr test_addchstr test_addstr test_addwstr
+wbkgrnd				lib: ncurses
+wbkgrndset			lib: ncurses
+wborder				test: ncurses
+wborder_set			test: ncurses
+wchgat				test: chgat test_get_wstr test_getstr view
+wclear				test: ncurses test_opaque testcurs
+wclrtobot			test: firstlast inch_wide inchs ncurses test_instr test_inwstr testcurs
+wclrtoeol			test: chgat clip_printw demo_defkey demo_keyok demo_menus demo_panels firstlast inch_wide inchs ins_wide insdelln inserts knight ncurses test_add_wchstr test_addchstr test_addstr test_addwstr test_instr test_inwstr testcurs
+wcolor_set			lib: ncurses
+wcursyncup			lib: form
+wdelch				test: ncurses testcurs
+wdeleteln			test: insdelln testcurs
+wecho_wchar			lib: ncurses
+wechochar			lib: ncurses
+wenclose			test: ncurses
+werase				test: cardfile demo_forms demo_menus demo_panels dup_field firstlast knight move_field ncurses newdemo popup_msg test_get_wstr test_getstr test_opaque testcurs view xmas
+wget_wch			test: ins_wide ncurses test_add_wchstr test_addwstr
+wget_wstr			test: test_get_wstr
+wgetbkgrnd			lib: ncurses
+wgetch				test: cardfile chgat clip_printw demo_defkey demo_keyok demo_menus demo_panels ditto dump_window dup_field edit_field gdc insdelln inserts knight move_field movewindow ncurses newdemo popup_msg rain redraw test_addchstr test_addstr test_opaque testcurs worm
+wgetdelay			test: test_opaque
+wgetn_wstr			test: ncurses test_get_wstr
+wgetnstr			test: ncurses test_getstr
+wgetparent			test: test_opaque
+wgetscrreg			test: test_opaque
+wgetstr				test: test_getstr
+whline				test: testcurs
+whline_set			lib: ncurses
+win_wch				test: inch_wide savescreen
+win_wchnstr			test: inch_wide view
+win_wchstr			test: inch_wide
+winch				test: inchs knight testcurs
+winchnstr			test: inchs
+winchstr			test: inchs
+winnstr				test: demo_altkeys demo_defkey foldkeys test_instr
+winnwstr			test: test_inwstr
+wins_nwstr			test: ins_wide
+wins_wch			test: ins_wide
+wins_wstr			test: ins_wide
+winsch				test: ins_wide inserts testcurs
+winsdelln			test: insdelln
+winsertln			test: insdelln testcurs
+winsnstr			test: inserts
+winsstr				test: inserts
+winstr				test: test_instr
+winwstr				test: test_inwstr
+wmouse_trafo			test: ncurses
+wmove				test: chgat clip_printw demo_altkeys demo_defkey demo_keyok demo_menus demo_panels dump_window extended_color firstlast foldkeys inch_wide inchs ins_wide insdelln inserts knight movewindow ncurses newdemo padview picsmap redraw savescreen test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs view worm
+wnoutrefresh			test: demo_menus ditto inch_wide inchs ins_wide inserts knight movewindow ncurses padview popup_msg redraw test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque
+wprintw				test: chgat clip_printw demo_defkey demo_forms demo_keyok demo_menus demo_panels inch_wide inchs ins_wide insdelln inserts knight ncurses test_add_wchstr test_addchstr test_addstr test_addwstr test_get_wstr test_getstr test_instr test_inwstr test_opaque testcurs
+wredrawln			test: redraw
+wrefresh			test: chgat clip_printw demo_forms demo_keyok demo_menus demo_panels dup_field firstlast ins_wide insdelln inserts knight lrtest move_field movewindow ncurses newdemo popup_msg redraw savescreen tclock test_add_wchstr test_addchstr test_addstr test_addwstr testcurs worm xmas
+wresize				test: cardfile demo_menus ncurses
+wscanw				test: testcurs
+wscrl				test: ncurses testcurs
+wsetscrreg			test: ncurses testcurs
+wstandend			test: ncurses test_opaque xmas
+wstandout			test: ncurses test_opaque xmas
+wsyncdown			test: movewindow
+wsyncup				lib: form
+wtimeout			test: ncurses
+wtouchln			lib: ncurses
+wunctrl				lib: ncurses
+wunctrl_sp			-
+wvline				test: testcurs
+wvline_set			lib: ncurses
+
+libpanel:
+--------
+bottom_panel			test: demo_panels ncurses
+ceiling_panel			-
+del_panel			test: demo_panels ncurses
+ground_panel			-
+hide_panel			test: demo_panels ncurses
+move_panel			test: demo_panels ncurses
+new_panel			test: cardfile demo_panels ncurses
+panel_above			test: demo_panels
+panel_below			test: demo_panels
+panel_hidden			test: demo_panels
+panel_userptr			test: demo_panels ncurses
+panel_window			test: cardfile demo_panels ncurses
+replace_panel			test: demo_panels
+set_panel_userptr		test: demo_panels ncurses
+show_panel			test: demo_panels ncurses
+top_panel			test: cardfile demo_panels ncurses
+update_panels			test: cardfile demo_panels ncurses
+update_panels_sp		-
+
+-- vile:txtmode

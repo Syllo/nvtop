@@ -1,0 +1,115 @@
+<!--
+  ****************************************************************************
+  * Copyright 2020,2021 Thomas E. Dickey                                     *
+  * Copyright 2005-2016,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * Author: Thomas E. Dickey
+  * @Id: legacy_coding.3x,v 1.9 2021/08/15 19:32:05 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>legacy_coding 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">legacy_coding 3x</H1>
+<PRE>
+<STRONG><A HREF="legacy_coding.3x.html">legacy_coding(3x)</A></STRONG>                                            <STRONG><A HREF="legacy_coding.3x.html">legacy_coding(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>use_legacy_coding</STRONG> - override locale-encoding checks
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>use_legacy_coding(int</STRONG> <EM>level</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The  <STRONG>use_legacy_coding</STRONG>  function is an extension to the curses library.
+       It allows the caller to change  the  result  of  <STRONG>unctrl</STRONG>,  and  suppress
+       related checks within the library that would normally cause nonprinting
+       characters to be rendered in visible form.   This  affects  only  8-bit
+       characters.
+
+       The <EM>level</EM> parameter controls the result:
+
+              0    the   library  functions  normally,  rendering  nonprinting
+                   characters as described in <STRONG>unctrl</STRONG>.
+
+              1    the  library  ignores  <STRONG>isprintf</STRONG>  for  codes  in  the  range
+                   160-255.
+
+              2    the  library  ignores  <STRONG>isprintf</STRONG>  for  codes  in  the  range
+                   128-255.  It also modifies the output  of  <STRONG>unctrl</STRONG>,  showing
+                   codes in the range 128-159 as is.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       If  the  screen has not been initialized, or the <EM>level</EM> parameter is out
+       of range, the function returns <STRONG>ERR</STRONG>.  Otherwise, it returns the previous
+       level: <STRONG>0</STRONG>, <STRONG>1</STRONG> or <STRONG>2</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       This  routine  is specific to ncurses.  It was not supported on Version
+       7, BSD or System V implementations.  It is recommended  that  any  code
+       depending on ncurses extensions be conditioned using NCURSES_VERSION.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="unctrl.3x.html">unctrl(3x)</A></STRONG>.
+
+
+</PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+       Thomas Dickey (to support lynx's font-switching feature).
+
+
+
+                                                             <STRONG><A HREF="legacy_coding.3x.html">legacy_coding(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-AUTHOR">AUTHOR</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

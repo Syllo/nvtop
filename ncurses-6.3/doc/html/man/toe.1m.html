@@ -1,0 +1,192 @@
+<!--
+  ****************************************************************************
+  * Copyright 2019-2020,2021 Thomas E. Dickey                                *
+  * Copyright 1998-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: toe.1m,v 1.34 2021/06/17 21:26:02 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>toe 1m</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">toe 1m</H1>
+<PRE>
+<STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>                                                                <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>toe</STRONG> - table of (terminfo) entries
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>toe</STRONG> [<STRONG>-v</STRONG>[<EM>n</EM>]] [<STRONG>-ahsuUV</STRONG>] <EM>file...</EM>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       With no options, <STRONG>toe</STRONG> lists all available terminal types by primary name
+       with descriptions.   File  arguments  specify  the  directories  to  be
+       scanned;  if  no  such  arguments  are  given,  your  default  terminfo
+       directory is scanned.  If you also specify the <STRONG>-h</STRONG> option,  a  directory
+       header will be issued as each directory is entered.
+
+       There are other options intended for use by terminfo file maintainers:
+
+       <STRONG>-a</STRONG>     report  on  all  of  the  terminal databases which ncurses would
+              search, rather than only the first one that it finds.
+
+              If the <STRONG>-s</STRONG> is also given,  <STRONG>toe</STRONG>  adds  a  column  to  the  report,
+              showing (like <STRONG>conflict(1)</STRONG>) which entries which belong to a given
+              terminal database.  An "*" marks entries which differ,  and  "+"
+              marks equivalent entries.
+
+              Without  the <STRONG>-s</STRONG> option, <STRONG>toe</STRONG> does not attempt to merge duplicates
+              in its report
+
+       <STRONG>-s</STRONG>     sort the output by the entry names.
+
+       <STRONG>-u</STRONG> <EM>file</EM>
+              says  to  write  a  report  to  the  standard  output,   listing
+              dependencies  in  the  given  terminfo/termcap source file.  The
+              report condenses the "use" relation: each line consists  of  the
+              primary  name  of a terminal that has use capabilities, followed
+              by a colon, followed by the whitespace-separated  primary  names
+              of all terminals which occur in those use capabilities, followed
+              by a newline
+
+       <STRONG>-U</STRONG> <EM>file</EM>
+              says to write a report to the standard output,  listing  reverse
+              dependencies  in  the  given  terminfo/termcap source file.  The
+              report reverses the "use" relation: each line  consists  of  the
+              primary  name  of  a  terminal  that occurs in use capabilities,
+              followed  by  a  colon,  followed  by  the  whitespace-separated
+              primary names of all terminals which depend on it, followed by a
+              newline.
+
+       <STRONG>-v</STRONG><EM>n</EM>    specifies that (verbose) output be written  to  standard  error,
+              showing <STRONG>toe</STRONG>'s progress.
+
+              The  optional  parameter <EM>n</EM> is a number from 1 to 10, interpreted
+              as for <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>.  If ncurses is built  without  tracing  support,
+              the optional parameter is ignored.
+
+       <STRONG>-V</STRONG>     reports  the  version of ncurses which was used in this program,
+              and exits.
+
+
+</PRE><H2><a name="h2-EXAMPLES">EXAMPLES</a></H2><PRE>
+       Without sorting, the <STRONG>-a</STRONG> option reports all of the names found in all of
+       the   terminal  databases  found  by  the  <STRONG>TERMINFO</STRONG>  and  <STRONG>TERMINFO_DIRS</STRONG>
+       environment variables:
+
+           MtxOrb162      16x2 Matrix Orbital LCD display
+           MtxOrb204      20x4 Matrix Orbital LCD display
+           MtxOrb         Generic Matrix Orbital LCD display
+           qvt101+        qume qvt 101 PLUS product
+           qvt119+-25     QVT 119 PLUS with 25 data lines
+           qansi-g        QNX ANSI
+           qvt103         qume qvt 103
+           qnxw           QNX4 windows
+           qansi-w        QNX ansi for windows
+           qnxm           QNX4 with mouse events
+           qvt203-25-w    QVT 203 PLUS with 25 by 132 columns
+           qansi-t        QNX ansi without console writes
+           . . .
+
+       Use the <STRONG>-a</STRONG>  and  <STRONG>-s</STRONG>  options  together  to  show  where  each  terminal
+       description was found:
+
+           --&gt; /usr/local/ncurses/share/terminfo
+           ----&gt; /usr/share/terminfo
+           *-+-:     9term          Plan9 terminal emulator for X
+           *---:     Eterm          Eterm with xterm-style color support (X Window System)
+           *-*-:     Eterm-256color Eterm with xterm 256-colors
+           *-*-:     Eterm-88color  Eterm with 88 colors
+           *-+-:     MtxOrb         Generic Matrix Orbital LCD display
+           *-+-:     MtxOrb162      16x2 Matrix Orbital LCD display
+           *-+-:     MtxOrb204      20x4 Matrix Orbital LCD display
+           *-*-:     NCR260VT300WPP NCR 2900_260 vt300 wide mode pc+  kybd
+           *-+-:     aaa            ann arbor ambassador/30 lines
+           *-+-:     aaa+dec        ann arbor ambassador in dec vt100 mode
+           *-+-:     aaa+rv         ann arbor ambassador in reverse video
+           . . .
+
+
+</PRE><H2><a name="h2-FILES">FILES</a></H2><PRE>
+       <STRONG>/usr/share/terminfo/?/*</STRONG>
+            Compiled terminal description database.
+
+
+</PRE><H2><a name="h2-HISTORY">HISTORY</a></H2><PRE>
+       This  utility  is  not  provided by other implementations.  There is no
+       relevant X/Open or POSIX standard for <STRONG>toe</STRONG>.
+
+       The program name refers to a developer's pun:
+
+       <STRONG>o</STRONG>   <STRONG>tic</STRONG>,
+
+       <STRONG>o</STRONG>   <STRONG>tac</STRONG> (now <STRONG>tack</STRONG>),
+
+       <STRONG>o</STRONG>   <STRONG>toe</STRONG>.
+
+       It replaced a <STRONG>-T</STRONG> option which was  briefly  supported  by  the  ncurses
+       <STRONG>infocmp</STRONG> utility in 1995.
+
+       The  <STRONG>-a</STRONG>  and <STRONG>-s</STRONG> options were added to <STRONG>toe</STRONG> several years later (2006 and
+       2011, respectively).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="captoinfo.1m.html">captoinfo(1m)</A></STRONG>,   <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>,   <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>,   <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>,   <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,
+       <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+
+       This describes <STRONG>ncurses</STRONG> version 6.3 (patch 20211021).
+
+
+
+                                                                       <STRONG><A HREF="toe.1m.html">toe(1m)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-EXAMPLES">EXAMPLES</a></li>
+<li><a href="#h2-FILES">FILES</a></li>
+<li><a href="#h2-HISTORY">HISTORY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

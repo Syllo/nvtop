@@ -1,0 +1,293 @@
+.\"***************************************************************************
+.\" Copyright 2018-2020,2021 Thomas E. Dickey                                *
+.\" Copyright 2008-2016,2017 Free Software Foundation, Inc.                  *
+.\"                                                                          *
+.\" Permission is hereby granted, free of charge, to any person obtaining a  *
+.\" copy of this software and associated documentation files (the            *
+.\" "Software"), to deal in the Software without restriction, including      *
+.\" without limitation the rights to use, copy, modify, merge, publish,      *
+.\" distribute, distribute with modifications, sublicense, and/or sell       *
+.\" copies of the Software, and to permit persons to whom the Software is    *
+.\" furnished to do so, subject to the following conditions:                 *
+.\"                                                                          *
+.\" The above copyright notice and this permission notice shall be included  *
+.\" in all copies or substantial portions of the Software.                   *
+.\"                                                                          *
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+.\" IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+.\"                                                                          *
+.\" Except as contained in this notice, the name(s) of the above copyright   *
+.\" holders shall not be used in advertising or otherwise to promote the     *
+.\" sale, use or other dealings in this Software without prior written       *
+.\" authorization.                                                           *
+.\"***************************************************************************
+.\"
+.\" $Id: tabs.1,v 1.32 2021/10/16 13:37:43 tom Exp $
+.TH @TABS@ 1 ""
+.ds n 5
+.ie \n(.g .ds `` \(lq
+.el       .ds `` ``
+.ie \n(.g .ds '' \(rq
+.el       .ds '' ''
+.de bP
+.ie n  .IP \(bu 4
+.el    .IP \(bu 2
+..
+.de NS
+.ie n  .sp
+.el    .sp .5
+.ie n  .in +4
+.el    .in +2
+.nf
+.ft C			\" Courier
+..
+.de NE
+.fi
+.ft R
+.ie n  .in -4
+.el    .in -2
+..
+.SH NAME
+\fB@TABS@\fR \- set tabs on a terminal
+.SH SYNOPSIS
+\fB@TABS@\fR [\fIoptions\fR]] \fI[tabstop-list]\fR
+.SH DESCRIPTION
+.PP
+The \fB@TABS@\fP program clears and sets tab-stops on the terminal.
+This uses the terminfo \fIclear_all_tabs\fP and \fIset_tab\fP capabilities.
+If either is absent, \fB@TABS@\fP is unable to clear/set tab-stops.
+The terminal should be configured to use hard tabs, e.g.,
+.NS
+stty tab0
+.NE
+.PP
+Like \fB@CLEAR@\fR(1), \fB@TABS@\fR writes to the standard output.
+You can redirect the standard output to a file (which prevents
+\fB@TABS@\fR from actually changing the tabstops),
+and later \fBcat\fP the file to the screen, setting tabstops at that point.
+.PP
+These are hardware tabs, which cannot be queried rapidly by applications
+running in the terminal, if at all.
+Curses and other full-screen applications may use hardware tabs
+in optimizing their output to the terminal.
+If the hardware tabstops differ from the information in the terminal
+database, the result is unpredictable.
+Before running curses programs,
+you should either reset tab-stops to the standard interval
+.NS
+tabs -8
+.NE
+.PP
+or use the \fB@RESET@\fP program,
+since the normal initialization sequences do not ensure that tab-stops
+are reset.
+.SH OPTIONS
+.SS General Options
+.TP 5
+.BI \-T "name"
+Tell \fB@TABS@\fP which terminal type to use.
+If this option is not given, \fB@TABS@\fP will use the \fB$TERM\fP
+environment variable.
+If that is not set, it will use the \fIansi+tabs\fP entry.
+.TP 5
+.B \-d
+The debugging option shows a ruler line, followed by two data lines.
+The first data line shows the expected tab-stops marked with asterisks.
+The second data line shows the actual tab-stops, marked with asterisks.
+.TP 5
+.B \-n
+This option tells \fB@TABS@\fP to check the options and run any debugging
+option, but not to modify the terminal settings.
+.TP
+\fB\-V\fR
+reports the version of ncurses which was used in this program, and exits.
+.PP
+The \fB@TABS@\fP program processes a single list of tab stops.
+The last option to be processed which defines a list is the one that
+determines the list to be processed.
+.SS Implicit Lists
+Use a single number as an option,
+e.g., \*(``\fB\-5\fP\*('' to set tabs at the given
+interval (in this case 1, 6, 11, 16, 21, etc.).
+Tabs are repeated up to the right margin of the screen.
+.PP
+Use \*(``\fB\-0\fP\*('' to clear all tabs.
+.PP
+Use \*(``\fB\-8\fP\*('' to set tabs to the standard interval.
+.SS Explicit Lists
+An explicit list can be defined after the options
+(this does not use a \*(``\-\*('').
+The values in the list must be in increasing numeric order,
+and greater than zero.
+They are separated by a comma or a blank, for example,
+.NS
+tabs 1,6,11,16,21
+.br
+tabs 1 6 11 16 21
+.NE
+.PP
+Use a \*(``+\*('' to treat a number
+as an increment relative to the previous value,
+e.g.,
+.NS
+tabs 1,+5,+5,+5,+5
+.NE
+.PP
+which is equivalent to the 1,6,11,16,21 example.
+.SS Predefined Tab-Stops
+POSIX defines several predefined lists of tab stops.
+.TP 5
+.B \-a
+Assembler, IBM S/370, first format
+.br
+1,10,16,36,72
+.TP 5
+.B \-a2
+Assembler, IBM S/370, second format
+.br
+1,10,16,40,72
+.TP 5
+.B \-c
+COBOL, normal format
+.br
+1,8,12,16,20,55
+.TP 5
+.B \-c2
+COBOL compact format
+.br
+1,6,10,14,49
+.TP 5
+.B \-c3
+COBOL compact format extended
+.br
+1,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,67
+.TP 5
+.B \-f
+FORTRAN
+.br
+1,7,11,15,19,23
+.TP 5
+.B \-p
+PL/I
+.br
+1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61
+.TP 5
+.B \-s
+SNOBOL
+.br
+1,10,55
+.TP 5
+.B \-u
+UNIVAC 1100 Assembler
+.br
+1,12,20,44
+.SS Margins
+A few terminals provide the capability for changing their left/right margins.
+The @TABS@ program has an option to use this feature:
+.TP 5
+.BI \+m \ margin
+The effect depends on whether the terminal has the margin capabilities:
+.RS
+.bP
+If the terminal provides the capability for setting the left margin,
+@TABS@ uses this, and adjusts the available width for tab-stops.
+.bP
+If the terminal does not provide the margin capabilities,
+@TABS@ imitates the effect, putting the tab stops at the appropriate
+place on each line.
+The terminal's left-margin is not modified.
+.RE
+.IP
+If the \fImargin\fP parameter is omitted, the default is 10.
+Use \fB\+m0\fP to reset the left margin,
+i.e., to the left edge of the terminal's display.
+Before setting a left-margin,
+@TABS@ resets the margin to reduce problems which might arise
+on moving the cursor before the current left-margin.
+.PP
+When setting or resetting the left-margin,
+@TABS@ may reset the right-margin.
+.SH PORTABILITY
+.PP
+\fIIEEE Std 1003.1/The Open Group Base Specifications Issue 7\fP (POSIX.1-2008)
+describes a \fBtabs\fP utility.
+However
+.bP
+This standard describes a \fB+m\fP option, to set a terminal's left-margin.
+Very few of the entries in the terminal database provide the
+\fBsmgl\fP (\fBset_left_margin\fP) or
+\fBsmglp\fP (\fBset_left_margin_parm\fP)
+capability needed to support the feature.
+.bP
+There is no counterpart in X/Open Curses Issue 7 for this utility,
+unlike \fB@TPUT@\fP(1).
+.PP
+The \fB\-d\fP (debug) and \fB\-n\fP (no-op) options are extensions not provided
+by other implementations.
+.PP
+A \fBtabs\fP utility appeared in PWB/Unix 1.0 (1977).
+There was a reduced version of the \fBtabs\fP utility
+in Unix 7th edition and in 3BSD (1979).
+The latter supported a single \*(``\-n\*('' option
+(to cause the first tab stop to be set on the left margin).
+That option is not documented by POSIX.
+.PP
+The PWB/Unix \fBtabs\fP utility, which was included in System III (1980),
+used built-in tables rather than the terminal database,
+to support a half-dozen hardcopy terminal (printer) types.
+It also had built-in logic to support the left-margin,
+as well as a feature for copying the tab settings from a file.
+.PP
+Later versions of Unix, e.g., SVr4,
+added support for the terminal database,
+but kept the tables to support the printers.
+In an earlier development effort,
+the tab-stop initialization provided by \fBtset\fP (1982)
+and incorporated into \fBtput\fP uses the terminal database,
+.PP
+The \fB\+m\fP option was documented
+in the Base Specifications Issue 5 (Unix98, 1997),
+and omitted in Issue 6 (Unix03, 2004) without documenting the rationale,
+though an introductory comment
+\fI\*(``and optionally adjusts the margin\*(''\fP remains,
+overlooked in the removal.
+The documented \fBtabs\fP utility in Issues 6 and later has no mechanism
+for setting margins.
+The \fB\+m\fP option in this implementation differs from the feature
+in SVr4 by using terminal capabilities rather than built-in tables.
+.PP
+POSIX documents no limits on the number of tab stops.
+Documentation for other implementations states that there is a limit on the
+number of tab stops
+(e.g., 20 in PWB/Unix's \fBtabs\fP utility).
+While some terminals may not accept an arbitrary number
+of tab stops, this implementation will attempt to set tab stops up to the
+right margin of the screen, if the given list happens to be that long.
+.PP
+The \fIRationale\fP section of the POSIX documentation goes into some
+detail about the ways the committee considered redesigning the
+\fBtabs\fP and \fBtput\fP utilities,
+without proposing an improved solution.
+It comments that
+.RS 5
+.PP
+no known historical version of tabs supports the capability of setting
+arbitrary tab stops.
+.RE
+.PP
+However, the \fIExplicit Lists\fP described in this manual page
+were implemented in PWB/Unix.
+Those provide the capability of setting abitrary tab stops.
+.SH SEE ALSO
+\fB@INFOCMP@\fR(1M),
+\fB@TSET@\fR(1),
+\fBcurses\fR(3X),
+\fBterminfo\fR(\*n).
+.PP
+This describes \fBncurses\fR
+version @NCURSES_MAJOR@.@NCURSES_MINOR@ (patch @NCURSES_PATCH@).

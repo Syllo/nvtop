@@ -1,0 +1,69 @@
+# $Id: manhtml.aliases,v 1.19 2020/12/12 14:45:55 tom Exp $
+#***************************************************************************
+# Copyright 2019,2020 Thomas E. Dickey                                     *
+# Copyright 2013,2017 Free Software Foundation, Inc.                       *
+#                                                                          *
+# Permission is hereby granted, free of charge, to any person obtaining a  *
+# copy of this software and associated documentation files (the            *
+# "Software"), to deal in the Software without restriction, including      *
+# without limitation the rights to use, copy, modify, merge, publish,      *
+# distribute, distribute with modifications, sublicense, and/or sell       *
+# copies of the Software, and to permit persons to whom the Software is    *
+# furnished to do so, subject to the following conditions:                 *
+#                                                                          *
+# The above copyright notice and this permission notice shall be included  *
+# in all copies or substantial portions of the Software.                   *
+#                                                                          *
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+# OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+# IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+# THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+#                                                                          *
+# Except as contained in this notice, the name(s) of the above copyright   *
+# holders shall not be used in advertising or otherwise to promote the     *
+# sale, use or other dealings in this Software without prior written       *
+# authorization.                                                           *
+#***************************************************************************
+# Items in this list will be linked to the corresponding manpages by man2html
+addch(3X)		curs_addch(3X)
+assume_default_colors(3X)	default_colors(3X)
+curs_set(3X)		curs_kernel(3X)
+delscreen(3X)		curs_initscr(3X)
+doupdate(3X)		curs_refresh(3X)
+endwin(3X)		curs_initscr(3X)
+filter(3X)		curs_util(3X)
+get_wch(3X)		curs_get_wch(3X)
+getcchar(3X)		curs_getcchar(3X)
+getch(3X)		curs_getch(3X)
+inch(3X)		curs_inch(3X)
+infocmp(1)		infocmp(1M)
+initscr(3X)		curs_initscr(3X)
+is_scrollok(3X)		curs_opaque(3X)
+keypad(3X)		curs_inopts(3X)
+longname(3X)		curs_termattrs(3X)
+meta(3X)		curs_inopts(3X)
+mvcur(3X)		curs_terminfo(3X)
+mvwin(3X)		curs_window(3X)
+newterm(3X)		curs_initscr(3X)
+refresh(3X)		curs_refresh(3X)
+reset_shell_mode(3X)	curs_kernel(3X)
+set_term(3X)		curs_initscr(3X)
+setcchar(3X)		curs_getcchar(3X)
+setupterm(3X)		curs_terminfo(3X)
+slk_init(3X)		curs_slk(3X)
+slk_touch(3X)		curs_slk(3X)
+tic(1)			tic(1M)
+tigetstr(3X)		curs_terminfo(3X)
+tparm(3X)		curs_terminfo(3X)
+tputs(3X)		curs_terminfo(3X)
+use_default_colors(3X)	default_colors(3X)
+use_env(3X)		curs_util(3X)
+use_extended_names(3X)	curs_extend(3X)
+use_legacy_coding(3X)	legacy_coding(3X)
+vidputs(3X)		curs_terminfo(3X)
+wgetch(3X)		curs_getch(3X)
+wnoutrefresh(3X)	curs_refresh(3X)
+wrefresh(3X)		curs_refresh(3X)

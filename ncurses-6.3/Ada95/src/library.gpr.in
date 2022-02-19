@@ -1,0 +1,71 @@
+------------------------------------------------------------------------------
+-- Copyright 2019,2020 Thomas E. Dickey                                     --
+--                                                                          --
+-- Permission is hereby granted, free of charge, to any person obtaining a  --
+-- copy of this software and associated documentation files (the            --
+-- "Software"), to deal in the Software without restriction, including      --
+-- without limitation the rights to use, copy, modify, merge, publish,      --
+-- distribute, distribute with modifications, sublicense, and/or sell       --
+-- copies of the Software, and to permit persons to whom the Software is    --
+-- furnished to do so, subject to the following conditions:                 --
+--                                                                          --
+-- The above copyright notice and this permission notice shall be included  --
+-- in all copies or substantial portions of the Software.                   --
+--                                                                          --
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --
+-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --
+-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --
+-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --
+-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --
+-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --
+-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --
+--                                                                          --
+-- Except as contained in this notice, the name(s) of the above copyright   --
+-- holders shall not be used in advertising or otherwise to promote the     --
+-- sale, use or other dealings in this Software without prior written       --
+-- authorization.                                                           --
+------------------------------------------------------------------------------
+-- $Id: library.gpr.in,v 1.3 2020/06/27 20:47:40 tom Exp $
+-- http://gcc.gnu.org/onlinedocs/gnat_ugn_unw/Library-Projects.html
+-- http://www.adaworld.com/debian/debian-ada-policy.html
+project AdaCurses is
+  Build_Dir := External ("BUILD_DIR");
+  Source_Dir := External ("SOURCE_DIR");
+  Source_Dir2 := External ("SOURCE_DIR2");
+  Kind := External ("LIB_KIND");
+  for Library_Name use External ("LIB_NAME");
+  for Library_Version use External ("SONAME");
+
+  for Library_Kind use Kind;
+  for Library_Dir use Build_Dir & "/lib";
+  for Object_Dir use Build_Dir & "/" & Kind & "-obj";
+  for Library_ALI_Dir use Build_Dir & "/" & Kind & "-ali";
+  for Source_Dirs use (Source_Dir & "/src",
+                       Source_Dir2,
+                       Build_Dir & "/src");
+  -- for Library_Options use ("-lncurses@USE_LIB_SUFFIX@", "-lpanel@USE_LIB_SUFFIX@", "-lmenu@USE_LIB_SUFFIX@", "-lform@USE_LIB_SUFFIX@");
+  package Compiler is
+     for Default_Switches ("Ada") use
+       ("-g",
+        "-O2",
+        "-Wall",
+        "-gnatafno",
+        "-gnatVa",   -- All validity checks
+        "-gnatwa");  -- Activate all optional errors
+     -- for Default_Switches ("C") use (CFLAGS)
+  end Compiler;
+  for Languages use ("C", "Ada");
+  package Install is
+     for Install_Name use "adacurses";
+     -- for Artifacts ("share/doc/adacurses") use ("../doc/Ada95.html", "../doc/ada");
+     -- for Artifacts ("share/doc/adacurses/adacurses_rm") use ("../" & Kind & "-obj" & "/gnatdoc/*");
+     for Artifacts ("lib/ada/adalib") use
+        ("../src/*.ali");
+     for Artifacts ("share/ada/adainclude") use
+        ("../src/*.ad?");
+     -- for Artifacts ("share/examples/adacurses") use
+     --    ("../samples/*.ad?", "../samples/explain.txt", "../samples/Makefile", "../samples/README");
+     -- for Artifacts ("share/man/man1") use ("../doc/adacurses-config.1");
+     for Artifacts ("bin") use ("../gen/adacurses-config");
+  end Install;
+end AdaCurses;

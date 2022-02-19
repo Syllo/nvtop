@@ -1,0 +1,306 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2016,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: form_driver.3x,v 1.35 2020/12/19 21:34:15 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>form_driver 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">form_driver 3x</H1>
+<PRE>
+<STRONG><A HREF="form_driver.3x.html">form_driver(3x)</A></STRONG>                                                <STRONG><A HREF="form_driver.3x.html">form_driver(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>form_driver</STRONG>, <STRONG>form_driver_w</STRONG> - command-processing loop of the form system
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;form.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>form_driver(FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>c</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>form_driver_w(FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>c</EM><STRONG>,</STRONG> <STRONG>wchar_t</STRONG> <EM>wch</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+
+</PRE><H3><a name="h3-form_driver">form_driver</a></H3><PRE>
+       Once a form has been posted (displayed), you should funnel input events
+       to it through <STRONG>form_driver</STRONG>.  This routine has three major input cases:
+
+       <STRONG>o</STRONG>   The input is a form navigation request.  Navigation  request  codes
+           are constants defined in <STRONG>&lt;form.h&gt;</STRONG>, which are distinct from the key-
+           and character codes returned by <STRONG><A HREF="curs_getch.3x.html">wgetch(3x)</A></STRONG>.
+
+       <STRONG>o</STRONG>   The input is a printable character.   Printable  characters  (which
+           must  be  positive,  less  than  256)  are checked according to the
+           program's locale settings.
+
+       <STRONG>o</STRONG>   The input is the KEY_MOUSE special key  associated  with  an  mouse
+           event.
+
+
+</PRE><H3><a name="h3-form_driver_w">form_driver_w</a></H3><PRE>
+       This  extension  simplifies  the  use  of  the forms library using wide
+       characters.  The input is either a key  code  (a  request)  or  a  wide
+       character returned by <STRONG><A HREF="curs_get_wch.3x.html">get_wch(3x)</A></STRONG>.  The type must be passed as well, to
+       enable the library  to  determine  whether  the  parameter  is  a  wide
+       character or a request.
+
+
+</PRE><H3><a name="h3-Form-driver-requests">Form-driver requests</a></H3><PRE>
+       The form driver requests are as follows:
+
+       <EM>Name</EM>               <EM>Description</EM>
+       ---------------------------------------------------------------------
+       REQ_BEG_FIELD      Move to the beginning of the field.
+       REQ_BEG_LINE       Move to the beginning of the line.
+       REQ_CLR_EOF        Clear to end of field from cursor.
+       REQ_CLR_EOL        Clear to end of line from cursor.
+       REQ_CLR_FIELD      Clear the entire field.
+       REQ_DEL_CHAR       Delete character at the cursor.
+       REQ_DEL_LINE       Delete line at the cursor.
+       REQ_DEL_PREV       Delete character before the cursor.
+       REQ_DEL_WORD       Delete blank-delimited word at the cursor.
+       REQ_DOWN_CHAR      Move down in the field.
+       REQ_DOWN_FIELD     Move down to a field.
+       REQ_END_FIELD      Move to the end of the field.
+       REQ_END_LINE       Move to the end of the line.
+       REQ_FIRST_FIELD    Move to the first field.
+       REQ_FIRST_PAGE     Move to the first page.
+       REQ_INS_CHAR       Insert a blank at the cursor.
+       REQ_INS_LINE       Insert a blank line at the cursor.
+       REQ_INS_MODE       Enter insert mode.
+       REQ_LAST_FIELD     Move to the last field.
+       REQ_LAST_PAGE      Move to the last field.
+       REQ_LEFT_CHAR      Move left in the field.
+       REQ_LEFT_FIELD     Move left to a field.
+       REQ_NEW_LINE       Insert or overlay a new line.
+       REQ_NEXT_CHAR      Move to the next char.
+
+       REQ_NEXT_CHOICE    Display next field choice.
+       REQ_NEXT_FIELD     Move to the next field.
+       REQ_NEXT_LINE      Move to the next line.
+       REQ_NEXT_PAGE      Move to the next page.
+       REQ_NEXT_PAGE      Move to the next page.
+       REQ_NEXT_WORD      Move to the next word.
+       REQ_OVL_MODE       Enter overlay mode.
+       REQ_PREV_CHAR      Move to the previous char.
+       REQ_PREV_CHOICE    Display previous field choice.
+       REQ_PREV_FIELD     Move to the previous field.
+       REQ_PREV_LINE      Move to the previous line.
+       REQ_PREV_PAGE      Move to the previous page.
+       REQ_PREV_WORD      Move to the previous word.
+       REQ_RIGHT_CHAR     Move right in the field.
+       REQ_RIGHT_FIELD    Move right to a field.
+       REQ_SCR_BCHAR      Scroll the field backward a character.
+       REQ_SCR_BHPAGE     Scroll the field backward half a page.
+       REQ_SCR_BLINE      Scroll the field backward a line.
+       REQ_SCR_BPAGE      Scroll the field backward a page.
+       REQ_SCR_FCHAR      Scroll the field forward a character.
+       REQ_SCR_FHPAGE     Scroll the field forward half a page.
+       REQ_SCR_FLINE      Scroll the field forward a line.
+       REQ_SCR_FPAGE      Scroll the field forward a page.
+       REQ_SCR_HBHALF     Horizontal scroll the field backward half a line.
+       REQ_SCR_HBLINE     Horizontal scroll the field backward a line.
+       REQ_SCR_HFHALF     Horizontal scroll the field forward half a line.
+       REQ_SCR_HFLINE     Horizontal scroll the field forward a line.
+       REQ_SFIRST_FIELD   Move to the sorted first field.
+       REQ_SLAST_FIELD    Move to the sorted last field.
+       REQ_SNEXT_FIELD    Move to the sorted next field.
+       REQ_SPREV_FIELD    Move to the sorted previous field.
+       REQ_UP_CHAR        Move up in the field.
+       REQ_UP_FIELD       Move up to a field.
+       REQ_VALIDATION     Validate field.
+
+       If  the  second argument is a printable character, the driver places it
+       in the current position in the current field.  If  it  is  one  of  the
+       forms requests listed above, that request is executed.
+
+
+</PRE><H3><a name="h3-Field-validation">Field validation</a></H3><PRE>
+       The  form  library  makes  updates  to  the window associated with form
+       fields rather than directly to the field buffers.
+
+       The form driver provides low-level control over  updates  to  the  form
+       fields.   The  form driver also provides for validating modified fields
+       to ensure that the contents meet whatever  constraints  an  application
+       may attach using <STRONG>set_field_type</STRONG>.
+
+       You  can  validate  a  field  without  making  any  changes to it using
+       <STRONG>REQ_VALIDATION</STRONG>.  The form driver also validates a field in these cases:
+
+       <STRONG>o</STRONG>   a call to <STRONG>set_current_field</STRONG> attempts to move to a different field.
+
+       <STRONG>o</STRONG>   a call to <STRONG>set_current_page</STRONG> attempts to move to a different page  of
+           the form.
+
+       <STRONG>o</STRONG>   a request attempts to move to a different field.
+
+       <STRONG>o</STRONG>   a request attempts to move to a different page of the form.
+
+       In each case, the move fails if the field is invalid.
+
+       If  the  modified  field  is valid, the form driver copies the modified
+       data from the window associated with the field to the field buffer.
+
+
+</PRE><H3><a name="h3-Mouse-handling">Mouse handling</a></H3><PRE>
+       If the second argument is the KEY_MOUSE  special  key,  the  associated
+       mouse  event  is translated into one of the above pre-defined requests.
+       Currently only clicks in the user window (e.g., inside the form display
+       area or the decoration window) are handled.
+
+       If you click above the display region of the form:
+
+          a REQ_PREV_FIELD is generated for a single click,
+
+          a REQ_PREV_PAGE is generated for a double-click and
+
+          a REQ_FIRST_FIELD is generated for a triple-click.
+
+       If you click below the display region of the form:
+
+          a REQ_NEXT_FIELD is generated for a single click,
+
+          a REQ_NEXT_PAGE is generated for a double-click and
+
+          a REQ_LAST_FIELD is generated for a triple-click.
+
+       If you click at an field inside the display area of the form:
+
+          <STRONG>o</STRONG>   the form cursor is positioned to that field.
+
+          <STRONG>o</STRONG>   If  you  double-click  a field, the form cursor is positioned to
+              that field and <STRONG>E_UNKNOWN_COMMAND</STRONG> is returned.  This return value
+              makes sense, because a double click usually means that an field-
+              specific action should be returned.  It is exactly  the  purpose
+              of  this  return  value  to  signal that an application specific
+              command should be executed.
+
+          <STRONG>o</STRONG>   If a translation into a request was  done,  <STRONG>form_driver</STRONG>  returns
+              the result of this request.
+
+       If  you clicked outside the user window or the mouse event could not be
+       translated into a form request an <STRONG>E_REQUEST_DENIED</STRONG> is returned.
+
+
+</PRE><H3><a name="h3-Application-defined-commands">Application-defined commands</a></H3><PRE>
+       If the second argument is neither printable nor one of the  above  pre-
+       defined form requests, the driver assumes it is an application-specific
+       command and returns  <STRONG>E_UNKNOWN_COMMAND</STRONG>.   Application-defined  commands
+       should  be  defined relative to <STRONG>MAX_COMMAND</STRONG>, the maximum value of these
+       pre-defined requests.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       <STRONG>form_driver</STRONG> returns one of the following error codes:
+
+       <STRONG>E_OK</STRONG> The routine succeeded.
+
+       <STRONG>E_BAD_ARGUMENT</STRONG>
+            Routine detected an incorrect or out-of-range argument.
+
+       <STRONG>E_BAD_STATE</STRONG>
+            Routine was called from an initialization or termination function.
+
+       <STRONG>E_NOT_POSTED</STRONG>
+            The form has not been posted.
+
+       <STRONG>E_INVALID_FIELD</STRONG>
+            Contents of field is invalid.
+
+       <STRONG>E_NOT_CONNECTED</STRONG>
+            No fields are connected to the form.
+
+       <STRONG>E_REQUEST_DENIED</STRONG>
+            The form driver could not process the request.
+
+       <STRONG>E_SYSTEM_ERROR</STRONG>
+            System error occurred (see <STRONG>errno(3)</STRONG>).
+
+       <STRONG>E_UNKNOWN_COMMAND</STRONG>
+            The form driver code saw an unknown request code.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,   <STRONG><A HREF="form.3x.html">form(3x)</A></STRONG>,   <STRONG><A HREF="form_fieldtype.3x.html">form_fieldtype(3x)</A></STRONG>,    <STRONG><A HREF="form_field_buffer.3x.html">form_field_buffer(3x)</A></STRONG>,
+       <STRONG><A HREF="form_field_validation.3x.html">form_field_validation(3x)</A></STRONG>, <STRONG><A HREF="form_variables.3x.html">form_variables(3x)</A></STRONG>, <STRONG><A HREF="curs_getch.3x.html">getch(3x)</A></STRONG>.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The  header  file  <STRONG>&lt;form.h&gt;</STRONG>  automatically  includes  the  header files
+       <STRONG>&lt;curses.h&gt;</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These routines emulate the System  V  forms  library.   They  were  not
+       supported on Version 7 or BSD versions.
+
+
+</PRE><H2><a name="h2-AUTHORS">AUTHORS</a></H2><PRE>
+       Juergen Pfeifer.  Manual pages and adaptation for new curses by Eric S.
+       Raymond.
+
+
+
+                                                               <STRONG><A HREF="form_driver.3x.html">form_driver(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-form_driver">form_driver</a></li>
+<li><a href="#h3-form_driver_w">form_driver_w</a></li>
+<li><a href="#h3-Form-driver-requests">Form-driver requests</a></li>
+<li><a href="#h3-Field-validation">Field validation</a></li>
+<li><a href="#h3-Mouse-handling">Mouse handling</a></li>
+<li><a href="#h3-Application-defined-commands">Application-defined commands</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-AUTHORS">AUTHORS</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

@@ -1,0 +1,139 @@
+<!--
+  * t
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2007,2010 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: form_hook.3x,v 1.16 2020/10/18 00:06:29 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>form_hook 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">form_hook 3x</H1>
+<PRE>
+<STRONG><A HREF="form_hook.3x.html">form_hook(3x)</A></STRONG>                                                    <STRONG><A HREF="form_hook.3x.html">form_hook(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>form_hook</STRONG> - set hooks for automatic invocation by applications
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;form.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_field_init(FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>,</STRONG> <STRONG>Form_Hook</STRONG> <EM>func</EM><STRONG>);</STRONG>
+       <STRONG>Form_Hook</STRONG> <STRONG>field_init(const</STRONG> <STRONG>FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_field_term(FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>,</STRONG> <STRONG>Form_Hook</STRONG> <EM>func</EM><STRONG>);</STRONG>
+       <STRONG>Form_Hook</STRONG> <STRONG>field_term(const</STRONG> <STRONG>FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_form_init(FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>,</STRONG> <STRONG>Form_Hook</STRONG> <EM>func</EM><STRONG>);</STRONG>
+       <STRONG>Form_Hook</STRONG> <STRONG>form_init(const</STRONG> <STRONG>FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_form_term(FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>,</STRONG> <STRONG>Form_Hook</STRONG> <EM>func</EM><STRONG>);</STRONG>
+       <STRONG>Form_Hook</STRONG> <STRONG>form_term(const</STRONG> <STRONG>FORM</STRONG> <STRONG>*</STRONG><EM>form</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       These  functions make it possible to set hook functions to be called at
+       various points in the automatic processing  of  input  event  codes  by
+       <STRONG>form_driver</STRONG>.
+
+       The  function <STRONG>set_field_init</STRONG> sets a hook to be called at form-post time
+       and  each  time  the  selected  field  changes  (after   the   change).
+       <STRONG>field_init</STRONG>  returns  the current field init hook, if any (<STRONG>NULL</STRONG> if there
+       is no such hook).
+
+       The function <STRONG>set_field_term</STRONG> sets a hook to  be  called  at  form-unpost
+       time  and  each  time  the  selected field changes (before the change).
+       <STRONG>field_term</STRONG> returns the current field term hook, if any (<STRONG>NULL</STRONG>  if  there
+       is no such hook).
+
+       The  function  <STRONG>set_form_init</STRONG> sets a hook to be called at form-post time
+       and just after a page change once it is posted.  <STRONG>form_init</STRONG> returns  the
+       current form init hook, if any (<STRONG>NULL</STRONG> if there is no such hook).
+
+       The function <STRONG>set_form_term</STRONG> sets a hook to be called at form-unpost time
+       and just before a page change once it is posted.  <STRONG>form_init</STRONG> returns the
+       current form term hook, if any (<STRONG>NULL</STRONG> if there is no such hook).
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Routines  that  return  pointers  return <STRONG>NULL</STRONG> on error.  Other routines
+       return one of the following:
+
+       <STRONG>E_OK</STRONG> The routine succeeded.
+
+       <STRONG>E_SYSTEM_ERROR</STRONG>
+            System error occurred (see <STRONG>errno(3)</STRONG>).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="form.3x.html">form(3x)</A></STRONG>.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The  header  file  <STRONG>&lt;form.h&gt;</STRONG>  automatically  includes  the  header  file
+       <STRONG>&lt;curses.h&gt;</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These  routines  emulate  the  System  V  forms library.  They were not
+       supported on Version 7 or BSD versions.
+
+
+</PRE><H2><a name="h2-AUTHORS">AUTHORS</a></H2><PRE>
+       Juergen Pfeifer.  Manual pages and adaptation for new curses by Eric S.
+       Raymond.
+
+
+
+                                                                 <STRONG><A HREF="form_hook.3x.html">form_hook(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-AUTHORS">AUTHORS</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

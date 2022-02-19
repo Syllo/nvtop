@@ -1,0 +1,692 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-menus.ads</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-menus.ads </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                      Terminal_Interface.Curses.Menu                      --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 S P E C                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1998-2009,2014 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.32 @</EM></span>
+<span class="comment"><EM>--  @Date: 2020/02/02 23:34:34 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>with</b> System;
+<b>with</b> Ada.Characters.Latin_1;
+
+<b>package</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<span class="symbol"><A NAME="ref_46_35" HREF="terminal_interface-curses-menus__adb.htm#ref_50_40">Menus</A></span> <b>is</b>
+   <b>pragma</b> Preelaborate (<A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-menus__ads.htm#ref_46_35">Menus</A>);
+   <b>pragma</b> Linker_Options ("-lmenu" &amp; <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_9_4">DFT_ARG_SUFFIX</A>);
+
+   Space : Character <b>renames</b> Ada.Characters.Latin_1.Space;
+
+   <b>type</b> <span class="symbol"><A NAME="ref_52_9">Item</A></span> <b>is</b> <b>private</b>;
+   <b>type</b> <span class="symbol"><A NAME="ref_53_9">Menu</A></span> <b>is</b> <b>private</b>;
+
+   <span class="comment"><EM>---------------------------</EM></span>
+   <span class="comment"><EM>--  Interface constants  --</EM></span>
+   <span class="comment"><EM>---------------------------</EM></span>
+   <span class="symbol"><A NAME="ref_58_4">Null_Item</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+   <span class="symbol"><A NAME="ref_59_4">Null_Menu</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+
+   <b>subtype</b> <span class="symbol"><A NAME="ref_61_12">Menu_Request_Code</A></span> <b>is</b> <A HREF="terminal_interface-curses__ads.htm#ref_67_9">Key_Code</A>
+     <b>range</b> (<A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 1) .. (<A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 17);
+
+   <span class="comment"><EM>--  The prefix M_ stands for "Menu Request"</EM></span>
+   <span class="symbol"><A NAME="ref_65_4">M_Left_Item</A></span>       : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 1;
+   <span class="symbol"><A NAME="ref_66_4">M_Right_Item</A></span>      : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 2;
+   <span class="symbol"><A NAME="ref_67_4">M_Up_Item</A></span>         : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 3;
+   <span class="symbol"><A NAME="ref_68_4">M_Down_Item</A></span>       : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 4;
+   <span class="symbol"><A NAME="ref_69_4">M_ScrollUp_Line</A></span>   : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 5;
+   <span class="symbol"><A NAME="ref_70_4">M_ScrollDown_Line</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 6;
+   <span class="symbol"><A NAME="ref_71_4">M_ScrollDown_Page</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 7;
+   <span class="symbol"><A NAME="ref_72_4">M_ScrollUp_Page</A></span>   : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 8;
+   <span class="symbol"><A NAME="ref_73_4">M_First_Item</A></span>      : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 9;
+   <span class="symbol"><A NAME="ref_74_4">M_Last_Item</A></span>       : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 10;
+   <span class="symbol"><A NAME="ref_75_4">M_Next_Item</A></span>       : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 11;
+   <span class="symbol"><A NAME="ref_76_4">M_Previous_Item</A></span>   : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 12;
+   <span class="symbol"><A NAME="ref_77_4">M_Toggle_Item</A></span>     : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 13;
+   <span class="symbol"><A NAME="ref_78_4">M_Clear_Pattern</A></span>   : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 14;
+   <span class="symbol"><A NAME="ref_79_4">M_Back_Pattern</A></span>    : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 15;
+   <span class="symbol"><A NAME="ref_80_4">M_Next_Match</A></span>      : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 16;
+   <span class="symbol"><A NAME="ref_81_4">M_Previous_Match</A></span>  : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> := <A HREF="terminal_interface-curses__ads.htm#ref_380_4">Key_Max</A> + 17;
+
+   <span class="comment"><EM>--  For those who like the old 'C' names for the request codes</EM></span>
+   REQ_LEFT_ITEM     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_65_4">M_Left_Item</A>;
+   REQ_RIGHT_ITEM    : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_66_4">M_Right_Item</A>;
+   REQ_UP_ITEM       : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_67_4">M_Up_Item</A>;
+   REQ_DOWN_ITEM     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_68_4">M_Down_Item</A>;
+   REQ_SCR_ULINE     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_69_4">M_ScrollUp_Line</A>;
+   REQ_SCR_DLINE     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_70_4">M_ScrollDown_Line</A>;
+   REQ_SCR_DPAGE     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_71_4">M_ScrollDown_Page</A>;
+   REQ_SCR_UPAGE     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_72_4">M_ScrollUp_Page</A>;
+   REQ_FIRST_ITEM    : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_73_4">M_First_Item</A>;
+   REQ_LAST_ITEM     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_74_4">M_Last_Item</A>;
+   REQ_NEXT_ITEM     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_75_4">M_Next_Item</A>;
+   REQ_PREV_ITEM     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_76_4">M_Previous_Item</A>;
+   REQ_TOGGLE_ITEM   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_77_4">M_Toggle_Item</A>;
+   REQ_CLEAR_PATTERN : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_78_4">M_Clear_Pattern</A>;
+   REQ_BACK_PATTERN  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_79_4">M_Back_Pattern</A>;
+   REQ_NEXT_MATCH    : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_80_4">M_Next_Match</A>;
+   REQ_PREV_MATCH    : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_81_4">M_Previous_Match</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_102_14" HREF="terminal_interface-curses-menus__adb.htm#ref_59_14">Request_Name</A></span> (<span class="symbol"><A NAME="ref_102_28" HREF="terminal_interface-curses-menus__adb.htm#ref_59_28">Key</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A>;
+                           <span class="symbol"><A NAME="ref_103_28" HREF="terminal_interface-curses-menus__adb.htm#ref_60_28">Name</A></span> : <b>out</b> String);
+
+   <b>function</b>  <span class="symbol"><A NAME="ref_105_14" HREF="terminal_interface-curses-menus__adb.htm#ref_68_13">Request_Name</A></span> (<span class="symbol"><A NAME="ref_105_28" HREF="terminal_interface-curses-menus__adb.htm#ref_68_27">Key</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_61_12">Menu_Request_Code</A>) <b>return</b> String;
+   <span class="comment"><EM>--  Same as function</EM></span>
+
+   <span class="comment"><EM>------------------</EM></span>
+   <span class="comment"><EM>--  Exceptions  --</EM></span>
+   <span class="comment"><EM>------------------</EM></span>
+
+   <span class="symbol"><A NAME="ref_112_4">Menu_Exception</A></span> : <b>exception</b>;
+   <span class="comment"><EM>--</EM></span>
+   <span class="comment"><EM>--  Menu options</EM></span>
+   <span class="comment"><EM>--</EM></span>
+   <b>type</b> <span class="symbol"><A NAME="ref_116_9">Menu_Option_Set</A></span> <b>is</b>
+      <b>record</b>
+         <span class="symbol"><A NAME="ref_118_10">One_Valued</A></span>        : Boolean;
+         <span class="symbol"><A NAME="ref_119_10">Show_Descriptions</A></span> : Boolean;
+         <span class="symbol"><A NAME="ref_120_10">Row_Major_Order</A></span>   : Boolean;
+         <span class="symbol"><A NAME="ref_121_10">Ignore_Case</A></span>       : Boolean;
+         <span class="symbol"><A NAME="ref_122_10">Show_Matches</A></span>      : Boolean;
+         <span class="symbol"><A NAME="ref_123_10">Non_Cyclic</A></span>        : Boolean;
+      <b>end</b> <b>record</b>;
+   <b>pragma</b> Convention (C_Pass_By_Copy, <A HREF="terminal_interface-curses-menus__ads.htm#ref_116_9">Menu_Option_Set</A>);
+
+   <b>for</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_116_9">Menu_Option_Set</A> <b>use</b>
+      <b>record</b>
+         <A HREF="terminal_interface-curses-menus__ads.htm#ref_118_10">One_Valued</A>        <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_257_4">O_ONEVALUE_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_258_4">O_ONEVALUE_Last</A>;
+         <A HREF="terminal_interface-curses-menus__ads.htm#ref_119_10">Show_Descriptions</A> <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_259_4">O_SHOWDESC_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_260_4">O_SHOWDESC_Last</A>;
+         <A HREF="terminal_interface-curses-menus__ads.htm#ref_120_10">Row_Major_Order</A>   <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_261_4">O_ROWMAJOR_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_262_4">O_ROWMAJOR_Last</A>;
+         <A HREF="terminal_interface-curses-menus__ads.htm#ref_121_10">Ignore_Case</A>       <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_263_4">O_IGNORECASE_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_264_4">O_IGNORECASE_Last</A>;
+         <A HREF="terminal_interface-curses-menus__ads.htm#ref_122_10">Show_Matches</A>      <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_265_4">O_SHOWMATCH_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_266_4">O_SHOWMATCH_Last</A>;
+         <A HREF="terminal_interface-curses-menus__ads.htm#ref_123_10">Non_Cyclic</A>        <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_267_4">O_NONCYCLIC_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_268_4">O_NONCYCLIC_Last</A>;
+      <b>end</b> <b>record</b>;
+   <b>pragma</b> Warnings (Off);
+   <b>for</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_116_9">Menu_Option_Set</A>'Size <b>use</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_269_4">Menu_Options_Size</A>;
+   <b>pragma</b> Warnings (On);
+
+   <b>function</b> <span class="symbol"><A NAME="ref_146_13" HREF="terminal_interface-curses-menus__adb.htm#ref_891_13">Default_Menu_Options</A></span> <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_116_9">Menu_Option_Set</A>;
+   <span class="comment"><EM>--  Initial default options for a menu.</EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_146_13">Default_Menu_Options</A>);
+   <span class="comment"><EM>--</EM></span>
+   <span class="comment"><EM>--  Item options</EM></span>
+   <span class="comment"><EM>--</EM></span>
+   <b>type</b> <span class="symbol"><A NAME="ref_152_9">Item_Option_Set</A></span> <b>is</b>
+      <b>record</b>
+         <span class="symbol"><A NAME="ref_154_10">Selectable</A></span> : Boolean;
+      <b>end</b> <b>record</b>;
+   <b>pragma</b> Convention (C_Pass_By_Copy, <A HREF="terminal_interface-curses-menus__ads.htm#ref_152_9">Item_Option_Set</A>);
+
+   <b>for</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_152_9">Item_Option_Set</A> <b>use</b>
+      <b>record</b>
+         <A HREF="terminal_interface-curses-menus__ads.htm#ref_154_10">Selectable</A> <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_273_4">O_SELECTABLE_First</A>
+           ..  <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_274_4">O_SELECTABLE_Last</A>;
+      <b>end</b> <b>record</b>;
+   <b>pragma</b> Warnings (Off);
+   <b>for</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_152_9">Item_Option_Set</A>'Size <b>use</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_275_4">Item_Options_Size</A>;
+   <b>pragma</b> Warnings (On);
+
+   <b>function</b> <span class="symbol"><A NAME="ref_167_13" HREF="terminal_interface-curses-menus__adb.htm#ref_897_13">Default_Item_Options</A></span> <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_152_9">Item_Option_Set</A>;
+   <span class="comment"><EM>--  Initial default options for an item.</EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_167_13">Default_Item_Options</A>);
+
+   <span class="comment"><EM>--</EM></span>
+   <span class="comment"><EM>--  Item Array</EM></span>
+   <span class="comment"><EM>--</EM></span>
+   <b>type</b> Item_Array <b>is</b> <b>array</b> (Positive <b>range</b> &lt;&gt;) <b>of</b> <b>aliased</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+   <b>pragma</b> Convention (C, Item_Array);
+
+   <b>type</b> <span class="symbol"><A NAME="ref_177_9">Item_Array_Access</A></span> <b>is</b> <b>access</b> Item_Array;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_179_14" HREF="terminal_interface-curses-menus__adb.htm#ref_874_14">Free</A></span> (<span class="symbol"><A NAME="ref_179_20" HREF="terminal_interface-curses-menus__adb.htm#ref_874_20">IA</A></span>         : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_177_9">Item_Array_Access</A>;
+                   <span class="symbol"><A NAME="ref_180_20" HREF="terminal_interface-curses-menus__adb.htm#ref_875_20">Free_Items</A></span> : Boolean := False);
+   <span class="comment"><EM>--  Release the memory for an allocated item array</EM></span>
+   <span class="comment"><EM>--  If Free_Items is True, call Delete() for all the items in</EM></span>
+   <span class="comment"><EM>--  the array.</EM></span>
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/mitem_new.3x.html">mitem_new.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_1">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_190_13" HREF="terminal_interface-curses-menus__adb.htm#ref_76_13">Create</A></span> (<span class="symbol"><A NAME="ref_190_21" HREF="terminal_interface-curses-menus__adb.htm#ref_76_21">Name</A></span>        : String;
+                    <span class="symbol"><A NAME="ref_191_21" HREF="terminal_interface-curses-menus__adb.htm#ref_77_21">Description</A></span> : String := "") <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_new.3x.html">new_item()</A></EM></span>
+   <span class="comment"><EM>--  Not inlined.</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_2">|</A></EM></span>
+   <b>function</b> New_Item (<span class="symbol"><A NAME="ref_196_23">Name</A></span>        : String;
+                      <span class="symbol"><A NAME="ref_197_23">Description</A></span> : String := "") <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>
+     <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_190_13">Create</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_new.3x.html">new_item()</A></EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_3">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_202_14" HREF="terminal_interface-curses-menus__adb.htm#ref_106_14">Delete</A></span> (<span class="symbol"><A NAME="ref_202_22" HREF="terminal_interface-curses-menus__adb.htm#ref_106_22">Itm</A></span> : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_new.3x.html">free_item()</A></EM></span>
+   <span class="comment"><EM>--  Resets Itm to Null_Item</EM></span>
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/mitem_value.3x.html">mitem_value.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_4">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_211_14" HREF="terminal_interface-curses-menus__adb.htm#ref_130_14">Set_Value</A></span> (<span class="symbol"><A NAME="ref_211_25" HREF="terminal_interface-curses-menus__adb.htm#ref_130_25">Itm</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+                        <span class="symbol"><A NAME="ref_212_25" HREF="terminal_interface-curses-menus__adb.htm#ref_131_25">Value</A></span> : Boolean := True);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_value.3x.html">set_item_value()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_211_14">Set_Value</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_5">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_217_13" HREF="terminal_interface-curses-menus__adb.htm#ref_141_13">Value</A></span> (<span class="symbol"><A NAME="ref_217_20" HREF="terminal_interface-curses-menus__adb.htm#ref_141_20">Itm</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>) <b>return</b> Boolean;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_value.3x.html">item_value()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_217_13">Value</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/mitem_visible.3x.html">mitem_visible.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_6">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_226_13" HREF="terminal_interface-curses-menus__adb.htm#ref_154_13">Visible</A></span> (<span class="symbol"><A NAME="ref_226_22" HREF="terminal_interface-curses-menus__adb.htm#ref_154_22">Itm</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>) <b>return</b> Boolean;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_visible.3x.html">item_visible()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_226_13">Visible</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/mitem_opts.3x.html">mitem_opts.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_7">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_235_14" HREF="terminal_interface-curses-menus__adb.htm#ref_166_14">Set_Options</A></span> (<span class="symbol"><A NAME="ref_235_27" HREF="terminal_interface-curses-menus__adb.htm#ref_166_27">Itm</A></span>     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+                          <span class="symbol"><A NAME="ref_236_27" HREF="terminal_interface-curses-menus__adb.htm#ref_167_27">Options</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_152_9">Item_Option_Set</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_opts.3x.html">set_item_opts()</A></EM></span>
+   <span class="comment"><EM>--  An overloaded Set_Options is defined later. Pragma Inline appears there</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_8">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_241_14" HREF="terminal_interface-curses-menus__adb.htm#ref_177_14">Switch_Options</A></span> (<span class="symbol"><A NAME="ref_241_30" HREF="terminal_interface-curses-menus__adb.htm#ref_177_30">Itm</A></span>     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+                             <span class="symbol"><A NAME="ref_242_30" HREF="terminal_interface-curses-menus__adb.htm#ref_178_30">Options</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_152_9">Item_Option_Set</A>;
+                             <span class="symbol"><A NAME="ref_243_30" HREF="terminal_interface-curses-menus__adb.htm#ref_179_30">On</A></span>      : Boolean := True);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_opts.3x.html">item_opts_on()</A></EM></span>
+   <span class="comment"><EM>--  AKA: item_opts_off()</EM></span>
+   <span class="comment"><EM>--  An overloaded Switch_Options is defined later.</EM></span>
+   <span class="comment"><EM>--  Pragma Inline appears there</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_9">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_250_14" HREF="terminal_interface-curses-menus__adb.htm#ref_196_14">Get_Options</A></span> (<span class="symbol"><A NAME="ref_250_27" HREF="terminal_interface-curses-menus__adb.htm#ref_196_27">Itm</A></span>     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+                          <span class="symbol"><A NAME="ref_251_27" HREF="terminal_interface-curses-menus__adb.htm#ref_197_27">Options</A></span> : <b>out</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_152_9">Item_Option_Set</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_opts.3x.html">item_opts()</A></EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_10">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_255_13" HREF="terminal_interface-curses-menus__adb.htm#ref_206_13">Get_Options</A></span> (<span class="symbol"><A NAME="ref_255_26" HREF="terminal_interface-curses-menus__adb.htm#ref_206_26">Itm</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A> := <A HREF="terminal_interface-curses-menus__ads.htm#ref_58_4">Null_Item</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_152_9">Item_Option_Set</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_opts.3x.html">item_opts()</A></EM></span>
+   <span class="comment"><EM>--  An overloaded Get_Options is defined later. Pragma Inline appears there</EM></span>
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/mitem_name.3x.html">mitem_name.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_11">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_264_14" HREF="terminal_interface-curses-menus__adb.htm#ref_214_14">Name</A></span> (<span class="symbol"><A NAME="ref_264_20" HREF="terminal_interface-curses-menus__adb.htm#ref_214_20">Itm</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+                   <span class="symbol"><A NAME="ref_265_20" HREF="terminal_interface-curses-menus__adb.htm#ref_215_20">Name</A></span> : <b>out</b> String);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_name.3x.html">item_name()</A></EM></span>
+   <b>function</b>  <span class="symbol"><A NAME="ref_267_14" HREF="terminal_interface-curses-menus__adb.htm#ref_223_13">Name</A></span> (<span class="symbol"><A NAME="ref_267_20" HREF="terminal_interface-curses-menus__adb.htm#ref_223_19">Itm</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>) <b>return</b> String;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_name.3x.html">item_name()</A></EM></span>
+   <span class="comment"><EM>--  Implemented as function</EM></span>
+   <b>pragma</b> Inline (Name);
+
+   <span class="comment"><EM>--  <A NAME="AFU_12">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_273_14" HREF="terminal_interface-curses-menus__adb.htm#ref_231_14">Description</A></span> (<span class="symbol"><A NAME="ref_273_27" HREF="terminal_interface-curses-menus__adb.htm#ref_231_27">Itm</A></span>         : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+                          <span class="symbol"><A NAME="ref_274_27" HREF="terminal_interface-curses-menus__adb.htm#ref_232_27">Description</A></span> : <b>out</b> String);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_name.3x.html">item_description();</A></EM></span>
+
+   <b>function</b>  <span class="symbol"><A NAME="ref_277_14" HREF="terminal_interface-curses-menus__adb.htm#ref_240_13">Description</A></span> (<span class="symbol"><A NAME="ref_277_27" HREF="terminal_interface-curses-menus__adb.htm#ref_240_26">Itm</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>) <b>return</b> String;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_name.3x.html">item_description();</A></EM></span>
+   <span class="comment"><EM>--  Implemented as function</EM></span>
+   <b>pragma</b> Inline (Description);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/mitem_current.3x.html">mitem_current.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_13">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_287_14" HREF="terminal_interface-curses-menus__adb.htm#ref_248_14">Set_Current</A></span> (<span class="symbol"><A NAME="ref_287_27" HREF="terminal_interface-curses-menus__adb.htm#ref_248_27">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                          <span class="symbol"><A NAME="ref_288_27" HREF="terminal_interface-curses-menus__adb.htm#ref_249_27">Itm</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_current.3x.html">set_current_item()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_287_14">Set_Current</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_14">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_293_13" HREF="terminal_interface-curses-menus__adb.htm#ref_259_13">Current</A></span> (<span class="symbol"><A NAME="ref_293_22" HREF="terminal_interface-curses-menus__adb.htm#ref_259_22">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_current.3x.html">current_item()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_293_13">Current</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_15">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_298_14" HREF="terminal_interface-curses-menus__adb.htm#ref_272_14">Set_Top_Row</A></span> (<span class="symbol"><A NAME="ref_298_27" HREF="terminal_interface-curses-menus__adb.htm#ref_272_27">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                          <span class="symbol"><A NAME="ref_299_27" HREF="terminal_interface-curses-menus__adb.htm#ref_273_27">Line</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_current.3x.html">set_top_row()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_298_14">Set_Top_Row</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_16">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_304_13" HREF="terminal_interface-curses-menus__adb.htm#ref_283_13">Top_Row</A></span> (<span class="symbol"><A NAME="ref_304_22" HREF="terminal_interface-curses-menus__adb.htm#ref_283_22">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_current.3x.html">top_row()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_304_13">Top_Row</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_17">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_309_13" HREF="terminal_interface-curses-menus__adb.htm#ref_296_13">Get_Index</A></span> (<span class="symbol"><A NAME="ref_309_24" HREF="terminal_interface-curses-menus__adb.htm#ref_296_24">Itm</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>) <b>return</b> Positive;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/mitem_current.3x.html">item_index()</A></EM></span>
+   <span class="comment"><EM>--  Please note that in this binding we start the numbering of items</EM></span>
+   <span class="comment"><EM>--  with 1. So this is number is one more than you get from the low</EM></span>
+   <span class="comment"><EM>--  level call.</EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_309_13">Get_Index</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_post.3x.html">menu_post.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_18">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_321_14" HREF="terminal_interface-curses-menus__adb.htm#ref_309_14">Post</A></span> (<span class="symbol"><A NAME="ref_321_20" HREF="terminal_interface-curses-menus__adb.htm#ref_309_20">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                   <span class="symbol"><A NAME="ref_322_20" HREF="terminal_interface-curses-menus__adb.htm#ref_310_20">Post</A></span> : Boolean := True);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_post.3x.html">post_menu()</A></EM></span>
+   <span class="comment"><EM>--  AKA: unpost_menu()</EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_321_14">Post</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_opts.3x.html">menu_opts.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_19">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_332_14" HREF="terminal_interface-curses-menus__adb.htm#ref_325_14">Set_Options</A></span> (<span class="symbol"><A NAME="ref_332_27" HREF="terminal_interface-curses-menus__adb.htm#ref_325_27">Men</A></span>     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                          <span class="symbol"><A NAME="ref_333_27" HREF="terminal_interface-curses-menus__adb.htm#ref_326_27">Options</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_116_9">Menu_Option_Set</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_opts.3x.html">set_menu_opts()</A></EM></span>
+   <b>pragma</b> Inline (Set_Options);
+
+   <span class="comment"><EM>--  <A NAME="AFU_20">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_338_14" HREF="terminal_interface-curses-menus__adb.htm#ref_336_14">Switch_Options</A></span> (<span class="symbol"><A NAME="ref_338_30" HREF="terminal_interface-curses-menus__adb.htm#ref_336_30">Men</A></span>     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                             <span class="symbol"><A NAME="ref_339_30" HREF="terminal_interface-curses-menus__adb.htm#ref_337_30">Options</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_116_9">Menu_Option_Set</A>;
+                             <span class="symbol"><A NAME="ref_340_30" HREF="terminal_interface-curses-menus__adb.htm#ref_338_30">On</A></span>      : Boolean := True);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_opts.3x.html">menu_opts_on()</A></EM></span>
+   <span class="comment"><EM>--  AKA: menu_opts_off()</EM></span>
+   <b>pragma</b> Inline (Switch_Options);
+
+   <span class="comment"><EM>--  <A NAME="AFU_21">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_346_14" HREF="terminal_interface-curses-menus__adb.htm#ref_355_14">Get_Options</A></span> (<span class="symbol"><A NAME="ref_346_27" HREF="terminal_interface-curses-menus__adb.htm#ref_355_27">Men</A></span>     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                          <span class="symbol"><A NAME="ref_347_27" HREF="terminal_interface-curses-menus__adb.htm#ref_356_27">Options</A></span> : <b>out</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_116_9">Menu_Option_Set</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_opts.3x.html">menu_opts()</A></EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_22">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_351_13" HREF="terminal_interface-curses-menus__adb.htm#ref_365_13">Get_Options</A></span> (<span class="symbol"><A NAME="ref_351_26" HREF="terminal_interface-curses-menus__adb.htm#ref_365_26">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A> := <A HREF="terminal_interface-curses-menus__ads.htm#ref_59_4">Null_Menu</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_116_9">Menu_Option_Set</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_opts.3x.html">menu_opts()</A></EM></span>
+   <b>pragma</b> Inline (Get_Options);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_win.3x.html">menu_win.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_23">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_360_14" HREF="terminal_interface-curses-menus__adb.htm#ref_373_14">Set_Window</A></span> (<span class="symbol"><A NAME="ref_360_26" HREF="terminal_interface-curses-menus__adb.htm#ref_373_26">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                         <span class="symbol"><A NAME="ref_361_26" HREF="terminal_interface-curses-menus__adb.htm#ref_374_26">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_win.3x.html">set_menu_win()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_360_14">Set_Window</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_24">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_366_13" HREF="terminal_interface-curses-menus__adb.htm#ref_384_13">Get_Window</A></span> (<span class="symbol"><A NAME="ref_366_25" HREF="terminal_interface-curses-menus__adb.htm#ref_384_25">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_win.3x.html">menu_win()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_366_13">Get_Window</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_25">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_371_14" HREF="terminal_interface-curses-menus__adb.htm#ref_394_14">Set_Sub_Window</A></span> (<span class="symbol"><A NAME="ref_371_30" HREF="terminal_interface-curses-menus__adb.htm#ref_394_30">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                             <span class="symbol"><A NAME="ref_372_30" HREF="terminal_interface-curses-menus__adb.htm#ref_395_30">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_win.3x.html">set_menu_sub()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_371_14">Set_Sub_Window</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_26">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_377_13" HREF="terminal_interface-curses-menus__adb.htm#ref_405_13">Get_Sub_Window</A></span> (<span class="symbol"><A NAME="ref_377_29" HREF="terminal_interface-curses-menus__adb.htm#ref_405_29">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_win.3x.html">menu_sub()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_377_13">Get_Sub_Window</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_27">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_382_14" HREF="terminal_interface-curses-menus__adb.htm#ref_415_14">Scale</A></span> (<span class="symbol"><A NAME="ref_382_21" HREF="terminal_interface-curses-menus__adb.htm#ref_415_21">Men</A></span>     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                    <span class="symbol"><A NAME="ref_383_21" HREF="terminal_interface-curses-menus__adb.htm#ref_416_21">Lines</A></span>   : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A>;
+                    <span class="symbol"><A NAME="ref_384_21" HREF="terminal_interface-curses-menus__adb.htm#ref_417_21">Columns</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_win.3x.html">scale_menu()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_382_14">Scale</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_cursor.3x.html">menu_cursor.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_28">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_393_14" HREF="terminal_interface-curses-menus__adb.htm#ref_431_14">Position_Cursor</A></span> (<span class="symbol"><A NAME="ref_393_31" HREF="terminal_interface-curses-menus__adb.htm#ref_431_31">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_cursor.3x.html">pos_menu_cursor()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_393_14">Position_Cursor</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_mark.3x.html">menu_mark.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_29">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_402_14" HREF="terminal_interface-curses-menus__adb.htm#ref_441_14">Set_Mark</A></span> (<span class="symbol"><A NAME="ref_402_24" HREF="terminal_interface-curses-menus__adb.htm#ref_441_24">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                       <span class="symbol"><A NAME="ref_403_24" HREF="terminal_interface-curses-menus__adb.htm#ref_442_24">Mark</A></span> : String);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_mark.3x.html">set_menu_mark()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_402_14">Set_Mark</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_30">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_408_14" HREF="terminal_interface-curses-menus__adb.htm#ref_456_14">Mark</A></span> (<span class="symbol"><A NAME="ref_408_20" HREF="terminal_interface-curses-menus__adb.htm#ref_456_20">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                   <span class="symbol"><A NAME="ref_409_20" HREF="terminal_interface-curses-menus__adb.htm#ref_457_20">Mark</A></span> : <b>out</b> String);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_mark.3x.html">menu_mark()</A></EM></span>
+
+   <b>function</b>  <span class="symbol"><A NAME="ref_412_14" HREF="terminal_interface-curses-menus__adb.htm#ref_465_13">Mark</A></span> (<span class="symbol"><A NAME="ref_412_20" HREF="terminal_interface-curses-menus__adb.htm#ref_465_19">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> String;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_mark.3x.html">menu_mark()</A></EM></span>
+   <span class="comment"><EM>--  Implemented as function</EM></span>
+   <b>pragma</b> Inline (Mark);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_attributes.3x.html">menu_attributes.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_31">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_422_14" HREF="terminal_interface-curses-menus__adb.htm#ref_474_14">Set_Foreground</A></span>
+     (<span class="symbol"><A NAME="ref_423_7" HREF="terminal_interface-curses-menus__adb.htm#ref_475_7">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+      <span class="symbol"><A NAME="ref_424_7" HREF="terminal_interface-curses-menus__adb.htm#ref_476_7">Fore</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A> := <A HREF="terminal_interface-curses__ads.htm#ref_486_4">Normal_Video</A>;
+      <span class="symbol"><A NAME="ref_425_7" HREF="terminal_interface-curses-menus__adb.htm#ref_477_7">Color</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A> := <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>'First);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">set_menu_fore()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_422_14">Set_Foreground</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_32">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_430_14" HREF="terminal_interface-curses-menus__adb.htm#ref_490_14">Foreground</A></span> (<span class="symbol"><A NAME="ref_430_26" HREF="terminal_interface-curses-menus__adb.htm#ref_490_26">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                         <span class="symbol"><A NAME="ref_431_26" HREF="terminal_interface-curses-menus__adb.htm#ref_491_26">Fore</A></span>  : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">menu_fore()</A></EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_33">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_435_14" HREF="terminal_interface-curses-menus__adb.htm#ref_499_14">Foreground</A></span> (<span class="symbol"><A NAME="ref_435_26" HREF="terminal_interface-curses-menus__adb.htm#ref_499_26">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                         <span class="symbol"><A NAME="ref_436_26" HREF="terminal_interface-curses-menus__adb.htm#ref_500_26">Fore</A></span>  : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>;
+                         <span class="symbol"><A NAME="ref_437_26" HREF="terminal_interface-curses-menus__adb.htm#ref_501_26">Color</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">menu_fore()</A></EM></span>
+   <b>pragma</b> Inline (Foreground);
+
+   <span class="comment"><EM>--  <A NAME="AFU_34">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_442_14" HREF="terminal_interface-curses-menus__adb.htm#ref_510_14">Set_Background</A></span>
+     (<span class="symbol"><A NAME="ref_443_7" HREF="terminal_interface-curses-menus__adb.htm#ref_511_7">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+      <span class="symbol"><A NAME="ref_444_7" HREF="terminal_interface-curses-menus__adb.htm#ref_512_7">Back</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A> := <A HREF="terminal_interface-curses__ads.htm#ref_486_4">Normal_Video</A>;
+      <span class="symbol"><A NAME="ref_445_7" HREF="terminal_interface-curses-menus__adb.htm#ref_513_7">Color</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A> := <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>'First);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">set_menu_back()</A></EM></span>
+   <b>pragma</b> Inline (Set_Background);
+
+   <span class="comment"><EM>--  <A NAME="AFU_35">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_450_14" HREF="terminal_interface-curses-menus__adb.htm#ref_526_14">Background</A></span> (<span class="symbol"><A NAME="ref_450_26" HREF="terminal_interface-curses-menus__adb.htm#ref_526_26">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                         <span class="symbol"><A NAME="ref_451_26" HREF="terminal_interface-curses-menus__adb.htm#ref_527_26">Back</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">menu_back()</A></EM></span>
+   <span class="comment"><EM>--  <A NAME="AFU_36">|</A></EM></span>
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_455_14" HREF="terminal_interface-curses-menus__adb.htm#ref_535_14">Background</A></span> (<span class="symbol"><A NAME="ref_455_26" HREF="terminal_interface-curses-menus__adb.htm#ref_535_26">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                         <span class="symbol"><A NAME="ref_456_26" HREF="terminal_interface-curses-menus__adb.htm#ref_536_26">Back</A></span>  : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>;
+                         <span class="symbol"><A NAME="ref_457_26" HREF="terminal_interface-curses-menus__adb.htm#ref_537_26">Color</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">menu_back()</A></EM></span>
+   <b>pragma</b> Inline (Background);
+
+   <span class="comment"><EM>--  <A NAME="AFU_37">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_462_14" HREF="terminal_interface-curses-menus__adb.htm#ref_546_14">Set_Grey</A></span>
+     (<span class="symbol"><A NAME="ref_463_7" HREF="terminal_interface-curses-menus__adb.htm#ref_546_24">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+      <span class="symbol"><A NAME="ref_464_7" HREF="terminal_interface-curses-menus__adb.htm#ref_547_24">Grey</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A> := <A HREF="terminal_interface-curses__ads.htm#ref_486_4">Normal_Video</A>;
+      <span class="symbol"><A NAME="ref_465_7" HREF="terminal_interface-curses-menus__adb.htm#ref_548_24">Color</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A> := <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>'First);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">set_menu_grey()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_462_14">Set_Grey</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_38">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_470_14" HREF="terminal_interface-curses-menus__adb.htm#ref_562_14">Grey</A></span> (<span class="symbol"><A NAME="ref_470_20" HREF="terminal_interface-curses-menus__adb.htm#ref_562_20">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                   <span class="symbol"><A NAME="ref_471_20" HREF="terminal_interface-curses-menus__adb.htm#ref_563_20">Grey</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">menu_grey()</A></EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_39">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_475_14" HREF="terminal_interface-curses-menus__adb.htm#ref_571_14">Grey</A></span>
+     (<span class="symbol"><A NAME="ref_476_7" HREF="terminal_interface-curses-menus__adb.htm#ref_571_20">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+      <span class="symbol"><A NAME="ref_477_7" HREF="terminal_interface-curses-menus__adb.htm#ref_572_20">Grey</A></span>  : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>;
+      <span class="symbol"><A NAME="ref_478_7" HREF="terminal_interface-curses-menus__adb.htm#ref_573_20">Color</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">menu_grey()</A></EM></span>
+   <b>pragma</b> Inline (Grey);
+
+   <span class="comment"><EM>--  <A NAME="AFU_40">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_483_14" HREF="terminal_interface-curses-menus__adb.htm#ref_582_14">Set_Pad_Character</A></span> (<span class="symbol"><A NAME="ref_483_33" HREF="terminal_interface-curses-menus__adb.htm#ref_582_33">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                                <span class="symbol"><A NAME="ref_484_33" HREF="terminal_interface-curses-menus__adb.htm#ref_583_33">Pad</A></span> : Character := Space);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">set_menu_pad()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_483_14">Set_Pad_Character</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_41">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_489_14" HREF="terminal_interface-curses-menus__adb.htm#ref_593_14">Pad_Character</A></span> (<span class="symbol"><A NAME="ref_489_29" HREF="terminal_interface-curses-menus__adb.htm#ref_593_29">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                            <span class="symbol"><A NAME="ref_490_29" HREF="terminal_interface-curses-menus__adb.htm#ref_594_29">Pad</A></span> : <b>out</b> Character);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_attributes.3x.html">menu_pad()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_489_14">Pad_Character</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_spacing.3x.html">menu_spacing.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_42">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_499_14" HREF="terminal_interface-curses-menus__adb.htm#ref_602_14">Set_Spacing</A></span> (<span class="symbol"><A NAME="ref_499_27" HREF="terminal_interface-curses-menus__adb.htm#ref_602_27">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                          <span class="symbol"><A NAME="ref_500_27" HREF="terminal_interface-curses-menus__adb.htm#ref_603_27">Descr</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A> := 0;
+                          <span class="symbol"><A NAME="ref_501_27" HREF="terminal_interface-curses-menus__adb.htm#ref_604_27">Row</A></span>   : <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>   := 0;
+                          <span class="symbol"><A NAME="ref_502_27" HREF="terminal_interface-curses-menus__adb.htm#ref_605_27">Col</A></span>   : <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A> := 0);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_spacing.3x.html">set_menu_spacing()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_499_14">Set_Spacing</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_43">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_507_14" HREF="terminal_interface-curses-menus__adb.htm#ref_618_14">Spacing</A></span> (<span class="symbol"><A NAME="ref_507_23" HREF="terminal_interface-curses-menus__adb.htm#ref_618_23">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                      <span class="symbol"><A NAME="ref_508_23" HREF="terminal_interface-curses-menus__adb.htm#ref_619_23">Descr</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>;
+                      <span class="symbol"><A NAME="ref_509_23" HREF="terminal_interface-curses-menus__adb.htm#ref_620_23">Row</A></span>   : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+                      <span class="symbol"><A NAME="ref_510_23" HREF="terminal_interface-curses-menus__adb.htm#ref_621_23">Col</A></span>   : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_spacing.3x.html">menu_spacing()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_507_14">Spacing</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_pattern.3x.html">menu_pattern.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_44">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_519_13" HREF="terminal_interface-curses-menus__adb.htm#ref_639_13">Set_Pattern</A></span> (<span class="symbol"><A NAME="ref_519_26" HREF="terminal_interface-curses-menus__adb.htm#ref_639_26">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                         <span class="symbol"><A NAME="ref_520_26" HREF="terminal_interface-curses-menus__adb.htm#ref_640_26">Text</A></span> : String) <b>return</b> Boolean;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_pattern.3x.html">set_menu_pattern()</A></EM></span>
+   <span class="comment"><EM>--  Return TRUE if the pattern matches, FALSE otherwise</EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_519_13">Set_Pattern</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_45">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_526_14" HREF="terminal_interface-curses-menus__adb.htm#ref_662_14">Pattern</A></span> (<span class="symbol"><A NAME="ref_526_23" HREF="terminal_interface-curses-menus__adb.htm#ref_662_23">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                      <span class="symbol"><A NAME="ref_527_23" HREF="terminal_interface-curses-menus__adb.htm#ref_663_23">Text</A></span> : <b>out</b> String);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_pattern.3x.html">menu_pattern()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_526_14">Pattern</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_format.3x.html">menu_format.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_46">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_536_14" HREF="terminal_interface-curses-menus__adb.htm#ref_671_14">Set_Format</A></span> (<span class="symbol"><A NAME="ref_536_26" HREF="terminal_interface-curses-menus__adb.htm#ref_671_26">Men</A></span>     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                         <span class="symbol"><A NAME="ref_537_26" HREF="terminal_interface-curses-menus__adb.htm#ref_672_26">Lines</A></span>   : <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A>;
+                         <span class="symbol"><A NAME="ref_538_26" HREF="terminal_interface-curses-menus__adb.htm#ref_673_26">Columns</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A>);
+   <span class="comment"><EM>--  Not implemented: 0 argument for Lines or Columns;</EM></span>
+   <span class="comment"><EM>--  instead use Format to get the current sizes</EM></span>
+   <span class="comment"><EM>--      The  default  format  is  16  rows,  1  column.    Calling</EM></span>
+   <span class="comment"><EM>--      set_menu_format  with a null menu pointer will change this</EM></span>
+   <span class="comment"><EM>--      default.  A zero row or column argument to set_menu_format</EM></span>
+   <span class="comment"><EM>--      is  interpreted  as  a  request  not to change the current</EM></span>
+   <span class="comment"><EM>--      value.</EM></span>
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_format.3x.html">set_menu_format()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_536_14">Set_Format</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_47">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_550_14" HREF="terminal_interface-curses-menus__adb.htm#ref_687_14">Format</A></span> (<span class="symbol"><A NAME="ref_550_22" HREF="terminal_interface-curses-menus__adb.htm#ref_687_22">Men</A></span>     : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                     <span class="symbol"><A NAME="ref_551_22" HREF="terminal_interface-curses-menus__adb.htm#ref_688_22">Lines</A></span>   : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A>;
+                     <span class="symbol"><A NAME="ref_552_22" HREF="terminal_interface-curses-menus__adb.htm#ref_689_22">Columns</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_format.3x.html">menu_format()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_550_14">Format</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_hook.3x.html">menu_hook.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <b>type</b> <span class="symbol"><A NAME="ref_560_9">Menu_Hook_Function</A></span> <b>is</b> <b>access</b> <b>procedure</b> (<span class="symbol"><A NAME="ref_560_49" HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>);
+   <b>pragma</b> Convention (C, <A HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Menu_Hook_Function</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_48">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_564_14" HREF="terminal_interface-curses-menus__adb.htm#ref_703_14">Set_Item_Init_Hook</A></span> (<span class="symbol"><A NAME="ref_564_34" HREF="terminal_interface-curses-menus__adb.htm#ref_703_34">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                                 <span class="symbol"><A NAME="ref_565_34" HREF="terminal_interface-curses-menus__adb.htm#ref_704_34">Proc</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Menu_Hook_Function</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_hook.3x.html">set_item_init()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_564_14">Set_Item_Init_Hook</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_49">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_570_14" HREF="terminal_interface-curses-menus__adb.htm#ref_714_14">Set_Item_Term_Hook</A></span> (<span class="symbol"><A NAME="ref_570_34" HREF="terminal_interface-curses-menus__adb.htm#ref_714_34">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                                 <span class="symbol"><A NAME="ref_571_34" HREF="terminal_interface-curses-menus__adb.htm#ref_715_34">Proc</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Menu_Hook_Function</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_hook.3x.html">set_item_term()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_570_14">Set_Item_Term_Hook</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_50">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_576_14" HREF="terminal_interface-curses-menus__adb.htm#ref_725_14">Set_Menu_Init_Hook</A></span> (<span class="symbol"><A NAME="ref_576_34" HREF="terminal_interface-curses-menus__adb.htm#ref_725_34">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                                 <span class="symbol"><A NAME="ref_577_34" HREF="terminal_interface-curses-menus__adb.htm#ref_726_34">Proc</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Menu_Hook_Function</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_hook.3x.html">set_menu_init()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_576_14">Set_Menu_Init_Hook</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_51">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_582_14" HREF="terminal_interface-curses-menus__adb.htm#ref_736_14">Set_Menu_Term_Hook</A></span> (<span class="symbol"><A NAME="ref_582_34" HREF="terminal_interface-curses-menus__adb.htm#ref_736_34">Men</A></span>  : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                                 <span class="symbol"><A NAME="ref_583_34" HREF="terminal_interface-curses-menus__adb.htm#ref_737_34">Proc</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Menu_Hook_Function</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_hook.3x.html">set_menu_term()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_582_14">Set_Menu_Term_Hook</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_52">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_588_13" HREF="terminal_interface-curses-menus__adb.htm#ref_747_13">Get_Item_Init_Hook</A></span> (<span class="symbol"><A NAME="ref_588_33" HREF="terminal_interface-curses-menus__adb.htm#ref_747_33">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Menu_Hook_Function</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_hook.3x.html">item_init()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_588_13">Get_Item_Init_Hook</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_53">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_593_13" HREF="terminal_interface-curses-menus__adb.htm#ref_755_13">Get_Item_Term_Hook</A></span> (<span class="symbol"><A NAME="ref_593_33" HREF="terminal_interface-curses-menus__adb.htm#ref_755_33">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Menu_Hook_Function</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_hook.3x.html">item_term()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_593_13">Get_Item_Term_Hook</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_54">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_598_13" HREF="terminal_interface-curses-menus__adb.htm#ref_763_13">Get_Menu_Init_Hook</A></span> (<span class="symbol"><A NAME="ref_598_33" HREF="terminal_interface-curses-menus__adb.htm#ref_763_33">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Menu_Hook_Function</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_hook.3x.html">menu_init()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_598_13">Get_Menu_Init_Hook</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_55">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_603_13" HREF="terminal_interface-curses-menus__adb.htm#ref_771_13">Get_Menu_Term_Hook</A></span> (<span class="symbol"><A NAME="ref_603_33" HREF="terminal_interface-curses-menus__adb.htm#ref_771_33">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_560_9">Menu_Hook_Function</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_hook.3x.html">menu_term()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_603_13">Get_Menu_Term_Hook</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_items.3x.html">menu_items.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_56">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_612_14" HREF="terminal_interface-curses-menus__adb.htm#ref_779_14">Redefine</A></span> (<span class="symbol"><A NAME="ref_612_24" HREF="terminal_interface-curses-menus__adb.htm#ref_779_24">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                       <span class="symbol"><A NAME="ref_613_24" HREF="terminal_interface-curses-menus__adb.htm#ref_780_24">Items</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_177_9">Item_Array_Access</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_items.3x.html">set_menu_items()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_612_14">Redefine</A>);
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_617_14">Set_Items</A></span> (<span class="symbol"><A NAME="ref_617_25">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                        <span class="symbol"><A NAME="ref_618_25">Items</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_177_9">Item_Array_Access</A>) <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_612_14">Redefine</A>;
+   <span class="comment"><EM>--  pragma Inline (Set_Items);</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_57">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_622_13" HREF="terminal_interface-curses-menus__adb.htm#ref_803_13">Items</A></span> (<span class="symbol"><A NAME="ref_622_20" HREF="terminal_interface-curses-menus__adb.htm#ref_803_20">Men</A></span>   : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                   <span class="symbol"><A NAME="ref_623_20" HREF="terminal_interface-curses-menus__adb.htm#ref_804_20">Index</A></span> : Positive) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_items.3x.html">menu_items()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_622_13">Items</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_58">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_628_13" HREF="terminal_interface-curses-menus__adb.htm#ref_795_13">Item_Count</A></span> (<span class="symbol"><A NAME="ref_628_25" HREF="terminal_interface-curses-menus__adb.htm#ref_795_25">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>) <b>return</b> Natural;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_items.3x.html">item_count()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-menus__ads.htm#ref_628_13">Item_Count</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_new.3x.html">menu_new.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_59">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_637_13" HREF="terminal_interface-curses-menus__adb.htm#ref_822_13">Create</A></span> (<span class="symbol"><A NAME="ref_637_21" HREF="terminal_interface-curses-menus__adb.htm#ref_822_21">Items</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_177_9">Item_Array_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_new.3x.html">new_menu()</A></EM></span>
+   <span class="comment"><EM>--  Not inlined</EM></span>
+
+   <b>function</b> New_Menu (<span class="symbol"><A NAME="ref_641_23">Items</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_177_9">Item_Array_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A> <b>renames</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_637_13">Create</A>;
+
+   <span class="comment"><EM>--  <A NAME="AFU_60">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_644_14" HREF="terminal_interface-curses-menus__adb.htm#ref_841_14">Delete</A></span> (<span class="symbol"><A NAME="ref_644_22" HREF="terminal_interface-curses-menus__adb.htm#ref_841_22">Men</A></span> : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_new.3x.html">free_menu()</A></EM></span>
+   <span class="comment"><EM>--  Reset Men to Null_Menu</EM></span>
+   <span class="comment"><EM>--  Not inlined</EM></span>
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/menu_driver.3x.html">menu_driver.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <b>type</b> <span class="symbol"><A NAME="ref_653_9">Driver_Result</A></span> <b>is</b> (<span class="symbol"><A NAME="ref_653_27">Menu_Ok</A></span>,
+                          <span class="symbol"><A NAME="ref_654_27">Request_Denied</A></span>,
+                          <span class="symbol"><A NAME="ref_655_27">Unknown_Request</A></span>,
+                          <span class="symbol"><A NAME="ref_656_27">No_Match</A></span>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_61">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_659_13" HREF="terminal_interface-curses-menus__adb.htm#ref_852_13">Driver</A></span> (<span class="symbol"><A NAME="ref_659_21" HREF="terminal_interface-curses-menus__adb.htm#ref_852_21">Men</A></span> : <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>;
+                    <span class="symbol"><A NAME="ref_660_21" HREF="terminal_interface-curses-menus__adb.htm#ref_853_21">Key</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_67_9">Key_Code</A>) <b>return</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_653_9">Driver_Result</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/menu_driver.3x.html">menu_driver()</A></EM></span>
+   <span class="comment"><EM>--  Driver is not inlined</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_62">|</A></EM></span>
+   <span class="comment"><EM>--  Not Implemented: menu_request_name, menu_request_by_name</EM></span>
+<span class="comment"><EM>-------------------------------------------------------------------------------</EM></span>
+<b>private</b>
+   <b>type</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A>   <b>is</b> <b>new</b> System.Storage_Elements.Integer_Address;
+   <b>type</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A>   <b>is</b> <b>new</b> System.Storage_Elements.Integer_Address;
+
+   <A HREF="terminal_interface-curses-menus__ads.htm#ref_58_4">Null_Item</A> : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_52_9">Item</A> := 0;
+   <A HREF="terminal_interface-curses-menus__ads.htm#ref_59_4">Null_Menu</A> : <b>constant</b> <A HREF="terminal_interface-curses-menus__ads.htm#ref_53_9">Menu</A> := 0;
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-menus__ads.htm#ref_46_35">Menus</A>;
+</PRE></BODY></HTML>

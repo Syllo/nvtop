@@ -1,0 +1,173 @@
+<!--
+  * t
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: form_field_buffer.3x,v 1.27 2020/10/24 09:27:17 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>form_field_buffer 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">form_field_buffer 3x</H1>
+<PRE>
+<STRONG><A HREF="form_field_buffer.3x.html">form_field_buffer(3x)</A></STRONG>                                    <STRONG><A HREF="form_field_buffer.3x.html">form_field_buffer(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>form_field_buffer</STRONG> - field buffer control
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;form.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_field_buffer(FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>buf</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>value</EM><STRONG>);</STRONG>
+       <STRONG>char</STRONG> <STRONG>*field_buffer(const</STRONG> <STRONG>FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>buffer</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_field_status(FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>,</STRONG> <STRONG>bool</STRONG> <EM>status</EM><STRONG>);</STRONG>
+       <STRONG>bool</STRONG> <STRONG>field_status(const</STRONG> <STRONG>FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_max_field(FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>max</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The  function  <STRONG>set_field_buffer</STRONG>  sets  the numbered buffer of the given
+       field to contain a given string:
+
+          <STRONG>o</STRONG>   Buffer 0 is the displayed value of the field.
+
+          <STRONG>o</STRONG>   Other numbered buffers may be allocated by applications  through
+              the  <STRONG>nbuf</STRONG>  argument  of  (see  <STRONG><A HREF="form_field_new.3x.html">form_field_new(3x)</A></STRONG>)  but  are not
+              manipulated by the forms library.
+
+       The function <STRONG>field_buffer</STRONG> returns a pointer  to  the  contents  of  the
+       given numbered buffer:
+
+          <STRONG>o</STRONG>   The  buffer contents always have the same length, and are padded
+              with trailing spaces as needed to  ensure  this  length  is  the
+              same.
+
+          <STRONG>o</STRONG>   The  buffer  may contain leading spaces, depending on how it was
+              set.
+
+          <STRONG>o</STRONG>   The buffer contents are set with <STRONG>set_field_buffer</STRONG>, or as a  side
+              effect of any editing operations on the corresponding field.
+
+          <STRONG>o</STRONG>   Editing  operations  are  based on the <EM>window</EM> which displays the
+              field, rather than a <EM>string</EM>.  The window contains only printable
+              characters,  and  is  filled  with  blanks.  If you want the raw
+              data, you must write your own routine that copies the value  out
+              of the buffer and removes the leading and trailing spaces.
+
+          <STRONG>o</STRONG>   Because  editing  operations change the content of the buffer to
+              correspond to the window, you should not rely on  using  buffers
+              for long-term storage of form data.
+
+       The function <STRONG>set_field_status</STRONG> sets the associated status flag of <EM>field</EM>;
+       <STRONG>field_status</STRONG> gets the current value.  The  status  flag  is  set  to  a
+       nonzero value whenever the field changes.
+
+       The  function  <STRONG>set_max_field</STRONG> sets the maximum size for a dynamic field.
+       An argument of 0 turns off any maximum size threshold for that field.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       The <STRONG>field_buffer</STRONG>  function  returns  NULL  on  error.   It  sets  <STRONG>errno</STRONG>
+       according to their success:
+
+       <STRONG>E_OK</STRONG> The routine succeeded.
+
+       <STRONG>E_BAD_ARGUMENT</STRONG>
+            Routine detected an incorrect or out-of-range argument.
+
+       The <STRONG>field_status</STRONG> function returns <STRONG>TRUE</STRONG> or <STRONG>FALSE</STRONG>.
+
+       The remaining routines return one of the following:
+
+       <STRONG>E_OK</STRONG> The routine succeeded.
+
+       <STRONG>E_SYSTEM_ERROR</STRONG>
+            System error occurred (see <STRONG>errno(3)</STRONG>).
+
+       <STRONG>E_BAD_ARGUMENT</STRONG>
+            Routine detected an incorrect or out-of-range argument.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "form_" for detailed
+       descriptions of the entry points.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The header file <STRONG>&lt;form.h&gt;</STRONG> automatically includes the header file
+
+       When configured for wide characters, <STRONG>field_buffer</STRONG> returns a pointer  to
+       temporary   storage   (allocated   and  freed  by  the  library).   The
+       application should not attempt to modify the data.  It will be freed on
+       the next call to <STRONG>field_buffer</STRONG> to return the same buffer.  <STRONG>&lt;curses.h&gt;</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These  routines  emulate  the  System  V  forms library.  They were not
+       supported on Version 7 or BSD versions.
+
+       The  <STRONG>set_max_field</STRONG>   function   checks   for   an   ncurses   extension
+       <STRONG>O_INPUT_FIELD</STRONG>  which  allows a dynamic field to shrink if the new limit
+       is smaller than the current field size.
+
+
+</PRE><H2><a name="h2-AUTHORS">AUTHORS</a></H2><PRE>
+       Juergen Pfeifer.  Manual pages and adaptation for new curses by Eric S.
+       Raymond.
+
+
+
+                                                         <STRONG><A HREF="form_field_buffer.3x.html">form_field_buffer(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-AUTHORS">AUTHORS</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

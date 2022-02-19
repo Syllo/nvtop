@@ -1,0 +1,140 @@
+<!--
+  * t
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2010,2015 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: menu_attributes.3x,v 1.19 2020/10/17 23:58:58 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>menu_attributes 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">menu_attributes 3x</H1>
+<PRE>
+<STRONG><A HREF="menu_attributes.3x.html">menu_attributes(3x)</A></STRONG>                                        <STRONG><A HREF="menu_attributes.3x.html">menu_attributes(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>menu_back</STRONG>,     <STRONG>menu_fore</STRONG>,     <STRONG>menu_grey</STRONG>,    <STRONG>menu_pad</STRONG>,    <STRONG>set_menu_back</STRONG>,
+       <STRONG>set_menu_fore</STRONG>,  <STRONG>set_menu_grey</STRONG>,  <STRONG>set_menu_pad</STRONG>  -  color  and   attribute
+       control for menus
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;menu.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_menu_fore(MENU</STRONG> <STRONG>*</STRONG><EM>menu</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <EM>attr</EM><STRONG>);</STRONG>
+       <STRONG>chtype</STRONG> <STRONG>menu_fore(const</STRONG> <STRONG>MENU</STRONG> <STRONG>*</STRONG><EM>menu</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_menu_back(MENU</STRONG> <STRONG>*</STRONG><EM>menu</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <EM>attr</EM><STRONG>);</STRONG>
+       <STRONG>chtype</STRONG> <STRONG>menu_back(const</STRONG> <STRONG>MENU</STRONG> <STRONG>*</STRONG><EM>menu</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_menu_grey(MENU</STRONG> <STRONG>*</STRONG><EM>menu</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <EM>attr</EM><STRONG>);</STRONG>
+       <STRONG>chtype</STRONG> <STRONG>menu_grey(const</STRONG> <STRONG>MENU</STRONG> <STRONG>*</STRONG><EM>menu</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>set_menu_pad(MENU</STRONG> <STRONG>*</STRONG><EM>menu</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>pad</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>menu_pad(const</STRONG> <STRONG>MENU</STRONG> <STRONG>*</STRONG><EM>menu</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The  function <STRONG>set_menu_fore</STRONG> sets the foreground attribute of <EM>menu</EM>. This
+       is the highlight used for selected menu items.  <STRONG>menu_fore</STRONG>  returns  the
+       foreground attribute.  The default is <STRONG>A_REVERSE</STRONG>.
+
+       The  function <STRONG>set_menu_back</STRONG> sets the background attribute of <EM>menu</EM>. This
+       is the highlight used for selectable (but not currently selected)  menu
+       items.   The  function <STRONG>menu_back</STRONG> returns the background attribute.  The
+       default is <STRONG>A_NORMAL</STRONG>.
+
+       The function <STRONG>set_menu_grey</STRONG> sets the grey attribute of <EM>menu</EM>. This is the
+       highlight  used  for un-selectable menu items in menus that permit more
+       than one selection.  The function <STRONG>menu_grey</STRONG> returns the grey attribute.
+       The default is <STRONG>A_UNDERLINE</STRONG>.
+
+       The  function  <STRONG>set_menu_pad</STRONG>  sets  the character used to fill the space
+       between the name and  description  parts  of  a  menu  item.   <STRONG>menu_pad</STRONG>
+       returns the given menu's pad character.  The default is a blank.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       These routines return one of the following:
+
+       <STRONG>E_OK</STRONG> The routine succeeded.
+
+       <STRONG>E_SYSTEM_ERROR</STRONG>
+            System error occurred (see <STRONG>errno(3)</STRONG>).
+
+       <STRONG>E_BAD_ARGUMENT</STRONG>
+            Routine detected an incorrect or out-of-range argument.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>  and  related  pages  whose names begin "menu_" for detailed
+       descriptions of the entry points.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The  header  file  <STRONG>&lt;menu.h&gt;</STRONG>  automatically  includes  the  header  file
+       <STRONG>&lt;curses.h&gt;</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These  routines  emulate  the  System  V  menu  library.  They were not
+       supported on Version 7 or BSD versions.
+
+
+</PRE><H2><a name="h2-AUTHORS">AUTHORS</a></H2><PRE>
+       Juergen Pfeifer.  Manual pages and adaptation for new curses by Eric S.
+       Raymond.
+
+
+
+                                                           <STRONG><A HREF="menu_attributes.3x.html">menu_attributes(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-AUTHORS">AUTHORS</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

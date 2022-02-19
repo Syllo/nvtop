@@ -1,0 +1,186 @@
+#VERSION
+This is Version 00.90.00 of the demo package.
+#MENUKEYS
+In a menu you can use the following Keys in the whole application:
+
+   - CTRL-X        eXit the menu
+   - CTRL-N        Go to next item
+   - CTRL-P        Go to previous item
+   - CTRL-U        Scroll up one line
+   - CTRL-D        Scroll down one line
+   - CTRL-F        Scroll down one page
+   - PAGE DOWN     Scroll down one page
+   - PAGE UP       Scroll back one page
+   - CTRL-B        Scroll back one page
+   - CTRL-Y        Clear pattern
+   - CTRL-H        Delete last character from pattern
+   - Backspace     Delete last character from pattern
+   - CTRL-A        Next pattern match
+   - CTRL-E        Previous pattern match
+   - CTRL-T        Toggle item in a multi-selection menu
+   - CR or LF      Select an item
+   - HOME Key      Go to the first item
+   - F3            Quit the menu
+   - Cursor Down   Down one item
+   - Cursor Up     Up one item
+   - Cursor Left   Left one item
+   - Cursor Right  Right one item
+   - END Key       Go to last item
+#FORMKEYS
+   - CTRL-X	   eXit the form
+   - CTRL-F	   Go forward to the next field
+   - CTRL-B	   Go backward to the previous field
+   - CTRL-L	   Go to the field left of the current one
+   - CTRL-R	   Go to the field right of the current one
+   - CTRL-U	   Go to the field above the current one
+   - CTRL-D	   Go to the field below the current one
+
+   - CTRL-W	   Go to the next word in the field
+   - CTRL-T	   Go to the previous word in the field
+
+   - CTRL-A	   Go to the beginning of the field
+   - CTRL-E	   Go to the end of the field
+
+   - CTRL-I	   Insert a blank character at the current position
+   - CTRL-O	   Insert a line
+   - CTRL-V	   Delete a character
+   - CTRL-H	   Delete previous character
+   - CTRL-Y	   Delete a line
+   - CTRL-G	   Delete a word
+   - CTRL-K	   Clear to end of field
+
+   - CTRL-N	   Next choice in a choice field (Enumerations etc.)
+   - CTRL-P	   Previous choice in a choice field.
+#HELP
+#HELPKEYS
+You may scroll with the Cursor Up/Down Keys.
+You may leave the help with the Function Key labeled 'Quit'.
+#INHELP
+You are already in the help system.
+You may leave the help with the Function Key labeled 'Quit'.
+#MAIN
+This is the main menu of the sample program for the ncurses Ada95
+binding. The main intention of the demo is not to demonstrate or
+test all the features of ncurses and its subsystems, but to provide
+to you some sample code how to use the binding with Ada95.
+
+You may select this options:
+
+   * Look at some ncurses core functions
+   * Look at some features of the menu subsystem
+   * Look at some features of the form subsystem
+   * Look at the output of the Ada.Text_IO like functions
+     for ncurses.
+
+#MAINPAD
+You may press at any place in this demo CTRL-C. This will give you a command
+window. You can just type in the Label-String of a function key, then this
+key will be simulated. This should help you to run the application even if
+you run it on a terminal with no or only a few function keys. With CTRL-N
+and CTRL-P you may browse through the possible values in the command window.
+#MENU00
+Here we give you a selection of various menu demonstrations.
+#MENU-PAD00
+This menu itself is a demo for a single valued, 1-column menu with
+descriptions for the items, a marker and a padding character between
+the item name and the description.
+#MENU01
+This is a demo of the some of the menu layout options. One of them
+is the spacing functionality. Just press the Key labeled "Flip" to
+flip between the non-spaced and a spaced version of the menu. Please
+note that this functionality is unique for ncurses and is not found
+in the SVr4 menu implementation.
+
+This is a menu that sometimes does not fit into its window and
+therefore it becomes a scroll menu.
+
+You can also see here very nicely the pattern matching functionality
+of menus. Type for example a 'J' and you will be positioned to the
+next item after the current starting with a 'J'. Any more characters
+you type in make the pattern more specific. With CTRL-A and CTRL-Z
+(for more details press the Key labeled "Keys") you can browse
+through all the items matching the pattern.
+
+You may change the format of the menu. Just press one of the keys
+labeled "4x1", "4x2" or "4x3" to get a menu with that many rows
+and columns.
+
+With the Keys "O-Row" or "O-Col" (they occupy the same label and
+switch on selection) you can change the major order scheme for
+the menu. If "O-Col" is visible, the menu is currently major
+ordered by rows, you can switch to major column order by pressing
+the key. If "O-Row" is visible, it is just the reverse situation.
+This Key is not visible in "4x1" layout mode, because in this case
+the functionality makes no sense.
+
+With the Keys "Multi" or "Singl" (they occupy the same label and
+switch on selection) you can change whether or not the menu allows
+multiple or only single selection.
+
+With the Keys "+Desc" or "-Desc" (they occupy the same label and
+switch on selection) you can change whether or not the descriptions
+for each item should be displayed. Please not that this key is
+not visible in the "4x3" layout mode, because in this case the
+menu would not fit on a typical 80x24 screen.
+
+With the Keys "Disab" or "Enab" (they occupy the same label and
+switch on selection) you can dis- or enable the selectability of
+the month with 31 days.
+#MENU-PAD01
+You may press "Flip" to see the effect of ncurses unique menu-spacing.
+The Keys "4x1", "4x2" and "4x3" will change the format of the menu.
+Please note that this is a scrolling menu. You may also play with the
+pattern matching functionality or try to change the format of the menu.
+For more details press the Key labeled "Help".
+#FORM00
+This is a demo of the forms package.
+#FORM-PAD00
+Please note that this demo is far from being complete. It really shows
+only a small part of the functionality of the forms package. Let's hope
+the next version will have a richer demo (You want to contribute ?).
+#NOTIMPL
+Sorry this functionality of the demo is not implemented at the moment.
+Remember this is a freeware project, so I can use only my very rare
+free time to continue coding. If you would like to contribute, you
+are very welcome !
+#CURSES00
+This is a menu where you can select some different demos of the ncurses
+functionality.
+#CURSES-PAD00
+Please note that this demo is far from being complete. It really shows
+only a small part of the functionality of the curses package. Let's hope
+the next version will have a richer demo (You want to contribute ?).
+#MOUSEKEYS
+In this demo you may use this keys:
+
+   - Key labeled "Help"  to get a help
+   - Key labeled "Keys"  is what you are reading now
+   - Key labeled "Quit"  to leave the demo
+
+You may click the mouse buttons at any location at the screen and look
+at the protocol window !
+#MOUSE00
+A rather simple use of a mouse as demo. It is there just to test the
+code and to provide the sample source.
+
+It might be of interest, that the output into the protocol window is
+done by the (n)curses Text_IO subpackages. Especially the output of
+the button and state names is done by Ads's enumeration IO, which
+allows you to print the names of enumeration literals. That's really
+nice.
+#MOUSE-PAD00
+This is a very simple demo of the mouse features of ncurses. It is there
+just to test whether or not the generated code for the binding really
+works on the different architectures (seems so).
+#ATTRIBDEMO
+Again this is a more than simple demo and just here to give you the
+sourcecode.
+#ATTRIBKEYS
+You may press one of the three well known standard keys of this demo.
+#ATTRIB-PAD00
+Again this is a more than simple demo and just here to give you the
+source code. Feel free to contribute more.
+#TEXTIO
+#TEXTIOKEYS
+#TEXTIO-PAD00
+#END

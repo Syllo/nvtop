@@ -1,0 +1,313 @@
+<!--
+  ****************************************************************************
+  * Copyright 2019,2020 Thomas E. Dickey                                     *
+  * Copyright 2001-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_add_wch.3x,v 1.28 2020/10/17 23:10:38 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_add_wch 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_add_wch 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_add_wch.3x.html">curs_add_wch(3x)</A></STRONG>                                              <STRONG><A HREF="curs_add_wch.3x.html">curs_add_wch(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>add_wch</STRONG>, <STRONG>wadd_wch</STRONG>, <STRONG>mvadd_wch</STRONG>, <STRONG>mvwadd_wch</STRONG>, <STRONG>echo_wchar</STRONG>, <STRONG>wecho_wchar</STRONG> - add
+       a complex character and rendition to a <STRONG>curses</STRONG> window, then advance  the
+       cursor
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>add_wch(</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM> <STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wadd_wch(</STRONG> <STRONG>WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM> <STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvadd_wch(</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM> <STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwadd_wch(</STRONG> <STRONG>WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM> <STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>echo_wchar(</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM> <STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wecho_wchar(</STRONG> <STRONG>WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM> <STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+
+</PRE><H3><a name="h3-add_wch">add_wch</a></H3><PRE>
+       The  <STRONG>add_wch</STRONG>,  <STRONG>wadd_wch</STRONG>,  <STRONG>mvadd_wch</STRONG>,  and  <STRONG>mvwadd_wch</STRONG> functions put the
+       complex character <EM>wch</EM> into the given window at  its  current  position,
+       which  is then advanced.  These functions perform wrapping and special-
+       character processing as follows:
+
+       <STRONG>o</STRONG>   If <EM>wch</EM> refers to a spacing character, then any  previous  character
+           at  that  location is removed.  A new character specified by <EM>wch</EM> is
+           placed at that location  with  rendition  specified  by  <EM>wch</EM>.   The
+           cursor then advances to the next spacing character on the screen.
+
+       <STRONG>o</STRONG>   If  <EM>wch</EM>  refers to a non-spacing character, all previous characters
+           at that location are preserved.  The non-spacing characters of  <EM>wch</EM>
+           are  added  to  the  spacing  complex  character, and the rendition
+           specified by <EM>wch</EM> is ignored.
+
+       <STRONG>o</STRONG>   If the character part of <EM>wch</EM> is a tab, newline, backspace or  other
+           control character, the window is updated and the cursor moves as if
+           <STRONG>addch</STRONG> were called.
+
+
+</PRE><H3><a name="h3-echo_wchar">echo_wchar</a></H3><PRE>
+       The <STRONG>echo_wchar</STRONG> function is functionally equivalent to a call to <STRONG>add_wch</STRONG>
+       followed  by  a  call  to  <STRONG><A HREF="curs_refresh.3x.html">refresh(3x)</A></STRONG>.   Similarly, the <STRONG>wecho_wchar</STRONG> is
+       functionally equivalent to a call to <STRONG>wadd_wch</STRONG> followed  by  a  call  to
+       <STRONG>wrefresh</STRONG>.   The  knowledge that only a single character is being output
+       is  taken  into  consideration  and,  for  non-control  characters,   a
+       considerable  performance  gain  might  be  seen  by  using  the *<STRONG>echo</STRONG>*
+       functions instead of their equivalents.
+
+
+</PRE><H3><a name="h3-Line-Graphics">Line Graphics</a></H3><PRE>
+       Like <STRONG><A HREF="curs_addch.3x.html">addch(3x)</A></STRONG>, <STRONG>addch_wch</STRONG> accepts symbols which make it simple to  draw
+       lines  and  other  frequently  used  special characters.  These symbols
+       correspond to the same VT100 line-drawing set as <STRONG><A HREF="curs_addch.3x.html">addch(3x)</A></STRONG>.
+
+       <STRONG>ACS</STRONG>               <STRONG>Unicode</STRONG>    <STRONG>ASCII</STRONG>     <STRONG>acsc</STRONG>    <STRONG>Glyph</STRONG>
+       <STRONG>Name</STRONG>              <STRONG>Default</STRONG>    <STRONG>Default</STRONG>   <STRONG>char</STRONG>    <STRONG>Name</STRONG>
+       ------------------------------------------------------------------------
+       WACS_BLOCK        0x25ae     #         0       solid square block
+       WACS_BOARD        0x2592     #         h       board of squares
+       WACS_BTEE         0x2534     +         v       bottom tee
+       WACS_BULLET       0x00b7     o         ~       bullet
+       WACS_CKBOARD      0x2592     :         a       checker board (stipple)
+       WACS_DARROW       0x2193     v         .       arrow pointing down
+       WACS_DEGREE       0x00b0     '         f       degree symbol
+
+       WACS_DIAMOND      0x25c6     +         `       diamond
+       WACS_GEQUAL       0x2265     &gt;         &gt;       greater-than-or-equal-to
+       WACS_HLINE        0x2500     -         q       horizontal line
+       WACS_LANTERN      0x2603     #         i       lantern symbol
+       WACS_LARROW       0x2190     &lt;         ,       arrow pointing left
+       WACS_LEQUAL       0x2264     &lt;         y       less-than-or-equal-to
+       WACS_LLCORNER     0x2514     +         m       lower left-hand corner
+       WACS_LRCORNER     0x2518     +         j       lower right-hand corner
+       WACS_LTEE         0x2524     +         t       left tee
+       WACS_NEQUAL       0x2260     !         |       not-equal
+       WACS_PI           0x03c0     *         {       greek pi
+       WACS_PLMINUS      0x00b1     #         g       plus/minus
+       WACS_PLUS         0x253c     +         n       plus
+       WACS_RARROW       0x2192     &gt;         +       arrow pointing right
+       WACS_RTEE         0x251c     +         u       right tee
+       WACS_S1           0x23ba     -         o       scan line 1
+       WACS_S3           0x23bb     -         p       scan line 3
+       WACS_S7           0x23bc     -         r       scan line 7
+       WACS_S9           0x23bd     _         s       scan line 9
+       WACS_STERLING     0x00a3     f         }       pound-sterling symbol
+       WACS_TTEE         0x252c     +         w       top tee
+       WACS_UARROW       0x2191     ^         -       arrow pointing up
+       WACS_ULCORNER     0x250c     +         l       upper left-hand corner
+       WACS_URCORNER     0x2510     +         k       upper right-hand corner
+       WACS_VLINE        0x2502     |         x       vertical line
+
+       The wide-character configuration of ncurses also  defines  symbols  for
+       thick lines (<STRONG>acsc</STRONG> "J" to "V"):
+
+       <STRONG>ACS</STRONG>               <STRONG>Unicode</STRONG>   <STRONG>ASCII</STRONG>     <STRONG>acsc</STRONG>    <STRONG>Glyph</STRONG>
+       <STRONG>Name</STRONG>              <STRONG>Default</STRONG>   <STRONG>Default</STRONG>   <STRONG>char</STRONG>    <STRONG>Name</STRONG>
+       -----------------------------------------------------------------------
+       WACS_T_BTEE       0x253b    +         V       thick tee pointing up
+       WACS_T_HLINE      0x2501    -         Q       thick horizontal line
+       WACS_T_LLCORNER   0x2517    +         M       thick lower left corner
+       WACS_T_LRCORNER   0x251b    +         J       thick lower right corner
+       WACS_T_LTEE       0x252b    +         T       thick tee pointing right
+       WACS_T_PLUS       0x254b    +         N       thick large plus
+       WACS_T_RTEE       0x2523    +         U       thick tee pointing left
+       WACS_T_TTEE       0x2533    +         W       thick tee pointing down
+       WACS_T_ULCORNER   0x250f    +         L       thick upper left corner
+       WACS_T_URCORNER   0x2513    +         K       thick upper right corner
+       WACS_T_VLINE      0x2503    |         X       thick vertical line
+
+       and for double-lines (<STRONG>acsc</STRONG> "A" to "I"):
+
+       <STRONG>ACS</STRONG>               <STRONG>Unicode</STRONG>   <STRONG>ASCII</STRONG>     <STRONG>acsc</STRONG>    <STRONG>Glyph</STRONG>
+       <STRONG>Name</STRONG>              <STRONG>Default</STRONG>   <STRONG>Default</STRONG>   <STRONG>char</STRONG>    <STRONG>Name</STRONG>
+       ------------------------------------------------------------------------
+       WACS_D_BTEE       0x2569    +         H       double tee pointing up
+       WACS_D_HLINE      0x2550    -         R       double horizontal line
+       WACS_D_LLCORNER   0x255a    +         D       double lower left corner
+       WACS_D_LRCORNER   0x255d    +         A       double lower right corner
+       WACS_D_LTEE       0x2560    +         F       double tee pointing right
+       WACS_D_PLUS       0x256c    +         E       double large plus
+       WACS_D_RTEE       0x2563    +         G       double tee pointing left
+       WACS_D_TTEE       0x2566    +         I       double tee pointing down
+       WACS_D_ULCORNER   0x2554    +         C       double upper left corner
+       WACS_D_URCORNER   0x2557    +         B       double upper right corner
+       WACS_D_VLINE      0x2551    |         Y       double vertical line
+
+       Unicode's  descriptions  for  these  characters  differs  slightly from
+       ncurses, by introducing the term "light"  (along  with  less  important
+       details).   Here are its descriptions for the normal, thick, and double
+       horizontal lines:
+
+       <STRONG>o</STRONG>   U+2500 BOX DRAWINGS LIGHT HORIZONTAL
+
+       <STRONG>o</STRONG>   U+2501 BOX DRAWINGS HEAVY HORIZONTAL
+
+       <STRONG>o</STRONG>   U+2550 BOX DRAWINGS DOUBLE HORIZONTAL
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       All routines return the integer <STRONG>ERR</STRONG> upon failure and <STRONG>OK</STRONG> on success.
+
+       X/Open does not  define  any  error  conditions.   This  implementation
+       returns an error
+
+       <STRONG>o</STRONG>   if the window pointer is null or
+
+       <STRONG>o</STRONG>   if it is not possible to add a complete character in the window.
+
+       The latter may be due to different causes:
+
+       <STRONG>o</STRONG>   If  <STRONG>scrollok</STRONG> is not enabled, writing a character at the lower right
+           margin succeeds.  However, an error is returned because it  is  not
+           possible to wrap to a new line
+
+       <STRONG>o</STRONG>   If  an error is detected when converting a multibyte character to a
+           sequence of bytes, or if it is not  possible  to  add  all  of  the
+           resulting bytes in the window, an error is returned.
+
+       Functions  with  a  "mv"  prefix  first perform a cursor movement using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that <STRONG>add_wch</STRONG>, <STRONG>mvadd_wch</STRONG>, <STRONG>mvwadd_wch</STRONG>, and <STRONG>echo_wchar</STRONG> may be macros.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       All  of these functions are described in the XSI Curses standard, Issue
+       4.  The defaults specified for line-drawing  characters  apply  in  the
+       POSIX locale.
+
+       X/Open  Curses  makes it clear that the WACS_ symbols should be defined
+       as a pointer to <STRONG>cchar_t</STRONG> data, e.g., in the discussion of <STRONG>border_set</STRONG>.  A
+       few implementations are problematic:
+
+       <STRONG>o</STRONG>   NetBSD curses defines the symbols as a <STRONG>wchar_t</STRONG> within a <STRONG>cchar_t</STRONG>.
+
+       <STRONG>o</STRONG>   HPUX curses equates some of the <EM>ACS</EM><STRONG>_</STRONG> symbols to the analogous <EM>WACS</EM><STRONG>_</STRONG>
+           symbols  as  if  the  <EM>ACS</EM><STRONG>_</STRONG>  symbols  were  wide  characters.    The
+           misdefined  symbols  are the arrows and other symbols which are not
+           used for line-drawing.
+
+       X/Open Curses does not define symbols for thick- or double-lines.  SVr4
+       curses  implementations  defined their line-drawing symbols in terms of
+       intermediate  symbols.   This  implementation  extends  those  symbols,
+       providing new definitions which are not in the SVr4 implementations.
+
+       Not  all  Unicode-capable  terminals  provide  support  for VT100-style
+       alternate character  sets  (i.e.,  the  <STRONG>acsc</STRONG>  capability),  with  their
+       corresponding  line-drawing  characters.  X/Open Curses did not address
+       the  aspect  of  integrating  Unicode  with  line-drawing   characters.
+       Existing  implementations  of Unix curses (AIX, HPUX, Solaris) use only
+       the <STRONG>acsc</STRONG> character-mapping to provide this feature.  As a result, those
+       implementations  can  only  use  single-byte  line-drawing  characters.
+       Ncurses 5.3 (2002) provided a table of Unicode values  to  solve  these
+       problems.  NetBSD curses incorporated that table in 2010.
+
+       In  this  implementation,  the  Unicode  values are used instead of the
+       terminal description's <STRONG>acsc</STRONG> mapping as discussed in <STRONG><A HREF="ncurses.3x.html">ncurses(3x)</A></STRONG> for the
+       environment  variable  <STRONG>NCURSES_NO_UTF8_ACS</STRONG>.   In contrast, for the same
+       cases, the line-drawing characters described in <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG> will use
+       only the ASCII default values.
+
+       Having  Unicode available does not solve all of the problems with line-
+       drawing for curses:
+
+       <STRONG>o</STRONG>   The closest Unicode equivalents to the VT100 graphics  <EM>S1</EM>,  <EM>S3</EM>,  <EM>S7</EM>
+           and  <EM>S9</EM> frequently are not displayed at the regular intervals which
+           the terminal used.
+
+       <STRONG>o</STRONG>   The <EM>lantern</EM> is a special case.  It originated with  the  AT&amp;T  4410
+           terminal  in the early 1980s.  There is no accessible documentation
+           depicting the lantern symbol on the AT&amp;T terminal.
+
+           Lacking documentation, most readers assume that a <EM>storm</EM> <EM>lantern</EM> was
+           intended.  But there are several possibilities, all with problems.
+
+           Unicode  6.0  (2010)  does provide two lantern symbols: U+1F383 and
+           U+1F3EE.  Those were not available  in  2002,  and  are  irrelevant
+           since  they  lie  outside the BMP and as a result are not generally
+           available in terminals.  They are not storm lanterns, in any case.
+
+           Most <EM>storm</EM> <EM>lanterns</EM> have a tapering glass chimney (to guard against
+           tipping); some have a wire grid protecting the chimney.
+
+           For  the  tapering  appearance,   U+2603 was adequate.  In use on a
+           terminal, no one can tell what the image represents.  Unicode calls
+           it a snowman.
+
+           Others have suggested these alternatives: &lt;section&gt; U+00A7 (section
+           mark), &lt;Theta&gt; U+0398 (theta), &lt;Phi&gt; U+03A6 (phi),  &lt;delta&gt;  U+03B4
+           (delta),  U+2327 (x in a rectangle),  U+256C (forms double vertical
+           and horizontal), and  U+2612 (ballot box with x).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>, <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>, <STRONG><A HREF="curs_clear.3x.html">curs_clear(3x)</A></STRONG>,
+       <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG>, <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>, <STRONG>putwc(3)</STRONG>
+
+
+
+                                                              <STRONG><A HREF="curs_add_wch.3x.html">curs_add_wch(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-add_wch">add_wch</a></li>
+<li><a href="#h3-echo_wchar">echo_wchar</a></li>
+<li><a href="#h3-Line-Graphics">Line Graphics</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

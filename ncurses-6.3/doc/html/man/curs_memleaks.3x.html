@@ -1,0 +1,134 @@
+<!--
+  ****************************************************************************
+  * Copyright 2019-2020,2021 Thomas E. Dickey                                *
+  * Copyright 2008-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_memleaks.3x,v 1.11 2021/01/02 23:47:51 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_memleaks 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_memleaks 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_memleaks.3x.html">curs_memleaks(3x)</A></STRONG>                                            <STRONG><A HREF="curs_memleaks.3x.html">curs_memleaks(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>exit_curses</STRONG>, <STRONG>exit_terminfo</STRONG> - <STRONG>curses</STRONG> memory-leak checking
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+       <STRONG>void</STRONG> <STRONG>exit_curses(int</STRONG> <EM>code</EM><STRONG>);</STRONG>
+
+       <STRONG>#include</STRONG> <STRONG>&lt;term.h&gt;</STRONG>
+       <STRONG>void</STRONG> <STRONG>exit_terminfo(int</STRONG> <EM>code</EM><STRONG>);</STRONG>
+
+       /* deprecated (intentionally not declared in curses.h or term.h) */
+       <STRONG>void</STRONG> <STRONG>_nc_freeall(void);</STRONG>
+       <STRONG>void</STRONG> <STRONG>_nc_free_and_exit(int</STRONG> <EM>code</EM><STRONG>);</STRONG>
+       <STRONG>void</STRONG> <STRONG>_nc_free_tinfo(int</STRONG> <EM>code</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       These  functions  are  used to simplify analysis of memory leaks in the
+       ncurses library.
+
+       Any implementation of curses must not free the memory associated with a
+       screen, since (even after calling <STRONG><A HREF="curs_initscr.3x.html">endwin(3x)</A></STRONG>), it must be available for
+       use in the next call to <STRONG><A HREF="curs_refresh.3x.html">refresh(3x)</A></STRONG>.  There are also chunks  of  memory
+       held for performance reasons.  That makes it hard to analyze curses ap-
+       plications for memory leaks.  When using the specially  configured  de-
+       bugging version of the ncurses library, applications can call functions
+       which free those chunks of memory, simplifying the process  of  memory-
+       leak checking.
+
+       Some  of  the functions are named with a "_nc_" prefix because they are
+       not intended for use in the non-debugging library:
+
+       <STRONG>_nc_freeall</STRONG>
+            This frees (almost) all of the memory allocated by ncurses.
+
+       <STRONG>_nc_free_and_exit</STRONG>
+            This frees the memory allocated by ncurses (like <STRONG>_nc_freeall</STRONG>), and
+            exits the program.  It is preferred over <STRONG>_nc_freeall</STRONG> since some of
+            that memory may be required to keep the application running.  Sim-
+            ply exiting (with the given exit-code) is safer.
+
+       <STRONG>_nc_free_tinfo</STRONG>
+            Use  this  function  if only the low-level terminfo functions (and
+            corresponding library) are used.  Like <STRONG>_nc_free_and_exit</STRONG>, it exits
+            the program after freeing memory.
+
+       The  functions  prefixed "_nc" are normally not available; they must be
+       configured into the library at build time using the <STRONG>--disable-leaks</STRONG> op-
+       tion.   That compiles-in code that frees memory that normally would not
+       be freed.
+
+       The <STRONG>exit_curses</STRONG> and <STRONG>exit_terminfo</STRONG> functions call <STRONG>_nc_free_and_exit</STRONG>  and
+       <STRONG>_nc_free_tinfo</STRONG>  if  the  library  is  configured to support memory-leak
+       checking.  If the library is  not  configured  to  support  memory-leak
+       checking, they simply call <STRONG>exit</STRONG>.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       These functions do not return a value.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These functions are not part of X/Open Curses; nor do other implementa-
+       tions of curses provide a similar feature.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>.
+
+
+
+                                                             <STRONG><A HREF="curs_memleaks.3x.html">curs_memleaks(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

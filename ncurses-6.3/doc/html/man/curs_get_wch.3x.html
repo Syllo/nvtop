@@ -1,0 +1,172 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 2002-2016,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_get_wch.3x,v 1.15 2021/05/22 22:33:19 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_get_wch 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_get_wch 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_get_wch.3x.html">curs_get_wch(3x)</A></STRONG>                                              <STRONG><A HREF="curs_get_wch.3x.html">curs_get_wch(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>get_wch</STRONG>, <STRONG>wget_wch</STRONG>, <STRONG>mvget_wch</STRONG>, <STRONG>mvwget_wch</STRONG>, <STRONG>unget_wch</STRONG> - get (or push
+       back) a wide character from curses terminal keyboard
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>get_wch(wint_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wget_wch(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>wint_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvget_wch(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>wint_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwget_wch(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>wint_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>unget_wch(const</STRONG> <STRONG>wchar_t</STRONG> <EM>wch</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+
+</PRE><H3><a name="h3-wget_wch">wget_wch</a></H3><PRE>
+       The <STRONG>get_wch</STRONG>, <STRONG>wget_wch</STRONG>, <STRONG>mvget_wch</STRONG>, and <STRONG>mvwget_wch</STRONG> functions read a char-
+       acter  from  the terminal associated with the current or specified win-
+       dow.  In no-delay mode, if no input is waiting, the value  <STRONG>ERR</STRONG>  is  re-
+       turned.   In delay mode, the program waits until the system passes text
+       through to the program.  Depending on the setting of  <STRONG>cbreak</STRONG>,  this  is
+       after one character (cbreak mode), or after the first newline (nocbreak
+       mode).  In half-delay mode, the program waits until the  user  types  a
+       character or the specified timeout interval has elapsed.
+
+       Unless  <STRONG>noecho</STRONG> has been set, these routines echo the character into the
+       designated window.
+
+       If the window is not a pad and has been moved  or  modified  since  the
+       last call to <STRONG>wrefresh</STRONG>, <STRONG>wrefresh</STRONG> will be called before another character
+       is read.
+
+       If <STRONG>keypad</STRONG> is enabled, these functions respond  to  the  pressing  of  a
+       function key by setting the object pointed to by <EM>wch</EM> to the keycode as-
+       signed to the function key, and returning <STRONG>KEY_CODE_YES</STRONG>.  If a character
+       (such  as  escape) that could be the beginning of a function key is re-
+       ceived, curses sets a timer.  If the remainder of the sequence does ar-
+       rive  within  the designated time, curses passes through the character;
+       otherwise, curses returns the function key  value.   For  this  reason,
+       many  terminals  experience a delay between the time a user presses the
+       escape key and the time the escape is returned to the program.
+
+       The keycodes returned by these functions are the same as those returned
+       by <STRONG>wgetch</STRONG>:
+
+       <STRONG>o</STRONG>   The  predefined  function  keys  are listed in <STRONG>&lt;curses.h&gt;</STRONG> as macros
+           with values outside the range of 8-bit characters.  Their names be-
+           gin with <STRONG>KEY_</STRONG>.
+
+       <STRONG>o</STRONG>   Other  (user-defined)  function keys which may be defined using <STRONG>de-</STRONG>
+           <STRONG><A HREF="define_key.3x.html">fine_key(3x)</A></STRONG> have no names, but also are expected  to  have  values
+           outside the range of 8-bit characters.
+
+
+</PRE><H3><a name="h3-unget_wch">unget_wch</a></H3><PRE>
+       The <STRONG>unget_wch</STRONG> function pushes the wide character <EM>wch</EM> back onto the head
+       of the input queue, so the wide character is returned by the next  call
+       to  <STRONG>get_wch</STRONG>.  The pushback of one character is guaranteed.  If the pro-
+       gram calls <STRONG>unget_wch</STRONG> too many times  without  an  intervening  call  to
+       <STRONG>get_wch</STRONG>, the operation may fail.
+
+       Unlike <STRONG>ungetch</STRONG> and <STRONG>wgetch</STRONG>, <STRONG>unget_wch</STRONG> cannot distinguish special charac-
+       ters returned by <STRONG>wget_wch</STRONG> from ordinary characters.  An application can
+       push  special  keys  which it may read via <STRONG>wget_wch</STRONG> by checking for the
+       <STRONG>KEY_CODE_YES</STRONG> result, and using <STRONG>ungetch</STRONG> for those special keys.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The header file  <STRONG>&lt;curses.h&gt;</STRONG>  automatically  includes  the  header  file
+       <STRONG>&lt;stdio.h&gt;</STRONG>.
+
+       Applications  should  not  define the escape key by itself as a single-
+       character function.
+
+       When using <STRONG>get_wch</STRONG>, <STRONG>wget_wch</STRONG>, <STRONG>mvget_wch</STRONG>,  or  <STRONG>mvwget_wch</STRONG>,  applications
+       should not use <STRONG>nocbreak</STRONG> mode and <STRONG>echo</STRONG> mode at the same time.  Depending
+       on the state of the tty driver when each character is typed,  the  pro-
+       gram may produce undesirable results.
+
+       All functions except <STRONG>wget_wch</STRONG> and <STRONG>unget_wch</STRONG> may be macros.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       When <STRONG>get_wch</STRONG>, <STRONG>wget_wch</STRONG>, <STRONG>mvget_wch</STRONG>, and <STRONG>mvwget_wch</STRONG> functions successful-
+       ly report the pressing of a function  key,  they  return  <STRONG>KEY_CODE_YES</STRONG>.
+       When they successfully report a wide character, they return <STRONG>OK</STRONG>.  Other-
+       wise, they return <STRONG>ERR</STRONG>.
+
+       Upon successful completion, <STRONG>unget_wch</STRONG> returns <STRONG>OK</STRONG>.  Otherwise, the func-
+       tion returns <STRONG>ERR</STRONG>.
+
+       Functions  with  a  "mv"  prefix  first perform a cursor movement using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,    <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>,    <STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>,    <STRONG><A HREF="curs_inopts.3x.html">curs_inopts(3x)</A></STRONG>,
+       <STRONG><A HREF="curs_move.3x.html">curs_move(3x)</A></STRONG>, <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>
+
+
+
+                                                              <STRONG><A HREF="curs_get_wch.3x.html">curs_get_wch(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-wget_wch">wget_wch</a></li>
+<li><a href="#h3-unget_wch">unget_wch</a></li>
+</ul>
+</li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

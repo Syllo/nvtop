@@ -1,0 +1,1050 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-forms.adb</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-forms.adb </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                      Terminal_Interface.Curses.Forms                     --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 B O D Y                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1999-2011,2014 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.33 @</EM></span>
+<span class="comment"><EM>--  @Date: 2020/02/02 23:34:34 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>with</b> Ada.Unchecked_Deallocation;
+
+<b>with</b> <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C; <b>use</b> <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C;
+<b>with</b> <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.Strings; <b>use</b> <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.Strings;
+<b>with</b> <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.Pointers;
+
+<b>with</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A>;
+
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<span class="symbol"><A NAME="ref_51_40" HREF="terminal_interface-curses-forms__ads.htm#ref_46_35">Forms</A></span> <b>is</b>
+
+   <b>use</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A>;
+
+   <b>type</b> C_Field_Array <b>is</b> <b>array</b> (Natural <b>range</b> &lt;&gt;) <b>of</b> <b>aliased</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+   <b>package</b> F_Array <b>is</b> <b>new</b>
+     <A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.Pointers (Natural, <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>, C_Field_Array, <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A>);
+
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  subtype chars_ptr is Interfaces.C.Strings.chars_ptr;</EM></span>
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_65_14" HREF="terminal_interface-curses-forms__ads.htm#ref_278_14">Request_Name</A></span> (<span class="symbol"><A NAME="ref_65_28" HREF="terminal_interface-curses-forms__ads.htm#ref_278_28">Key</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_144_12">Form_Request_Code</A>;
+                                <span class="symbol"><A NAME="ref_66_33" HREF="terminal_interface-curses-forms__ads.htm#ref_279_28">Name</A></span> : <b>out</b> String)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_68_16">Form_Request_Name</A></span> (<span class="symbol"><A NAME="ref_68_35" HREF="terminal_interface-curses-forms__adb.htm#ref_68_16">Key</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> chars_ptr;
+      <b>pragma</b> Import (C, Form_Request_Name, "form_request_name");
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_91_14">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_68_16">Form_Request_Name</A> (<A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_278_28">Key</A>)), <A HREF="terminal_interface-curses-forms__ads.htm#ref_279_28">Name</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_278_14">Request_Name</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_74_13" HREF="terminal_interface-curses-forms__ads.htm#ref_281_14">Request_Name</A></span> (<span class="symbol"><A NAME="ref_74_27" HREF="terminal_interface-curses-forms__ads.htm#ref_281_28">Key</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_144_12">Form_Request_Code</A>) <b>return</b> String
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_76_16">Form_Request_Name</A></span> (<span class="symbol"><A NAME="ref_76_35" HREF="terminal_interface-curses-forms__adb.htm#ref_76_16">Key</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> chars_ptr;
+      <b>pragma</b> Import (C, Form_Request_Name, "form_request_name");
+   <b>begin</b>
+      <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_96_13">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_76_16">Form_Request_Name</A> (<A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_281_28">Key</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_281_14">Request_Name</A>;
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_field_new.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_92_13" HREF="terminal_interface-curses-forms__ads.htm#ref_295_13">Create</A></span> (<span class="symbol"><A NAME="ref_92_21" HREF="terminal_interface-curses-forms__ads.htm#ref_295_21">Height</A></span>       : <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A>;
+                    <span class="symbol"><A NAME="ref_93_21" HREF="terminal_interface-curses-forms__ads.htm#ref_296_21">Width</A></span>        : <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A>;
+                    <span class="symbol"><A NAME="ref_94_21" HREF="terminal_interface-curses-forms__ads.htm#ref_297_21">Top</A></span>          : <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+                    <span class="symbol"><A NAME="ref_95_21" HREF="terminal_interface-curses-forms__ads.htm#ref_298_21">Left</A></span>         : <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>;
+                    <span class="symbol"><A NAME="ref_96_21" HREF="terminal_interface-curses-forms__ads.htm#ref_299_21">Off_Screen</A></span>   : Natural := 0;
+                    <span class="symbol"><A NAME="ref_97_21" HREF="terminal_interface-curses-forms__ads.htm#ref_300_21">More_Buffers</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A>'First)
+                    <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_100_16">Newfield</A></span> (<span class="symbol"><A NAME="ref_100_26" HREF="terminal_interface-curses-forms__adb.htm#ref_100_16">H</A></span>, <span class="symbol"><A NAME="ref_100_29" HREF="terminal_interface-curses-forms__adb.htm#ref_100_16">W</A></span>, <span class="symbol"><A NAME="ref_100_32" HREF="terminal_interface-curses-forms__adb.htm#ref_100_16">T</A></span>, <span class="symbol"><A NAME="ref_100_35" HREF="terminal_interface-curses-forms__adb.htm#ref_100_16">L</A></span>, <span class="symbol"><A NAME="ref_100_38" HREF="terminal_interface-curses-forms__adb.htm#ref_100_16">O</A></span>, <span class="symbol"><A NAME="ref_100_41" HREF="terminal_interface-curses-forms__adb.htm#ref_100_16">M</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+      <b>pragma</b> Import (C, Newfield, "new_field");
+      <span class="symbol"><A NAME="ref_102_7">Fld</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_100_16">Newfield</A> (<A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_295_21">Height</A>), <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_296_21">Width</A>),
+                                        <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_297_21">Top</A>), <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_298_21">Left</A>),
+                                        <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_299_21">Off_Screen</A>),
+                                        <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_300_21">More_Buffers</A>));
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_102_7">Fld</A> = <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>end</b> <b>if</b>;
+      <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_102_7">Fld</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_295_13">Create</A>;
+<span class="comment"><EM>--  |</EM></span>
+<span class="comment"><EM>--  |</EM></span>
+<span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_115_14" HREF="terminal_interface-curses-forms__ads.htm#ref_317_14">Delete</A></span> (<span class="symbol"><A NAME="ref_115_22" HREF="terminal_interface-curses-forms__ads.htm#ref_317_22">Fld</A></span> : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_117_16">Free_Field</A></span> (<span class="symbol"><A NAME="ref_117_28" HREF="terminal_interface-curses-forms__adb.htm#ref_117_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Free_Field, "free_field");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_117_16">Free_Field</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_317_22">Fld</A>));
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_317_22">Fld</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_317_14">Delete</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_127_13" HREF="terminal_interface-curses-forms__ads.htm#ref_323_13">Duplicate</A></span> (<span class="symbol"><A NAME="ref_127_24" HREF="terminal_interface-curses-forms__ads.htm#ref_323_24">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                       <span class="symbol"><A NAME="ref_128_24" HREF="terminal_interface-curses-forms__ads.htm#ref_324_24">Top</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+                       <span class="symbol"><A NAME="ref_129_24" HREF="terminal_interface-curses-forms__ads.htm#ref_325_24">Left</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_131_16">Dup_Field</A></span> (<span class="symbol"><A NAME="ref_131_27" HREF="terminal_interface-curses-forms__adb.htm#ref_131_16">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                          <span class="symbol"><A NAME="ref_132_27" HREF="terminal_interface-curses-forms__adb.htm#ref_131_16">Top</A></span>  : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+                          <span class="symbol"><A NAME="ref_133_27" HREF="terminal_interface-curses-forms__adb.htm#ref_131_16">Left</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+      <b>pragma</b> Import (C, Dup_Field, "dup_field");
+
+      <span class="symbol"><A NAME="ref_136_7">F</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_131_16">Dup_Field</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_323_24">Fld</A>,
+                                       <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_324_24">Top</A>),
+                                       <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_325_24">Left</A>));
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_136_7">F</A> = <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>end</b> <b>if</b>;
+      <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_136_7">F</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_323_13">Duplicate</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_148_13" HREF="terminal_interface-curses-forms__ads.htm#ref_330_13">Link</A></span> (<span class="symbol"><A NAME="ref_148_19" HREF="terminal_interface-curses-forms__ads.htm#ref_330_19">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                  <span class="symbol"><A NAME="ref_149_19" HREF="terminal_interface-curses-forms__ads.htm#ref_331_19">Top</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+                  <span class="symbol"><A NAME="ref_150_19" HREF="terminal_interface-curses-forms__ads.htm#ref_332_19">Left</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_152_16">Lnk_Field</A></span> (<span class="symbol"><A NAME="ref_152_27" HREF="terminal_interface-curses-forms__adb.htm#ref_152_16">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                          <span class="symbol"><A NAME="ref_153_27" HREF="terminal_interface-curses-forms__adb.htm#ref_152_16">Top</A></span>  : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+                          <span class="symbol"><A NAME="ref_154_27" HREF="terminal_interface-curses-forms__adb.htm#ref_152_16">Left</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+      <b>pragma</b> Import (C, Lnk_Field, "link_field");
+
+      <span class="symbol"><A NAME="ref_157_7">F</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_152_16">Lnk_Field</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_330_19">Fld</A>,
+                                       <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_331_19">Top</A>),
+                                       <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_332_19">Left</A>));
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_157_7">F</A> = <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>end</b> <b>if</b>;
+      <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_157_7">F</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_330_13">Link</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_field_just.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_173_14" HREF="terminal_interface-curses-forms__ads.htm#ref_341_14">Set_Justification</A></span> (<span class="symbol"><A NAME="ref_173_33" HREF="terminal_interface-curses-forms__ads.htm#ref_341_33">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                                <span class="symbol"><A NAME="ref_174_33" HREF="terminal_interface-curses-forms__ads.htm#ref_342_33">Just</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_58_9">Field_Justification</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_58_33">None</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_176_16">Set_Field_Just</A></span> (<span class="symbol"><A NAME="ref_176_32" HREF="terminal_interface-curses-forms__adb.htm#ref_176_16">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                               <span class="symbol"><A NAME="ref_177_32" HREF="terminal_interface-curses-forms__adb.htm#ref_176_16">Just</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Field_Just, "set_field_just");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_176_16">Set_Field_Just</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_341_33">Fld</A>,
+                                     <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_58_9">Field_Justification</A>'Pos (<A HREF="terminal_interface-curses-forms__ads.htm#ref_342_33">Just</A>))));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_341_14">Set_Justification</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_187_13" HREF="terminal_interface-curses-forms__ads.htm#ref_347_13">Get_Justification</A></span> (<span class="symbol"><A NAME="ref_187_32" HREF="terminal_interface-curses-forms__ads.htm#ref_347_32">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_58_9">Field_Justification</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_189_16">Field_Just</A></span> (<span class="symbol"><A NAME="ref_189_28" HREF="terminal_interface-curses-forms__adb.htm#ref_189_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Field_Just, "field_just");
+   <b>begin</b>
+      <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_58_9">Field_Justification</A>'Val (<A HREF="terminal_interface-curses-forms__adb.htm#ref_189_16">Field_Just</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_347_32">Fld</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_347_13">Get_Justification</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_field_buffer.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_201_14" HREF="terminal_interface-curses-forms__ads.htm#ref_356_14">Set_Buffer</A></span>
+     (<span class="symbol"><A NAME="ref_202_7" HREF="terminal_interface-curses-forms__ads.htm#ref_357_7">Fld</A></span>    : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+      <span class="symbol"><A NAME="ref_203_7" HREF="terminal_interface-curses-forms__ads.htm#ref_358_7">Buffer</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A>'First;
+      <span class="symbol"><A NAME="ref_204_7" HREF="terminal_interface-curses-forms__ads.htm#ref_359_7">Str</A></span>    : String)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_206_16">Set_Fld_Buffer</A></span> (<span class="symbol"><A NAME="ref_206_32" HREF="terminal_interface-curses-forms__adb.htm#ref_206_16">Fld</A></span>    : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                                 <span class="symbol"><A NAME="ref_207_34" HREF="terminal_interface-curses-forms__adb.htm#ref_206_16">Bufnum</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+                                 <span class="symbol"><A NAME="ref_208_34" HREF="terminal_interface-curses-forms__adb.htm#ref_206_16">S</A></span>      : char_array)
+        <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Fld_Buffer, "set_field_buffer");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_206_16">Set_Fld_Buffer</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_357_7">Fld</A>, <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_358_7">Buffer</A>), To_C (<A HREF="terminal_interface-curses-forms__ads.htm#ref_359_7">Str</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_356_14">Set_Buffer</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_218_14" HREF="terminal_interface-curses-forms__ads.htm#ref_364_14">Get_Buffer</A></span>
+     (<span class="symbol"><A NAME="ref_219_7" HREF="terminal_interface-curses-forms__ads.htm#ref_365_7">Fld</A></span>    : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+      <span class="symbol"><A NAME="ref_220_7" HREF="terminal_interface-curses-forms__ads.htm#ref_366_7">Buffer</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A>'First;
+      <span class="symbol"><A NAME="ref_221_7" HREF="terminal_interface-curses-forms__ads.htm#ref_367_7">Str</A></span>    : <b>out</b> String)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_223_16">Field_Buffer</A></span> (<span class="symbol"><A NAME="ref_223_30" HREF="terminal_interface-curses-forms__adb.htm#ref_223_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                             <span class="symbol"><A NAME="ref_224_30" HREF="terminal_interface-curses-forms__adb.htm#ref_223_16">B</A></span>   : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> chars_ptr;
+      <b>pragma</b> Import (C, Field_Buffer, "field_buffer");
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_91_14">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_223_16">Field_Buffer</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_365_7">Fld</A>, <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_366_7">Buffer</A>)), <A HREF="terminal_interface-curses-forms__ads.htm#ref_367_7">Str</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_364_14">Get_Buffer</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_230_13" HREF="terminal_interface-curses-forms__ads.htm#ref_370_13">Get_Buffer</A></span>
+     (<span class="symbol"><A NAME="ref_231_7" HREF="terminal_interface-curses-forms__ads.htm#ref_371_7">Fld</A></span>    : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+      <span class="symbol"><A NAME="ref_232_7" HREF="terminal_interface-curses-forms__ads.htm#ref_372_7">Buffer</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A>'First) <b>return</b> String
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_234_16">Field_Buffer</A></span> (<span class="symbol"><A NAME="ref_234_30" HREF="terminal_interface-curses-forms__adb.htm#ref_234_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                             <span class="symbol"><A NAME="ref_235_30" HREF="terminal_interface-curses-forms__adb.htm#ref_234_16">B</A></span>   : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> chars_ptr;
+      <b>pragma</b> Import (C, Field_Buffer, "field_buffer");
+   <b>begin</b>
+      <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_96_13">Fill_String</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_234_16">Field_Buffer</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_371_7">Fld</A>, <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_372_7">Buffer</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_370_13">Get_Buffer</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_243_14" HREF="terminal_interface-curses-forms__ads.htm#ref_378_14">Set_Status</A></span> (<span class="symbol"><A NAME="ref_243_26" HREF="terminal_interface-curses-forms__ads.htm#ref_378_26">Fld</A></span>    : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                         <span class="symbol"><A NAME="ref_244_26" HREF="terminal_interface-curses-forms__ads.htm#ref_379_26">Status</A></span> : Boolean := True)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_246_16">Set_Fld_Status</A></span> (<span class="symbol"><A NAME="ref_246_32" HREF="terminal_interface-curses-forms__adb.htm#ref_246_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                               <span class="symbol"><A NAME="ref_247_32" HREF="terminal_interface-curses-forms__adb.htm#ref_246_16">St</A></span>  : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Fld_Status, "set_field_status");
+
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_246_16">Set_Fld_Status</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_378_26">Fld</A>, Boolean'Pos (<A HREF="terminal_interface-curses-forms__ads.htm#ref_379_26">Status</A>)) /= <A HREF="terminal_interface-curses-aux__ads.htm#ref_85_7">E_Ok</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_378_14">Set_Status</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_258_13" HREF="terminal_interface-curses-forms__ads.htm#ref_384_13">Changed</A></span> (<span class="symbol"><A NAME="ref_258_22" HREF="terminal_interface-curses-forms__ads.htm#ref_384_22">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> Boolean
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_260_16">Field_Status</A></span> (<span class="symbol"><A NAME="ref_260_30" HREF="terminal_interface-curses-forms__adb.htm#ref_260_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Field_Status, "field_status");
+
+      <span class="symbol"><A NAME="ref_263_7">Res</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_260_16">Field_Status</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_384_22">Fld</A>);
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_263_7">Res</A> = <A HREF="terminal_interface-curses-aux__ads.htm#ref_67_4">Curses_False</A> <b>then</b>
+         <b>return</b> False;
+      <b>else</b>
+         <b>return</b> True;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_384_13">Changed</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_274_14" HREF="terminal_interface-curses-forms__ads.htm#ref_389_14">Set_Maximum_Size</A></span> (<span class="symbol"><A NAME="ref_274_32" HREF="terminal_interface-curses-forms__ads.htm#ref_389_32">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                               <span class="symbol"><A NAME="ref_275_32" HREF="terminal_interface-curses-forms__ads.htm#ref_390_32">Max</A></span> : Natural := 0)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_277_16">Set_Field_Max</A></span> (<span class="symbol"><A NAME="ref_277_31" HREF="terminal_interface-curses-forms__adb.htm#ref_277_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                              <span class="symbol"><A NAME="ref_278_31" HREF="terminal_interface-curses-forms__adb.htm#ref_277_16">M</A></span>   : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Field_Max, "set_max_field");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_277_16">Set_Field_Max</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_389_32">Fld</A>, <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_390_32">Max</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_389_14">Set_Maximum_Size</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_field_opts.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_291_14" HREF="terminal_interface-curses-forms__ads.htm#ref_399_14">Set_Options</A></span> (<span class="symbol"><A NAME="ref_291_27" HREF="terminal_interface-curses-forms__ads.htm#ref_399_27">Fld</A></span>     : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                          <span class="symbol"><A NAME="ref_292_27" HREF="terminal_interface-curses-forms__ads.htm#ref_400_27">Options</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_294_16">Set_Field_Opts</A></span> (<span class="symbol"><A NAME="ref_294_32" HREF="terminal_interface-curses-forms__adb.htm#ref_294_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                               <span class="symbol"><A NAME="ref_295_32" HREF="terminal_interface-curses-forms__adb.htm#ref_294_16">Opt</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Field_Opts, "set_field_opts");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_294_16">Set_Field_Opts</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_399_27">Fld</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_400_27">Options</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_399_14">Set_Options</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_304_14" HREF="terminal_interface-curses-forms__ads.htm#ref_405_14">Switch_Options</A></span> (<span class="symbol"><A NAME="ref_304_30" HREF="terminal_interface-curses-forms__ads.htm#ref_405_30">Fld</A></span>     : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                             <span class="symbol"><A NAME="ref_305_30" HREF="terminal_interface-curses-forms__ads.htm#ref_406_30">Options</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>;
+                             <span class="symbol"><A NAME="ref_306_30" HREF="terminal_interface-curses-forms__ads.htm#ref_407_30">On</A></span>      : Boolean := True)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_308_16">Field_Opts_On</A></span> (<span class="symbol"><A NAME="ref_308_31" HREF="terminal_interface-curses-forms__adb.htm#ref_308_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                              <span class="symbol"><A NAME="ref_309_31" HREF="terminal_interface-curses-forms__adb.htm#ref_308_16">Opt</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Field_Opts_On, "field_opts_on");
+      <b>function</b> <span class="symbol"><A NAME="ref_311_16">Field_Opts_Off</A></span> (<span class="symbol"><A NAME="ref_311_32" HREF="terminal_interface-curses-forms__adb.htm#ref_311_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                               <span class="symbol"><A NAME="ref_312_32" HREF="terminal_interface-curses-forms__adb.htm#ref_311_16">Opt</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Field_Opts_Off, "field_opts_off");
+
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_407_30">On</A> <b>then</b>
+         <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_308_16">Field_Opts_On</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_405_30">Fld</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_406_30">Options</A>));
+      <b>else</b>
+         <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_311_16">Field_Opts_Off</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_405_30">Fld</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_406_30">Options</A>));
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_405_14">Switch_Options</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_325_14" HREF="terminal_interface-curses-forms__ads.htm#ref_413_14">Get_Options</A></span> (<span class="symbol"><A NAME="ref_325_27" HREF="terminal_interface-curses-forms__ads.htm#ref_413_27">Fld</A></span>     : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                          <span class="symbol"><A NAME="ref_326_27" HREF="terminal_interface-curses-forms__ads.htm#ref_414_27">Options</A></span> : <b>out</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_328_16">Field_Opts</A></span> (<span class="symbol"><A NAME="ref_328_28" HREF="terminal_interface-curses-forms__adb.htm#ref_328_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>;
+      <b>pragma</b> Import (C, Field_Opts, "field_opts");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_414_27">Options</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_328_16">Field_Opts</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_413_27">Fld</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_413_14">Get_Options</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_337_13" HREF="terminal_interface-curses-forms__ads.htm#ref_418_13">Get_Options</A></span> (<span class="symbol"><A NAME="ref_337_26" HREF="terminal_interface-curses-forms__ads.htm#ref_418_26">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A>)
+                         <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_340_7">Fos</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>;
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_413_14">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_418_26">Fld</A>, <A HREF="terminal_interface-curses-forms__adb.htm#ref_340_7">Fos</A>);
+      <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_340_7">Fos</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_418_13">Get_Options</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_field_attributes.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_352_14" HREF="terminal_interface-curses-forms__ads.htm#ref_428_14">Set_Foreground</A></span>
+     (<span class="symbol"><A NAME="ref_353_7" HREF="terminal_interface-curses-forms__ads.htm#ref_429_7">Fld</A></span>   : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+      <span class="symbol"><A NAME="ref_354_7" HREF="terminal_interface-curses-forms__ads.htm#ref_430_7">Fore</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A> := <A HREF="terminal_interface-curses__ads.htm#ref_486_4">Normal_Video</A>;
+      <span class="symbol"><A NAME="ref_355_7" HREF="terminal_interface-curses-forms__ads.htm#ref_431_7">Color</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A> := <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>'First)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_357_16">Set_Field_Fore</A></span> (<span class="symbol"><A NAME="ref_357_32" HREF="terminal_interface-curses-forms__adb.htm#ref_357_16">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                               <span class="symbol"><A NAME="ref_358_32" HREF="terminal_interface-curses-forms__adb.htm#ref_357_16">Attr</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_488_9">Attributed_Character</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Field_Fore, "set_field_fore");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_357_16">Set_Field_Fore</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_429_7">Fld</A>, (<A HREF="terminal_interface-curses__ads.htm#ref_492_10">Ch</A>    =&gt; Character'First,
+                                           <A HREF="terminal_interface-curses__ads.htm#ref_491_10">Color</A> =&gt; <A HREF="terminal_interface-curses-forms__ads.htm#ref_431_7">Color</A>,
+                                           <A HREF="terminal_interface-curses__ads.htm#ref_490_10">Attr</A>  =&gt; <A HREF="terminal_interface-curses-forms__ads.htm#ref_430_7">Fore</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_428_14">Set_Foreground</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_369_14" HREF="terminal_interface-curses-forms__ads.htm#ref_436_14">Foreground</A></span> (<span class="symbol"><A NAME="ref_369_26" HREF="terminal_interface-curses-forms__ads.htm#ref_436_26">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                         <span class="symbol"><A NAME="ref_370_26" HREF="terminal_interface-curses-forms__ads.htm#ref_437_26">Fore</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_372_16">Field_Fore</A></span> (<span class="symbol"><A NAME="ref_372_28" HREF="terminal_interface-curses-forms__adb.htm#ref_372_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_488_9">Attributed_Character</A>;
+      <b>pragma</b> Import (C, Field_Fore, "field_fore");
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_437_26">Fore</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_372_16">Field_Fore</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_436_26">Fld</A>).<A HREF="terminal_interface-curses__ads.htm#ref_490_10">Attr</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_436_14">Foreground</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_378_14" HREF="terminal_interface-curses-forms__ads.htm#ref_441_14">Foreground</A></span> (<span class="symbol"><A NAME="ref_378_26" HREF="terminal_interface-curses-forms__ads.htm#ref_441_26">Fld</A></span>   : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                         <span class="symbol"><A NAME="ref_379_26" HREF="terminal_interface-curses-forms__ads.htm#ref_442_26">Fore</A></span>  : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>;
+                         <span class="symbol"><A NAME="ref_380_26" HREF="terminal_interface-curses-forms__ads.htm#ref_443_26">Color</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_382_16">Field_Fore</A></span> (<span class="symbol"><A NAME="ref_382_28" HREF="terminal_interface-curses-forms__adb.htm#ref_382_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_488_9">Attributed_Character</A>;
+      <b>pragma</b> Import (C, Field_Fore, "field_fore");
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_442_26">Fore</A>  := <A HREF="terminal_interface-curses-forms__adb.htm#ref_382_16">Field_Fore</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_441_26">Fld</A>).<A HREF="terminal_interface-curses__ads.htm#ref_490_10">Attr</A>;
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_443_26">Color</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_382_16">Field_Fore</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_441_26">Fld</A>).<A HREF="terminal_interface-curses__ads.htm#ref_491_10">Color</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_441_14">Foreground</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_391_14" HREF="terminal_interface-curses-forms__ads.htm#ref_448_14">Set_Background</A></span>
+     (<span class="symbol"><A NAME="ref_392_7" HREF="terminal_interface-curses-forms__ads.htm#ref_449_7">Fld</A></span>   : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+      <span class="symbol"><A NAME="ref_393_7" HREF="terminal_interface-curses-forms__ads.htm#ref_450_7">Back</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A> := <A HREF="terminal_interface-curses__ads.htm#ref_486_4">Normal_Video</A>;
+      <span class="symbol"><A NAME="ref_394_7" HREF="terminal_interface-curses-forms__ads.htm#ref_451_7">Color</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A> := <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>'First)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_396_16">Set_Field_Back</A></span> (<span class="symbol"><A NAME="ref_396_32" HREF="terminal_interface-curses-forms__adb.htm#ref_396_16">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                               <span class="symbol"><A NAME="ref_397_32" HREF="terminal_interface-curses-forms__adb.htm#ref_396_16">Attr</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_488_9">Attributed_Character</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Field_Back, "set_field_back");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_396_16">Set_Field_Back</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_449_7">Fld</A>, (<A HREF="terminal_interface-curses__ads.htm#ref_492_10">Ch</A>    =&gt; Character'First,
+                                           <A HREF="terminal_interface-curses__ads.htm#ref_491_10">Color</A> =&gt; <A HREF="terminal_interface-curses-forms__ads.htm#ref_451_7">Color</A>,
+                                           <A HREF="terminal_interface-curses__ads.htm#ref_490_10">Attr</A>  =&gt; <A HREF="terminal_interface-curses-forms__ads.htm#ref_450_7">Back</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_448_14">Set_Background</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_408_14" HREF="terminal_interface-curses-forms__ads.htm#ref_456_14">Background</A></span> (<span class="symbol"><A NAME="ref_408_26" HREF="terminal_interface-curses-forms__ads.htm#ref_456_26">Fld</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                         <span class="symbol"><A NAME="ref_409_26" HREF="terminal_interface-curses-forms__ads.htm#ref_457_26">Back</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_411_16">Field_Back</A></span> (<span class="symbol"><A NAME="ref_411_28" HREF="terminal_interface-curses-forms__adb.htm#ref_411_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_488_9">Attributed_Character</A>;
+      <b>pragma</b> Import (C, Field_Back, "field_back");
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_457_26">Back</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_411_16">Field_Back</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_456_26">Fld</A>).<A HREF="terminal_interface-curses__ads.htm#ref_490_10">Attr</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_456_14">Background</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_417_14" HREF="terminal_interface-curses-forms__ads.htm#ref_461_14">Background</A></span> (<span class="symbol"><A NAME="ref_417_26" HREF="terminal_interface-curses-forms__ads.htm#ref_461_26">Fld</A></span>   : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                         <span class="symbol"><A NAME="ref_418_26" HREF="terminal_interface-curses-forms__ads.htm#ref_462_26">Back</A></span>  : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_418_9">Character_Attribute_Set</A>;
+                         <span class="symbol"><A NAME="ref_419_26" HREF="terminal_interface-curses-forms__ads.htm#ref_463_26">Color</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_410_9">Color_Pair</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_421_16">Field_Back</A></span> (<span class="symbol"><A NAME="ref_421_28" HREF="terminal_interface-curses-forms__adb.htm#ref_421_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_488_9">Attributed_Character</A>;
+      <b>pragma</b> Import (C, Field_Back, "field_back");
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_462_26">Back</A>  := <A HREF="terminal_interface-curses-forms__adb.htm#ref_421_16">Field_Back</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_461_26">Fld</A>).<A HREF="terminal_interface-curses__ads.htm#ref_490_10">Attr</A>;
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_463_26">Color</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_421_16">Field_Back</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_461_26">Fld</A>).<A HREF="terminal_interface-curses__ads.htm#ref_491_10">Color</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_461_14">Background</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_430_14" HREF="terminal_interface-curses-forms__ads.htm#ref_468_14">Set_Pad_Character</A></span> (<span class="symbol"><A NAME="ref_430_33" HREF="terminal_interface-curses-forms__ads.htm#ref_468_33">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                                <span class="symbol"><A NAME="ref_431_33" HREF="terminal_interface-curses-forms__ads.htm#ref_469_33">Pad</A></span> : Character := Space)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_433_16">Set_Field_Pad</A></span> (<span class="symbol"><A NAME="ref_433_31" HREF="terminal_interface-curses-forms__adb.htm#ref_433_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                              <span class="symbol"><A NAME="ref_434_31" HREF="terminal_interface-curses-forms__adb.htm#ref_433_16">Ch</A></span>  : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Field_Pad, "set_field_pad");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_433_16">Set_Field_Pad</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_468_33">Fld</A>,
+                                    <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (Character'Pos (<A HREF="terminal_interface-curses-forms__ads.htm#ref_469_33">Pad</A>))));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_468_14">Set_Pad_Character</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_444_14" HREF="terminal_interface-curses-forms__ads.htm#ref_474_14">Pad_Character</A></span> (<span class="symbol"><A NAME="ref_444_29" HREF="terminal_interface-curses-forms__ads.htm#ref_474_29">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                            <span class="symbol"><A NAME="ref_445_29" HREF="terminal_interface-curses-forms__ads.htm#ref_475_29">Pad</A></span> : <b>out</b> Character)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_447_16">Field_Pad</A></span> (<span class="symbol"><A NAME="ref_447_27" HREF="terminal_interface-curses-forms__adb.htm#ref_447_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Field_Pad, "field_pad");
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_475_29">Pad</A> := Character'Val (<A HREF="terminal_interface-curses-forms__adb.htm#ref_447_16">Field_Pad</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_474_29">Fld</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_474_14">Pad_Character</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_field_info.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_459_14" HREF="terminal_interface-curses-forms__ads.htm#ref_484_14">Info</A></span> (<span class="symbol"><A NAME="ref_459_20" HREF="terminal_interface-curses-forms__ads.htm#ref_484_20">Fld</A></span>                : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                   <span class="symbol"><A NAME="ref_460_20" HREF="terminal_interface-curses-forms__ads.htm#ref_485_20">Lines</A></span>              : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A>;
+                   <span class="symbol"><A NAME="ref_461_20" HREF="terminal_interface-curses-forms__ads.htm#ref_486_20">Columns</A></span>            : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A>;
+                   <span class="symbol"><A NAME="ref_462_20" HREF="terminal_interface-curses-forms__ads.htm#ref_487_20">First_Row</A></span>          : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+                   <span class="symbol"><A NAME="ref_463_20" HREF="terminal_interface-curses-forms__ads.htm#ref_488_20">First_Column</A></span>       : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>;
+                   <span class="symbol"><A NAME="ref_464_20" HREF="terminal_interface-curses-forms__ads.htm#ref_489_20">Off_Screen</A></span>         : <b>out</b> Natural;
+                   <span class="symbol"><A NAME="ref_465_20" HREF="terminal_interface-curses-forms__ads.htm#ref_490_20">Additional_Buffers</A></span> : <b>out</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A>)
+   <b>is</b>
+      <b>type</b> <span class="symbol"><A NAME="ref_467_12">C_Int_Access</A></span> <b>is</b> <b>access</b> <b>all</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>function</b> <span class="symbol"><A NAME="ref_468_16">Fld_Info</A></span> (<span class="symbol"><A NAME="ref_468_26" HREF="terminal_interface-curses-forms__adb.htm#ref_468_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                         <span class="symbol"><A NAME="ref_469_26" HREF="terminal_interface-curses-forms__adb.htm#ref_468_16">L</A></span>, <span class="symbol"><A NAME="ref_469_29" HREF="terminal_interface-curses-forms__adb.htm#ref_468_16">C</A></span>, <span class="symbol"><A NAME="ref_469_32" HREF="terminal_interface-curses-forms__adb.htm#ref_468_16">Fr</A></span>, <span class="symbol"><A NAME="ref_469_36" HREF="terminal_interface-curses-forms__adb.htm#ref_468_16">Fc</A></span>, <span class="symbol"><A NAME="ref_469_40" HREF="terminal_interface-curses-forms__adb.htm#ref_468_16">Os</A></span>, <span class="symbol"><A NAME="ref_469_44" HREF="terminal_interface-curses-forms__adb.htm#ref_468_16">Ab</A></span> : <A HREF="terminal_interface-curses-forms__adb.htm#ref_467_12">C_Int_Access</A>)
+                         <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Fld_Info, "field_info");
+
+      <span class="symbol"><A NAME="ref_473_7">L</A></span>, <span class="symbol"><A NAME="ref_473_10">C</A></span>, <span class="symbol"><A NAME="ref_473_13">Fr</A></span>, <span class="symbol"><A NAME="ref_473_17">Fc</A></span>, <span class="symbol"><A NAME="ref_473_21">Os</A></span>, <span class="symbol"><A NAME="ref_473_25">Ab</A></span> : <b>aliased</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_468_16">Fld_Info</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_484_20">Fld</A>,
+                               <A HREF="terminal_interface-curses-forms__adb.htm#ref_473_7">L</A>'<b>Access</b>, <A HREF="terminal_interface-curses-forms__adb.htm#ref_473_10">C</A>'<b>Access</b>,
+                               <A HREF="terminal_interface-curses-forms__adb.htm#ref_473_13">Fr</A>'<b>Access</b>, <A HREF="terminal_interface-curses-forms__adb.htm#ref_473_17">Fc</A>'<b>Access</b>,
+                               <A HREF="terminal_interface-curses-forms__adb.htm#ref_473_21">Os</A>'<b>Access</b>, <A HREF="terminal_interface-curses-forms__adb.htm#ref_473_25">Ab</A>'<b>Access</b>));
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_485_20">Lines</A>              := <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_473_7">L</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_486_20">Columns</A>            := <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_473_10">C</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_487_20">First_Row</A>          := <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_473_13">Fr</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_488_20">First_Column</A>       := <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_473_17">Fc</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_489_20">Off_Screen</A>         := Natural (<A HREF="terminal_interface-curses-forms__adb.htm#ref_473_21">Os</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_490_20">Additional_Buffers</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_131_9">Buffer_Number</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_473_25">Ab</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_484_14">Info</A>;
+<span class="comment"><EM>--  |</EM></span>
+<span class="comment"><EM>--  |</EM></span>
+<span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_489_14" HREF="terminal_interface-curses-forms__ads.htm#ref_495_14">Dynamic_Info</A></span> (<span class="symbol"><A NAME="ref_489_28" HREF="terminal_interface-curses-forms__ads.htm#ref_495_28">Fld</A></span>     : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                           <span class="symbol"><A NAME="ref_490_28" HREF="terminal_interface-curses-forms__ads.htm#ref_496_28">Lines</A></span>   : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A>;
+                           <span class="symbol"><A NAME="ref_491_28" HREF="terminal_interface-curses-forms__ads.htm#ref_497_28">Columns</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A>;
+                           <span class="symbol"><A NAME="ref_492_28" HREF="terminal_interface-curses-forms__ads.htm#ref_498_28">Max</A></span>     : <b>out</b> Natural)
+   <b>is</b>
+      <b>type</b> <span class="symbol"><A NAME="ref_494_12">C_Int_Access</A></span> <b>is</b> <b>access</b> <b>all</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>function</b> <span class="symbol"><A NAME="ref_495_16">Dyn_Info</A></span> (<span class="symbol"><A NAME="ref_495_26" HREF="terminal_interface-curses-forms__adb.htm#ref_495_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>; <span class="symbol"><A NAME="ref_495_39" HREF="terminal_interface-curses-forms__adb.htm#ref_495_16">L</A></span>, <span class="symbol"><A NAME="ref_495_42" HREF="terminal_interface-curses-forms__adb.htm#ref_495_16">C</A></span>, <span class="symbol"><A NAME="ref_495_45" HREF="terminal_interface-curses-forms__adb.htm#ref_495_16">M</A></span> : <A HREF="terminal_interface-curses-forms__adb.htm#ref_494_12">C_Int_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Dyn_Info, "dynamic_field_info");
+
+      <span class="symbol"><A NAME="ref_498_7">L</A></span>, <span class="symbol"><A NAME="ref_498_10">C</A></span>, <span class="symbol"><A NAME="ref_498_13">M</A></span> : <b>aliased</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_495_16">Dyn_Info</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_495_28">Fld</A>,
+                               <A HREF="terminal_interface-curses-forms__adb.htm#ref_498_7">L</A>'<b>Access</b>, <A HREF="terminal_interface-curses-forms__adb.htm#ref_498_10">C</A>'<b>Access</b>,
+                               <A HREF="terminal_interface-curses-forms__adb.htm#ref_498_13">M</A>'<b>Access</b>));
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_496_28">Lines</A>   := <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_498_7">L</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_497_28">Columns</A> := <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_498_10">C</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_498_28">Max</A>     := Natural (<A HREF="terminal_interface-curses-forms__adb.htm#ref_498_13">M</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_495_14">Dynamic_Info</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_win.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_514_14" HREF="terminal_interface-curses-forms__ads.htm#ref_507_14">Set_Window</A></span> (<span class="symbol"><A NAME="ref_514_26" HREF="terminal_interface-curses-forms__ads.htm#ref_507_26">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                         <span class="symbol"><A NAME="ref_515_26" HREF="terminal_interface-curses-forms__ads.htm#ref_508_26">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_517_16">Set_Form_Win</A></span> (<span class="symbol"><A NAME="ref_517_30" HREF="terminal_interface-curses-forms__adb.htm#ref_517_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                             <span class="symbol"><A NAME="ref_518_30" HREF="terminal_interface-curses-forms__adb.htm#ref_517_16">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Form_Win, "set_form_win");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_517_16">Set_Form_Win</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_507_26">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_508_26">Win</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_507_14">Set_Window</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_527_13" HREF="terminal_interface-curses-forms__ads.htm#ref_513_13">Get_Window</A></span> (<span class="symbol"><A NAME="ref_527_25" HREF="terminal_interface-curses-forms__ads.htm#ref_513_25">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_529_16">Form_Win</A></span> (<span class="symbol"><A NAME="ref_529_26" HREF="terminal_interface-curses-forms__adb.htm#ref_529_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>;
+      <b>pragma</b> Import (C, Form_Win, "form_win");
+
+      <span class="symbol"><A NAME="ref_532_7">W</A></span> : <b>constant</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_529_16">Form_Win</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_513_25">Frm</A>);
+   <b>begin</b>
+      <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_532_7">W</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_513_13">Get_Window</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_539_14" HREF="terminal_interface-curses-forms__ads.htm#ref_518_14">Set_Sub_Window</A></span> (<span class="symbol"><A NAME="ref_539_30" HREF="terminal_interface-curses-forms__ads.htm#ref_518_30">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                             <span class="symbol"><A NAME="ref_540_30" HREF="terminal_interface-curses-forms__ads.htm#ref_519_30">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_542_16">Set_Form_Sub</A></span> (<span class="symbol"><A NAME="ref_542_30" HREF="terminal_interface-curses-forms__adb.htm#ref_542_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                             <span class="symbol"><A NAME="ref_543_30" HREF="terminal_interface-curses-forms__adb.htm#ref_542_16">Win</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Form_Sub, "set_form_sub");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_542_16">Set_Form_Sub</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_518_30">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_519_30">Win</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_518_14">Set_Sub_Window</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_552_13" HREF="terminal_interface-curses-forms__ads.htm#ref_524_13">Get_Sub_Window</A></span> (<span class="symbol"><A NAME="ref_552_29" HREF="terminal_interface-curses-forms__ads.htm#ref_524_29">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_554_16">Form_Sub</A></span> (<span class="symbol"><A NAME="ref_554_26" HREF="terminal_interface-curses-forms__adb.htm#ref_554_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>;
+      <b>pragma</b> Import (C, Form_Sub, "form_sub");
+
+      <span class="symbol"><A NAME="ref_557_7">W</A></span> : <b>constant</b> <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_554_16">Form_Sub</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_524_29">Frm</A>);
+   <b>begin</b>
+      <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_557_7">W</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_524_13">Get_Sub_Window</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_564_14" HREF="terminal_interface-curses-forms__ads.htm#ref_529_14">Scale</A></span> (<span class="symbol"><A NAME="ref_564_21" HREF="terminal_interface-curses-forms__ads.htm#ref_529_21">Frm</A></span>     : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                    <span class="symbol"><A NAME="ref_565_21" HREF="terminal_interface-curses-forms__ads.htm#ref_530_21">Lines</A></span>   : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A>;
+                    <span class="symbol"><A NAME="ref_566_21" HREF="terminal_interface-curses-forms__ads.htm#ref_531_21">Columns</A></span> : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A>)
+   <b>is</b>
+      <b>type</b> <span class="symbol"><A NAME="ref_568_12">C_Int_Access</A></span> <b>is</b> <b>access</b> <b>all</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>function</b> <span class="symbol"><A NAME="ref_569_16">M_Scale</A></span> (<span class="symbol"><A NAME="ref_569_25" HREF="terminal_interface-curses-forms__adb.htm#ref_569_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>; <span class="symbol"><A NAME="ref_569_37" HREF="terminal_interface-curses-forms__adb.htm#ref_569_16">Yp</A></span>, <span class="symbol"><A NAME="ref_569_41" HREF="terminal_interface-curses-forms__adb.htm#ref_569_16">Xp</A></span> : <A HREF="terminal_interface-curses-forms__adb.htm#ref_568_12">C_Int_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, M_Scale, "scale_form");
+
+      <span class="symbol"><A NAME="ref_572_7">X</A></span>, <span class="symbol"><A NAME="ref_572_10">Y</A></span> : <b>aliased</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_569_16">M_Scale</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_529_21">Frm</A>, <A HREF="terminal_interface-curses-forms__adb.htm#ref_572_10">Y</A>'<b>Access</b>, <A HREF="terminal_interface-curses-forms__adb.htm#ref_572_7">X</A>'<b>Access</b>));
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_530_21">Lines</A>   := <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_572_10">Y</A>);
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_531_21">Columns</A> := <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_572_7">X</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_529_14">Scale</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page menu_hook.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_585_14" HREF="terminal_interface-curses-forms__ads.htm#ref_543_14">Set_Field_Init_Hook</A></span> (<span class="symbol"><A NAME="ref_585_35" HREF="terminal_interface-curses-forms__ads.htm#ref_543_35">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                                  <span class="symbol"><A NAME="ref_586_35" HREF="terminal_interface-curses-forms__ads.htm#ref_544_35">Proc</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_539_9">Form_Hook_Function</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_588_16">Set_Field_Init</A></span> (<span class="symbol"><A NAME="ref_588_32" HREF="terminal_interface-curses-forms__adb.htm#ref_588_16">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                               <span class="symbol"><A NAME="ref_589_32" HREF="terminal_interface-curses-forms__adb.htm#ref_588_16">Proc</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_539_9">Form_Hook_Function</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Field_Init, "set_field_init");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_588_16">Set_Field_Init</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_543_35">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_544_35">Proc</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_543_14">Set_Field_Init_Hook</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_598_14" HREF="terminal_interface-curses-forms__ads.htm#ref_549_14">Set_Field_Term_Hook</A></span> (<span class="symbol"><A NAME="ref_598_35" HREF="terminal_interface-curses-forms__ads.htm#ref_549_35">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                                  <span class="symbol"><A NAME="ref_599_35" HREF="terminal_interface-curses-forms__ads.htm#ref_550_35">Proc</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_539_9">Form_Hook_Function</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_601_16">Set_Field_Term</A></span> (<span class="symbol"><A NAME="ref_601_32" HREF="terminal_interface-curses-forms__adb.htm#ref_601_16">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                               <span class="symbol"><A NAME="ref_602_32" HREF="terminal_interface-curses-forms__adb.htm#ref_601_16">Proc</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_539_9">Form_Hook_Function</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Field_Term, "set_field_term");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_601_16">Set_Field_Term</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_549_35">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_550_35">Proc</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_549_14">Set_Field_Term_Hook</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_611_14" HREF="terminal_interface-curses-forms__ads.htm#ref_555_14">Set_Form_Init_Hook</A></span> (<span class="symbol"><A NAME="ref_611_34" HREF="terminal_interface-curses-forms__ads.htm#ref_555_34">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                                 <span class="symbol"><A NAME="ref_612_34" HREF="terminal_interface-curses-forms__ads.htm#ref_556_34">Proc</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_539_9">Form_Hook_Function</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_614_16">Set_Form_Init</A></span> (<span class="symbol"><A NAME="ref_614_31" HREF="terminal_interface-curses-forms__adb.htm#ref_614_16">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                              <span class="symbol"><A NAME="ref_615_31" HREF="terminal_interface-curses-forms__adb.htm#ref_614_16">Proc</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_539_9">Form_Hook_Function</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Form_Init, "set_form_init");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_614_16">Set_Form_Init</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_555_34">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_556_34">Proc</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_555_14">Set_Form_Init_Hook</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_624_14" HREF="terminal_interface-curses-forms__ads.htm#ref_561_14">Set_Form_Term_Hook</A></span> (<span class="symbol"><A NAME="ref_624_34" HREF="terminal_interface-curses-forms__ads.htm#ref_561_34">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                                 <span class="symbol"><A NAME="ref_625_34" HREF="terminal_interface-curses-forms__ads.htm#ref_562_34">Proc</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_539_9">Form_Hook_Function</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_627_16">Set_Form_Term</A></span> (<span class="symbol"><A NAME="ref_627_31" HREF="terminal_interface-curses-forms__adb.htm#ref_627_16">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                              <span class="symbol"><A NAME="ref_628_31" HREF="terminal_interface-curses-forms__adb.htm#ref_627_16">Proc</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_539_9">Form_Hook_Function</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Form_Term, "set_form_term");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_627_16">Set_Form_Term</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_561_34">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_562_34">Proc</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_561_14">Set_Form_Term_Hook</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_fields.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_641_14" HREF="terminal_interface-curses-forms__ads.htm#ref_591_14">Redefine</A></span> (<span class="symbol"><A NAME="ref_641_24" HREF="terminal_interface-curses-forms__ads.htm#ref_591_24">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                       <span class="symbol"><A NAME="ref_642_24" HREF="terminal_interface-curses-forms__ads.htm#ref_592_24">Flds</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_136_9">Field_Array_Access</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_644_16">Set_Frm_Fields</A></span> (<span class="symbol"><A NAME="ref_644_32" HREF="terminal_interface-curses-forms__adb.htm#ref_644_16">Frm</A></span>   : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                               <span class="symbol"><A NAME="ref_645_32" HREF="terminal_interface-curses-forms__adb.htm#ref_644_16">Items</A></span> : System.Address) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Frm_Fields, "set_form_fields");
+
+   <b>begin</b>
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms__ads.htm#ref_592_24">Flds</A>.<b>all</b> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_592_24">Flds</A>'Last) = <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A>);
+      <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_592_24">Flds</A>.<b>all</b> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_592_24">Flds</A>'Last) /= <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>else</b>
+         <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_644_16">Set_Frm_Fields</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_591_24">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_592_24">Flds</A>.<b>all</b> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_592_24">Flds</A>'First)'Address));
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_591_14">Redefine</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_659_13" HREF="terminal_interface-curses-forms__ads.htm#ref_603_13">Fields</A></span> (<span class="symbol"><A NAME="ref_659_21" HREF="terminal_interface-curses-forms__ads.htm#ref_603_21">Frm</A></span>   : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                    <span class="symbol"><A NAME="ref_660_21" HREF="terminal_interface-curses-forms__ads.htm#ref_604_21">Index</A></span> : Positive) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>
+   <b>is</b>
+      <b>use</b> F_Array;
+
+      <b>function</b> C_Fields (<span class="symbol"><A NAME="ref_664_26">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> Pointer;
+      <b>pragma</b> Import (C, C_Fields, "form_fields");
+
+      P : Pointer := C_Fields (<A HREF="terminal_interface-curses-forms__ads.htm#ref_603_21">Frm</A>);
+   <b>begin</b>
+      <b>if</b> P = <b>null</b> <b>or</b> <b>else</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_604_21">Index</A> &gt; <A HREF="terminal_interface-curses-forms__ads.htm#ref_609_13">Field_Count</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_603_21">Frm</A>) <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>else</b>
+         P := P + ptrdiff_t (<A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_604_21">Index</A>) - 1);
+         <b>return</b> P.<b>all</b>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_603_13">Fields</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_679_13" HREF="terminal_interface-curses-forms__ads.htm#ref_609_13">Field_Count</A></span> (<span class="symbol"><A NAME="ref_679_26" HREF="terminal_interface-curses-forms__ads.htm#ref_609_26">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> Natural
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_681_16">Count</A></span> (<span class="symbol"><A NAME="ref_681_23" HREF="terminal_interface-curses-forms__adb.htm#ref_681_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Count, "field_count");
+   <b>begin</b>
+      <b>return</b> Natural (<A HREF="terminal_interface-curses-forms__adb.htm#ref_681_16">Count</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_609_26">Frm</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_609_13">Field_Count</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_689_14" HREF="terminal_interface-curses-forms__ads.htm#ref_614_14">Move</A></span> (<span class="symbol"><A NAME="ref_689_20" HREF="terminal_interface-curses-forms__ads.htm#ref_614_20">Fld</A></span>    : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                   <span class="symbol"><A NAME="ref_690_20" HREF="terminal_interface-curses-forms__ads.htm#ref_615_20">Line</A></span>   : <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+                   <span class="symbol"><A NAME="ref_691_20" HREF="terminal_interface-curses-forms__ads.htm#ref_616_20">Column</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_693_16">Move</A></span> (<span class="symbol"><A NAME="ref_693_22" HREF="terminal_interface-curses-forms__adb.htm#ref_693_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>; <span class="symbol"><A NAME="ref_693_35" HREF="terminal_interface-curses-forms__adb.htm#ref_693_16">L</A></span>, <span class="symbol"><A NAME="ref_693_38" HREF="terminal_interface-curses-forms__adb.htm#ref_693_16">C</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Move, "move_field");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_693_16">Move</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_614_20">Fld</A>, <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_615_20">Line</A>), <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_616_20">Column</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_614_14">Move</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_new.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_706_13" HREF="terminal_interface-curses-forms__ads.htm#ref_625_13">Create</A></span> (<span class="symbol"><A NAME="ref_706_21" HREF="terminal_interface-curses-forms__ads.htm#ref_625_21">Fields</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_136_9">Field_Array_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_708_16">NewForm</A></span> (<span class="symbol"><A NAME="ref_708_25" HREF="terminal_interface-curses-forms__adb.htm#ref_708_16">Fields</A></span> : System.Address) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+      <b>pragma</b> Import (C, NewForm, "new_form");
+
+      <span class="symbol"><A NAME="ref_711_7">M</A></span>   : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+   <b>begin</b>
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms__ads.htm#ref_625_21">Fields</A>.<b>all</b> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_625_21">Fields</A>'Last) = <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A>);
+      <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_625_21">Fields</A>.<b>all</b> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_625_21">Fields</A>'Last) /= <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>else</b>
+         <A HREF="terminal_interface-curses-forms__adb.htm#ref_711_7">M</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_708_16">NewForm</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_625_21">Fields</A>.<b>all</b> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_625_21">Fields</A>'First)'Address);
+         <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_711_7">M</A> = <A HREF="terminal_interface-curses-forms__ads.htm#ref_56_4">Null_Form</A> <b>then</b>
+            <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+         <b>end</b> <b>if</b>;
+         <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_711_7">M</A>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_625_13">Create</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_727_14" HREF="terminal_interface-curses-forms__ads.htm#ref_636_14">Delete</A></span> (<span class="symbol"><A NAME="ref_727_22" HREF="terminal_interface-curses-forms__ads.htm#ref_636_22">Frm</A></span> : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_729_16">Free</A></span> (<span class="symbol"><A NAME="ref_729_22" HREF="terminal_interface-curses-forms__adb.htm#ref_729_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Free, "free_form");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_729_16">Free</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_636_22">Frm</A>));
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_636_22">Frm</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_56_4">Null_Form</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_636_14">Delete</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_opts.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_743_14" HREF="terminal_interface-curses-forms__ads.htm#ref_646_14">Set_Options</A></span> (<span class="symbol"><A NAME="ref_743_27" HREF="terminal_interface-curses-forms__ads.htm#ref_646_27">Frm</A></span>     : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                          <span class="symbol"><A NAME="ref_744_27" HREF="terminal_interface-curses-forms__ads.htm#ref_647_27">Options</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_746_16">Set_Form_Opts</A></span> (<span class="symbol"><A NAME="ref_746_31" HREF="terminal_interface-curses-forms__adb.htm#ref_746_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                              <span class="symbol"><A NAME="ref_747_31" HREF="terminal_interface-curses-forms__adb.htm#ref_746_16">Opt</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Form_Opts, "set_form_opts");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_746_16">Set_Form_Opts</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_646_27">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_647_27">Options</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_646_14">Set_Options</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_756_14" HREF="terminal_interface-curses-forms__ads.htm#ref_652_14">Switch_Options</A></span> (<span class="symbol"><A NAME="ref_756_30" HREF="terminal_interface-curses-forms__ads.htm#ref_652_30">Frm</A></span>     : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                             <span class="symbol"><A NAME="ref_757_30" HREF="terminal_interface-curses-forms__ads.htm#ref_653_30">Options</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>;
+                             <span class="symbol"><A NAME="ref_758_30" HREF="terminal_interface-curses-forms__ads.htm#ref_654_30">On</A></span>      : Boolean := True)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_760_16">Form_Opts_On</A></span> (<span class="symbol"><A NAME="ref_760_30" HREF="terminal_interface-curses-forms__adb.htm#ref_760_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                             <span class="symbol"><A NAME="ref_761_30" HREF="terminal_interface-curses-forms__adb.htm#ref_760_16">Opt</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Form_Opts_On, "form_opts_on");
+      <b>function</b> <span class="symbol"><A NAME="ref_763_16">Form_Opts_Off</A></span> (<span class="symbol"><A NAME="ref_763_31" HREF="terminal_interface-curses-forms__adb.htm#ref_763_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                              <span class="symbol"><A NAME="ref_764_31" HREF="terminal_interface-curses-forms__adb.htm#ref_763_16">Opt</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Form_Opts_Off, "form_opts_off");
+
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_654_30">On</A> <b>then</b>
+         <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_760_16">Form_Opts_On</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_652_30">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_653_30">Options</A>));
+      <b>else</b>
+         <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_763_16">Form_Opts_Off</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_652_30">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_653_30">Options</A>));
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_652_14">Switch_Options</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_777_14" HREF="terminal_interface-curses-forms__ads.htm#ref_660_14">Get_Options</A></span> (<span class="symbol"><A NAME="ref_777_27" HREF="terminal_interface-curses-forms__ads.htm#ref_660_27">Frm</A></span>     : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                          <span class="symbol"><A NAME="ref_778_27" HREF="terminal_interface-curses-forms__ads.htm#ref_661_27">Options</A></span> : <b>out</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_780_16">Form_Opts</A></span> (<span class="symbol"><A NAME="ref_780_27" HREF="terminal_interface-curses-forms__adb.htm#ref_780_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>;
+      <b>pragma</b> Import (C, Form_Opts, "form_opts");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_661_27">Options</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_780_16">Form_Opts</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_660_27">Frm</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_660_14">Get_Options</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_789_13" HREF="terminal_interface-curses-forms__ads.htm#ref_665_13">Get_Options</A></span> (<span class="symbol"><A NAME="ref_789_26" HREF="terminal_interface-curses-forms__ads.htm#ref_665_26">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_56_4">Null_Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_791_7">Fos</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>;
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms__ads.htm#ref_660_14">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_665_26">Frm</A>, <A HREF="terminal_interface-curses-forms__adb.htm#ref_791_7">Fos</A>);
+      <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_791_7">Fos</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_665_13">Get_Options</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_post.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_803_14" HREF="terminal_interface-curses-forms__ads.htm#ref_674_14">Post</A></span> (<span class="symbol"><A NAME="ref_803_20" HREF="terminal_interface-curses-forms__ads.htm#ref_674_20">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                   <span class="symbol"><A NAME="ref_804_20" HREF="terminal_interface-curses-forms__ads.htm#ref_675_20">Post</A></span> : Boolean := True)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_806_16">M_Post</A></span> (<span class="symbol"><A NAME="ref_806_24" HREF="terminal_interface-curses-forms__adb.htm#ref_806_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, M_Post, "post_form");
+      <b>function</b> <span class="symbol"><A NAME="ref_808_16">M_Unpost</A></span> (<span class="symbol"><A NAME="ref_808_26" HREF="terminal_interface-curses-forms__adb.htm#ref_808_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, M_Unpost, "unpost_form");
+
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_675_20">Post</A> <b>then</b>
+         <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_806_16">M_Post</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_674_20">Frm</A>));
+      <b>else</b>
+         <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_808_16">M_Unpost</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_674_20">Frm</A>));
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_674_14">Post</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_cursor.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_825_14" HREF="terminal_interface-curses-forms__ads.htm#ref_685_14">Position_Cursor</A></span> (<span class="symbol"><A NAME="ref_825_31" HREF="terminal_interface-curses-forms__ads.htm#ref_685_31">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_827_16">Pos_Form_Cursor</A></span> (<span class="symbol"><A NAME="ref_827_33" HREF="terminal_interface-curses-forms__adb.htm#ref_827_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Pos_Form_Cursor, "pos_form_cursor");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_827_16">Pos_Form_Cursor</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_685_31">Frm</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_685_14">Position_Cursor</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_data.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_840_13" HREF="terminal_interface-curses-forms__ads.htm#ref_694_13">Data_Ahead</A></span> (<span class="symbol"><A NAME="ref_840_25" HREF="terminal_interface-curses-forms__ads.htm#ref_694_25">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> Boolean
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_842_16">Ahead</A></span> (<span class="symbol"><A NAME="ref_842_23" HREF="terminal_interface-curses-forms__adb.htm#ref_842_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Ahead, "data_ahead");
+
+      <span class="symbol"><A NAME="ref_845_7">Res</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_842_16">Ahead</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_694_25">Frm</A>);
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_845_7">Res</A> = <A HREF="terminal_interface-curses-aux__ads.htm#ref_67_4">Curses_False</A> <b>then</b>
+         <b>return</b> False;
+      <b>else</b>
+         <b>return</b> True;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_694_13">Data_Ahead</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_856_13" HREF="terminal_interface-curses-forms__ads.htm#ref_699_13">Data_Behind</A></span> (<span class="symbol"><A NAME="ref_856_26" HREF="terminal_interface-curses-forms__ads.htm#ref_699_26">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> Boolean
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_858_16">Behind</A></span> (<span class="symbol"><A NAME="ref_858_24" HREF="terminal_interface-curses-forms__adb.htm#ref_858_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Behind, "data_behind");
+
+      <span class="symbol"><A NAME="ref_861_7">Res</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_858_16">Behind</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_699_26">Frm</A>);
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_861_7">Res</A> = <A HREF="terminal_interface-curses-aux__ads.htm#ref_67_4">Curses_False</A> <b>then</b>
+         <b>return</b> False;
+      <b>else</b>
+         <b>return</b> True;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_699_13">Data_Behind</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_driver.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_876_13" HREF="terminal_interface-curses-forms__ads.htm#ref_713_13">Driver</A></span> (<span class="symbol"><A NAME="ref_876_21" HREF="terminal_interface-curses-forms__ads.htm#ref_713_21">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                    <span class="symbol"><A NAME="ref_877_21" HREF="terminal_interface-curses-forms__ads.htm#ref_714_21">Key</A></span> : <A HREF="terminal_interface-curses__ads.htm#ref_67_9">Key_Code</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_707_9">Driver_Result</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_879_16">Frm_Driver</A></span> (<span class="symbol"><A NAME="ref_879_28" HREF="terminal_interface-curses-forms__adb.htm#ref_879_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>; <span class="symbol"><A NAME="ref_879_40" HREF="terminal_interface-curses-forms__adb.htm#ref_879_16">Key</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Frm_Driver, "form_driver");
+
+      <span class="symbol"><A NAME="ref_882_7">R</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_879_16">Frm_Driver</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_713_21">Frm</A>, <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_714_21">Key</A>));
+   <b>begin</b>
+      <b>case</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_882_7">R</A> <b>is</b>
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_77_7">E_Unknown_Command</A> =&gt;
+            <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_709_27">Unknown_Request</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_72_7">E_Invalid_Field</A> =&gt;
+            <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_710_27">Invalid_Field</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_73_7">E_Request_Denied</A> =&gt;
+            <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_708_27">Request_Denied</A>;
+         <b>when</b> <b>others</b> =&gt;
+            <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_882_7">R</A>);
+            <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_707_27">Form_Ok</A>;
+      <b>end</b> <b>case</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_713_13">Driver</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_page.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_903_14" HREF="terminal_interface-curses-forms__ads.htm#ref_725_14">Set_Current</A></span> (<span class="symbol"><A NAME="ref_903_27" HREF="terminal_interface-curses-forms__ads.htm#ref_725_27">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                          <span class="symbol"><A NAME="ref_904_27" HREF="terminal_interface-curses-forms__ads.htm#ref_726_27">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_906_16">Set_Current_Fld</A></span> (<span class="symbol"><A NAME="ref_906_33" HREF="terminal_interface-curses-forms__adb.htm#ref_906_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>; <span class="symbol"><A NAME="ref_906_45" HREF="terminal_interface-curses-forms__adb.htm#ref_906_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Current_Fld, "set_current_field");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_906_16">Set_Current_Fld</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_725_27">Frm</A>, <A HREF="terminal_interface-curses-forms__ads.htm#ref_726_27">Fld</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_725_14">Set_Current</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_915_13" HREF="terminal_interface-curses-forms__ads.htm#ref_731_13">Current</A></span> (<span class="symbol"><A NAME="ref_915_22" HREF="terminal_interface-curses-forms__ads.htm#ref_731_22">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_917_16">Current_Fld</A></span> (<span class="symbol"><A NAME="ref_917_29" HREF="terminal_interface-curses-forms__adb.htm#ref_917_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+      <b>pragma</b> Import (C, Current_Fld, "current_field");
+
+      <span class="symbol"><A NAME="ref_920_7">Fld</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_917_16">Current_Fld</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_731_22">Frm</A>);
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_920_7">Fld</A> = <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>end</b> <b>if</b>;
+      <b>return</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_920_7">Fld</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_731_13">Current</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_930_14" HREF="terminal_interface-curses-forms__ads.htm#ref_736_14">Set_Page</A></span> (<span class="symbol"><A NAME="ref_930_24" HREF="terminal_interface-curses-forms__ads.htm#ref_736_24">Frm</A></span>  : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>;
+                       <span class="symbol"><A NAME="ref_931_24" HREF="terminal_interface-curses-forms__ads.htm#ref_737_24">Page</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_722_9">Page_Number</A> := <A HREF="terminal_interface-curses-forms__ads.htm#ref_722_9">Page_Number</A>'First)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_933_16">Set_Frm_Page</A></span> (<span class="symbol"><A NAME="ref_933_30" HREF="terminal_interface-curses-forms__adb.htm#ref_933_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>; <span class="symbol"><A NAME="ref_933_42" HREF="terminal_interface-curses-forms__adb.htm#ref_933_16">Pg</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Frm_Page, "set_form_page");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_933_16">Set_Frm_Page</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_736_24">Frm</A>, <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_737_24">Page</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_736_14">Set_Page</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_942_13" HREF="terminal_interface-curses-forms__ads.htm#ref_742_13">Page</A></span> (<span class="symbol"><A NAME="ref_942_19" HREF="terminal_interface-curses-forms__ads.htm#ref_742_19">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_722_9">Page_Number</A>
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_944_16">Get_Page</A></span> (<span class="symbol"><A NAME="ref_944_26" HREF="terminal_interface-curses-forms__adb.htm#ref_944_16">Frm</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_53_9">Form</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Get_Page, "form_page");
+
+      <span class="symbol"><A NAME="ref_947_7">P</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_944_16">Get_Page</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_742_19">Frm</A>);
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_947_7">P</A> &lt; 0 <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>else</b>
+         <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_722_9">Page_Number</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_947_7">P</A>);
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_742_13">Page</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_956_13" HREF="terminal_interface-curses-forms__ads.htm#ref_747_13">Get_Index</A></span> (<span class="symbol"><A NAME="ref_956_24" HREF="terminal_interface-curses-forms__ads.htm#ref_747_24">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> Positive
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_958_16">Get_Fieldindex</A></span> (<span class="symbol"><A NAME="ref_958_32" HREF="terminal_interface-curses-forms__adb.htm#ref_958_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Get_Fieldindex, "field_index");
+
+      <span class="symbol"><A NAME="ref_961_7">Res</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_958_16">Get_Fieldindex</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_747_24">Fld</A>);
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_961_7">Res</A> = <A HREF="terminal_interface-curses-aux__ads.htm#ref_64_4">Curses_Err</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>end</b> <b>if</b>;
+      <b>return</b> Positive (Natural (<A HREF="terminal_interface-curses-forms__adb.htm#ref_961_7">Res</A>) + Positive'First);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_747_13">Get_Index</A>;
+
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_new_page.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_976_14" HREF="terminal_interface-curses-forms__ads.htm#ref_759_14">Set_New_Page</A></span> (<span class="symbol"><A NAME="ref_976_28" HREF="terminal_interface-curses-forms__ads.htm#ref_759_28">Fld</A></span>      : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                           <span class="symbol"><A NAME="ref_977_28" HREF="terminal_interface-curses-forms__ads.htm#ref_760_28">New_Page</A></span> : Boolean := True)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_979_16">Set_Page</A></span> (<span class="symbol"><A NAME="ref_979_26" HREF="terminal_interface-curses-forms__adb.htm#ref_979_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>; <span class="symbol"><A NAME="ref_979_39" HREF="terminal_interface-curses-forms__adb.htm#ref_979_16">Flg</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Page, "set_new_page");
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_979_16">Set_Page</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_759_28">Fld</A>, Boolean'Pos (<A HREF="terminal_interface-curses-forms__ads.htm#ref_760_28">New_Page</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_759_14">Set_New_Page</A>;
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_988_13" HREF="terminal_interface-curses-forms__ads.htm#ref_765_13">Is_New_Page</A></span> (<span class="symbol"><A NAME="ref_988_26" HREF="terminal_interface-curses-forms__ads.htm#ref_765_26">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> Boolean
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_990_16">Is_New</A></span> (<span class="symbol"><A NAME="ref_990_24" HREF="terminal_interface-curses-forms__adb.htm#ref_990_16">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A>;
+      <b>pragma</b> Import (C, Is_New, "new_page");
+
+      <span class="symbol"><A NAME="ref_993_7">Res</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_49_12">C_Int</A> := <A HREF="terminal_interface-curses-forms__adb.htm#ref_990_16">Is_New</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_765_26">Fld</A>);
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__adb.htm#ref_993_7">Res</A> = <A HREF="terminal_interface-curses-aux__ads.htm#ref_67_4">Curses_False</A> <b>then</b>
+         <b>return</b> False;
+      <b>else</b>
+         <b>return</b> True;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_765_13">Is_New_Page</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_1002_14" HREF="terminal_interface-curses-forms__ads.htm#ref_138_14">Free</A></span> (<span class="symbol"><A NAME="ref_1002_20" HREF="terminal_interface-curses-forms__ads.htm#ref_138_20">FA</A></span>          : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_136_9">Field_Array_Access</A>;
+                   <span class="symbol"><A NAME="ref_1003_20" HREF="terminal_interface-curses-forms__ads.htm#ref_139_20">Free_Fields</A></span> : Boolean := False)
+   <b>is</b>
+      <b>procedure</b> Release <b>is</b> <b>new</b> Ada.Unchecked_Deallocation
+        (Field_Array, <A HREF="terminal_interface-curses-forms__ads.htm#ref_136_9">Field_Array_Access</A>);
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_138_20">FA</A> /= <b>null</b> <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_139_20">Free_Fields</A> <b>then</b>
+         <b>for</b> <span class="symbol"><A NAME="ref_1009_14">I</A></span> <b>in</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_138_20">FA</A>'First .. (<A HREF="terminal_interface-curses-forms__ads.htm#ref_138_20">FA</A>'Last - 1) <b>loop</b>
+            <b>if</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_138_20">FA</A>.<b>all</b> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_1009_14">I</A>) /= <A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A> <b>then</b>
+               <A HREF="terminal_interface-curses-forms__ads.htm#ref_317_14">Delete</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_138_20">FA</A>.<b>all</b> (<A HREF="terminal_interface-curses-forms__adb.htm#ref_1009_14">I</A>));
+            <b>end</b> <b>if</b>;
+         <b>end</b> <b>loop</b>;
+      <b>end</b> <b>if</b>;
+      Release (<A HREF="terminal_interface-curses-forms__ads.htm#ref_138_20">FA</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_138_14">Free</A>;
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <b>function</b> <span class="symbol"><A NAME="ref_1020_13" HREF="terminal_interface-curses-forms__ads.htm#ref_105_13">Default_Field_Options</A></span> <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_63_9">Field_Option_Set</A>
+   <b>is</b>
+   <b>begin</b>
+      <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_418_13">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_55_4">Null_Field</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_105_13">Default_Field_Options</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_1026_13" HREF="terminal_interface-curses-forms__ads.htm#ref_127_13">Default_Form_Options</A></span> <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_109_9">Form_Option_Set</A>
+   <b>is</b>
+   <b>begin</b>
+      <b>return</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_665_13">Get_Options</A> (<A HREF="terminal_interface-curses-forms__ads.htm#ref_56_4">Null_Form</A>);
+   <b>end</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_127_13">Default_Form_Options</A>;
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-forms__ads.htm#ref_46_35">Forms</A>;
+</PRE></BODY></HTML>

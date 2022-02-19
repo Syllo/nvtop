@@ -1,0 +1,223 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-mouse.ads</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-mouse.ads </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                      Terminal_Interface.Curses.Mouse                     --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 S P E C                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1998-2014,2015 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.33 @</EM></span>
+<span class="comment"><EM>--  @Date: 2020/02/02 23:34:34 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>with</b> System;
+
+<b>package</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<span class="symbol"><A NAME="ref_45_35" HREF="terminal_interface-curses-mouse__adb.htm#ref_47_40">Mouse</A></span> <b>is</b>
+   <b>pragma</b> Preelaborate (<A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-mouse__ads.htm#ref_45_35">Mouse</A>);
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/curs_mouse.3x.html">curs_mouse.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  mouse_trafo, wmouse_trafo are implemented as Transform_Coordinates</EM></span>
+   <span class="comment"><EM>--  in the parent package.</EM></span>
+   <span class="comment"><EM>--</EM></span>
+   <span class="comment"><EM>--  Not implemented:</EM></span>
+   <span class="comment"><EM>--  REPORT_MOUSE_POSITION (i.e. as a parameter to Register_Reportable_Event</EM></span>
+   <span class="comment"><EM>--  or Start_Mouse)</EM></span>
+   <b>type</b> <span class="symbol"><A NAME="ref_57_9">Event_Mask</A></span> <b>is</b> <b>private</b>;
+   <span class="symbol"><A NAME="ref_58_4">No_Events</A></span>  : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>;
+   <span class="symbol"><A NAME="ref_59_4">All_Events</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>;
+
+   <b>type</b> <span class="symbol"><A NAME="ref_61_9">Mouse_Button</A></span> <b>is</b> (<span class="symbol"><A NAME="ref_61_26">Left</A></span>,     <span class="comment"><EM>-- aka: Button 1</EM></span>
+                         <span class="symbol"><A NAME="ref_62_26">Middle</A></span>,   <span class="comment"><EM>-- aka: Button 2</EM></span>
+                         <span class="symbol"><A NAME="ref_63_26">Right</A></span>,    <span class="comment"><EM>-- aka: Button 3</EM></span>
+                         <span class="symbol"><A NAME="ref_64_26">Button4</A></span>,  <span class="comment"><EM>-- aka: Button 4</EM></span>
+                         <span class="symbol"><A NAME="ref_65_26">Control</A></span>,  <span class="comment"><EM>-- Control Key</EM></span>
+                         <span class="symbol"><A NAME="ref_66_26">Shift</A></span>,    <span class="comment"><EM>-- Shift Key</EM></span>
+                         <span class="symbol"><A NAME="ref_67_26">Alt</A></span>);     <span class="comment"><EM>-- ALT Key</EM></span>
+
+   <b>subtype</b> <span class="symbol"><A NAME="ref_69_12">Real_Buttons</A></span>  <b>is</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_61_9">Mouse_Button</A> <b>range</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_61_26">Left</A> .. <A HREF="terminal_interface-curses-mouse__ads.htm#ref_64_26">Button4</A>;
+   <b>subtype</b> <span class="symbol"><A NAME="ref_70_12">Modifier_Keys</A></span> <b>is</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_61_9">Mouse_Button</A> <b>range</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_65_26">Control</A> .. <A HREF="terminal_interface-curses-mouse__ads.htm#ref_67_26">Alt</A>;
+
+   <b>type</b> <span class="symbol"><A NAME="ref_72_9">Button_State</A></span> <b>is</b> (<span class="symbol"><A NAME="ref_72_26">Released</A></span>,
+                         <span class="symbol"><A NAME="ref_73_26">Pressed</A></span>,
+                         <span class="symbol"><A NAME="ref_74_26">Clicked</A></span>,
+                         <span class="symbol"><A NAME="ref_75_26">Double_Clicked</A></span>,
+                         <span class="symbol"><A NAME="ref_76_26">Triple_Clicked</A></span>);
+
+   <b>type</b> Button_States <b>is</b> <b>array</b> (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_72_9">Button_State</A>) <b>of</b> Boolean;
+   <b>pragma</b> Pack (Button_States);
+
+   <span class="symbol"><A NAME="ref_81_4">All_Clicks</A></span> : <b>constant</b> Button_States := (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_74_26">Clicked</A> .. <A HREF="terminal_interface-curses-mouse__ads.htm#ref_76_26">Triple_Clicked</A> =&gt; True,
+                                           <b>others</b> =&gt; False);
+   <span class="symbol"><A NAME="ref_83_4">All_States</A></span> : <b>constant</b> Button_States := (<b>others</b> =&gt; True);
+
+   <b>type</b> <span class="symbol"><A NAME="ref_85_9">Mouse_Event</A></span> <b>is</b> <b>private</b>;
+
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | Man page <A HREF="../man/curs_mouse.3x.html">curs_mouse.3x</A></EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+
+   <b>function</b> <span class="symbol"><A NAME="ref_91_13" HREF="terminal_interface-curses-mouse__adb.htm#ref_49_13">Has_Mouse</A></span> <b>return</b> Boolean;
+   <span class="comment"><EM>--  Return true if a mouse device is supported, false otherwise.</EM></span>
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_94_14" HREF="terminal_interface-curses-mouse__adb.htm#ref_76_14">Register_Reportable_Event</A></span>
+     (<span class="symbol"><A NAME="ref_95_7" HREF="terminal_interface-curses-mouse__adb.htm#ref_76_41">Button</A></span> : <A HREF="terminal_interface-curses-mouse__ads.htm#ref_61_9">Mouse_Button</A>;
+      <span class="symbol"><A NAME="ref_96_7" HREF="terminal_interface-curses-mouse__adb.htm#ref_77_41">State</A></span>  : <A HREF="terminal_interface-curses-mouse__ads.htm#ref_72_9">Button_State</A>;
+      <span class="symbol"><A NAME="ref_97_7" HREF="terminal_interface-curses-mouse__adb.htm#ref_78_41">Mask</A></span>   : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>);
+   <span class="comment"><EM>--  Stores the event described by the button and the state in the mask.</EM></span>
+   <span class="comment"><EM>--  Before you call this the first time, you should initialize the mask</EM></span>
+   <span class="comment"><EM>--  with the Empty_Mask constant</EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_94_14">Register_Reportable_Event</A>);
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_103_14" HREF="terminal_interface-curses-mouse__adb.htm#ref_94_14">Register_Reportable_Events</A></span>
+     (<span class="symbol"><A NAME="ref_104_7" HREF="terminal_interface-curses-mouse__adb.htm#ref_94_42">Button</A></span> : <A HREF="terminal_interface-curses-mouse__ads.htm#ref_61_9">Mouse_Button</A>;
+      <span class="symbol"><A NAME="ref_105_7" HREF="terminal_interface-curses-mouse__adb.htm#ref_95_42">State</A></span>  : Button_States;
+      <span class="symbol"><A NAME="ref_106_7" HREF="terminal_interface-curses-mouse__adb.htm#ref_96_42">Mask</A></span>   : <b>in</b> <b>out</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>);
+   <span class="comment"><EM>--  Register all events described by the Button and the State bitmap.</EM></span>
+   <span class="comment"><EM>--  Before you call this the first time, you should initialize the mask</EM></span>
+   <span class="comment"><EM>--  with the Empty_Mask constant</EM></span>
+
+   <span class="comment"><EM>--  <A NAME="AFU_1">|</A></EM></span>
+   <span class="comment"><EM>--  There is one difference to mousmask(): we return the value of the</EM></span>
+   <span class="comment"><EM>--  old mask, that means the event mask value before this call.</EM></span>
+   <span class="comment"><EM>--  Not Implemented: The library version</EM></span>
+   <span class="comment"><EM>--  returns a Mouse_Mask that tells which events are reported.</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_116_13" HREF="terminal_interface-curses-mouse__adb.htm#ref_106_13">Start_Mouse</A></span> (<span class="symbol"><A NAME="ref_116_26" HREF="terminal_interface-curses-mouse__adb.htm#ref_106_26">Mask</A></span> : <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A> := <A HREF="terminal_interface-curses-mouse__ads.htm#ref_59_4">All_Events</A>)
+                         <b>return</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/curs_mouse.3x.html">mousemask()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_116_13">Start_Mouse</A>);
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_121_14" HREF="terminal_interface-curses-mouse__adb.htm#ref_122_14">End_Mouse</A></span> (<span class="symbol"><A NAME="ref_121_25" HREF="terminal_interface-curses-mouse__adb.htm#ref_122_25">Mask</A></span> : <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A> := <A HREF="terminal_interface-curses-mouse__ads.htm#ref_58_4">No_Events</A>);
+   <span class="comment"><EM>--  Terminates the mouse, restores the specified event mask</EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_121_14">End_Mouse</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_2">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_126_13" HREF="terminal_interface-curses-mouse__adb.htm#ref_61_13">Get_Mouse</A></span> <b>return</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_85_9">Mouse_Event</A>;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/curs_mouse.3x.html">getmouse()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_126_13">Get_Mouse</A>);
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_130_14" HREF="terminal_interface-curses-mouse__adb.htm#ref_171_14">Get_Event</A></span> (<span class="symbol"><A NAME="ref_130_25" HREF="terminal_interface-curses-mouse__adb.htm#ref_171_25">Event</A></span>  : <A HREF="terminal_interface-curses-mouse__ads.htm#ref_85_9">Mouse_Event</A>;
+                        <span class="symbol"><A NAME="ref_131_25" HREF="terminal_interface-curses-mouse__adb.htm#ref_172_25">Y</A></span>      : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+                        <span class="symbol"><A NAME="ref_132_25" HREF="terminal_interface-curses-mouse__adb.htm#ref_173_25">X</A></span>      : <b>out</b> <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>;
+                        <span class="symbol"><A NAME="ref_133_25" HREF="terminal_interface-curses-mouse__adb.htm#ref_174_25">Button</A></span> : <b>out</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_61_9">Mouse_Button</A>;
+                        <span class="symbol"><A NAME="ref_134_25" HREF="terminal_interface-curses-mouse__adb.htm#ref_175_25">State</A></span>  : <b>out</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_72_9">Button_State</A>);
+   <span class="comment"><EM>--  !!! Warning: X and Y are screen coordinates. Due to ripped of lines they</EM></span>
+   <span class="comment"><EM>--  may not be identical to window coordinates.</EM></span>
+   <span class="comment"><EM>--  Not Implemented: Get_Event only reports one event, the C library</EM></span>
+   <span class="comment"><EM>--  version supports multiple events, e.g. {click-1, click-3}</EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_130_14">Get_Event</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_3">|</A></EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_142_14" HREF="terminal_interface-curses-mouse__adb.htm#ref_184_14">Unget_Mouse</A></span> (<span class="symbol"><A NAME="ref_142_27" HREF="terminal_interface-curses-mouse__adb.htm#ref_184_27">Event</A></span> : <A HREF="terminal_interface-curses-mouse__ads.htm#ref_85_9">Mouse_Event</A>);
+   <span class="comment"><EM>--  AKA: <A HREF="../man/curs_mouse.3x.html">ungetmouse()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_142_14">Unget_Mouse</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_4">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_147_13" HREF="terminal_interface-curses-mouse__adb.htm#ref_194_13">Enclosed_In_Window</A></span> (<span class="symbol"><A NAME="ref_147_33" HREF="terminal_interface-curses-mouse__adb.htm#ref_194_33">Win</A></span>    : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A> := <A HREF="terminal_interface-curses__ads.htm#ref_645_13">Standard_Window</A>;
+                                <span class="symbol"><A NAME="ref_148_33" HREF="terminal_interface-curses-mouse__adb.htm#ref_195_33">Event</A></span>  : <A HREF="terminal_interface-curses-mouse__ads.htm#ref_85_9">Mouse_Event</A>) <b>return</b> Boolean;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/curs_mouse.3x.html">wenclose()</A></EM></span>
+   <span class="comment"><EM>--  But : use event instead of screen coordinates.</EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_147_13">Enclosed_In_Window</A>);
+
+   <span class="comment"><EM>--  <A NAME="AFU_5">|</A></EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_154_13" HREF="terminal_interface-curses-mouse__adb.htm#ref_210_13">Mouse_Interval</A></span> (<span class="symbol"><A NAME="ref_154_29" HREF="terminal_interface-curses-mouse__adb.htm#ref_210_29">Msec</A></span> : Natural := 200) <b>return</b> Natural;
+   <span class="comment"><EM>--  AKA: <A HREF="../man/curs_mouse.3x.html">mouseinterval()</A></EM></span>
+   <b>pragma</b> Inline (<A HREF="terminal_interface-curses-mouse__ads.htm#ref_154_13">Mouse_Interval</A>);
+
+<b>private</b>
+   <span class="comment"><EM>--  This can be as little as 32 bits (unsigned), or as long as the system's</EM></span>
+   <span class="comment"><EM>--  unsigned long.  Declare it as the minimum size to handle all valid</EM></span>
+   <span class="comment"><EM>--  sizes.</EM></span>
+   <b>type</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A> <b>is</b> <b>mod</b> 4294967296;
+
+   <b>type</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_85_9">Mouse_Event</A> <b>is</b>
+      <b>record</b>
+         <span class="symbol"><A NAME="ref_166_10">Id</A></span>      : Integer <b>range</b> Integer (<A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.short'First) ..
+                                 Integer (<A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.short'Last);
+         <span class="symbol"><A NAME="ref_168_10">X</A></span>, <span class="symbol"><A NAME="ref_168_13">Y</A></span>, <span class="symbol"><A NAME="ref_168_16">Z</A></span> : Integer <b>range</b> Integer (<A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.int'First) ..
+                                 Integer (<A HREF="interfac__ads.htm#ref_38_9">Interfaces</A>.C.int'Last);
+         <span class="symbol"><A NAME="ref_170_10">Bstate</A></span>  : <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>;
+      <b>end</b> <b>record</b>;
+   <b>pragma</b> Convention (C, <A HREF="terminal_interface-curses-mouse__ads.htm#ref_85_9">Mouse_Event</A>);
+
+   <b>for</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_85_9">Mouse_Event</A> <b>use</b>
+      <b>record</b>
+         <A HREF="terminal_interface-curses-mouse__ads.htm#ref_166_10">Id</A>     <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_310_4">MEVENT_id_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_311_4">MEVENT_id_Last</A>;
+         <A HREF="terminal_interface-curses-mouse__ads.htm#ref_168_10">X</A>      <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_312_4">MEVENT_x_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_313_4">MEVENT_x_Last</A>;
+         <A HREF="terminal_interface-curses-mouse__ads.htm#ref_168_13">Y</A>      <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_314_4">MEVENT_y_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_315_4">MEVENT_y_Last</A>;
+         <A HREF="terminal_interface-curses-mouse__ads.htm#ref_168_16">Z</A>      <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_316_4">MEVENT_z_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_317_4">MEVENT_z_Last</A>;
+         <A HREF="terminal_interface-curses-mouse__ads.htm#ref_170_10">Bstate</A> <b>at</b> 0 <b>range</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_318_4">MEVENT_bstate_First</A>
+           .. <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_319_4">MEVENT_bstate_Last</A>;
+      <b>end</b> <b>record</b>;
+   <b>for</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_85_9">Mouse_Event</A>'Size <b>use</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_320_4">MEVENT_Size</A>;
+   Generation_Bit_Order : System.Bit_Order <b>renames</b> <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_10_4">Bit_Order</A>;
+
+   <span class="symbol"><A NAME="ref_190_4">BUTTON_CTRL</A></span>      : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A> := <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_348_4">BUTTON_CTRL</A>;
+   <span class="symbol"><A NAME="ref_191_4">BUTTON_SHIFT</A></span>     : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A> := <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_349_4">BUTTON_SHIFT</A>;
+   <span class="symbol"><A NAME="ref_192_4">BUTTON_ALT</A></span>       : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A> := <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_350_4">BUTTON_ALT</A>;
+   <span class="symbol"><A NAME="ref_193_4">BUTTON1_EVENTS</A></span>   : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>
+     := <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_329_4">all_events_button_1</A>;
+   <span class="symbol"><A NAME="ref_195_4">BUTTON2_EVENTS</A></span>   : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>
+     := <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_335_4">all_events_button_2</A>;
+   <span class="symbol"><A NAME="ref_197_4">BUTTON3_EVENTS</A></span>   : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>
+     := <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_341_4">all_events_button_3</A>;
+   <span class="symbol"><A NAME="ref_199_4">BUTTON4_EVENTS</A></span>   : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A>
+     := <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_347_4">all_events_button_4</A>;
+   <span class="symbol"><A NAME="ref_201_4">ALL_MOUSE_EVENTS</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A> := <A HREF="terminal_interface-curses_constants__ads.htm#ref_6_28">Curses_Constants</A>.<A HREF="terminal_interface-curses_constants__ads.htm#ref_352_4">ALL_MOUSE_EVENTS</A>;
+   <A HREF="terminal_interface-curses-mouse__ads.htm#ref_58_4">No_Events</A>        : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A> := 0;
+   <A HREF="terminal_interface-curses-mouse__ads.htm#ref_59_4">All_Events</A>       : <b>constant</b> <A HREF="terminal_interface-curses-mouse__ads.htm#ref_57_9">Event_Mask</A> := <A HREF="terminal_interface-curses-mouse__ads.htm#ref_201_4">ALL_MOUSE_EVENTS</A>;
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-mouse__ads.htm#ref_45_35">Mouse</A>;
+</PRE></BODY></HTML>
