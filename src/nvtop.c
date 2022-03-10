@@ -59,6 +59,7 @@ static const char helpstring[] =
     "preferences\n"
     "  -s --gpu-select   : Colon separated list of GPU IDs to monitor\n"
     "  -i --gpu-ignore   : Colon separated list of GPU IDs to ignore\n"
+    "  -u --user         : Colon separated list of usernames to monitor. Default, current user.\n"
     "  -p --no-plot      : Disable bar plot\n"
     "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
     "older on the right\n"
@@ -67,7 +68,6 @@ static const char helpstring[] =
     "  -f --freedom-unit : Use fahrenheit\n"
     "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
     "(default 30s, negative = always on screen)\n"
-    "  -u --user         : User name to monitor\n"
     "  -h --help         : Print help and exit\n";
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;

@@ -6,6 +6,9 @@ What is this repository about?
 
 This repository provides the packed nvtop along with its dependency (`ncurses 6.3`) and the installation script for non-privileged users. 
 
+
+Moreover, I added the user utility so that the user could specify the users to monitor. For detail, please refer to the following content.
+
 Note that this repo doesn't provide the *NVML* and the CUDA driver as both require root access.
 
 
@@ -22,7 +25,7 @@ Table of Contents
 -----------------
 
 - [Installation](#installation)
-- [Troubleshoot](#troubleshoot)
+- [Function](#function)
 - [License](#license)
 
 Build
@@ -57,6 +60,18 @@ source ~/.zshrc
 ```
 
 If you use **conda** as environment manager and encounter an error while building nvtop, try `conda deactivate` before invoking `cmake`.
+
+
+Function
+-------
+## User selection
+
+In the terminal, one could select the user by `-u` or `--user` and provide the username in a colon-separated manner. For example,
+```bash
+nvtop -u ntuser:ubuntu_user:arch_user
+```
+If the argument following `-u` or `--user` is not provided, the user to be monitored will be set to the current user only by default.
+
 
 License
 -------

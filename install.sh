@@ -9,7 +9,7 @@ for i in "$@"; do
     fi
 done
 
-path=$HOME/bin
+path=$HOME/.bin
 home=`pwd`
 
 if [ $# -gt 0 ]; then

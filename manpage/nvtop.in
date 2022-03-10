@@ -10,6 +10,7 @@ nvtop \- NVIDIA GPU top
 .B nvtop
 \fR[\fB\-hv\fR]
 \fR[\fB\-si\fR \fIid1:id2:...\fR]
+\fR[\fB\-u\fR \fIname1:name2:...\fR]
 \fR[\fB\-d\fR \fIdelay\fR]
 
 .SH DESCRIPTION
@@ -28,6 +29,10 @@ Colon separated list of GPU IDs to be monitored by nvtop.
 .TP
 .BR \-i ", " \-\-gpu\-ignore =\fIid1:...\fR
 Colon separated list of GPU IDs to be ignored by nvtop.
+.TP
+.BR \-u ", " \-\-user =\fIusername1:...\fR
+Colon separated list of usernames to be ignored by nvtop. 
+Default, current user.
 .TP
 .BR \-C ", " \-\-no\-color
 Monochrome mode.
