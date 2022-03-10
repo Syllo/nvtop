@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <sys/types.h>
+#include <uthash.h>
 
 #define IS_VALID(x, y) ((y)[(x) / CHAR_BIT] & (1 << ((x) % CHAR_BIT)))
 #define SET_VALID(x, y) ((y)[(x) / CHAR_BIT] |= (1 << ((x) % CHAR_BIT)))
@@ -40,6 +41,7 @@ enum gpuinfo_static_info_valid {
 };
 
 #define MAX_DEVICE_NAME 128
+
 
 typedef struct gpuinfo_static_info_struct {
   char device_name[MAX_DEVICE_NAME];
@@ -132,5 +134,12 @@ typedef struct gpu_process_struct {
   unsigned long cpu_memory_res;
   unsigned char valid[gpuinfo_process_info_count / CHAR_BIT + 1];
 } gpu_process;
+
+
+typedef struct {
+    char name[128];
+    int id;
+    UT_hash_handle hh;
+} user;
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

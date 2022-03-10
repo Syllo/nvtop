@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <uthash.h>
 
 #include <locale.h>
 
@@ -35,6 +36,7 @@
 #include "nvtop/interface_options.h"
 #include "nvtop/time.h"
 #include "nvtop/version.h"
+
 
 static volatile sig_atomic_t signal_exit = 0;
 static volatile sig_atomic_t signal_resize_win = 0;
@@ -65,6 +67,7 @@ static const char helpstring[] =
     "  -f --freedom-unit : Use fahrenheit\n"
     "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
     "(default 30s, negative = always on screen)\n"
+    "  -u --user         : User name to monitor\n"
     "  -h --help         : Print help and exit\n";
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
@@ -88,6 +91,10 @@ static const struct option long_opts[] = {
      .has_arg = required_argument,
      .flag = NULL,
      .val = 'i'},
+     {.name = "user",
+     .has_arg = required_argument,
+     .flag = NULL,
+     .val = 'u'},
     {.name = "encode-hide",
      .has_arg = required_argument,
      .flag = NULL,
@@ -97,7 +104,7 @@ static const struct option long_opts[] = {
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:s:i:c:CfE:pr";
+static const char opts[] = "hvd:s:i:u:c:CfE:pr:";
 
 static size_t update_mask_value(const char *str, size_t entry_mask,
                                 bool addTo) {
@@ -137,6 +144,7 @@ int main(int argc, char **argv) {
   int update_interval_option;
   char *selectedGPU = NULL;
   char *ignoredGPU = NULL;
+  char *selectedUsers = NULL;
   bool no_color_option = false;
   bool use_fahrenheit_option = false;
   bool hide_plot_option = false;
@@ -174,11 +182,16 @@ int main(int argc, char **argv) {
     case 'i':
       ignoredGPU = optarg;
       break;
+    case 'u':
+      selectedUsers = optarg;
+      break;
     case 'v':
       printf("%s\n", versionString);
+      // printf("%s", nlnlOUO);
       exit(EXIT_SUCCESS);
     case 'h':
       printf("%s\n%s", versionString, helpstring);
+      // printf("%s", nlnlOUO);
       exit(EXIT_SUCCESS);
     case 'c':
       custom_config_file_path = optarg;
@@ -209,14 +222,23 @@ int main(int argc, char **argv) {
       case 'd':
         fprintf(stderr, "Error: The delay option takes a positive value "
                         "representing tenths of seconds\n");
+        exit(EXIT_FAILURE);
+      case 'u':
+        fprintf(stderr, "Not inserting any user, "
+                        "use current user as default.\n");
+        if ((selectedUsers = getlogin()) == NULL) {
+          fprintf(stderr, "Could not obtain information of current user.\n");
+          exit(EXIT_FAILURE);
+        }
+        fprintf(stderr, "Current user: %s\n", selectedUsers);
         break;
       default:
-        fprintf(stderr, "Unhandled error in getopt missing argument\n");
+        fprintf(stderr, "Missing argument for %s, use %s -h for help.\n", argv[optind - 1], argv[0]);
         exit(EXIT_FAILURE);
         break;
       }
-      exit(EXIT_FAILURE);
     }
+    
   }
 
   setenv("ESCDELAY", "10", 1);
@@ -251,11 +273,26 @@ int main(int argc, char **argv) {
     gpu_mask_nvidia = update_mask_value(ignoredGPU, gpu_mask_nvidia, false);
   }
 
+
+  // Add users to hash table
+  user *u, *tmp, *users = NULL;
+    if (selectedUsers) {
+        char *ptr = strtok(selectedUsers, ":");
+        int i = 0;
+        while (ptr) {
+            u = (user *) malloc(sizeof(*u));
+            strcpy(u->name, ptr);
+            u->id = i++;
+            HASH_ADD_STR(users, name, u);
+            ptr = strtok(NULL, ":");
+        }
+    }
   unsigned devices_count = 0;
   gpu_info *devices = NULL;
   if (!gpuinfo_init_info_extraction(gpu_mask_nvidia, &devices_count, &devices))
     return EXIT_FAILURE;
   if (devices_count == 0) {
+    // fprintf(stdout, "%s", nlnlOUO);
     fprintf(stdout, "No GPU to monitor.\n");
     return EXIT_SUCCESS;
   }
@@ -329,7 +366,7 @@ int main(int argc, char **argv) {
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(devices_count, devices);
       if (!interface_freeze_processes(interface)) {
-        gpuinfo_refresh_processes(devices_count, devices);
+        gpuinfo_refresh_processes(devices_count, users, devices);
       }
       save_current_data_to_ring(devices_count, devices, interface);
       timeout(interface_update_interval(interface));
@@ -389,6 +426,6 @@ int main(int argc, char **argv) {
 
   clean_ncurses(interface);
   gpuinfo_shutdown_info_extraction(devices_count, devices);
-
+  // printf("%s", nlnlOUO);
   return EXIT_SUCCESS;
 }

@@ -51,6 +51,6 @@ void gpuinfo_nvidia_refresh_dynamic_info(gpuinfo_nvidia_device_handle device,
 
 void gpuinfo_nvidia_get_running_processes(
     gpuinfo_nvidia_device_handle device, gpuinfo_nvidia_internal_data *internal,
-    unsigned *num_processes_recovered, gpu_process **processes_info);
+    unsigned *num_processes_recovered, gpu_process **processes_info, user *users);
 
 #endif // EXTRACT_GPUINFO_NVIDIA_H_
