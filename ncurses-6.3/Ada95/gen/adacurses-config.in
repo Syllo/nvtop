@@ -1,0 +1,83 @@
+#! /bin/sh
+# $Id: adacurses-config.in,v 1.14 2020/02/02 23:34:34 tom Exp $
+##############################################################################
+# Copyright 2019,2020 Thomas E. Dickey                                       #
+# Copyright 2007-2014,2016 Free Software Foundation, Inc.                    #
+#                                                                            #
+# Permission is hereby granted, free of charge, to any person obtaining a    #
+# copy of this software and associated documentation files (the "Software"), #
+# to deal in the Software without restriction, including without limitation  #
+# the rights to use, copy, modify, merge, publish, distribute, distribute    #
+# with modifications, sublicense, and/or sell copies of the Software, and to #
+# permit persons to whom the Software is furnished to do so, subject to the  #
+# following conditions:                                                      #
+#                                                                            #
+# The above copyright notice and this permission notice shall be included in #
+# all copies or substantial portions of the Software.                        #
+#                                                                            #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR #
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   #
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    #
+# THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER      #
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    #
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        #
+# DEALINGS IN THE SOFTWARE.                                                  #
+#                                                                            #
+# Except as contained in this notice, the name(s) of the above copyright     #
+# holders shall not be used in advertising or otherwise to promote the sale, #
+# use or other dealings in this Software without prior written               #
+# authorization.                                                             #
+##############################################################################
+#
+# This script returns the options to add to `gnatmake' for using AdaCurses.
+
+DESTDIR=@DESTDIR@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+
+ADA_INCLUDE=@ADA_INCLUDE@
+ADA_OBJECTS=@ADA_OBJECTS@
+
+VERSION=@NCURSES_MAJOR@.@NCURSES_MINOR@.@NCURSES_PATCH@
+
+CFLAGS="-aI$ADA_INCLUDE -aO$ADA_OBJECTS"
+LIBS="-L$ADA_OBJECTS -l@ADA_LIBNAME@"
+
+THIS="@ADA_LIBNAME@"
+THIS_CFG="$THIS@DFT_ARG_SUFFIX@-config"
+
+case "x$1" in
+	x--version)
+		echo @ADA_LIBNAME@ $VERSION
+		;;
+	x--cflags)
+		echo $CFLAGS
+		;;
+	x--libs)
+		echo $LIBS
+		;;
+	x)
+		# if no parameter is given, give what gnatmake needs
+		echo "$CFLAGS -largs $LIBS"
+		;;
+	x--help)
+		cat <<ENDHELP
+Usage: ${THIS_CFG} [options]
+
+Options:
+  --cflags           echos the gnat (Ada compiler) flags needed to compile with ${THIS}
+  --libs             echos the gnat libraries needed to link with ${THIS}
+
+  --version          echos the release+patchdate version of ${THIS}
+
+  --help             prints this message
+
+If no options are given, echos the full set of flags needed by gnatmake.
+ENDHELP
+		;;
+	*)
+		echo 'Usage: $THIS_CFG [--version | --cflags | --libs]' >&2
+		exit 1
+		;;
+esac

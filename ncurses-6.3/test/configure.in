@@ -1,0 +1,539 @@
+dnl***************************************************************************
+dnl Copyright 2018-2020,2021 Thomas E. Dickey                                *
+dnl Copyright 1998-2017,2018 Free Software Foundation, Inc.                  *
+dnl                                                                          *
+dnl Permission is hereby granted, free of charge, to any person obtaining a  *
+dnl copy of this software and associated documentation files (the            *
+dnl "Software"), to deal in the Software without restriction, including      *
+dnl without limitation the rights to use, copy, modify, merge, publish,      *
+dnl distribute, distribute with modifications, sublicense, and/or sell       *
+dnl copies of the Software, and to permit persons to whom the Software is    *
+dnl furnished to do so, subject to the following conditions:                 *
+dnl                                                                          *
+dnl The above copyright notice and this permission notice shall be included  *
+dnl in all copies or substantial portions of the Software.                   *
+dnl                                                                          *
+dnl THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+dnl OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+dnl MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+dnl IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+dnl DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+dnl OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+dnl THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+dnl                                                                          *
+dnl Except as contained in this notice, the name(s) of the above copyright   *
+dnl holders shall not be used in advertising or otherwise to promote the     *
+dnl sale, use or other dealings in this Software without prior written       *
+dnl authorization.                                                           *
+dnl***************************************************************************
+dnl
+dnl Author: Thomas E. Dickey 1996-on
+dnl
+dnl $Id: configure.in,v 1.163 2021/07/03 20:21:07 tom Exp $
+dnl This is a simple configuration-script for the ncurses test programs that
+dnl allows the test-directory to be separately configured against a reference
+dnl system (i.e., sysvr4 curses)
+dnl
+dnl If you're configuring ncurses, you shouldn't need to use this script.
+dnl It's only for testing purposes.
+dnl
+dnl For additional information, see
+dnl		https://invisible-island.net/autoconf/
+dnl		https://invisible-island.net/autoconf/my-autoconf.html
+dnl		https://invisible-island.net/ncurses/ncurses-examples.html
+dnl ---------------------------------------------------------------------------
+AC_PREREQ(2.52.20210509)
+AC_INIT(ncurses.c)
+AC_CONFIG_HEADER(ncurses_cfg.h:ncurses_tst.hin)
+
+CF_INHERIT_SCRIPT(config.guess)
+CF_INHERIT_SCRIPT(config.sub)
+CF_CHECK_CACHE
+
+AC_ARG_PROGRAM
+
+CF_HELP_MESSAGE(General Options:)
+
+AC_PROG_MAKE_SET
+CF_PROG_CC
+AC_C_INLINE
+AC_PROG_CPP
+AC_PROG_AWK
+CF_PROG_INSTALL
+CF_INSTALL_OPTS
+CF_PROG_LINT
+CF_MAKE_PHONY
+CF_MAKE_TAGS
+
+CF_MATH_LIB(MATH_LIB,pow(sin(x),x))
+AC_SUBST(MATH_LIB)
+
+dnl Things that we don't need (or must override) if we're not building ncurses
+CF_TOP_BUILDDIR
+CC_G_OPT="-g"					AC_SUBST(CC_G_OPT)
+CC_SHARED_OPTS=unknown			AC_SUBST(CC_SHARED_OPTS)
+CPPFLAGS="$CPPFLAGS"			AC_SUBST(CPPFLAGS)
+DFT_DEP_SUFFIX=""				AC_SUBST(DFT_DEP_SUFFIX)
+DFT_OBJ_SUBDIR=`pwd|sed -e's:.*/::'`	AC_SUBST(DFT_OBJ_SUBDIR)
+DFT_UPR_MODEL="NORMAL"			AC_SUBST(DFT_UPR_MODEL)
+LD="ld"							AC_SUBST(LD)
+LDFLAGS_SHARED=""				AC_SUBST(LDFLAGS_SHARED)
+LDFLAGS_STATIC=""				AC_SUBST(LDFLAGS_STATIC)
+LD_MODEL=""						AC_SUBST(LD_MODEL)
+LD_SHARED_OPTS=""				AC_SUBST(LD_SHARED_OPTS)
+LIBTOOL=""						AC_SUBST(LIBTOOL)
+LIBTOOL_OPTS=""					AC_SUBST(LIBTOOL_OPTS)
+LIB_CLEAN=""					AC_SUBST(LIB_CLEAN)
+LIB_COMPILE=""					AC_SUBST(LIB_COMPILE)
+LIB_LINK='${CC}'				AC_SUBST(LIB_LINK)
+LINK_TESTS=""					AC_SUBST(LINK_TESTS)
+LOCAL_LDFLAGS=""				AC_SUBST(LOCAL_LDFLAGS)
+PACKAGE="ncurses-examples"		AC_SUBST(PACKAGE)
+PTHREAD="-lm"					AC_SUBST(PTHREAD)
+TEST_ARGS=""					AC_SUBST(TEST_ARGS)
+TEST_DEPS=""					AC_SUBST(TEST_DEPS)
+TEST_LIBS=""					AC_SUBST(TEST_LIBS)
+TINFO_LDFLAGS=''				AC_SUBST(TINFO_LDFLAGS)
+TINFO_LIBS='$(LIBS_CURSES)'		AC_SUBST(TINFO_LIBS)
+cf_cv_abi_version=""			AC_SUBST(cf_cv_abi_version)
+cf_cv_rel_version=""			AC_SUBST(cf_cv_rel_version)
+includesubdir=""				AC_SUBST(includesubdir)
+
+cf_cv_screen=curses
+cf_cv_libtype=
+
+AC_EXEEXT
+AC_OBJEXT
+
+CF_GCC_ATTRIBUTES
+CF_ENABLE_STRING_HACKS
+CF_XOPEN_SOURCE(600)
+CF_SIG_ATOMIC_T
+
+# Work around breakage on OS X
+CF_SIGWINCH
+
+# Checks for CODESET support.
+AM_LANGINFO_CODESET
+
+dnl ---------------------------------------------------------------------------
+CF_PKG_CONFIG
+CF_DISABLE_ECHO
+
+dnl ---------------------------------------------------------------------------
+CF_HELP_MESSAGE(Curses Version-dependent Options:)
+CF_NCURSES_WRAP_PREFIX
+
+AC_MSG_CHECKING(if you want to check for wide-character functions)
+CF_ARG_DISABLE(widec,
+	[  --disable-widec         disable checks for wide-character functions],
+	cf_enable_widec=no,
+	cf_enable_widec=yes,
+	yes)
+AC_MSG_RESULT($cf_enable_widec)
+
+dnl ---------------------------------------------------------------------------
+CF_HELP_MESSAGE(Curses Version-dependent Options:)
+CF_WITH_NCURSES_ETC
+
+case $cf_cv_screen in
+(ncurses*)
+	cf_cv_libtype=`echo "$cf_cv_screen" | sed -e 's/^ncurses//'`
+	;;
+esac
+
+CF_WITH_X11_RGB
+
+dnl If we've not specified a library, assume we're using sysvr4 libraries
+dnl installed conventionally (e.g., SunOS 5.x - solaris).
+
+dnl Autoconf builds up the $LIBS in reverse order
+
+cf_curses_headers=
+
+case $cf_cv_screen in
+(pdcurses)
+	cf_default_panel=no
+	cf_default_form=no
+	cf_default_menu=no
+	cf_default_tinfo=no
+	;;
+(xcurses|bsdcurses)
+	cf_default_panel=no
+	cf_default_form=no
+	cf_default_menu=no
+	cf_default_tinfo=yes
+	;;
+(*)
+	cf_default_panel=yes
+	cf_default_form=yes
+	cf_default_menu=yes
+	cf_default_tinfo=yes
+	case $cf_cv_screen in
+	(ncurses*)
+		cf_curses_headers="nc_alloc.h nomacros.h term_entry.h"
+		;;
+	esac
+	;;
+esac
+
+CF_WITH_LIB_BASENAME(FORM_NAME,form)
+CF_WITH_LIB_BASENAME(MENU_NAME,menu)
+CF_WITH_LIB_BASENAME(PANEL_NAME,panel)
+
+AC_MSG_CHECKING(if you want to check for panel functions)
+CF_ARG_DISABLE(panel,
+	[  --disable-panel         disable checks for panel functions],
+	cf_enable_panel=no,
+	cf_enable_panel=$cf_default_panel,
+	yes)
+AC_MSG_RESULT($cf_enable_panel)
+if test $cf_enable_panel = yes
+then
+	CF_CHECK_CURSES_LIB($PANEL_NAME,$cf_cv_libtype,new_panel,0)
+	cf_curses_headers="$cf_curses_headers panel.h"
+fi
+
+AC_MSG_CHECKING(if you want to check for menu functions)
+CF_ARG_DISABLE(menu,
+	[  --disable-menu          disable checks for menu functions],
+	cf_enable_menu=no,
+	cf_enable_menu=$cf_default_menu,
+	yes)
+AC_MSG_RESULT($cf_enable_menu)
+if test $cf_enable_menu = yes
+then
+	case $cf_cv_screen in
+	(ncurses*)
+		;;
+	(curses*)
+		CF_NETBSD_MENU_H
+		;;
+	esac
+	CF_CHECK_CURSES_LIB($MENU_NAME,$cf_cv_libtype,menu_driver,[0,0])
+	cf_curses_headers="$cf_curses_headers menu.h"
+fi
+
+AC_MSG_CHECKING(if you want to check for form functions)
+CF_ARG_DISABLE(form,
+	[  --disable-form          disable checks for form functions],
+	cf_enable_form=no,
+	cf_enable_form=$cf_default_form,
+	yes)
+AC_MSG_RESULT($cf_enable_form)
+if test $cf_enable_form = yes
+then
+	case $cf_cv_screen in
+	(ncurses*)
+		;;
+	(curses*)
+		CF_NETBSD_FORM_H
+		;;
+	esac
+	CF_CHECK_CURSES_LIB($FORM_NAME,$cf_cv_libtype,form_driver,[0,0])
+	cf_curses_headers="$cf_curses_headers form.h"
+fi
+
+# look for curses-related headers
+AC_CHECK_HEADERS( $cf_curses_headers )
+
+AC_STDC_HEADERS
+AC_HEADER_TIME
+AC_CHECK_HEADERS( \
+getopt.h \
+locale.h \
+math.h \
+stdarg.h \
+stdint.h \
+sys/ioctl.h \
+sys/select.h \
+sys/time.h \
+termios.h \
+unistd.h \
+)
+
+CF_GETOPT_HEADER
+
+AC_CHECK_FUNCS( \
+getopt \
+gettimeofday \
+snprintf \
+strdup \
+strstr \
+tsearch \
+)
+
+# use a compile-check to work with ncurses*-config and subdirectory includes
+AC_CACHE_CHECK(if we can use termcap.h,cf_cv_have_termcap_h,[
+	AC_TRY_COMPILE([
+#include <curses.h>
+#ifdef NCURSES_VERSION
+#undef NCURSES_VERSION
+#endif
+#include <termcap.h>
+#ifndef NCURSES_VERSION
+#error wrong header
+#endif
+],
+	[return 0;],
+	[cf_cv_have_termcap_h=yes],
+	[cf_cv_have_termcap_h=no])])
+if test "x$cf_cv_have_termcap_h" = xyes
+then
+	AC_DEFINE(HAVE_TERMCAP_H,1,[Define to 1 if we can use termcap.h])
+else
+AC_CACHE_CHECK(if we can use ncurses/termcap.h,cf_cv_have_ncurses_termcap_h,[
+	AC_TRY_COMPILE([
+#include <ncurses/curses.h>
+#ifdef NCURSES_VERSION
+#undef NCURSES_VERSION
+#endif
+#include <ncurses/termcap.h>
+#ifndef NCURSES_VERSION
+#error wrong header
+#endif
+],
+	[return 0;],
+	[cf_cv_have_ncurses_termcap_h=yes],
+	[cf_cv_have_ncurses_termcap_h=no])])
+test "x$cf_cv_have_ncurses_termcap_h" = xyes && AC_DEFINE(HAVE_NCURSES_TERMCAP_H,1,[Define to 1 if we can use ncurses/termcap.h])
+fi
+
+if test "x$ac_cv_func_getopt" = xno; then
+	AC_MSG_ERROR(getopt is required for building programs)
+fi
+
+if test "$cf_enable_widec" = yes; then
+AC_CHECK_FUNCS( \
+mblen \
+mbrlen \
+mbrtowc \
+mbsrtowcs \
+mbstowcs \
+mbtowc \
+wcsrtombs \
+wcstombs \
+)
+fi
+
+CF_CURSES_FUNCS( \
+alloc_pair \
+assume_default_colors \
+chgat \
+color_content \
+color_set \
+copywin \
+delscreen \
+dupwin \
+exit_curses \
+exit_terminfo \
+filter \
+getbegx \
+getcurx \
+getmaxx \
+getnstr \
+getparx \
+getwin \
+halfdelay \
+init_extended_color \
+mvderwin \
+mvvline \
+mvwin \
+mvwvline \
+napms \
+newpad \
+putwin \
+reset_color_pairs \
+resize_term \
+resizeterm \
+restartterm \
+ripoffline \
+scr_dump \
+setupterm \
+slk_color \
+slk_init \
+termattrs \
+termname \
+tgetent \
+tigetnum \
+tigetstr \
+tputs_sp \
+typeahead \
+use_default_colors \
+use_env \
+use_extended_names \
+use_screen \
+use_window \
+vid_puts \
+vidputs \
+vsscanf \
+vw_printw \
+wchgat \
+winsdelln \
+winsstr \
+wresize \
+wsyncdown \
+_tracef \
+)
+
+CF_TPUTS_PROTO
+CF_NCURSES_EXT_FUNCS
+
+if test "$cf_enable_widec" = yes
+then
+	# workaround for systems with ncurses before 20111029, due to change of
+	# feature test macro from _XPG5 to _XOPEN_SOURCE
+	if test -n "$cf_cv_ncurses_version" && test "x$cf_cv_ncurses_version" != xno
+	then
+		cf_define_xpg5=no
+		AC_MSG_CHECKING(if _XPG5 should be defined to enable wide-characters)
+
+		AC_TRY_COMPILE([
+#include <${cf_cv_ncurses_header:-curses.h}>],
+			[int x = _XPG5],,
+			[cf_save_cppflags="$CPPFLAGS"
+			 CPPFLAGS="$CPPFLAGS -D_XPG5"
+			 AC_TRY_COMPILE([
+#include <${cf_cv_ncurses_header:-curses.h}>],
+				[int x = _XPG5],
+				[cf_define_xpg5=yes])
+			 CPPFLAGS="$cf_save_cppflags"])
+		AC_MSG_RESULT($cf_define_xpg5)
+
+		if test "$cf_define_xpg5" = yes
+		then
+			CPPFLAGS="$CPPFLAGS -D_XPG5"
+		fi
+	fi
+
+	AC_CACHE_CHECK(for wide-character functions,cf_cv_widechar_funcs,[
+	AC_TRY_LINK([
+#include <${cf_cv_ncurses_header:-curses.h}>],
+	[
+		static wchar_t src_wchar[2];
+		static cchar_t dst_cchar;
+		setcchar(&dst_cchar, src_wchar, A_NORMAL, 0, (void *) 0);
+		],
+		[cf_cv_widechar_funcs=yes],
+		[cf_cv_widechar_funcs=no])
+	])
+	if test "$cf_cv_widechar_funcs" != no ; then
+		AC_DEFINE(USE_WIDEC_SUPPORT,1,[Define to 1 to enable wide-character support in (n)curses])
+	else
+		AC_DEFINE(USE_WIDEC_SUPPORT,0)
+	fi
+else
+	AC_DEFINE(USE_WIDEC_SUPPORT,0)
+fi
+
+AC_CACHE_CHECK(if $cf_cv_screen library uses pthreads,cf_cv_use_pthreads,[
+AC_TRY_LINK([
+#include <${cf_cv_ncurses_header:-curses.h}>
+extern void _nc_init_pthreads(void);
+],
+[
+	initscr();
+	_nc_init_pthreads();
+	],
+	[cf_cv_use_pthreads=yes],
+	[cf_cv_use_pthreads=no])
+])
+test $cf_cv_use_pthreads = yes && AC_DEFINE(USE_PTHREADS,1,[Define to 1 if $cf_cv_screen library uses pthreads])
+
+CF_SYS_TIME_SELECT
+
+# special check for test/ditto.c
+CF_FUNC_OPENPTY
+if test "$cf_cv_func_openpty" != no ; then
+	AC_DEFINE_UNQUOTED(USE_OPENPTY_HEADER,<$cf_cv_func_openpty>,[Define to actual header for openpty function])
+	AC_DEFINE(USE_XTERM_PTY,1,[Define to 1 if we should assume xterm pseudoterminal interface])
+	if test "x$cf_cv_lib_util" = xyes ; then
+		CF_ADD_LIB(util,TEST_LIBS)
+	fi
+fi
+
+CF_FUNC_CURSES_VERSION
+
+CF_CURSES_ACS_MAP
+if test "$cf_enable_widec" = yes; then
+	CF_CURSES_WACS_MAP
+	CF_CURSES_WACS_SYMBOLS
+fi
+
+CF_CURSES_CHECK_TYPE(attr_t,long)
+
+if test "$cf_enable_widec" = yes; then
+	CF_WCHAR_TYPE(mbstate_t, NCURSES_MBSTATE_T, NCURSES_OK_MBSTATE_T)
+	CF_WCHAR_TYPE(wchar_t,   NCURSES_WCHAR_T,   NCURSES_OK_WCHAR_T)
+	CF_WCHAR_TYPE(wint_t,    NCURSES_WINT_T,    NCURSES_OK_WINT_T)
+
+	if test "$NCURSES_OK_MBSTATE_T" = 0 ; then
+		CF_CURSES_CHECK_TYPE(mbstate_t,long)
+	fi
+
+	if test "$NCURSES_OK_WCHAR_T" = 0 ; then
+		CF_CURSES_CHECK_TYPE(wchar_t,long)
+	fi
+
+	if test "$NCURSES_OK_WINT_T" = 0 ; then
+		CF_CURSES_CHECK_TYPE(wint_t,long)
+	fi
+fi
+
+CF_CURSES_CHECK_DATA(\
+TABSIZE \
+curscr \
+ospeed \
+boolnames \
+boolfnames \
+ttytype)
+
+dnl ---------------------------------------------------------------------------
+CF_HELP_MESSAGE(Testing/development Options:)
+CF_WITH_SCREEN_PDCURSES
+CF_ENABLE_WARNINGS(Wno-unknown-pragmas)
+CF_DISABLE_LEAKS
+CF_DISABLE_RPATH_HACK
+
+TEST_ARGS="$LIBS"
+LIBS=
+
+dnl ---------------------------------------------------------------------------
+
+AC_OUTPUT(Makefile,[
+CF_PRG_RULES([$srcdir/mk-test.awk INSTALL=yes ECHO_LINK="$ECHO_LD"], .)
+	cat >>Makefile <<TEST_EOF
+
+# These rules are generated so we do not rely on suffix rules, which do not
+# work consistently for different make-programs (the '\$(MODEL)/' confuses
+# some, and the '\$x' confuses others).
+TEST_EOF
+
+LIST=`sed -e 's/[[ 	]].*//' -e '/^[[#@]]/d' $srcdir/modules`
+for N in $LIST
+do
+	cat >>Makefile <<TEST_EOF
+
+\$(MODEL)/$N.o : \$(srcdir)/$N.c \\
+	\$(srcdir)/test.priv.h \\
+	ncurses_cfg.h
+	$SHOW_CC
+	$ECHO_CC\$(CC) -c \$(CFLAGS_DEFAULT) -DMODULE_NAME="$N" \$(srcdir)/$N.c
+TEST_EOF
+done
+
+if test -f ../config.guess && test -f ../config.sub
+then
+	cat >>Makefile <<TEST_EOF
+
+# if we used CF_INHERIT for getting these files, we can remove them
+distclean::
+	rm -f config.guess config.sub
+TEST_EOF
+fi
+],[
+AWK="$AWK"
+ECHO_CC="$ECHO_CC"
+ECHO_LD="$ECHO_LD"
+SHOW_CC="$SHOW_LD"
+],cat)

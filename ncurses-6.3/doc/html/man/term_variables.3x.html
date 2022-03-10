@@ -1,0 +1,200 @@
+<!--
+  ****************************************************************************
+  * Copyright 2019,2020 Thomas E. Dickey                                     *
+  * Copyright 2010-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: term_variables.3x,v 1.12 2020/02/02 23:34:34 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>term_variables 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">term_variables 3x</H1>
+<PRE>
+<STRONG><A HREF="term_variables.3x.html">term_variables(3x)</A></STRONG>                                          <STRONG><A HREF="term_variables.3x.html">term_variables(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>SP</STRONG>, <STRONG>acs_map</STRONG>, <STRONG>boolcodes</STRONG>, <STRONG>boolfnames</STRONG>, <STRONG>boolnames</STRONG>, <STRONG>cur_term</STRONG>, <STRONG>numcodes</STRONG>,
+       <STRONG>numfnames</STRONG>, <STRONG>numnames</STRONG>, <STRONG>strcodes</STRONG>, <STRONG>strfnames</STRONG>, <STRONG>strnames</STRONG>, <STRONG>ttytype</STRONG> - <STRONG>curses</STRONG>
+       terminfo global variables
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+       <STRONG>#include</STRONG> <STRONG>&lt;term.h&gt;</STRONG>
+
+       <STRONG>chtype</STRONG> <STRONG>acs_map[];</STRONG>
+
+       <STRONG>SCREEN</STRONG> <STRONG>*</STRONG> <STRONG>SP;</STRONG>
+
+       <STRONG>TERMINAL</STRONG> <STRONG>*</STRONG> <STRONG>cur_term;</STRONG>
+
+       <STRONG>char</STRONG> <STRONG>ttytype[];</STRONG>
+
+       <STRONG>NCURSES_CONST</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>const</STRONG> <STRONG>boolcodes[];</STRONG>
+       <STRONG>NCURSES_CONST</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>const</STRONG> <STRONG>boolfnames[];</STRONG>
+       <STRONG>NCURSES_CONST</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>const</STRONG> <STRONG>boolnames[];</STRONG>
+
+       <STRONG>NCURSES_CONST</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>const</STRONG> <STRONG>numcodes[];</STRONG>
+       <STRONG>NCURSES_CONST</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>const</STRONG> <STRONG>numfnames[];</STRONG>
+       <STRONG>NCURSES_CONST</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>const</STRONG> <STRONG>numnames[];</STRONG>
+
+       <STRONG>NCURSES_CONST</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>const</STRONG> <STRONG>strcodes[];</STRONG>
+       <STRONG>NCURSES_CONST</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>const</STRONG> <STRONG>strfnames[];</STRONG>
+       <STRONG>NCURSES_CONST</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>const</STRONG> <STRONG>strnames[];</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       This  page  summarizes  variables provided by the <STRONG>curses</STRONG> library's low-
+       level terminfo interface.  A more complete description is given in  the
+       <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG> manual page.
+
+       Depending  on  the  configuration,  these  may  be actual variables, or
+       macros (see <STRONG><A HREF="curs_threads.3x.html">curs_threads(3x)</A></STRONG>) which provide read-only access  to  <EM>curs-</EM>
+       <EM>es</EM>'s state.  In either case, applications should treat them as read-on-
+       ly to avoid confusing the library.
+
+
+</PRE><H3><a name="h3-Alternate-Character-Set-Mapping">Alternate Character Set Mapping</a></H3><PRE>
+       After initializing the curses or terminfo interfaces, the <STRONG>acs_map</STRONG> array
+       holds  information  used to translate cells with the <STRONG>A_ALTCHARSET</STRONG> video
+       attribute into line-drawing characters.
+
+       The encoding of the information in this array has changed periodically.
+       Application  developers  need  only know that it is used for the "ACS_"
+       constants in &lt;curses.h&gt;.
+
+       The comparable data for the wide-character library is a  private  vari-
+       able.
+
+
+</PRE><H3><a name="h3-Current-Terminal-Data">Current Terminal Data</a></H3><PRE>
+       After initializing the curses or terminfo interfaces, the <STRONG>cur_term</STRONG> con-
+       tains data describing the current terminal.  This variable is also  set
+       as a side-effect of <STRONG><A HREF="curs_initscr.3x.html">set_term(3x)</A></STRONG> and <STRONG><A HREF="curs_initscr.3x.html">delscreen(3x)</A></STRONG>.
+
+       It  is possible to save a value of <STRONG>cur_term</STRONG> for subsequent use as a pa-
+       rameter to <STRONG>set_term</STRONG>, for switching between screens.  Alternatively, one
+       can  save  the  return  value from <STRONG>newterm</STRONG> or <STRONG><A HREF="curs_terminfo.3x.html">setupterm(3x)</A></STRONG> to reuse in
+       <STRONG>set_term</STRONG>.
+
+
+</PRE><H3><a name="h3-Terminfo-Names">Terminfo Names</a></H3><PRE>
+       The <STRONG><A HREF="tic.1m.html">tic(1)</A></STRONG> and <STRONG><A HREF="infocmp.1m.html">infocmp(1)</A></STRONG> programs use lookup tables for the  long  and
+       short  names  of  terminfo  capabilities,  as well as the corresponding
+       names for termcap capabilities.  These are available to other  applica-
+       tions,  although the hash-tables used by the terminfo and termcap func-
+       tions are not available.
+
+       The long terminfo capability names use a  "l"  (ell)  in  their  names:
+       <STRONG>boolfnames</STRONG>, <STRONG>numfnames</STRONG>, and <STRONG>strfnames</STRONG>.
+
+       These  are  the  short names for terminfo capabilities: <STRONG>boolnames</STRONG>, <STRONG>num-</STRONG>
+       <STRONG>names</STRONG>, and <STRONG>strnames</STRONG>.
+
+       These are the corresponding names used for termcap descriptions:  <STRONG>bool-</STRONG>
+       <STRONG>codes</STRONG>, <STRONG>numcodes</STRONG>, and <STRONG>strcodes</STRONG>.
+
+
+</PRE><H3><a name="h3-Terminal-Type">Terminal Type</a></H3><PRE>
+       A terminal description begins with one or more terminal names separated
+       by "|" (vertical bars).  On initialization of the  curses  or  terminfo
+       interfaces,  <STRONG><A HREF="curs_terminfo.3x.html">setupterm(3x)</A></STRONG>  copies the terminal names to the array <STRONG>tty-</STRONG>
+       <STRONG>type</STRONG>.
+
+
+</PRE><H3><a name="h3-Terminfo-Names">Terminfo Names</a></H3><PRE>
+       In addition to the variables, <STRONG>&lt;term.h&gt;</STRONG> also defines a symbol  for  each
+       terminfo  capability  <EM>long</EM> <EM>name</EM>.  These are in terms of the symbol <STRONG>CUR</STRONG>,
+       which is defined
+
+       #define CUR ((TERMTYPE *)(cur_term))-&gt;
+
+       These symbols provide a faster method of accessing  terminfo  capabili-
+       ties than using <STRONG><A HREF="curs_terminfo.3x.html">tigetstr(3x)</A></STRONG>, etc.
+
+       The  actual definition of <STRONG>CUR</STRONG> depends upon the implementation, but each
+       terminfo library provides these long names defined to  point  into  the
+       current terminal description loaded into memory.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The  low-level  terminfo  interface is initialized using <STRONG><A HREF="curs_terminfo.3x.html">setupterm(3x)</A></STRONG>.
+       The upper-level curses interface uses the low-level terminfo interface,
+       internally.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       X/Open Curses does not describe any of these except for <STRONG>cur_term</STRONG>.  (The
+       inclusion of <STRONG>cur_term</STRONG> appears to be an oversight, since other  compara-
+       ble low-level information is omitted by X/Open).
+
+       Other  implementations may have comparable variables.  Some implementa-
+       tions provide the variables in their libraries, but omit them from  the
+       header files.
+
+       All  implementations  which provide terminfo interfaces add definitions
+       as described in the <STRONG>Terminfo</STRONG> <STRONG>Names</STRONG> section.  Most, but  not  all,  base
+       the definition upon the <STRONG>cur_term</STRONG> variable.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>, <STRONG><A HREF="curs_threads.3x.html">curs_threads(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+
+
+
+                                                            <STRONG><A HREF="term_variables.3x.html">term_variables(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-Alternate-Character-Set-Mapping">Alternate Character Set Mapping</a></li>
+<li><a href="#h3-Current-Terminal-Data">Current Terminal Data</a></li>
+<li><a href="#h3-Terminfo-Names">Terminfo Names</a></li>
+<li><a href="#h3-Terminal-Type">Terminal Type</a></li>
+<li><a href="#h3-Terminfo-Names">Terminfo Names</a></li>
+</ul>
+</li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

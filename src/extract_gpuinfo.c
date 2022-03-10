@@ -30,7 +30,6 @@
 #include "nvtop/extract_gpuinfo_nvidia.h"
 #include "nvtop/get_process_info.h"
 #include "nvtop/time.h"
-#include "uthash.h"
 
 #define HASH_FIND_PID(head, key_ptr, out_ptr)                                  \
   HASH_FIND(hh, head, key_ptr, sizeof(*key_ptr), out_ptr)
@@ -219,7 +218,7 @@ static void gpuinfo_populate_process_infos(unsigned device_count,
   updated_process_info = NULL;
 }
 
-bool gpuinfo_refresh_processes(unsigned device_count, gpu_info *devices) {
+bool gpuinfo_refresh_processes(unsigned device_count, user *users, gpu_info *devices) {
   for (unsigned i = 0; i < device_count; ++i) {
     switch (devices[i].gpu_type) {
     case gpuinfo_type_nvidia_proprietary: {
@@ -227,7 +226,7 @@ bool gpuinfo_refresh_processes(unsigned device_count, gpu_info *devices) {
       gpu_process *processes = NULL;
       gpuinfo_nvidia_get_running_processes(devices[i].nvidia_gpuhandle,
                                            &devices[i].nvidia_internal,
-                                           &processes_count, &processes);
+                                           &processes_count, &processes, users);
       free(devices[i].processes);
       devices[i].processes = processes;
       devices[i].processes_count = processes_count;

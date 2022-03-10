@@ -1,0 +1,56 @@
+-------------------------------------------------------------------------------
+-- Copyright 2020,2021 Thomas E. Dickey                                      --
+-- Copyright 1998-1999,2006 Free Software Foundation, Inc.                   --
+--                                                                           --
+-- Permission is hereby granted, free of charge, to any person obtaining a   --
+-- copy of this software and associated documentation files (the             --
+-- "Software"), to deal in the Software without restriction, including       --
+-- without limitation the rights to use, copy, modify, merge, publish,       --
+-- distribute, distribute with modifications, sublicense, and/or sell copies --
+-- of the Software, and to permit persons to whom the Software is furnished  --
+-- to do so, subject to the following conditions:                            --
+--                                                                           --
+-- The above copyright notice and this permission notice shall be included   --
+-- in all copies or substantial portions of the Software.                    --
+--                                                                           --
+-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS   --
+-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF                --
+-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN --
+-- NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,       --
+-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR     --
+-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE --
+-- USE OR OTHER DEALINGS IN THE SOFTWARE.                                    --
+--                                                                           --
+-- Except as contained in this notice, the name(s) of the above copyright    --
+-- holders shall not be used in advertising or otherwise to promote the      --
+-- sale, use or other dealings in this Software without prior written        --
+-- authorization.                                                            --
+-------------------------------------------------------------------------------
+-- $Id: TODO,v 1.8 2021/09/01 23:22:33 tom Exp $
+-------------------------------------------------------------------------------
+
+--  Intensive testing
+    Perhaps the delivery of the Beta will help a bit.
+
+--  Documentation
+    Like most WEB pages: under continuous construction
+
+--  Style cleanup
+
+--  Alternate functions for procedures with out params
+    Comfort purpose
+
+--  Sample program
+    Under continuous construction (and it is not a WEB page!!!)
+
+--  Make the binding objects a shared library
+    They are rather large, so it would make sense, otherwise Ada95
+    would look too large, although the generated code is as compact
+    as C or C++. I'll wait a bit until the GNAT people provide some
+    better support to construct shared libraries.
+
+--  Think about more inlining
+
+--  Check for memory leaks.
+    Oh I would like it so much if the GNAT guys would put an optional
+    GC into their system.

@@ -54,7 +54,7 @@ bool gpuinfo_populate_static_infos(unsigned device_count, gpu_info *devices);
 
 bool gpuinfo_refresh_dynamic_info(unsigned device_count, gpu_info *devices);
 
-bool gpuinfo_refresh_processes(unsigned device_count, gpu_info *devices);
+bool gpuinfo_refresh_processes(unsigned device_count, user *users, gpu_info *devices);
 
 void gpuinfo_clean(unsigned device_count, gpu_info *devices);
 

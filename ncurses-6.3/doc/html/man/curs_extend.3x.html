@@ -1,0 +1,127 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 1999-2010,2016 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * Author: Thomas E. Dickey 1999-on
+  * @Id: curs_extend.3x,v 1.26 2021/03/13 13:43:05 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_extend 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_extend 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_extend.3x.html">curs_extend(3x)</A></STRONG>                                                <STRONG><A HREF="curs_extend.3x.html">curs_extend(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>curses_version</STRONG>, <STRONG>use_extended_names</STRONG> - miscellaneous curses extensions
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG> <STRONG>curses_version(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>use_extended_names(bool</STRONG> <EM>enable</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       These  functions  are extensions to the curses library which do not fit
+       easily into other categories.
+
+
+</PRE><H3><a name="h3-curses_version">curses_version</a></H3><PRE>
+       Use <STRONG>curses_version</STRONG> to get the version number, including patch level  of
+       the library, prefixed by "ncurses", e.g.,
+
+              <STRONG>ncurses</STRONG> <STRONG>5.0.19991023</STRONG>
+
+
+</PRE><H3><a name="h3-use_extended_names">use_extended_names</a></H3><PRE>
+       The   <STRONG>use_extended_names</STRONG>   function   controls   whether   the  calling
+       application is able to use user-defined or nonstandard names which  may
+       be  compiled  into  the terminfo description, i.e., via the terminfo or
+       termcap interfaces.  Normally these names are available for use,  since
+       the essential decision is made by using the <STRONG>-x</STRONG> option of <STRONG>tic</STRONG> to compile
+       extended terminal definitions.  However you can disable this feature to
+       ensure compatibility with other implementations of curses.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       <STRONG>curses_version</STRONG>  returns a pointer to static memory; you should not free
+       this in your application.
+
+       <STRONG>use_extended_names</STRONG> returns the previous state,  allowing  you  to  save
+       this and restore it.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These  routines  are  specific  to ncurses.  They were not supported on
+       Version 7, BSD or System V implementations.  It is recommended that any
+       code depending on them be conditioned using NCURSES_VERSION.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>,    <STRONG><A HREF="curs_mouse.3x.html">curs_mouse(3x)</A></STRONG>,    <STRONG><A HREF="curs_print.3x.html">curs_print(3x)</A></STRONG>,    <STRONG><A HREF="curs_util.3x.html">curs_util(3x)</A></STRONG>,
+       <STRONG><A HREF="default_colors.3x.html">default_colors(3x)</A></STRONG>,    <STRONG><A HREF="define_key.3x.html">define_key(3x)</A></STRONG>,     <STRONG><A HREF="keybound.3x.html">keybound(3x)</A></STRONG>,     <STRONG><A HREF="keyok.3x.html">keyok(3x)</A></STRONG>,
+       <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>, <STRONG><A HREF="wresize.3x.html">wresize(3x)</A></STRONG>.
+
+
+</PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+       Thomas Dickey.
+
+
+
+                                                               <STRONG><A HREF="curs_extend.3x.html">curs_extend(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-curses_version">curses_version</a></li>
+<li><a href="#h3-use_extended_names">use_extended_names</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-AUTHOR">AUTHOR</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

@@ -1,0 +1,308 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 1998-2016,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_slk.3x,v 1.38 2021/06/17 21:26:02 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_slk 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_slk 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>                                                      <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>slk_init</STRONG>, <STRONG>slk_set</STRONG>, <STRONG>slk_wset</STRONG>, <STRONG>slk_refresh</STRONG>, <STRONG>slk_noutrefresh</STRONG>, <STRONG>slk_label</STRONG>,
+       <STRONG>slk_clear</STRONG>, <STRONG>slk_restore</STRONG>, <STRONG>slk_touch</STRONG>, <STRONG>slk_attron</STRONG>, <STRONG>slk_attrset</STRONG>,
+       <STRONG>slk_attroff</STRONG>, <STRONG>slk_attr_on</STRONG>, <STRONG>slk_attr_set</STRONG>, <STRONG>slk_attr_off</STRONG>, <STRONG>slk_attr</STRONG>,
+       <STRONG>slk_color</STRONG>, <STRONG>extended_slk_color</STRONG> - <STRONG>curses</STRONG> soft label routines
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>slk_init(int</STRONG> <EM>fmt</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>slk_set(int</STRONG> <EM>labnum</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>char</STRONG> <STRONG>*</STRONG><EM>label</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>fmt</EM><STRONG>);</STRONG>
+       /* extension */
+       <STRONG>int</STRONG> <STRONG>slk_wset(int</STRONG> <EM>labnum</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>label</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>fmt</EM><STRONG>);</STRONG>
+
+       <STRONG>char</STRONG> <STRONG>*slk_label(int</STRONG> <EM>labnum</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>slk_refresh(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>slk_noutrefresh(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>slk_clear(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>slk_restore(void);</STRONG>
+       <STRONG>int</STRONG> <STRONG>slk_touch(void);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>slk_attron(const</STRONG> <STRONG>chtype</STRONG> <EM>attrs</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>slk_attroff(const</STRONG> <STRONG>chtype</STRONG> <EM>attrs</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>slk_attrset(const</STRONG> <STRONG>chtype</STRONG> <EM>attrs</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>slk_attr_on(attr_t</STRONG> <EM>attrs</EM><STRONG>,</STRONG> <STRONG>void*</STRONG> <EM>opts</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>slk_attr_off(const</STRONG> <STRONG>attr_t</STRONG> <EM>attrs</EM><STRONG>,</STRONG> <STRONG>void</STRONG> <STRONG>*</STRONG> <EM>opts</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>slk_attr_set(const</STRONG> <STRONG>attr_t</STRONG> <EM>attrs</EM><STRONG>,</STRONG> <STRONG>short</STRONG> <EM>pair</EM><STRONG>,</STRONG> <STRONG>void*</STRONG> <EM>opts</EM><STRONG>);</STRONG>
+
+       <STRONG>attr_t</STRONG> <STRONG>slk_attr(void);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>slk_color(short</STRONG> <EM>pair</EM><STRONG>);</STRONG>
+       /* extension */
+       <STRONG>int</STRONG> <STRONG>extended_slk_color(int</STRONG> <EM>pair</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The slk* functions manipulate the set of soft function-key labels  that
+       exist on many terminals.  For those terminals that do not have soft la-
+       bels, <STRONG>curses</STRONG> takes over the bottom line of <STRONG>stdscr</STRONG>, reducing the size of
+       <STRONG>stdscr</STRONG>  and the variable <STRONG>LINES</STRONG>.  <STRONG>curses</STRONG> standardizes on eight labels of
+       up to eight characters each.  In addition to this, the  ncurses  imple-
+       mentation  supports  a  mode where it simulates 12 labels of up to five
+       characters each.  This is useful for PC-like enduser devices.   ncurses
+       simulates this mode by taking over up to two lines at the bottom of the
+       screen; it does not try to use any hardware support for this mode.
+
+
+</PRE><H3><a name="h3-Initialization">Initialization</a></H3><PRE>
+       The <STRONG>slk_init</STRONG> routine must  be  called  before  <STRONG>initscr</STRONG>  or  <STRONG>newterm</STRONG>  is
+       called.   If  <STRONG>initscr</STRONG> eventually uses a line from <STRONG>stdscr</STRONG> to emulate the
+       soft labels, then <EM>fmt</EM> determines how the labels  are  arranged  on  the
+       screen:
+
+          <STRONG>0</STRONG>  indicates a 3-2-3 arrangement of the labels.
+
+          <STRONG>1</STRONG>  indicates a 4-4 arrangement
+
+          <STRONG>2</STRONG>  indicates the PC-like 4-4-4 mode.
+
+          <STRONG>3</STRONG>  is again the PC-like 4-4-4 mode, but in addition an index line is
+             generated, helping the user to identify the key numbers easily.
+
+
+</PRE><H3><a name="h3-Labels">Labels</a></H3><PRE>
+       The <STRONG>slk_set</STRONG> routine (and the <STRONG>slk_wset</STRONG> routine  for  the  wide-character
+       library) has three parameters:
+
+          <EM>labnum</EM>
+               is  the  label number, from <STRONG>1</STRONG> to <STRONG>8</STRONG> (12 for <EM>fmt</EM> in <STRONG>slk_init</STRONG> is <STRONG>2</STRONG>
+               or <STRONG>3</STRONG>);
+
+          <EM>label</EM>
+               is be the string to put on the label, up to eight (five for <EM>fmt</EM>
+               in  <STRONG>slk_init</STRONG> is <STRONG>2</STRONG> or <STRONG>3</STRONG>) characters in length.  A null string or
+               a null pointer sets up a blank label.
+
+          <EM>fmt</EM>  is either <STRONG>0</STRONG>, <STRONG>1</STRONG>, or <STRONG>2</STRONG>, indicating whether the  label  is  to  be
+               left-justified,  centered,  or  right-justified,  respectively,
+               within the label.
+
+       The <STRONG>slk_label</STRONG> routine returns the current label for label  number  <EM>lab-</EM>
+       <EM>num</EM>, with leading and trailing blanks stripped.
+
+
+</PRE><H3><a name="h3-Screen-updates">Screen updates</a></H3><PRE>
+       The <STRONG>slk_refresh</STRONG> and <STRONG>slk_noutrefresh</STRONG> routines correspond to the <STRONG>wrefresh</STRONG>
+       and <STRONG>wnoutrefresh</STRONG> routines.
+
+       The <STRONG>slk_clear</STRONG> routine clears the soft labels from the screen.
+
+       The <STRONG>slk_restore</STRONG> routine restores the soft labels to the screen after  a
+       <STRONG>slk_clear</STRONG> has been performed.
+
+       The  <STRONG>slk_touch</STRONG> routine forces all the soft labels to be output the next
+       time a <STRONG>slk_noutrefresh</STRONG> is performed.
+
+
+</PRE><H3><a name="h3-Video-attributes">Video attributes</a></H3><PRE>
+       The <STRONG>slk_attron</STRONG>, <STRONG>slk_attrset</STRONG>, <STRONG>slk_attroff</STRONG> and <STRONG>slk_attr</STRONG>  routines  corre-
+       spond  to  <STRONG>attron</STRONG>,  <STRONG>attrset</STRONG>,  <STRONG>attroff</STRONG> and <STRONG>attr_get</STRONG>, respectively.  They
+       have an effect only if soft labels are simulated on the bottom line  of
+       the  screen.   The default highlight for soft keys is A_STANDOUT (as in
+       System V curses, which does not document this fact).
+
+
+</PRE><H3><a name="h3-Colors">Colors</a></H3><PRE>
+       The <STRONG>slk_color</STRONG> routine corresponds to <STRONG>color_set</STRONG>.  It has an effect  only
+       if soft labels are simulated on the bottom line of the screen.
+
+       Because  <STRONG>slk_color</STRONG>  accepts  only <STRONG>short</STRONG> (signed 16-bit integer) values,
+       this implementation provides <STRONG>extended_slk_color</STRONG> which accepts an  inte-
+       ger value, e.g., 32-bits.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       These  routines return <STRONG>ERR</STRONG> upon failure and <STRONG>OK</STRONG> (SVr4 specifies only "an
+       integer value other than <STRONG>ERR</STRONG>") upon successful completion.
+
+       X/Open defines no error conditions.  In this implementation
+
+          <STRONG>slk_attr</STRONG>
+               returns the attribute used for the soft keys.
+
+          <STRONG>slk_attroff</STRONG>, <STRONG>slk_attron</STRONG>, <STRONG>slk_clear</STRONG>, <STRONG>slk_noutrefresh</STRONG>, <STRONG>slk_refresh</STRONG>,
+          <STRONG>slk_touch</STRONG>
+               return  an  error if the terminal or the softkeys were not ini-
+               tialized.
+
+          <STRONG>slk_attrset</STRONG>
+               returns an error if the terminal or the softkeys were not  ini-
+               tialized.
+
+          <STRONG>slk_attr_set</STRONG>
+               returns  an error if the terminal or the softkeys were not ini-
+               tialized, or the  color  pair  is  outside  the  range  0..COL-
+               OR_PAIRS-1.
+
+          <STRONG>slk_color</STRONG>
+               returns  an error if the terminal or the softkeys were not ini-
+               tialized, or the  color  pair  is  outside  the  range  0..COL-
+               OR_PAIRS-1.
+
+          <STRONG>slk_init</STRONG>
+               returns  an  error if the format parameter is outside the range
+               0..3.
+
+          <STRONG>slk_label</STRONG>
+               returns <STRONG>NULL</STRONG> on error.
+
+          <STRONG>slk_set</STRONG>
+               returns an error if the terminal or the softkeys were not  ini-
+               tialized, or the <EM>labnum</EM> parameter is outside the range of label
+               counts, or if the format parameter is outside the  range  0..2,
+               or if memory for the labels cannot be allocated.
+
+
+</PRE><H2><a name="h2-HISTORY">HISTORY</a></H2><PRE>
+       SVr3 introduced these functions:
+         slk_clear
+         slk_init
+         slk_label
+         slk_noutrefresh
+         slk_refresh
+         slk_restore
+         slk_set
+         slk_touch
+
+       SVr4 added these functions:
+         slk_attroff
+         slk_attron
+         slk_attrset
+         slk_start
+
+       X/Open Curses added these:
+         slk_attr_off
+         slk_attr_on
+         slk_attr_set
+         slk_color
+         slk_wset
+
+
+</PRE><H2><a name="h2-EXTENSIONS">EXTENSIONS</a></H2><PRE>
+       X/Open  Curses  documents the <EM>opts</EM> argument as reserved for future use,
+       saying that it must be null.  This implementation uses  that  parameter
+       in ABI 6 for the functions which have a color-pair parameter to support
+       extended color pairs.
+
+       For  functions  which modify the color, e.g., <STRONG>slk_attr_set</STRONG>, if <EM>opts</EM>  is
+       set  it  is  treated  as a pointer to <STRONG>int</STRONG>, and used to  set  the  color
+       pair instead of the <STRONG>short</STRONG> pair parameter.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Most applications would use <STRONG>slk_noutrefresh</STRONG> because a <STRONG>wrefresh</STRONG> is like-
+       ly to follow soon.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       The  XSI  Curses  standard,  Issue 4, described the soft-key functions,
+       with some differences from SVr4 curses:
+
+       <STRONG>o</STRONG>   It added functions like the SVr4  attribute-manipulation  functions
+           <STRONG>slk_attron</STRONG>,  <STRONG>slk_attroff</STRONG>, <STRONG>slk_attrset</STRONG>, but which use <STRONG>attr_t</STRONG> parame-
+           ters (rather than <STRONG>chtype</STRONG>), along with a reserved <EM>opts</EM> parameter.
+
+           Two of these new functions (unlike the SVr4 functions) have no pro-
+           vision for color: <STRONG>slk_attr_on</STRONG> and <STRONG>slk_attr_off</STRONG>.
+
+           The third function (<STRONG>slk_attr_set</STRONG>) has a color-pair parameter.
+
+       <STRONG>o</STRONG>   It added <STRONG>const</STRONG> qualifiers to parameters (unnecessarily), and
+
+       <STRONG>o</STRONG>   It added <STRONG>slk_color</STRONG>.
+
+       The  format  codes  <STRONG>2</STRONG>  and <STRONG>3</STRONG> for <STRONG>slk_init</STRONG> and the function <STRONG>slk_attr</STRONG> are
+       specific to ncurses.
+
+       X/Open Curses does not specify a limit for the  number  of  colors  and
+       color pairs which a terminal can support.  However, in its use of <STRONG>short</STRONG>
+       for the parameters, it carries over SVr4's  implementation  detail  for
+       the compiled terminfo database, which uses signed 16-bit numbers.  This
+       implementation provides extended versions of those functions which  use
+       <STRONG>short</STRONG>  parameters, allowing applications to use larger color- and pair-
+       numbers.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,    <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>,    <STRONG><A HREF="curs_initscr.3x.html">curs_initscr(3x)</A></STRONG>,    <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>,
+       <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>.
+
+
+
+                                                                  <STRONG><A HREF="curs_slk.3x.html">curs_slk(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-Initialization">Initialization</a></li>
+<li><a href="#h3-Labels">Labels</a></li>
+<li><a href="#h3-Screen-updates">Screen updates</a></li>
+<li><a href="#h3-Video-attributes">Video attributes</a></li>
+<li><a href="#h3-Colors">Colors</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-HISTORY">HISTORY</a></li>
+<li><a href="#h2-EXTENSIONS">EXTENSIONS</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

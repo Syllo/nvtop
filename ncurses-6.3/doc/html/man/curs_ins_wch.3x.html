@@ -1,0 +1,102 @@
+<!--
+  ****************************************************************************
+  * Copyright 2019,2020 Thomas E. Dickey                                     *
+  * Copyright 2002-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_ins_wch.3x,v 1.10 2020/10/18 00:22:21 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_ins_wch 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_ins_wch 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>                                              <STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>ins_wch</STRONG>,  <STRONG>mvins_wch</STRONG>,  <STRONG>mvwins_wch</STRONG>, <STRONG>wins_wch</STRONG> - insert a complex character
+       and rendition into a window
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       #include &lt;curses.h&gt;
+
+       <STRONG>int</STRONG> <STRONG>ins_wch(const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wins_wch(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>mvins_wch(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwins_wch(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       These routines, insert the complex character <EM>wch</EM> with rendition  before
+       the  character  under  the  cursor.  All characters to the right of the
+       cursor are moved one space to the right, with the  possibility  of  the
+       rightmost  character  on  the line being lost.  The insertion operation
+       does not change the cursor position.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       If successful, these functions return <STRONG>OK</STRONG>.  If not, they return <STRONG>ERR</STRONG>.
+
+       Functions with a "mv" prefix first  perform  a  cursor  movement  using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+
+</PRE><H2><a name="h2-ERRORS">ERRORS</a></H2><PRE>
+       No errors are defined.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_insch.3x.html">curs_insch(3x)</A></STRONG>.
+
+
+
+                                                              <STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-ERRORS">ERRORS</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

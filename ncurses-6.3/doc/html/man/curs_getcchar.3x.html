@@ -1,0 +1,219 @@
+<!--
+  ****************************************************************************
+  * Copyright 2019-2020,2021 Thomas E. Dickey                                *
+  * Copyright 2001-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_getcchar.3x,v 1.25 2021/06/17 21:26:02 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_getcchar 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_getcchar 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_getcchar.3x.html">curs_getcchar(3x)</A></STRONG>                                            <STRONG><A HREF="curs_getcchar.3x.html">curs_getcchar(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>getcchar</STRONG>,  <STRONG>setcchar</STRONG>  - Get a wide character string and rendition from a
+       <STRONG>cchar_t</STRONG> or set a <STRONG>cchar_t</STRONG> from a wide-character string
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>getcchar(</STRONG>
+               <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wcval</EM><STRONG>,</STRONG>
+               <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>,</STRONG>
+               <STRONG>attr_t</STRONG> <STRONG>*</STRONG><EM>attrs</EM><STRONG>,</STRONG>
+               <STRONG>short</STRONG> <STRONG>*</STRONG><EM>color</EM><STRONG>_</STRONG><EM>pair</EM><STRONG>,</STRONG>
+               <STRONG>void</STRONG> <STRONG>*</STRONG><EM>opts</EM> <STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>setcchar(</STRONG>
+               <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wcval</EM><STRONG>,</STRONG>
+               <STRONG>const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>,</STRONG>
+               <STRONG>const</STRONG> <STRONG>attr_t</STRONG> <EM>attrs</EM><STRONG>,</STRONG>
+               <STRONG>short</STRONG> <EM>color</EM><STRONG>_</STRONG><EM>pair</EM><STRONG>,</STRONG>
+               <STRONG>const</STRONG> <STRONG>void</STRONG> <STRONG>*</STRONG><EM>opts</EM> <STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+
+</PRE><H3><a name="h3-getcchar">getcchar</a></H3><PRE>
+       The <STRONG>getcchar</STRONG> function gets a wide-character string and rendition from a
+       <STRONG>cchar_t</STRONG>  argument.   When  <EM>wch</EM>  is  not  a  null  pointer, the <STRONG>getcchar</STRONG>
+       function does the following:
+
+       <STRONG>o</STRONG>   Extracts information from a <STRONG>cchar_t</STRONG> value <EM>wcval</EM>
+
+       <STRONG>o</STRONG>   Stores the character attributes in the location pointed to by <EM>attrs</EM>
+
+       <STRONG>o</STRONG>   Stores the color-pair in the location pointed to by <EM>color</EM><STRONG>_</STRONG><EM>pair</EM>
+
+       <STRONG>o</STRONG>   Stores the wide-character string, characters referenced  by  <EM>wcval</EM>,
+           into the array pointed to by <EM>wch</EM>.
+
+       When <EM>wch</EM> is a null pointer, the <STRONG>getcchar</STRONG> function does the following:
+
+       <STRONG>o</STRONG>   Obtains the number of wide characters pointed to by <EM>wcval</EM>
+
+       <STRONG>o</STRONG>   Does not change the data referenced by <EM>attrs</EM> or <EM>color</EM><STRONG>_</STRONG><EM>pair</EM>
+
+
+</PRE><H3><a name="h3-setcchar">setcchar</a></H3><PRE>
+       The  <STRONG>setcchar</STRONG>  function initializes the location pointed to by <EM>wcval</EM> by
+       using:
+
+       <STRONG>o</STRONG>   The character attributes in <EM>attrs</EM>
+
+       <STRONG>o</STRONG>   The color pair in <EM>color</EM><STRONG>_</STRONG><EM>pair</EM>
+
+       <STRONG>o</STRONG>   The wide-character string pointed to by <EM>wch</EM>.  The  string  must  be
+           L'\0' terminated, contain at most one spacing character, which must
+           be the first.
+
+           Up to <STRONG>CCHARW_MAX</STRONG>-1 nonspacing characters  may  follow.   Additional
+           nonspacing characters are ignored.
+
+           The string may contain a single control character instead.  In that
+           case, no nonspacing characters are allowed.
+
+
+</PRE><H2><a name="h2-EXTENSIONS">EXTENSIONS</a></H2><PRE>
+       X/Open Curses documents the <EM>opts</EM> argument as reserved for  future  use,
+       saying  that  it must be null.  This implementation uses that parameter
+       in ABI 6 for the functions which have a color-pair parameter to support
+       extended color pairs:
+
+       <STRONG>o</STRONG>   For   functions  which modify the color, e.g., <STRONG>setcchar</STRONG>, if <EM>opts</EM> is
+           set it is treated as a pointer to <STRONG>int</STRONG>, and used to  set  the  color
+           pair instead of the <STRONG>short</STRONG> pair parameter.
+
+       <STRONG>o</STRONG>   For  functions which retrieve the color, e.g., <STRONG>getcchar</STRONG>, if <EM>opts</EM> is
+           set it is treated as a pointer to <STRONG>int</STRONG>, and  used  to  retrieve  the
+           color  pair  as  an  <STRONG>int</STRONG>  value,  in addition retrieving it via the
+           standard pointer to <STRONG>short</STRONG> parameter.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The <EM>wcval</EM> argument may be a value generated by a call to <STRONG>setcchar</STRONG> or by
+       a function that has a <STRONG>cchar_t</STRONG> output argument.  If <EM>wcval</EM> is constructed
+       by any other means, the effect is unspecified.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       When <EM>wch</EM> is a  null  pointer,  <STRONG>getcchar</STRONG>  returns  the  number  of  wide
+       characters referenced by <EM>wcval</EM>, including one for a trailing null.
+
+       When  <EM>wch</EM>  is  not  a null pointer, <STRONG>getcchar</STRONG> returns <STRONG>OK</STRONG> upon successful
+       completion, and <STRONG>ERR</STRONG> otherwise.
+
+       Upon successful completion, <STRONG>setcchar</STRONG> returns <STRONG>OK</STRONG>.  Otherwise, it returns
+       <STRONG>ERR</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       The  <STRONG>CCHARW_MAX</STRONG>  symbol is specific to ncurses.  X/Open Curses does not
+       provide details for the layout of the <STRONG>cchar_t</STRONG> structure.  It tells what
+       data are stored in it:
+
+       <STRONG>o</STRONG>   a spacing character (<STRONG>wchar_t</STRONG>, i.e., 32-bits).
+
+       <STRONG>o</STRONG>   non-spacing characters (again, <STRONG>wchar_t</STRONG>'s).
+
+       <STRONG>o</STRONG>   attributes  (at  least  16 bits, inferred from the various ACS- and
+           WACS-flags).
+
+       <STRONG>o</STRONG>   color pair (at least 16 bits,  inferred  from  the  <STRONG>unsigned</STRONG>  <STRONG>short</STRONG>
+           type).
+
+       The non-spacing characters are optional, in the sense that zero or more
+       may be stored in a <STRONG>cchar_t</STRONG>.  XOpen/Curses specifies a limit:
+
+           Implementations may limit the number of non-spacing characters that
+           can  be  associated with a spacing character, provided any limit is
+           at least 5.
+
+       The Unix implementations at the time follow that limit:
+
+       <STRONG>o</STRONG>   AIX 4 and OSF1 4 use the same declaration with an array of  5  non-
+           spacing characters <EM>z</EM> and a single spacing character <EM>c</EM>.
+
+       <STRONG>o</STRONG>   HP-UX 10  uses  an  opaque  structure with 28 bytes, which is large
+           enough for the 6 <STRONG>wchar_t</STRONG> values.
+
+       <STRONG>o</STRONG>   Solaris xpg4 curses uses a single array of 6 <STRONG>wchar_t</STRONG> values.
+
+       This implementation's <STRONG>cchar_t</STRONG> was defined in 1995 using <STRONG>5</STRONG> for the total
+       of  spacing and non-spacing characters (<STRONG>CCHARW_MAX</STRONG>).  That was probably
+       due to a misreading of the  AIX 4  header  files,  because  the  X/Open
+       Curses  document  was  not generally available at that time.  Later (in
+       2002), this detail was  overlooked  when  beginning  to  implement  the
+       functions using the structure.
+
+       In  practice, even four non-spacing characters may seem enough.  X/Open
+       Curses documents possible uses for  non-spacing  characters,  including
+       using  them  for ligatures between characters (a feature apparently not
+       supported by any curses implementation).  Unicode does  not  limit  the
+       (analogous) number of combining characters, so some applications may be
+       affected.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       Functions: <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>, <STRONG><A HREF="curs_color.3x.html">curs_color(3x)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG>wcwidth(3)</STRONG>.
+
+
+
+                                                             <STRONG><A HREF="curs_getcchar.3x.html">curs_getcchar(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-getcchar">getcchar</a></li>
+<li><a href="#h3-setcchar">setcchar</a></li>
+</ul>
+</li>
+<li><a href="#h2-EXTENSIONS">EXTENSIONS</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

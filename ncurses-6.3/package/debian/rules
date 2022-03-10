@@ -1,0 +1,265 @@
+#!/usr/bin/make -f
+# $Id: rules,v 1.41 2021/10/11 18:18:08 tom Exp $
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+# packages
+PACKAGES.indep = ncurses6-doc ncurses6-doc-html
+PACKAGES.arch  = ncurses6 ncursest6
+
+# These are used for cross-compiling and for saving the configure script
+# from having to guess our platform (since we know it already)
+DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+CC_NORMAL = -Wall -Wstrict-prototypes -Wmissing-prototypes -Wshadow -Wconversion
+CC_STRICT = $(CC_NORMAL) -W -Wbad-function-cast -Wcast-align -Wcast-qual -Wmissing-declarations -Wnested-externs -Wpointer-arith -Wwrite-strings -ansi -pedantic
+
+MY_ABI=6
+MY_DIR=/usr
+MYDATA=/usr/local/ncurses/share/terminfo
+NORMAL_DIR=$(CURDIR)/debian/ncurses$(MY_ABI)
+THREAD_DIR=$(CURDIR)/debian/ncursest$(MY_ABI)
+
+CFLAGS   = $(shell dpkg-buildflags --get CFLAGS) $(CC_NORMAL)
+CXXFLAGS = $(shell dpkg-buildflags --get CXXFLAGS)
+CPPFLAGS = $(shell dpkg-buildflags --get CPPFLAGS)
+LDFLAGS  = $(shell dpkg-buildflags --get LDFLAGS)
+
+ifneq ($(MY_DIR),/usr)
+	RPATH_ENV = RPATH_LIST=../lib:$(MY_DIR)/lib
+	RPATH_OPT = --enable-rpath
+else
+	RPATH_ENV =
+	RPATH_OPT = --disable-rpath --disable-rpath-hack
+endif
+
+ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+        CFLAGS += -O0
+else
+        CFLAGS += -O2
+endif
+ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+        INSTALL_PROGRAM += -s
+endif
+
+verbose = # -v
+
+configure = \
+	$(RPATH_ENV) \
+	CFLAGS="$(CFLAGS)" \
+	CPPFLAGS="$(CPPFLAGS)" \
+	LDFLAGS="$(LDFLAGS)" ../../configure $(RPATH_OPT) \
+		--host=$(DEB_HOST_GNU_TYPE) \
+		--build=$(DEB_BUILD_GNU_TYPE) \
+		--prefix=$(MY_DIR) \
+		--disable-echo \
+		--disable-getcap \
+		--disable-leaks \
+		--disable-macros  \
+		--disable-overwrite  \
+		--disable-relink \
+		--disable-termcap \
+		--enable-hard-tabs \
+		--enable-opaque-curses \
+		--enable-opaque-form \
+		--enable-opaque-menu \
+		--enable-opaque-panel \
+		--enable-pc-files \
+		--enable-stdnoreturn \
+		--enable-warnings \
+		--enable-wgetch-events \
+		--enable-widec \
+		--enable-xmc-glitch \
+		--program-suffix=$(MY_ABI) \
+		--verbose \
+		--with-abi-version=$(MY_ABI) \
+		--with-config-suffix=dev \
+		--with-cxx-shared \
+		--with-default-terminfo-dir=$(MYDATA) \
+		--with-develop \
+		--with-extra-suffix=$(MY_ABI) \
+		--with-shared \
+		--with-terminfo-dirs=$(MYDATA):/lib/terminfo:/usr/share/terminfo \
+		--with-termlib \
+		--with-ticlib \
+		--with-trace \
+		--with-versioned-syms \
+		--with-xterm-kbs=DEL \
+		--without-ada \
+		--without-debug \
+		--without-manpage-aliases \
+		--without-normal
+
+NCURSES6_DIR = $(CURDIR)/debian/ncurses6
+NCURSEST6_DIR = $(CURDIR)/debian/ncursest6
+
+.PHONY: all config build install binary clean config-indep config-arch \
+    build-indep build-arch install-indep install-arch binary-indep \
+    binary-arch
+
+all: build
+
+config: config-indep config-arch
+build: build-indep build-arch
+install: install-indep install-arch
+binary: binary-indep binary-arch
+clean:
+	dh_testdir
+	dh_testroot
+	dh_clean $(verbose)
+	rm -rf t
+
+config-indep: $(PACKAGES.indep:%=config-%-stamp)
+config-arch: $(PACKAGES.arch:%=config-%-stamp)
+
+build-indep: $(PACKAGES.indep:%=build-%-stamp)
+build-arch: $(PACKAGES.arch:%=build-%-stamp)
+
+install-indep: $(PACKAGES.indep:%=install-%-stamp)
+install-arch: $(PACKAGES.arch:%=install-%-stamp)
+
+# make the doc-package installable by renaming everything to avoid clashing
+patch-ncurses6-stamp:
+	dh_testdir
+	sed -i.bak \
+		-e 's/-config\.1$$/dev-config.1/;t' \
+		-e 's/\.3ncurses$$/.3ncurses6/' \
+		-e 's/\.3curses$$/.3curses6/' \
+		-e 's/\.3form$$/.3form6/' \
+		-e 's/\.3menu$$/.3menu6/' \
+		-e 's/\.3panel$$/.3panel6/' \
+		-e 's/\.\([157]\)$$/6.\1/' \
+		man/man_db.renames
+	diff -u man/man_db.renames.bak man/man_db.renames || true
+	touch $@
+
+config-ncurses6-stamp: patch-ncurses6-stamp
+	dh_testdir
+	rm -rf t/ncurses6
+	mkdir -p t/ncurses6
+	cd t/ncurses6; $(configure)
+	touch $@
+
+config-ncursest6-stamp: patch-ncurses6-stamp
+	dh_testdir
+	rm -rf t/ncursest6
+	mkdir -p t/ncursest6
+	cd t/ncursest6; $(configure) \
+		--enable-interop \
+		--enable-sp-funcs \
+		--program-suffix=t$(MY_ABI) \
+		--with-pthread
+	touch $@
+
+config-ncurses6-doc-stamp \
+config-ncurses6-doc-html-stamp: config-ncurses6-stamp
+	touch $@
+
+build-ncurses6-stamp: config-ncurses6-stamp
+	dh_testdir
+
+	$(MAKE) -C t/ncurses6
+
+	touch $@
+
+build-ncursest6-stamp: config-ncursest6-stamp
+	dh_testdir
+
+	$(MAKE) -C t/ncursest6
+
+	touch $@
+
+build-ncurses6-doc-stamp \
+build-ncurses6-doc-html-stamp: build-ncurses6-stamp
+	touch $@
+
+install-ncurses6-stamp: build-ncurses6-stamp
+	dh_testdir
+	dh_testroot
+	dh_installdirs $(verbose)
+	dh_prep        $(verbose) -pncurses6
+
+	$(MAKE) -C t/ncurses6 install.libs install.progs DESTDIR=$(NCURSES6_DIR)
+	$(MAKE) -C t/ncurses6/test ncurses LOCAL_LIBDIR=$(MY_DIR)/lib
+
+	mv t/ncurses6/test/ncurses $(NCURSES6_DIR)$(MY_DIR)/bin/ncurses$(MY_ABI)
+
+	touch $@
+
+install-ncursest6-stamp: build-ncursest6-stamp
+	dh_testdir
+	dh_testroot
+	dh_installdirs $(verbose)
+	dh_prep        $(verbose) -pncursest6
+
+	$(MAKE) -C t/ncursest6 install.libs install.progs DESTDIR=$(NCURSEST6_DIR)
+	$(MAKE) -C t/ncursest6/test ncurses LOCAL_LIBDIR=$(MY_DIR)/lib
+
+	mv t/ncursest6/test/ncurses $(NCURSEST6_DIR)$(MY_DIR)/bin/ncursest$(MY_ABI)
+
+	touch $@
+
+install-ncurses6-doc-stamp: build-ncurses6-stamp
+	dh_testdir
+	dh_testroot
+	dh_installdirs $(verbose)
+	dh_prep        $(verbose) -pncurses6-doc
+
+	$(MAKE) -C t/ncurses6 install.man DESTDIR=$(NCURSES6_DIR)-doc
+
+	cd $(NCURSES6_DIR)-doc/usr/share/man/man1 && ln -sf tset6.1.gz reset6.1.gz
+
+	touch $@
+
+HTML_DESTDIR=$(NCURSES6_DIR)-doc-html/usr/share/ncurses6-doc-html
+install-ncurses6-doc-html-stamp: build-ncurses6-stamp
+	dh_testdir
+	dh_testroot
+	dh_installdirs $(verbose)
+	dh_prep        $(verbose) -pncurses6-doc-html
+
+	cd doc/html && find * -type d | sort | xargs -I{} mkdir -p -v $(HTML_DESTDIR)/{}
+	cd doc/html && find * -type f -name '*.html' | sort | xargs -I{} install -m 644 -p -v -T {} $(HTML_DESTDIR)/{}
+
+	touch $@
+
+# Build architecture-independent files here.
+binary-indep: install-indep
+ifneq ($(PACKAGES.indep),)
+	rm -f $(PACKAGES.indep:%=install-%-stamp)
+	dh_testdir
+	dh_testroot
+	dh_lintian           $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_installdocs       $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_installman        $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_installexamples   $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_installchangelogs $(verbose) $(PACKAGES.indep:%=-p%) NEWS
+	dh_compress          $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_fixperms          $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_installdeb        $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_gencontrol        $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_md5sums           $(verbose) $(PACKAGES.indep:%=-p%)
+	dh_builddeb          $(verbose) $(PACKAGES.indep:%=-p%)
+endif
+
+# Build architecture-dependent files here.
+binary-arch: install-arch
+ifneq ($(PACKAGES.arch),)
+	rm -f $(PACKAGES.arch:%=install-%-stamp)
+	dh_testdir
+	dh_testroot
+	dh_lintian           $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_installdocs       $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_installchangelogs $(verbose) $(PACKAGES.arch:%=-p%)  NEWS
+	dh_strip             $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_compress          $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_fixperms          $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_installdeb        $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_makeshlibs        $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_shlibdeps         $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_gencontrol        $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_md5sums           $(verbose) $(PACKAGES.arch:%=-p%)
+	dh_builddeb          $(verbose) $(PACKAGES.arch:%=-p%)
+endif

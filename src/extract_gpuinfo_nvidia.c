@@ -21,6 +21,7 @@
 
 #include "nvtop/extract_gpuinfo_nvidia.h"
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/get_process_info.h"
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -674,7 +675,8 @@ static void gpuinfo_nvidia_get_process_utilization(
 
 void gpuinfo_nvidia_get_running_processes(
     gpuinfo_nvidia_device_handle device, gpuinfo_nvidia_internal_data *internal,
-    unsigned *num_processes_recovered, gpu_process **processes_info) {
+    unsigned *num_processes_recovered, gpu_process **processes_info, user *users) {
+  int cnt = 0;
   *num_processes_recovered = 0;
   size_t array_size = DEFAULT_PROCESS_ARRAY_SIZE;
   nvmlProcessInfo_t *retrieved_infos =
@@ -721,39 +723,52 @@ retry_query_compute:
 
   *num_processes_recovered = graphical_count + compute_count;
   if (*num_processes_recovered > 0) {
+    // count the valid processes
+    
     *processes_info =
         malloc(*num_processes_recovered * sizeof(**processes_info));
     if (!*processes_info) {
       perror("Could not allocate memory: ");
       exit(EXIT_FAILURE);
     }
+    user *u = (user *) malloc(sizeof(*u));
     for (unsigned i = 0; i < graphical_count + compute_count; ++i) {
+      if (users){ // if the hash table is NULL, use all users by default
+        char *buf = malloc(sizeof(char) * MAX_USER_NAME);
+        get_username_from_pid(retrieved_infos[i].pid, &buf);
+        HASH_FIND_STR(users, buf, u);
+        if (!u)
+          continue;
+      }
+
       if (i < graphical_count)
-        (*processes_info)[i].type = gpu_process_graphical;
+        (*processes_info)[cnt].type = gpu_process_graphical;
       else
-        (*processes_info)[i].type = gpu_process_compute;
-      (*processes_info)[i].pid = retrieved_infos[i].pid;
-      (*processes_info)[i].gpu_memory_usage = retrieved_infos[i].usedGpuMemory;
+        (*processes_info)[cnt].type = gpu_process_compute;
+      (*processes_info)[cnt].pid = retrieved_infos[i].pid;
+      (*processes_info)[cnt].gpu_memory_usage = retrieved_infos[i].usedGpuMemory;
       SET_VALID(gpuinfo_process_gpu_memory_usage_valid,
-                (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_cmdline_valid, (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_user_name_valid, (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_gpu_usage_valid, (*processes_info)[i].valid);
+                (*processes_info)[cnt].valid);
+      RESET_VALID(gpuinfo_process_cmdline_valid, (*processes_info)[cnt].valid);
+      RESET_VALID(gpuinfo_process_user_name_valid, (*processes_info)[cnt].valid);
+      RESET_VALID(gpuinfo_process_gpu_usage_valid, (*processes_info)[cnt].valid);
       RESET_VALID(gpuinfo_process_gpu_encoder_valid,
-                  (*processes_info)[i].valid);
+                  (*processes_info)[cnt].valid);
       RESET_VALID(gpuinfo_process_gpu_decoder_valid,
-                  (*processes_info)[i].valid);
+                  (*processes_info)[cnt].valid);
       RESET_VALID(gpuinfo_process_gpu_memory_percentage_valid,
-                  (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_cpu_usage_valid, (*processes_info)[i].valid);
+                  (*processes_info)[cnt].valid);
+      RESET_VALID(gpuinfo_process_cpu_usage_valid, (*processes_info)[cnt].valid);
       RESET_VALID(gpuinfo_process_cpu_memory_virt_valid,
-                  (*processes_info)[i].valid);
+                  (*processes_info)[cnt].valid);
       RESET_VALID(gpuinfo_process_cpu_memory_res_valid,
-                  (*processes_info)[i].valid);
+                  (*processes_info)[cnt].valid);
+      ++cnt;
     }
   } else {
     *processes_info = NULL;
   }
+  *num_processes_recovered = cnt;
   free(retrieved_infos);
   gpuinfo_nvidia_get_process_utilization(
       device, internal, *num_processes_recovered, *processes_info);

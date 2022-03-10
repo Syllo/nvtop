@@ -1,0 +1,16 @@
+Source: ncurses6
+Section: libdevel
+Priority: optional
+Maintainer: Thomas E. Dickey <dickey@invisible-island.net>
+Homepage: https://invisible-island.net/ncurses/
+Build-Depends: debhelper (>= 7)
+Standards-Version: 3.8.2
+
+Package: mingw32-ncurses6
+Architecture: any
+Depends: ${misc:Depends}
+Description: shared libraries for terminal handling
+ The ncurses library routines are a terminal-independent method of
+ updating character screens with reasonable optimization.
+ .
+ This package is used for testing ABI 6 with the MinGW 32-bit port.

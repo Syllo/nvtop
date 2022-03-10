@@ -1,0 +1,225 @@
+# $Id: Makefile.in,v 1.78 2021/07/03 19:07:50 tom Exp $
+##############################################################################
+# Copyright 2018-2020,2021 Thomas E. Dickey                                  #
+# Copyright 1998-2016,2017 Free Software Foundation, Inc.                    #
+#                                                                            #
+# Permission is hereby granted, free of charge, to any person obtaining a    #
+# copy of this software and associated documentation files (the "Software"), #
+# to deal in the Software without restriction, including without limitation  #
+# the rights to use, copy, modify, merge, publish, distribute, distribute    #
+# with modifications, sublicense, and/or sell copies of the Software, and to #
+# permit persons to whom the Software is furnished to do so, subject to the  #
+# following conditions:                                                      #
+#                                                                            #
+# The above copyright notice and this permission notice shall be included in #
+# all copies or substantial portions of the Software.                        #
+#                                                                            #
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR #
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,   #
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL    #
+# THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER      #
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING    #
+# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER        #
+# DEALINGS IN THE SOFTWARE.                                                  #
+#                                                                            #
+# Except as contained in this notice, the name(s) of the above copyright     #
+# holders shall not be used in advertising or otherwise to promote the sale, #
+# use or other dealings in this Software without prior written               #
+# authorization.                                                             #
+##############################################################################
+#
+# Author: Thomas E. Dickey 1996-on
+#
+# Makefile for ncurses miscellany directory
+#
+# This makes/installs the terminfo database
+#
+# The variable 'srcdir' refers to the source-distribution, and can be set with
+# the configure script by "--srcdir=DIR".
+#
+# The rules are organized to produce the libraries for the configured models,
+# and the programs with the configured default model.
+
+# turn off _all_ suffix rules; we'll generate our own
+.SUFFIXES :
+
+SHELL		= @SHELL@
+VPATH		= @srcdir@
+THIS		= Makefile
+
+CF_MFLAGS 	= @cf_cv_makeflags@
+@SET_MAKE@
+
+DESTDIR		= @DESTDIR@
+top_srcdir	= @top_srcdir@
+srcdir		= @srcdir@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+bindir		= @bindir@
+libdir		= @libdir@
+datarootdir	= @datarootdir@
+datadir		= @datadir@
+includesubdir	= @includesubdir@
+
+INCLUDEDIR	= $(DESTDIR)$(includedir)$(includesubdir)
+
+tabsetdir	= $(datadir)/tabset
+ticdir		= @TERMINFO@
+ticfile		= $(ticdir).db
+source		= @TERMINFO_SRC@
+
+INSTALL		= @INSTALL@
+INSTALL_PROGRAM	= @INSTALL_PROGRAM@
+INSTALL_SCRIPT	= @INSTALL_SCRIPT@
+INSTALL_DATA	= @INSTALL_DATA@
+
+PKG_CONFIG_LIBDIR = @PKG_CONFIG_LIBDIR@
+
+################################################################################
+
+@MAKE_PHONY@.PHONY :	all
+@MAKE_PHONY@.PHONY :	check
+@MAKE_PHONY@.PHONY :	clean
+@MAKE_PHONY@.PHONY :	depend
+@MAKE_PHONY@.PHONY :	distclean
+@MAKE_PHONY@.PHONY :	install
+@MAKE_PHONY@.PHONY :	install.data
+@MAKE_PHONY@.PHONY :	install.libs
+@MAKE_PHONY@.PHONY :	libs
+@MAKE_PHONY@.PHONY :	mostlyclean
+@MAKE_PHONY@.PHONY :	realclean
+@MAKE_PHONY@.PHONY :	sources
+@MAKE_PHONY@.PHONY :	uninstall
+@MAKE_PHONY@.PHONY :	uninstall.data
+@MAKE_PHONY@.PHONY :	uninstall.libs
+
+all \
+depend \
+sources ::
+
+@MAKE_DATABASE@all \
+@MAKE_DATABASE@sources :: terminfo.tmp
+
+@MAKE_DATABASE@install :: @MISC_INSTALL_DATA@
+
+@MAKE_DATABASE@install.data ::	terminfo.tmp \
+@MAKE_DATABASE@		$(DESTDIR)$(libdir) \
+@MAKE_DATABASE@		$(DESTDIR)$(datadir) \
+@MAKE_DATABASE@		$(DESTDIR)$(tabsetdir)
+@MAKE_DATABASE@	DESTDIR=${DESTDIR} \
+@MAKE_DATABASE@	prefix=${prefix} \
+@MAKE_DATABASE@	exec_prefix=${exec_prefix} \
+@MAKE_DATABASE@	bindir=${bindir} \
+@MAKE_DATABASE@	top_srcdir=${top_srcdir} \
+@MAKE_DATABASE@	srcdir=${srcdir} \
+@MAKE_DATABASE@	datadir=${datadir} \
+@MAKE_DATABASE@	ticdir=${ticdir} \
+@MAKE_DATABASE@	source=terminfo.tmp \
+@MAKE_DATABASE@	cross_compiling=@cross_compiling@ \
+@MAKE_DATABASE@	$(SHELL) ./run_tic.sh
+@MAKE_DATABASE@	@( cd $(srcdir)/tabset && \
+@MAKE_DATABASE@		$(SHELL) -c 'for i in * ; do \
+@MAKE_DATABASE@			if test -f $$i ; then \
+@MAKE_DATABASE@			echo installing $$i; \
+@MAKE_DATABASE@			$(INSTALL_DATA) $$i $(DESTDIR)$(tabsetdir)/$$i; \
+@MAKE_DATABASE@			fi; done' )
+install.data ::
+	@echo "finished $@"
+
+NCURSES_CONFIG	= ncurses@DFT_ARG_SUFFIX@@cf_cv_abi_version@@cf_config_suffix@-config
+
+install \
+install.libs :: $(DESTDIR)$(bindir) ncurses-config
+	$(INSTALL_SCRIPT) ncurses-config $(DESTDIR)$(bindir)/$(NCURSES_CONFIG)
+
+# Make a list of the files that gen-pkgconfig might create:
+@MAKE_PC_FILES@PC_FILES = \
+@MAKE_PC_FILES@	@LIB_NAME@@USE_ARG_SUFFIX@@PC_MODULE_SUFFIX@.pc \
+@MAKE_PC_FILES@	@TINFO_ARG_SUFFIX@@PC_MODULE_SUFFIX@.pc \
+@MAKE_PC_FILES@	@TICS_NAME@@USE_ARG_SUFFIX@@PC_MODULE_SUFFIX@.pc \
+@MAKE_PC_FILES@	@PANEL_NAME@@USE_ARG_SUFFIX@@PC_MODULE_SUFFIX@.pc \
+@MAKE_PC_FILES@	@MENU_NAME@@USE_ARG_SUFFIX@@PC_MODULE_SUFFIX@.pc \
+@MAKE_PC_FILES@	@FORM_NAME@@USE_ARG_SUFFIX@@PC_MODULE_SUFFIX@.pc \
+@MAKE_PC_FILES@	@CXX_NAME@@USE_ARG_SUFFIX@@PC_MODULE_SUFFIX@.pc
+
+# some packagers prefer to be able to construct pc-files on servers where
+# pkg-config is not installed.  Work around that by creating the library
+# directory during this rule:
+@MAKE_PC_FILES@install \
+@MAKE_PC_FILES@install.libs :: pc-files
+@MAKE_PC_FILES@	@$(SHELL) -c 'case "x$(DESTDIR)$(PKG_CONFIG_LIBDIR)" in \
+@MAKE_PC_FILES@		x/*) \
+@MAKE_PC_FILES@			mkdir -p $(DESTDIR)$(PKG_CONFIG_LIBDIR); \
+@MAKE_PC_FILES@			for name in $(PC_FILES); do \
+@MAKE_PC_FILES@				test -f $$name || continue; \
+@MAKE_PC_FILES@				echo installing $$name; \
+@MAKE_PC_FILES@				$(INSTALL_DATA) $$name $(DESTDIR)$(PKG_CONFIG_LIBDIR)/$$name; \
+@MAKE_PC_FILES@			done \
+@MAKE_PC_FILES@			;; \
+@MAKE_PC_FILES@		*) \
+@MAKE_PC_FILES@			echo "...skip actual install: no destination was given" ; \
+@MAKE_PC_FILES@			;; \
+@MAKE_PC_FILES@		esac'
+
+@MAKE_PC_FILES@all \
+@MAKE_PC_FILES@sources :: pc-files
+@MAKE_PC_FILES@pc-files :
+@MAKE_PC_FILES@	$(SHELL) ./gen-pkgconfig
+@MAKE_PC_FILES@	-touch $@
+
+terminfo.tmp : run_tic.sed $(source)
+	echo '** adjusting tabset paths'
+	sed -f run_tic.sed $(source) >terminfo.tmp
+
+run_tic.sed :
+	WHICH_XTERM=@WHICH_XTERM@ \
+	XTERM_KBS=@XTERM_KBS@ \
+	datadir=${datadir} \
+	$(SHELL) $(srcdir)/gen_edit.sh >$@
+
+$(DESTDIR)$(bindir) \
+$(DESTDIR)$(libdir) \
+$(DESTDIR)$(datadir) \
+$(DESTDIR)$(tabsetdir) :
+	mkdir -p $@
+
+uninstall : @MISC_UNINSTALL_DATA@ uninstall.libs
+
+uninstall.data :
+	-test -d $(DESTDIR)$(tabsetdir) && rm -rf $(DESTDIR)$(tabsetdir)
+	-test -d $(DESTDIR)$(ticdir) && rm -rf $(DESTDIR)$(ticdir)
+	-test -f $(DESTDIR)$(ticfile) && rm -f $(DESTDIR)$(ticfile)
+
+uninstall.libs :
+	-rm -f $(DESTDIR)$(bindir)/$(NCURSES_CONFIG)
+@MAKE_PC_FILES@	@$(SHELL) -c 'case x$(DESTDIR)$(PKG_CONFIG_LIBDIR) in \
+@MAKE_PC_FILES@	x/*) \
+@MAKE_PC_FILES@		for name in $(PC_FILES); do \
+@MAKE_PC_FILES@			test -f $$name || continue; \
+@MAKE_PC_FILES@			echo uninstalling $$name; \
+@MAKE_PC_FILES@			rm -f $(DESTDIR)$(PKG_CONFIG_LIBDIR)/$$name; \
+@MAKE_PC_FILES@		done \
+@MAKE_PC_FILES@		;; \
+@MAKE_PC_FILES@	esac'
+
+tags :
+
+@MAKE_UPPER_TAGS@TAGS :
+
+mostlyclean :
+@MAKE_DATABASE@	-rm -f terminfo.tmp
+@MAKE_DATABASE@	-rm -f run_tic.sed
+@MAKE_PC_FILES@	-rm -f pc-files $(PC_FILES)
+	-rm -f core tags TAGS *~ *.bak *.ln *.atac trace
+
+clean :: mostlyclean
+
+distclean : clean
+@MAKE_PC_FILES@	-rm -f gen-pkgconfig
+	-rm -f Makefile run_tic.sh ncurses-config
+
+realclean : distclean
+
+###############################################################################
+# The remainder of this file is automatically generated during configuration
+###############################################################################

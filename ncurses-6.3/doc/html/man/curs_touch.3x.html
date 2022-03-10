@@ -1,0 +1,149 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 1998-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_touch.3x,v 1.24 2021/06/17 21:26:02 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_touch 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_touch 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>                                                  <STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>touchwin</STRONG>, <STRONG>touchline</STRONG>, <STRONG>untouchwin</STRONG>, <STRONG>wtouchln</STRONG>, <STRONG>is_linetouched</STRONG>,
+       <STRONG>is_wintouched</STRONG> - <STRONG>curses</STRONG> refresh control routines
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>touchline(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>start</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>count</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>touchwin(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wtouchln(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>changed</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>untouchwin(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>);</STRONG>
+
+       <STRONG>bool</STRONG> <STRONG>is_linetouched(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>line</EM><STRONG>);</STRONG>
+       <STRONG>bool</STRONG> <STRONG>is_wintouched(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The <STRONG>touchwin</STRONG> and <STRONG>touchline</STRONG> routines throw away all optimization  infor-
+       mation about which parts of the window have been touched, by pretending
+       that the entire window has been drawn on.  This is sometimes  necessary
+       when  using  overlapping  windows, since a change to one window affects
+       the other window, but the records of which lines have been  changed  in
+       the other window do not reflect the change.  The routine <STRONG>touchline</STRONG> only
+       pretends that <EM>count</EM> lines have been changed, beginning with line <EM>start</EM>.
+
+       The <STRONG>untouchwin</STRONG> routine marks all lines in the window as unchanged since
+       the last call to <STRONG>wrefresh</STRONG>.
+
+       The  <STRONG>wtouchln</STRONG>  routine makes <EM>n</EM> lines in the window, starting at line <EM>y</EM>,
+       look as if they have (<EM>changed</EM><STRONG>=1</STRONG>) or have not (<EM>changed</EM><STRONG>=0</STRONG>)  been  changed
+       since the last call to <STRONG>wrefresh</STRONG>.
+
+       The <STRONG>is_linetouched</STRONG> and <STRONG>is_wintouched</STRONG> routines return <STRONG>TRUE</STRONG> if the speci-
+       fied line/window was modified since the last call to  <STRONG>wrefresh</STRONG>;  other-
+       wise  they  return  <STRONG>FALSE</STRONG>.   In addition, <STRONG>is_linetouched</STRONG> returns <STRONG>ERR</STRONG> if
+       <EM>line</EM> is not valid for the given window.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       All routines return the integer <STRONG>ERR</STRONG> upon failure and an  integer  value
+       other  than  <STRONG>ERR</STRONG>  upon successful completion, unless otherwise noted in
+       the preceding routine descriptions.
+
+       X/Open does not define any error conditions.  In this implementation
+
+          <STRONG>is_linetouched</STRONG>
+               returns an error if the window pointer is null, or if the  line
+               number is outside the window.
+
+               The constant <STRONG>ERR</STRONG> is distinct from <STRONG>TRUE</STRONG> and <STRONG>FALSE</STRONG>, which are the
+               normal return values of this function.   Because  the  function
+               returns a <STRONG>bool</STRONG>, returning <STRONG>ERR</STRONG> (which is neither <STRONG>TRUE</STRONG> nor <STRONG>FALSE</STRONG>)
+               may not be supported by the compiler.
+
+               To provide error-checking and also match  the  X/Open  function
+               prototype, the <STRONG>ERR</STRONG> is provided by a macro named <STRONG>is_linetouched</STRONG>.
+               The actual function returns <STRONG>FALSE</STRONG> when it detects an error.
+
+          <STRONG>wtouchln</STRONG>
+               returns an error if the window pointer is null, or if the  line
+               number is outside the window.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These  functions  were  introduced  by SVr4.  The Solaris curses header
+       file, for instance, defines both an actual function and macro for each.
+       The  macros  give the same result as the actual functions.  SVr4 curses
+       does not check the window parameter <EM>win</EM> to ensure that it is not  <STRONG>NULL</STRONG>;
+       otherwise this implementation behaves the same as SVr4.
+
+       The XSI Curses standard, Issue 4 describes these functions, but defines
+       no error conditions.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       All of these routines except <STRONG>wtouchln</STRONG> may be macros.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>.
+
+
+
+                                                                <STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

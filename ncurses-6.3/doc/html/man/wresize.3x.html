@@ -1,0 +1,113 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018,2020 Thomas E. Dickey                                     *
+  * Copyright 1998-2010,2015 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * Author: Thomas E. Dickey 1996
+  * @Id: wresize.3x,v 1.17 2020/10/17 23:56:38 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>wresize 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">wresize 3x</H1>
+<PRE>
+<STRONG><A HREF="wresize.3x.html">wresize(3x)</A></STRONG>                                                        <STRONG><A HREF="wresize.3x.html">wresize(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>wresize</STRONG> - resize a curses window
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>wresize(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>lines</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>columns</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       This is an extension to the curses library.  It reallocates storage for
+       an <STRONG>ncurses</STRONG> window to adjust its dimensions to the specified values.  If
+       either  dimension  is larger than the current values, the window's data
+       is filled with blanks that have the current  background  rendition  (as
+       set by <STRONG>wbkgdset</STRONG>) merged into them.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       The  function  returns  the integer <STRONG>ERR</STRONG> upon failure and <STRONG>OK</STRONG> on success.
+       It will fail if either of the dimensions less than or equal to zero, or
+       if an error occurs while (re)allocating memory for the window.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The  only  restriction placed on the dimensions is that they be greater
+       than zero.  The dimensions are not compared to <STRONG>curses</STRONG> screen dimensions
+       to  simplify  the logic of <STRONG>resizeterm</STRONG>.  The caller must ensure that the
+       window's dimensions fit within the actual screen dimensions.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       It is not possible to resize windows with SVr4 curses.
+
+       This extension of ncurses was introduced in mid-1995.  It  was  adopted
+       in NetBSD curses (2001) and PDCurses (2003).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>.
+
+
+</PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+       Thomas  Dickey  (from  an  equivalent  function written in 1988 for BSD
+       curses).
+
+
+
+                                                                   <STRONG><A HREF="wresize.3x.html">wresize(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-AUTHOR">AUTHOR</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

@@ -36,6 +36,7 @@ struct process_cpu_usage {
   nvtop_time timestamp;
 };
 
+#define MAX_USER_NAME 128
 void get_username_from_pid(pid_t pid, char **buffer);
 
 void get_command_from_pid(pid_t pid, char **buffer);

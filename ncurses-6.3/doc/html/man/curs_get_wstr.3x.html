@@ -1,0 +1,185 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 2002-2012,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_get_wstr.3x,v 1.21 2020/10/17 23:17:24 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_get_wstr 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_get_wstr 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>                                            <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>get_wstr</STRONG>, <STRONG>getn_wstr</STRONG>, <STRONG>wget_wstr</STRONG>, <STRONG>wgetn_wstr</STRONG>, <STRONG>mvget_wstr</STRONG>, <STRONG>mvgetn_wstr</STRONG>,
+       <STRONG>mvwget_wstr</STRONG>, <STRONG>mvwgetn_wstr</STRONG> - get an array of wide characters from a
+       curses terminal keyboard
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>get_wstr(wint_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>getn_wstr(wint_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wget_wstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>wint_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wgetn_wstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>wint_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>mvget_wstr(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>wint_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvgetn_wstr(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>wint_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwget_wstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>wint_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwgetn_wstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>wint_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The  effect  of  <STRONG>get_wstr</STRONG> is as though a series of calls to <STRONG><A HREF="curs_get_wch.3x.html">get_wch(3x)</A></STRONG>
+       were made, until a newline, other end-of-line, or end-of-file condition
+       is  processed.  An end-of-file condition is represented by <STRONG>WEOF</STRONG>, as de-
+       fined in <STRONG>&lt;wchar.h&gt;</STRONG>.  The newline and end-of-line conditions are  repre-
+       sented  by  the  <STRONG>\n</STRONG>  <STRONG>wchar_t</STRONG>  value.   In all instances, the end of the
+       string is terminated by a null <STRONG>wchar_t</STRONG>.  The routine  places  resulting
+       values in the area pointed to by <EM>wstr</EM>.
+
+       The  user's  erase and kill characters are interpreted.  If keypad mode
+       is on for the window, <STRONG>KEY_LEFT</STRONG> and <STRONG>KEY_BACKSPACE</STRONG>  are  both  considered
+       equivalent to the user's kill character.
+
+       Characters  input  are  echoed  only  if <STRONG>echo</STRONG> is currently on.  In that
+       case, backspace is echoed as deletion of the previous character  (typi-
+       cally a left motion).
+
+       The effect of <STRONG>wget_wstr</STRONG> is as though a series of calls to <STRONG>wget_wch</STRONG> were
+       made.
+
+       The effect of <STRONG>mvget_wstr</STRONG> is as though a call to <STRONG>move</STRONG> and then a  series
+       of calls to <STRONG>get_wch</STRONG> were made.
+
+       The  effect  of <STRONG>mvwget_wstr</STRONG> is as though a call to <STRONG>wmove</STRONG> and then a se-
+       ries of calls to <STRONG>wget_wch</STRONG> were made.
+
+       The <STRONG>getn_wstr</STRONG>, <STRONG>mvgetn_wstr</STRONG>, <STRONG>mvwgetn_wstr</STRONG>, and <STRONG>wgetn_wstr</STRONG> functions  are
+       identical to the <STRONG>get_wstr</STRONG>, <STRONG>mvget_wstr</STRONG>, <STRONG>mvwget_wstr</STRONG>, and <STRONG>wget_wstr</STRONG> func-
+       tions, respectively, except that the <STRONG>*n_*</STRONG> versions read at most <EM>n</EM> char-
+       acters, letting the application prevent overflow of the input buffer.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Using  <STRONG>get_wstr</STRONG>,  <STRONG>mvget_wstr</STRONG>,  <STRONG>mvwget_wstr</STRONG>, or <STRONG>wget_wstr</STRONG> to read a line
+       that overflows the array pointed to by <STRONG>wstr</STRONG> causes  undefined  results.
+       The use of <STRONG>getn_wstr</STRONG>, <STRONG>mvgetn_wstr</STRONG>, <STRONG>mvwgetn_wstr</STRONG>, or <STRONG>wgetn_wstr</STRONG>, respec-
+       tively, is recommended.
+
+       These functions cannot return <STRONG>KEY_</STRONG> values because there is  no  way  to
+       distinguish a <STRONG>KEY_</STRONG> value from a valid <STRONG>wchar_t</STRONG> value.
+
+       All of these routines except <STRONG>wgetn_wstr</STRONG> may be macros.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       All  of  these  functions return <STRONG>OK</STRONG> upon successful completion.  Other-
+       wise, they return <STRONG>ERR</STRONG>.
+
+       Functions using a window parameter return an error if it is null.
+
+              <STRONG>wgetn_wstr</STRONG>
+                   returns an error if the associated call to <STRONG>wget_wch</STRONG> failed.
+
+       Functions with a "mv" prefix first  perform  a  cursor  movement  using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These functions are described in The Single Unix Specification, Version
+       2.   No  error conditions are defined.  This implementation returns <STRONG>ERR</STRONG>
+       if the window pointer is null, or if the lower-level <STRONG>wget_wch</STRONG> call  re-
+       turns  an <STRONG>ERR</STRONG>.  In the latter case, an <STRONG>ERR</STRONG> return without other data is
+       treated as an end-of-file condition, and the returned array contains  a
+       <STRONG>WEOF</STRONG> followed by a null <STRONG>wchar_t</STRONG>.
+
+       X/Open curses documented these functions to pass an array of <STRONG>wchar_t</STRONG> in
+       1997, but that was an error because of this part of the description:
+
+              The effect of <EM>get</EM><STRONG>_</STRONG><EM>wstr()</EM> is as  though  a  series  of  calls  to
+              <EM>get</EM><STRONG>_</STRONG><EM>wch()</EM>  were  made,  until  a  newline character, end-of-line
+              character, or end-of-file character is processed.
+
+       The latter function  <EM>get</EM><STRONG>_</STRONG><EM>wch()</EM>  can  return  a  negative  value,  while
+       <STRONG>wchar_t</STRONG>  is  a  unsigned type.  All of the vendors implement this using
+       <STRONG>wint_t</STRONG>, following the standard.
+
+       X/Open Curses, Issue 7 (2009) is unclear regarding whether  the  termi-
+       nating <EM>null</EM> <STRONG>wchar_t</STRONG> value is counted in the length parameter <EM>n</EM>.  X/Open
+       Curses, Issue 7 revised the corresponding description  of  <STRONG>wgetnstr</STRONG>  to
+       address this issue.  The unrevised description of <STRONG>wget_nwstr</STRONG> can be in-
+       terpreted either way.  This implementation counts the terminator in the
+       length.
+
+       X/Open  Curses  does  not specify what happens if the length <EM>n</EM> is nega-
+       tive.
+
+       <STRONG>o</STRONG>   For analogy with <STRONG>wgetnstr</STRONG>, ncurses  6.2  uses  a  limit  (based  on
+           <STRONG>LINE_MAX</STRONG>).
+
+       <STRONG>o</STRONG>   Some  other  implementations (such as Solaris xcurses) do the same,
+           while others (PDCurses) do not allow this.
+
+       <STRONG>o</STRONG>   NetBSD 7 curses imitates ncurses 6.1 in this regard, treating a  <STRONG>-1</STRONG>
+           as an indefinite number of characters.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       Functions: <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_get_wch.3x.html">curs_get_wch(3x)</A></STRONG>, <STRONG><A HREF="curs_getstr.3x.html">curs_getstr(3x)</A></STRONG>.
+
+
+
+                                                             <STRONG><A HREF="curs_get_wstr.3x.html">curs_get_wstr(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

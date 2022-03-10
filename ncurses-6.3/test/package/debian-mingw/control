@@ -1,0 +1,18 @@
+Source: ncurses-examples
+Maintainer: Thomas E. Dickey <dickey@invisible-island.net>
+Section: misc
+Priority: optional
+Standards-Version: 3.8.4
+Build-Depends: debhelper (>= 5)
+Homepage: https://invisible-island.net/ncurses/ncurses-examples.html
+
+Package: mingw32-ncurses-examples
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: example/test programs from ncurses
+ These are the example/test programs from the ncurses distribution.
+ .
+ This package is used for testing ABI 6 with the MinGW 32-bit port.
+ .
+ This package installs in "bin/ncurses-examples" to avoid conflict with other
+ packages.

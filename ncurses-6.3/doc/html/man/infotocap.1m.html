@@ -1,0 +1,118 @@
+<!--
+  * t
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1999-2010,2016 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: infotocap.1m,v 1.17 2020/12/19 21:49:52 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>infotocap 1m</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">infotocap 1m</H1>
+<PRE>
+<STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>                                                    <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>infotocap</STRONG> - convert a <EM>terminfo</EM> description into a <EM>termcap</EM> description
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>infotocap</STRONG> [<STRONG>-v</STRONG><EM>n</EM> <EM>width</EM>]  [<STRONG>-V</STRONG>] [<STRONG>-1</STRONG>] [<STRONG>-w</STRONG> <EM>width</EM>] <EM>file</EM> ...
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       <STRONG>infotocap</STRONG> looks in each given text <EM>file</EM> for <STRONG>terminfo</STRONG> descriptions.  For
+       each terminfo description found, an equivalent <STRONG>termcap</STRONG>  description  is
+       written  to  standard output.  Terminfo <STRONG>use</STRONG> capabilities are translated
+       directly to termcap <STRONG>tc</STRONG> capabilities.
+
+       <STRONG>-v</STRONG>   print out tracing information on standard  error  as  the  program
+            runs.
+
+       <STRONG>-V</STRONG>   print  out the version of the program in use on standard error and
+            exit.
+
+       <STRONG>-1</STRONG>   cause the fields to print out  one  to  a  line.   Otherwise,  the
+            fields  will be printed several to a line to a maximum width of 60
+            characters.
+
+       <STRONG>-w</STRONG>   change the output to <EM>width</EM> characters.
+
+
+</PRE><H2><a name="h2-FILES">FILES</a></H2><PRE>
+       /usr/share/terminfo Compiled terminal description database.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       This utility is actually a link to <STRONG>tic</STRONG>, running in <EM>-C</EM>  mode.   You  can
+       use other <STRONG>tic</STRONG> options such as <STRONG>-f</STRONG> and  <STRONG>-x</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       None  of  X/Open  Curses,  Issue 7 (2009), SVr4 or NetBSD document this
+       application.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="tic.1m.html">tic(1m)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>
+
+       This describes <STRONG>ncurses</STRONG> version 6.3 (patch 20211021).
+
+
+</PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+       Eric S. Raymond &lt;esr@snark.thyrsus.com&gt; and
+       Thomas E. Dickey &lt;dickey@invisible-island.net&gt;
+
+
+
+                                                                 <STRONG><A HREF="infotocap.1m.html">infotocap(1m)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-FILES">FILES</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-AUTHOR">AUTHOR</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

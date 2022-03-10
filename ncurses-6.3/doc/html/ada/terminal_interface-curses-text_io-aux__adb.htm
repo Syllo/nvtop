@@ -1,0 +1,147 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-text_io-aux.adb</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-text_io-aux.adb </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                   Terminal_Interface.Curses.Text_IO.Aux                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 B O D Y                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1999-2006,2009 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.14 @</EM></span>
+<span class="comment"><EM>--  @Date: 2020/02/02 23:34:34 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__ads.htm#ref_45_35">Text_IO</A>.<span class="symbol"><A NAME="ref_43_48" HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_43_51">Aux</A></span> <b>is</b>
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_45_14" HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_49_14">Put_Buf</A></span>
+     (<span class="symbol"><A NAME="ref_46_7" HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_50_7">Win</A></span>    : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>;
+      <span class="symbol"><A NAME="ref_47_7" HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_51_7">Buf</A></span>    : String;
+      <span class="symbol"><A NAME="ref_48_7" HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_52_7">Width</A></span>  : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A>;
+      <span class="symbol"><A NAME="ref_49_7" HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_53_7">Signal</A></span> : Boolean := True;
+      <span class="symbol"><A NAME="ref_50_7" HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_54_7">Ljust</A></span>  : Boolean := False)
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_52_7">L</A></span>   : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A>;
+      <span class="symbol"><A NAME="ref_53_7">Len</A></span> : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A>;
+      <span class="symbol"><A NAME="ref_54_7">W</A></span>   : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_52_7">Width</A>;
+      <span class="symbol"><A NAME="ref_55_7">LC</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_62_12">Line_Count</A>;
+      <span class="symbol"><A NAME="ref_56_7">CC</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A>;
+      <span class="symbol"><A NAME="ref_57_7">Y</A></span>   : <A HREF="terminal_interface-curses__ads.htm#ref_59_9">Line_Position</A>;
+      <span class="symbol"><A NAME="ref_58_7">X</A></span>   : <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A>;
+
+      <b>procedure</b> <span class="symbol"><A NAME="ref_60_17" HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_62_17">Output</A></span> (<span class="symbol"><A NAME="ref_60_25" HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_62_25">From</A></span>, <span class="symbol"><A NAME="ref_60_31" HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_62_31">To</A></span> : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A>);
+
+      <b>procedure</b> <span class="symbol"><A NAME="ref_62_17" HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_60_17">Output</A></span> (<span class="symbol"><A NAME="ref_62_25" HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_60_25">From</A></span>, <span class="symbol"><A NAME="ref_62_31" HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_60_31">To</A></span> : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A>)
+      <b>is</b>
+      <b>begin</b>
+         <b>if</b> <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A> &gt; 0 <b>then</b>
+            <b>if</b> <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_54_7">W</A> = 0 <b>then</b>
+               <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_54_7">W</A> := <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A>;
+            <b>end</b> <b>if</b>;
+            <b>if</b> <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A> &gt; <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_54_7">W</A> <b>then</b>
+               <span class="comment"><EM>--  LRM A10.6 (7) says this</EM></span>
+               <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_54_7">W</A> := <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A>;
+            <b>end</b> <b>if</b>;
+
+            <b>pragma</b> Assert (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A> &lt;= <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_54_7">W</A>);
+            <A HREF="terminal_interface-curses__ads.htm#ref_1399_14">Get_Size</A> (<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_50_7">Win</A>, <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_55_7">LC</A>, <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_56_7">CC</A>);
+            <b>if</b> <A HREF="terminal_interface-curses__ads.htm#ref_64_12">Column_Count</A> (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A>) &gt; <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_56_7">CC</A> <b>then</b>
+               <b>if</b> <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_53_7">Signal</A> <b>then</b>
+                  <b>raise</b> <A HREF="terminal_interface-curses-text_io__ads.htm#ref_135_4">Layout_Error</A>;
+               <b>else</b>
+                  <b>return</b>;
+               <b>end</b> <b>if</b>;
+            <b>else</b>
+               <b>if</b> <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A> &lt; <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_54_7">W</A> <b>and</b> <b>then</b> <b>not</b> <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_54_7">Ljust</A> <b>then</b>
+                  <b>declare</b>
+                     <span class="symbol"><A NAME="ref_85_22">Filler</A></span> : <b>constant</b> String (1 .. (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_54_7">W</A> - <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A>))
+                       := (<b>others</b> =&gt; ' ');
+                  <b>begin</b>
+                     <A HREF="terminal_interface-curses-text_io__ads.htm#ref_116_14">Put</A> (<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_50_7">Win</A>, <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_85_22">Filler</A>);
+                  <b>end</b>;
+               <b>end</b> <b>if</b>;
+               <A HREF="terminal_interface-curses__ads.htm#ref_1415_14">Get_Cursor_Position</A> (<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_50_7">Win</A>, <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_57_7">Y</A>, <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_58_7">X</A>);
+               <b>if</b> (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_58_7">X</A> + <A HREF="terminal_interface-curses__ads.htm#ref_60_9">Column_Position</A> (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A>)) &gt; <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_56_7">CC</A> <b>then</b>
+                  <A HREF="terminal_interface-curses-text_io__ads.htm#ref_87_14">New_Line</A> (<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_50_7">Win</A>);
+               <b>end</b> <b>if</b>;
+               <A HREF="terminal_interface-curses-text_io__ads.htm#ref_116_14">Put</A> (<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_50_7">Win</A>, <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_51_7">Buf</A> (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_60_25">From</A> .. <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_60_31">To</A>));
+               <b>if</b> <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A> &lt; <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_54_7">W</A> <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_54_7">Ljust</A> <b>then</b>
+                  <b>declare</b>
+                     <span class="symbol"><A NAME="ref_98_22">Filler</A></span> : <b>constant</b> String (1 .. (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_54_7">W</A> - <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A>))
+                       := (<b>others</b> =&gt; ' ');
+                  <b>begin</b>
+                     <A HREF="terminal_interface-curses-text_io__ads.htm#ref_116_14">Put</A> (<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_50_7">Win</A>, <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_98_22">Filler</A>);
+                  <b>end</b>;
+               <b>end</b> <b>if</b>;
+            <b>end</b> <b>if</b>;
+         <b>end</b> <b>if</b>;
+      <b>end</b> <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_60_17">Output</A>;
+
+   <b>begin</b>
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_50_7">Win</A> /= <A HREF="terminal_interface-curses__ads.htm#ref_57_4">Null_Window</A>);
+      <b>if</b> <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_54_7">Ljust</A> <b>then</b>
+         <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A> := 1;
+         <b>for</b> <span class="symbol"><A NAME="ref_112_14">I</A></span> <b>in</b> 1 .. <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_51_7">Buf</A>'Length <b>loop</b>
+            <b>exit</b> <b>when</b> <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_51_7">Buf</A> (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A>) = ' ';
+            <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A> := <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A> + 1;
+         <b>end</b> <b>loop</b>;
+         <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A> := <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A> - 1;
+         <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_60_17">Output</A> (1, <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A>);
+      <b>else</b>  <span class="comment"><EM>-- input buffer is not left justified</EM></span>
+         <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A> := <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_51_7">Buf</A>'Length;
+         <b>for</b> <span class="symbol"><A NAME="ref_120_14">I</A></span> <b>in</b> 1 .. <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_51_7">Buf</A>'Length <b>loop</b>
+            <b>exit</b> <b>when</b> <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_51_7">Buf</A> (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A>) = ' ';
+            <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A> := <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A> - 1;
+         <b>end</b> <b>loop</b>;
+         <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_53_7">Len</A> := <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_51_7">Buf</A>'Length - <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A>;
+         <A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_60_17">Output</A> (<A HREF="terminal_interface-curses-text_io-aux__adb.htm#ref_52_7">L</A> + 1, <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_51_7">Buf</A>'Length);
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_49_14">Put_Buf</A>;
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__ads.htm#ref_45_35">Text_IO</A>.<A HREF="terminal_interface-curses-text_io-aux__ads.htm#ref_43_51">Aux</A>;
+</PRE></BODY></HTML>

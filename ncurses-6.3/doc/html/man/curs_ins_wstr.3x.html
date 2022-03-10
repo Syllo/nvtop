@@ -1,0 +1,124 @@
+<!--
+  ****************************************************************************
+  * Copyright 2019,2020 Thomas E. Dickey                                     *
+  * Copyright 2002-2012,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_ins_wstr.3x,v 1.11 2020/10/17 23:21:25 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_ins_wstr 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_ins_wstr 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>                                            <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>ins_wstr</STRONG>, <STRONG>ins_nwstr</STRONG>, <STRONG>wins_wstr</STRONG>, <STRONG>wins_nwstr</STRONG>, <STRONG>mvins_wstr</STRONG>, <STRONG>mvins_nwstr</STRONG>,
+       <STRONG>mvwins_wstr</STRONG>, <STRONG>mvwins_nwstr</STRONG> - insert a wide-character string into a
+       curses window
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>ins_wstr(const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wstr);</EM>
+       <STRONG>int</STRONG> <STRONG>ins_nwstr(const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wins_wstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wins_nwstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>mvins_wstr(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvins_nwstr(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwins_wstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwins_nwstr(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>wchar_t</STRONG> <STRONG>*</STRONG><EM>wstr</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>n</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       These routines insert a <STRONG>wchar_t</STRONG> character string (as many characters as
+       will fit on the line) before the character under the cursor.  All char-
+       acters to the right of the cursor are shifted right, with the possibil-
+       ity of the rightmost characters on the line being lost.  No wrapping is
+       performed.   The cursor position does not change (after moving to <EM>y</EM>, <EM>x</EM>,
+       if specified).  The four routines with <EM>n</EM> as the last argument insert  a
+       leading  substring  of at most <EM>n</EM> <STRONG>wchar_t</STRONG> characters.  If <EM>n</EM> is less than
+       1, the entire string is inserted.
+
+       If a character in <EM>wstr</EM> is a tab, newline, carriage return or backspace,
+       the  cursor  is  moved appropriately within the window.  A newline also
+       does a <STRONG>clrtoeol</STRONG> before moving.  Tabs are  considered  to  be  at  every
+       eighth column.  If a character in <EM>wstr</EM> is another control character, it
+       is drawn in the <STRONG>^</STRONG><EM>X</EM> notation.  Calling <STRONG>win_wch</STRONG> after  adding  a  control
+       character  (and moving to it, if necessary) does not return the control
+       character, but instead returns a character in the  ^-representation  of
+       the control character.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that all but wins_nwstr may be macros.
+
+       If  the  first character in the string is a nonspacing character, these
+       functions will fail.  XSI does not define what will happen  if  a  non-
+       spacing character follows a control character.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Upon successful completion, these functions return <STRONG>OK</STRONG>.  Otherwise, they
+       return <STRONG>ERR</STRONG>.
+
+       Functions with a "mv" prefix first  perform  a  cursor  movement  using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_insstr.3x.html">curs_insstr(3x)</A></STRONG>, <STRONG><A HREF="curs_in_wch.3x.html">curs_in_wch(3x)</A></STRONG>, <STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>.
+
+
+
+                                                             <STRONG><A HREF="curs_ins_wstr.3x.html">curs_ins_wstr(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

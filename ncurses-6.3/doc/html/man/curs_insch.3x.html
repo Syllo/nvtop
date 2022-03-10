@@ -1,0 +1,116 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_insch.3x,v 1.19 2020/10/18 00:21:39 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_insch 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_insch 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_insch.3x.html">curs_insch(3x)</A></STRONG>                                                  <STRONG><A HREF="curs_insch.3x.html">curs_insch(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>insch</STRONG>,  <STRONG>winsch</STRONG>, <STRONG>mvinsch</STRONG>, <STRONG>mvwinsch</STRONG> - insert a character before cursor in
+       a <STRONG>curses</STRONG> window
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>insch(chtype</STRONG> <EM>ch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>winsch(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <EM>ch</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>mvinsch(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <EM>ch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>mvwinsch(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <EM>ch</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       These routines insert the character <EM>ch</EM> before the character  under  the
+       cursor.   All characters to the right of the cursor are moved one space
+       to the right, with the possibility of the rightmost  character  on  the
+       line  being  lost.   The insertion operation does not change the cursor
+       position.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       All routines that return an integer return  <STRONG>ERR</STRONG>  upon  failure  and  <STRONG>OK</STRONG>
+       (SVr4 specifies only "an integer value other than <STRONG>ERR</STRONG>") upon successful
+       completion,  unless  otherwise   noted   in   the   preceding   routine
+       descriptions.
+
+       Functions  with  a  "mv"  prefix  first perform a cursor movement using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       These  routines  do  not  necessarily  imply  use  of a hardware insert
+       character feature.
+
+       Note that <STRONG>insch</STRONG>, <STRONG>mvinsch</STRONG>, and <STRONG>mvwinsch</STRONG> may be macros.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These functions are described in the XSI Curses standard, Issue 4.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>.
+
+       Comparable functions  in  the  wide-character  (ncursesw)  library  are
+       described in <STRONG><A HREF="curs_ins_wch.3x.html">curs_ins_wch(3x)</A></STRONG>.
+
+
+
+                                                                <STRONG><A HREF="curs_insch.3x.html">curs_insch(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

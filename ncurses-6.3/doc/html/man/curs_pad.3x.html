@@ -1,0 +1,257 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018,2020 Thomas E. Dickey                                     *
+  * Copyright 1998-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_pad.3x,v 1.26 2020/02/02 23:34:34 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_pad 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_pad 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>                                                      <STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>newpad</STRONG>, <STRONG>subpad</STRONG>, <STRONG>prefresh</STRONG>, <STRONG>pnoutrefresh</STRONG>, <STRONG>pechochar</STRONG>, <STRONG>pecho_wchar</STRONG> - create
+       and display <STRONG>curses</STRONG> pads
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>WINDOW</STRONG> <STRONG>*newpad(int</STRONG> <EM>nlines</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>ncols</EM><STRONG>);</STRONG>
+       <STRONG>WINDOW</STRONG> <STRONG>*subpad(WINDOW</STRONG> <STRONG>*</STRONG><EM>orig</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>nlines</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>ncols</EM><STRONG>,</STRONG>
+             <STRONG>int</STRONG> <EM>begin</EM><STRONG>_</STRONG><EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>begin</EM><STRONG>_</STRONG><EM>x</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>prefresh(WINDOW</STRONG> <STRONG>*</STRONG><EM>pad</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>pminrow</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>pmincol</EM><STRONG>,</STRONG>
+             <STRONG>int</STRONG> <EM>sminrow</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>smincol</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>smaxrow</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>smaxcol</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>pnoutrefresh(WINDOW</STRONG> <STRONG>*</STRONG><EM>pad</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>pminrow</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>pmincol</EM><STRONG>,</STRONG>
+             <STRONG>int</STRONG> <EM>sminrow</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>smincol</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>smaxrow</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>smaxcol</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>pechochar(WINDOW</STRONG> <STRONG>*</STRONG><EM>pad</EM><STRONG>,</STRONG> <STRONG>chtype</STRONG> <EM>ch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>pecho_wchar(WINDOW</STRONG> <STRONG>*</STRONG><EM>pad</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+
+</PRE><H3><a name="h3-newpad">newpad</a></H3><PRE>
+       The <STRONG>newpad</STRONG> routine creates and returns a pointer  to  a  new  pad  data
+       structure  with  the given number of lines, <EM>nlines</EM>, and columns, <EM>ncols</EM>.
+       A pad is like a window, except that it is not restricted by the  screen
+       size,  and  is not necessarily associated with a particular part of the
+       screen.  Pads can be used when a large window is  needed,  and  only  a
+       part  of  the  window will be on the screen at one time.  Automatic re-
+       freshes of pads (e.g., from scrolling or echoing of input) do  not  oc-
+       cur.
+
+       It  is  not  legal to call <STRONG>wrefresh</STRONG> with a <EM>pad</EM> as an argument; the rou-
+       tines <STRONG>prefresh</STRONG> or <STRONG>pnoutrefresh</STRONG> should be  called  instead.   Note  that
+       these routines require additional parameters to specify the part of the
+       pad to be displayed and the location on the screen to be used  for  the
+       display.
+
+
+</PRE><H3><a name="h3-subpad">subpad</a></H3><PRE>
+       The  <STRONG>subpad</STRONG> routine creates and returns a pointer to a subwindow within
+       a pad with the given number of lines, <EM>nlines</EM>, and columns, <EM>ncols</EM>.   Un-
+       like  <STRONG>subwin</STRONG>,  which uses screen coordinates, the window is at position
+       (<EM>begin</EM>_<EM>x</EM><STRONG>,</STRONG> <EM>begin</EM>_<EM>y</EM>) on the pad.  The window is made in the middle of the
+       window  <EM>orig</EM>,  so  that changes made to one window affect both windows.
+       During the use of this routine, it will  often  be  necessary  to  call
+       <STRONG>touchwin</STRONG> or <STRONG>touchline</STRONG> on <EM>orig</EM> before calling <STRONG>prefresh</STRONG>.
+
+
+</PRE><H3><a name="h3-prefresh_-pnoutrefresh">prefresh, pnoutrefresh</a></H3><PRE>
+       The  <STRONG>prefresh</STRONG>  and  <STRONG>pnoutrefresh</STRONG> routines are analogous to <STRONG>wrefresh</STRONG> and
+       <STRONG>wnoutrefresh</STRONG> except that they relate to pads instead of  windows.   The
+       additional  parameters  are needed to indicate what part of the pad and
+       screen are involved.
+
+       <STRONG>o</STRONG>   The <EM>pminrow</EM> and <EM>pmincol</EM> parameters specify the upper left-hand cor-
+           ner of the rectangle to be displayed in the pad.
+
+       <STRONG>o</STRONG>   The  <EM>sminrow</EM>,  <EM>smincol</EM>, <EM>smaxrow</EM>, and <EM>smaxcol</EM> parameters specify the
+           edges of the rectangle to be displayed on the screen.
+
+       The lower right-hand corner of the rectangle to be displayed in the pad
+       is calculated from the screen coordinates, since the rectangles must be
+       the same size.  Both rectangles must be entirely contained within their
+       respective  structures.   Negative values of <EM>pminrow</EM>, <EM>pmincol</EM>, <EM>sminrow</EM>,
+       or <EM>smincol</EM> are treated as if they were zero.
+
+
+</PRE><H3><a name="h3-pechochar">pechochar</a></H3><PRE>
+       The <STRONG>pechochar</STRONG> routine is functionally equivalent to  a  call  to  <STRONG>addch</STRONG>
+       followed  by a call to <STRONG><A HREF="curs_refresh.3x.html">refresh(3x)</A></STRONG>, a call to <STRONG>waddch</STRONG> followed by a call
+       to <STRONG>wrefresh</STRONG>, or a call to <STRONG>waddch</STRONG> followed by a call to  <STRONG>prefresh</STRONG>.   The
+       knowledge  that  only  a single character is being output is taken into
+       consideration and, for non-control characters, a  considerable  perfor-
+       mance  gain  might  be  seen  by  using these routines instead of their
+       equivalents.  In the case of <STRONG>pechochar</STRONG>, the last location of the pad on
+       the screen is reused for the arguments to <STRONG>prefresh</STRONG>.
+
+
+</PRE><H3><a name="h3-pecho_wchar">pecho_wchar</a></H3><PRE>
+       The  <STRONG>pecho_wchar</STRONG>  function  is the analogous wide-character form of <STRONG>pe-</STRONG>
+       <STRONG>chochar</STRONG>.  It outputs one character to a pad and  immediately  refreshes
+       the pad.  It does this by a call to <STRONG>wadd_wch</STRONG> followed by a call to <STRONG>pre-</STRONG>
+       <STRONG>fresh</STRONG>.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Routines that return an integer return <STRONG>ERR</STRONG> upon failure  and  <STRONG>OK</STRONG>  (SVr4
+       only  specifies "an integer value other than <STRONG>ERR</STRONG>") upon successful com-
+       pletion.
+
+       Routines that return pointers return <STRONG>NULL</STRONG> on error, and  set  <STRONG>errno</STRONG>  to
+       <STRONG>ENOMEM</STRONG>.
+
+       X/Open does not define any error conditions.  In this implementation
+
+          <STRONG>prefresh</STRONG> and <STRONG>pnoutrefresh</STRONG>
+               return an error if the window pointer is null, or if the window
+               is not really a pad or if the  area  to  refresh  extends  off-
+               screen or if the minimum coordinates are greater than the maxi-
+               mum.
+
+          <STRONG>pechochar</STRONG>
+               returns an error if the window is not really a pad, and the as-
+               sociated call to <STRONG>wechochar</STRONG> returns an error.
+
+          <STRONG>pecho_wchar</STRONG>
+               returns an error if the window is not really a pad, and the as-
+               sociated call to <STRONG>wecho_wchar</STRONG> returns an error.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that <STRONG>pechochar</STRONG> may be a macro.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       BSD curses has no <EM>pad</EM> feature.
+
+       SVr2 curses (1986) provided the <STRONG>newpad</STRONG> and related functions, document-
+       ing  them  in  a single line each.  SVr3 (1987) provided more extensive
+       documentation.
+
+       The documentation does not explain the term <EM>pad</EM>.  However,  the  Apollo
+       <EM>Aegis</EM> workstation operating system supported a graphical <EM>pad</EM> feature:
+
+       <STRONG>o</STRONG>   These  graphical pads could be much larger than the computer's dis-
+           play.
+
+       <STRONG>o</STRONG>   The read-only output from a command could be scrolled back  to  in-
+           spect, and select text from the pad.
+
+       The two uses may be related.
+
+       The  XSI  Curses  standard,  Issue 4 describes these functions, without
+       significant change from the SVr3 documentation.  It describes no  error
+       conditions.   The  behavior of <STRONG>subpad</STRONG> if the parent window is not a pad
+       is undocumented, and is not checked by the vendor Unix implementations:
+
+       <STRONG>o</STRONG>   SVr4 curses sets a flag in the <STRONG>WINDOW</STRONG>  structure  in  <STRONG>newpad</STRONG>  which
+           tells if the window is a <EM>pad</EM>.
+
+           However,  it  uses this information only in <STRONG>waddch</STRONG> (to decide if it
+           should call <STRONG>wrefresh</STRONG>) and <STRONG>wscrl</STRONG> (to avoid  scrolling  a  pad),  and
+           does  not  check  in  <STRONG>wrefresh</STRONG>  to ensure that the pad is refreshed
+           properly.
+
+       <STRONG>o</STRONG>   Solaris X/Open Curses checks if a window is a pad in  <STRONG>wnoutrefresh</STRONG>,
+           returning <STRONG>ERR</STRONG> in that case.
+
+           However,  it only sets the flag for subwindows if the parent window
+           is a pad.  Its <STRONG>newpad</STRONG> function does not set this information.  Con-
+           sequently, the check will never fail.
+
+           It  makes no comparable check in <STRONG>pnoutrefresh</STRONG>, though interestingly
+           enough, a comment in the source code states  that  the  lack  of  a
+           check was an MKS extension.
+
+       <STRONG>o</STRONG>   NetBSD  7 curses sets a flag in the <STRONG>WINDOW</STRONG> structure for <STRONG>newpad</STRONG> and
+           <STRONG>subpad</STRONG>, using this to help with the  distinction  between  <STRONG>wnoutre-</STRONG>
+           <STRONG>fresh</STRONG> and <STRONG>pnoutrefresh</STRONG>.
+
+           It  does  not  check for the case where a subwindow is created in a
+           pad using <STRONG>subwin</STRONG> or <STRONG>derwin</STRONG>.
+
+           The <STRONG>dupwin</STRONG> function returns a regular  window  when  duplicating  a
+           pad.   Likewise,  <STRONG>getwin</STRONG> always returns a window, even if the saved
+           data was from a pad.
+
+       This implementation
+
+       <STRONG>o</STRONG>   sets a flag in the <STRONG>WINDOW</STRONG> structure for <STRONG>newpad</STRONG> and <STRONG>subpad</STRONG>,
+
+       <STRONG>o</STRONG>   allows a <STRONG>subwin</STRONG> or <STRONG>derwin</STRONG> call to succeed having a  pad  parent  by
+           forcing the subwindow to be a pad,
+
+       <STRONG>o</STRONG>   checks  in  both  <STRONG>wnoutrefresh</STRONG> and <STRONG>pnoutrefresh</STRONG> to ensure that pads
+           and windows are handled distinctly, and
+
+       <STRONG>o</STRONG>   ensures that <STRONG>dupwin</STRONG> and <STRONG>getwin</STRONG> treat pads  versus  windows  consis-
+           tently.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>, <STRONG><A HREF="curs_touch.3x.html">curs_touch(3x)</A></STRONG>, <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>.
+
+
+
+                                                                  <STRONG><A HREF="curs_pad.3x.html">curs_pad(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-newpad">newpad</a></li>
+<li><a href="#h3-subpad">subpad</a></li>
+<li><a href="#h3-prefresh_-pnoutrefresh">prefresh, pnoutrefresh</a></li>
+<li><a href="#h3-pechochar">pechochar</a></li>
+<li><a href="#h3-pecho_wchar">pecho_wchar</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

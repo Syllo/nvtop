@@ -1,0 +1,220 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 2010-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_variables.3x,v 1.15 2020/04/18 14:29:07 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_variables 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_variables 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>                                          <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>COLORS</STRONG>, <STRONG>COLOR_PAIRS</STRONG>, <STRONG>COLS</STRONG>, <STRONG>ESCDELAY</STRONG>, <STRONG>LINES</STRONG>, <STRONG>TABSIZE</STRONG>, <STRONG>curscr</STRONG>, <STRONG>newscr</STRONG>,
+       <STRONG>stdscr</STRONG> - <STRONG>curses</STRONG> global variables
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>COLOR_PAIRS;</STRONG>
+       <STRONG>int</STRONG> <STRONG>COLORS;</STRONG>
+       <STRONG>int</STRONG> <STRONG>COLS;</STRONG>
+       <STRONG>int</STRONG> <STRONG>ESCDELAY;</STRONG>
+       <STRONG>int</STRONG> <STRONG>LINES;</STRONG>
+       <STRONG>int</STRONG> <STRONG>TABSIZE;</STRONG>
+       <STRONG>WINDOW</STRONG> <STRONG>*</STRONG> <STRONG>curscr;</STRONG>
+       <STRONG>WINDOW</STRONG> <STRONG>*</STRONG> <STRONG>newscr;</STRONG>
+       <STRONG>WINDOW</STRONG> <STRONG>*</STRONG> <STRONG>stdscr;</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       This page summarizes variables provided by the <STRONG>curses</STRONG> library.  A  more
+       complete description is given in the <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG> manual page.
+
+       Depending  on  the  configuration,  these  may  be actual variables, or
+       macros (see <STRONG><A HREF="curs_threads.3x.html">curs_threads(3x)</A></STRONG> and <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>) which  provide  read-
+       only  access  to  <EM>curses</EM>'s  state.  In either case, applications should
+       treat them as read-only to avoid confusing the library.
+
+
+</PRE><H3><a name="h3-COLOR_PAIRS">COLOR_PAIRS</a></H3><PRE>
+       After initializing curses, this variable contains the number  of  color
+       pairs  which  the  terminal  can  support.  Usually the number of color
+       pairs will be the product <STRONG>COLORS</STRONG>*<STRONG>COLORS</STRONG>, however  this  is  not  always
+       true:
+
+       <STRONG>o</STRONG>   a few terminals use HLS colors, which do not follow this rule
+
+       <STRONG>o</STRONG>   terminals  supporting  a  large number of colors are limited by the
+           number of color pairs that can be represented  in  a  <EM>signed</EM>  <EM>short</EM>
+           value.
+
+
+</PRE><H3><a name="h3-COLORS">COLORS</a></H3><PRE>
+       After  initializing curses, this variable contains the number of colors
+       which the terminal can support.
+
+
+</PRE><H3><a name="h3-COLS">COLS</a></H3><PRE>
+       After initializing curses, this variable  contains  the  width  of  the
+       screen, i.e., the number of columns.
+
+
+</PRE><H3><a name="h3-ESCDELAY">ESCDELAY</a></H3><PRE>
+       This variable holds the number of milliseconds to wait after reading an
+       escape character, to distinguish between an individual escape character
+       entered on the keyboard from escape sequences sent by cursor- and func-
+       tion-keys (see <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>).
+
+
+</PRE><H3><a name="h3-LINES">LINES</a></H3><PRE>
+       After initializing curses, this variable contains  the  height  of  the
+       screen, i.e., the number of lines.
+
+
+</PRE><H3><a name="h3-TABSIZE">TABSIZE</a></H3><PRE>
+       This  variable  holds  the number of columns used by the <EM>curses</EM> library
+       when converting a tab character to spaces as it adds the tab to a  win-
+       dow (see <STRONG><A HREF="curs_addch.3x.html">curs_addch(3x)</A></STRONG>.
+
+
+</PRE><H3><a name="h3-The-Current-Screen">The Current Screen</a></H3><PRE>
+       This  implementation  of  curses uses a special window <STRONG>curscr</STRONG> to record
+       its updates to the terminal screen.
+
+       This is referred to as the "physical screen"  in  the  <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG>
+       and <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG> manual pages.
+
+
+</PRE><H3><a name="h3-The-New-Screen">The New Screen</a></H3><PRE>
+       This  implementation of curses uses a special window <STRONG>newscr</STRONG> to hold up-
+       dates to the terminal screen before applying them to <STRONG>curscr</STRONG>.
+
+       This is referred to as the "virtual  screen"  in  the  <STRONG><A HREF="curs_kernel.3x.html">curs_kernel(3x)</A></STRONG>,
+       <STRONG><A HREF="curs_refresh.3x.html">curs_refresh(3x)</A></STRONG> and <STRONG><A HREF="curs_outopts.3x.html">curs_outopts(3x)</A></STRONG> manual pages.
+
+
+</PRE><H3><a name="h3-The-Standard-Screen">The Standard Screen</a></H3><PRE>
+       Upon  initializing curses, a default window called <STRONG>stdscr</STRONG>, which is the
+       size of the terminal screen, is created.   Many  curses  functions  use
+       this window.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The   curses  library  is  initialized  using  either  <STRONG><A HREF="curs_initscr.3x.html">initscr(3x)</A></STRONG>,  or
+       <STRONG><A HREF="curs_initscr.3x.html">newterm(3x)</A></STRONG>.
+
+       If <STRONG>curses</STRONG> is configured to use separate curses/terminfo libraries, most
+       of these variables reside in the curses library.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       <STRONG>TABSIZE</STRONG>  is  a feature of SVr4 curses which is not documented by X/Open
+       curses.
+
+       <STRONG>o</STRONG>   In SVr4 curses, <STRONG>TABSIZE</STRONG> is initially set from the terminal descrip-
+           tion's  <STRONG>init_tabs</STRONG> capability.  After that, it can be altered by the
+           applications using SVr4 curses.
+
+           SVr4 curses uses the current value of <STRONG>TABSIZE</STRONG> to compute the  posi-
+           tion  of  tabstops  for  updating both the virtual screen with <STRONG>add-</STRONG>
+           <STRONG><A HREF="addch.3x.html">ch(3x)</A></STRONG> as well as the physical screen with <STRONG><A HREF="curs_terminfo.3x.html">mvcur(3x)</A></STRONG>.
+
+       <STRONG>o</STRONG>   This implementation uses the current value of <STRONG>TABSIZE</STRONG> only for  up-
+           dating  the  virtual screen.  It uses the terminal description's <STRONG>it</STRONG>
+           (<STRONG>init_tabs</STRONG>) capability for computing hardware tabs (i.e., tab stops
+           on the physical screen).
+
+       <STRONG>o</STRONG>   Other  implementations  differ.  For instance, NetBSD curses allows
+           <STRONG>TABSIZE</STRONG> to be set through an environment variable.  This  implemen-
+           tation does not.
+
+           NetBSD curses does not support hardware tabs; it uses the <STRONG>init_tabs</STRONG>
+           capability and the <STRONG>TABSIZE</STRONG> variable only for updating  the  virtual
+           screen.
+
+       <STRONG>ESCDELAY</STRONG> is an extension in AIX curses:
+
+       <STRONG>o</STRONG>   In AIX, the units for <STRONG>ESCDELAY</STRONG> are <EM>fifths</EM> of a millisecond.
+
+       <STRONG>o</STRONG>   The default value for AIX's <STRONG>ESCDELAY</STRONG> is 0.1 seconds.
+
+       <STRONG>o</STRONG>   AIX  also enforces a limit of 10,000 seconds for <STRONG>ESCDELAY</STRONG>; this im-
+           plementation currently has no upper limit.
+
+       This implementation has long used <STRONG>ESCDELAY</STRONG> with units of  milliseconds,
+       making  it  impossible to be completely compatible with AIX.  Likewise,
+       most users have either decided to override the value, or rely upon  its
+       default value.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>,   <STRONG><A HREF="curs_opaque.3x.html">curs_opaque(3x)</A></STRONG>,   <STRONG><A HREF="curs_terminfo.3x.html">curs_terminfo(3x)</A></STRONG>,   <STRONG><A HREF="curs_threads.3x.html">curs_threads(3x)</A></STRONG>,
+       <STRONG><A HREF="term_variables.3x.html">term_variables(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+
+
+
+                                                            <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-COLOR_PAIRS">COLOR_PAIRS</a></li>
+<li><a href="#h3-COLORS">COLORS</a></li>
+<li><a href="#h3-COLS">COLS</a></li>
+<li><a href="#h3-ESCDELAY">ESCDELAY</a></li>
+<li><a href="#h3-LINES">LINES</a></li>
+<li><a href="#h3-TABSIZE">TABSIZE</a></li>
+<li><a href="#h3-The-Current-Screen">The Current Screen</a></li>
+<li><a href="#h3-The-New-Screen">The New Screen</a></li>
+<li><a href="#h3-The-Standard-Screen">The Standard Screen</a></li>
+</ul>
+</li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

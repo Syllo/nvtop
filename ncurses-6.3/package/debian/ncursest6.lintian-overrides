@@ -1,0 +1,15 @@
+# This is intentional.
+ncursest6: package-name-doesnt-match-sonames libformtw6-6 libmenutw6-6 libncurses++tw6-6 libncursestw6-6 libpaneltw6-6 libtictw6-6 libtinfotw6-6
+
+# This works around a bug in Debian's build-scripts.
+ncursest6: latest-debian-changelog-entry-changed-to-native
+
+ncursest6: hardening-no-fortify-functions usr/lib/libncurses++tw6.so.6.1
+
+# This is intentional.
+ncursest6: binary-without-manpage
+ncursest6: non-dev-pkg-with-shlib-symlink
+ncursest6: embedded-library usr/lib/libtinfotw6.so.6.1: ncurses
+ncursest6: postinst-must-call-ldconfig usr/lib/libtinfotw6.so.6.1
+
+# vile: confmode

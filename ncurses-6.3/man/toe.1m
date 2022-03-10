@@ -1,0 +1,194 @@
+.\"***************************************************************************
+.\" Copyright 2019-2020,2021 Thomas E. Dickey                                *
+.\" Copyright 1998-2015,2017 Free Software Foundation, Inc.                  *
+.\"                                                                          *
+.\" Permission is hereby granted, free of charge, to any person obtaining a  *
+.\" copy of this software and associated documentation files (the            *
+.\" "Software"), to deal in the Software without restriction, including      *
+.\" without limitation the rights to use, copy, modify, merge, publish,      *
+.\" distribute, distribute with modifications, sublicense, and/or sell       *
+.\" copies of the Software, and to permit persons to whom the Software is    *
+.\" furnished to do so, subject to the following conditions:                 *
+.\"                                                                          *
+.\" The above copyright notice and this permission notice shall be included  *
+.\" in all copies or substantial portions of the Software.                   *
+.\"                                                                          *
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+.\" IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+.\"                                                                          *
+.\" Except as contained in this notice, the name(s) of the above copyright   *
+.\" holders shall not be used in advertising or otherwise to promote the     *
+.\" sale, use or other dealings in this Software without prior written       *
+.\" authorization.                                                           *
+.\"***************************************************************************
+.\"
+.\" $Id: toe.1m,v 1.34 2021/06/17 21:26:02 tom Exp $
+.TH @TOE@ 1M ""
+.de bP
+.ie n  .IP \(bu 4
+.el    .IP \(bu 2
+..
+.ie \n(.g .ds `` \(lq
+.el       .ds `` ``
+.ie \n(.g .ds '' \(rq
+.el       .ds '' ''
+.de NS
+.ie n  .sp
+.el    .sp .5
+.ie n  .in +4
+.el    .in +2
+.nf
+.ft C			\" Courier
+..
+.de NE
+.fi
+.ft R
+.ie n  .in -4
+.el    .in -2
+..
+.ds n 5
+.ds d @TERMINFO@
+.SH NAME
+\fB@TOE@\fR \- table of (terminfo) entries
+.SH SYNOPSIS
+\fB@TOE@\fR [\fB\-v\fR[\fIn\fR]] [\fB\-ahsuUV\fR] \fIfile...\fR
+.br
+.SH DESCRIPTION
+.PP
+With no options,
+\fB@TOE@\fR lists all available terminal types by primary name
+with descriptions.
+File arguments specify the directories to be scanned; if no
+such arguments are given,
+your default terminfo directory is scanned.
+If you also specify the \fB\-h\fR option,
+a directory header will be issued as each
+directory is entered.
+.PP
+There are other options intended for use by terminfo file maintainers:
+.TP
+\fB\-a\fR
+report on all of the terminal databases which ncurses would search,
+rather than only the first one that it finds.
+.IP
+If the \fB\-s\fR is also given, \fB@TOE@\fR
+adds a column to the report,
+showing (like \fBconflict\fP(1)) which entries which
+belong to a given terminal database.
+An "*" marks entries which differ, and "+" marks equivalent entries.
+.IP
+Without the \fB\-s\fP option, \fB@TOE@\fR does not attempt to merge
+duplicates in its report
+.TP
+\fB\-s\fR
+sort the output by the entry names.
+.TP
+\fB\-u\fR \fIfile\fR
+says to write a report to the standard output,
+listing dependencies in the given terminfo/termcap source file.
+The report condenses the \*(``use\*('' relation:
+each line consists of the primary name of a terminal that
+has use capabilities,
+followed by a colon,
+followed by the
+whitespace-separated primary names of all terminals which occur in those use
+capabilities,
+followed by a newline
+.TP
+\fB\-U\fR \fIfile\fR
+says to write a report to the standard output,
+listing reverse dependencies in the given terminfo/termcap source file.
+The report reverses the \*(``use\*('' relation:
+each line consists of the primary name of a
+terminal that occurs in use capabilities,
+followed by a colon,
+followed by the
+whitespace-separated primary names of all terminals which depend on it,
+followed by a newline.
+.TP
+\fB\-v\fR\fIn\fR
+specifies that (verbose) output be written to standard error,
+showing \fB@TOE@\fR's progress.
+.IP
+The optional parameter \fIn\fR is a number from 1 to 10,
+interpreted as for \fB@TIC@\fR(1M).
+If ncurses is built without tracing support, the optional parameter is ignored.
+.TP
+\fB\-V\fR
+reports the version of ncurses which was used in this program,
+and exits.
+.SH EXAMPLES
+.PP
+Without sorting, the \fB\-a\fP option reports all of the names found
+in all of the terminal databases found by the \fBTERMINFO\fP and
+\fBTERMINFO_DIRS\fP environment variables:
+.NS
+MtxOrb162 	16x2 Matrix Orbital LCD display
+MtxOrb204 	20x4 Matrix Orbital LCD display
+MtxOrb    	Generic Matrix Orbital LCD display
+qvt101+   	qume qvt 101 PLUS product
+qvt119+-25	QVT 119 PLUS with 25 data lines
+qansi-g   	QNX ANSI
+qvt103    	qume qvt 103
+qnxw      	QNX4 windows
+qansi-w   	QNX ansi for windows
+qnxm      	QNX4 with mouse events
+qvt203-25-w	QVT 203 PLUS with 25 by 132 columns
+qansi-t   	QNX ansi without console writes
+\&.\ .\ .
+.NE
+.PP
+Use the \fB\-a\fP and \fB\-s\fP options together to show where each terminal
+description was found:
+.NS
+--> /usr/local/ncurses/share/terminfo
+----> /usr/share/terminfo
+*-+-:	9term     	Plan9 terminal emulator for X
+*---:	Eterm     	Eterm with xterm-style color support (X Window System)
+*-*-:	Eterm-256color	Eterm with xterm 256-colors
+*-*-:	Eterm-88color	Eterm with 88 colors
+*-+-:	MtxOrb    	Generic Matrix Orbital LCD display
+*-+-:	MtxOrb162 	16x2 Matrix Orbital LCD display
+*-+-:	MtxOrb204 	20x4 Matrix Orbital LCD display
+*-*-:	NCR260VT300WPP	NCR 2900_260 vt300 wide mode pc+  kybd
+*-+-:	aaa       	ann arbor ambassador/30 lines
+*-+-:	aaa+dec   	ann arbor ambassador in dec vt100 mode
+*-+-:	aaa+rv    	ann arbor ambassador in reverse video
+\&.\ .\ .
+.NE
+.SH FILES
+.TP 5
+\fB\*d/?/*\fR
+Compiled terminal description database.
+.SH HISTORY
+This utility is not provided by other implementations.
+There is no relevant X/Open or POSIX standard for \fB@TOE@\fP.
+.PP
+The program name refers to a developer's pun:
+.bP
+\fBtic\fP,
+.bP
+\fBtac\fP (now \fBtack\fP),
+.bP
+\fBtoe\fP.
+.PP
+It replaced a \fB\-T\fP option which was briefly supported by
+the ncurses \fBinfocmp\fP utility in 1995.
+.PP
+The \fB\-a\fP and \fB\-s\fP options were added to
+\fB@TOE@\fR several years later (2006 and 2011, respectively).
+.SH SEE ALSO
+\fB@CAPTOINFO@\fR(1M),
+\fB@INFOCMP@\fR(1M),
+\fB@INFOTOCAP@\fR(1M),
+\fB@TIC@\fR(1M),
+\fBcurses\fR(3X),
+\fBterminfo\fR(\*n).
+.PP
+This describes \fBncurses\fR
+version @NCURSES_MAJOR@.@NCURSES_MINOR@ (patch @NCURSES_PATCH@).

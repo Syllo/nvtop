@@ -1,0 +1,280 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 2008-2016,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: tabs.1,v 1.32 2021/10/16 13:37:43 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>tabs 1</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">tabs 1</H1>
+<PRE>
+<STRONG><A HREF="tabs.1.html">tabs(1)</A></STRONG>                     General Commands Manual                    <STRONG><A HREF="tabs.1.html">tabs(1)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>tabs</STRONG> - set tabs on a terminal
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>tabs</STRONG> [<EM>options</EM>]] <EM>[tabstop-list]</EM>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       The  <STRONG>tabs</STRONG> program clears and sets tab-stops on the terminal.  This uses
+       the terminfo <EM>clear</EM><STRONG>_</STRONG><EM>all</EM><STRONG>_</STRONG><EM>tabs</EM> and <EM>set</EM><STRONG>_</STRONG><EM>tab</EM>  capabilities.   If  either  is
+       absent,  <STRONG>tabs</STRONG> is unable to clear/set tab-stops.  The terminal should be
+       configured to use hard tabs, e.g.,
+
+           stty tab0
+
+       Like <STRONG><A HREF="clear.1.html">clear(1)</A></STRONG>, <STRONG>tabs</STRONG> writes to the standard output.   You  can  redirect
+       the  standard  output  to  a  file  (which  prevents <STRONG>tabs</STRONG> from actually
+       changing the tabstops), and later <STRONG>cat</STRONG> the file to the  screen,  setting
+       tabstops at that point.
+
+       These   are   hardware   tabs,  which  cannot  be  queried  rapidly  by
+       applications running in the terminal, if  at  all.   Curses  and  other
+       full-screen  applications  may  use  hardware  tabs in optimizing their
+       output to the terminal.  If  the  hardware  tabstops  differ  from  the
+       information  in  the  terminal  database,  the result is unpredictable.
+       Before running curses programs, you should either  reset  tab-stops  to
+       the standard interval
+
+           tabs -8
+
+       or  use the <STRONG>reset</STRONG> program, since the normal initialization sequences do
+       not ensure that tab-stops are reset.
+
+
+</PRE><H2><a name="h2-OPTIONS">OPTIONS</a></H2><PRE>
+
+</PRE><H3><a name="h3-General-Options">General Options</a></H3><PRE>
+       <STRONG>-T</STRONG><EM>name</EM>
+            Tell <STRONG>tabs</STRONG> which terminal type to  use.   If  this  option  is  not
+            given,  <STRONG>tabs</STRONG>  will use the <STRONG>$TERM</STRONG> environment variable.  If that is
+            not set, it will use the <EM>ansi+tabs</EM> entry.
+
+       <STRONG>-d</STRONG>   The debugging option shows a ruler  line,  followed  by  two  data
+            lines.   The  first  data line shows the expected tab-stops marked
+            with asterisks.  The second data line shows the actual  tab-stops,
+            marked with asterisks.
+
+       <STRONG>-n</STRONG>   This  option tells <STRONG>tabs</STRONG> to check the options and run any debugging
+            option, but not to modify the terminal settings.
+
+       <STRONG>-V</STRONG>   reports the version of ncurses which was used in this program, and
+            exits.
+
+       The <STRONG>tabs</STRONG> program processes a single list of tab stops.  The last option
+       to be processed which defines a list is the  one  that  determines  the
+       list to be processed.
+
+
+</PRE><H3><a name="h3-Implicit-Lists">Implicit Lists</a></H3><PRE>
+       Use  a  single number as an option, e.g., "<STRONG>-5</STRONG>" to set tabs at the given
+       interval (in this case 1, 6, 11, 16, 21, etc.).  Tabs are  repeated  up
+       to the right margin of the screen.
+
+       Use "<STRONG>-0</STRONG>" to clear all tabs.
+
+       Use "<STRONG>-8</STRONG>" to set tabs to the standard interval.
+
+
+</PRE><H3><a name="h3-Explicit-Lists">Explicit Lists</a></H3><PRE>
+       An  explicit list can be defined after the options (this does not use a
+       "-").  The values in the list must be in increasing numeric order,  and
+       greater  than  zero.   They  are  separated  by a comma or a blank, for
+       example,
+
+           tabs 1,6,11,16,21
+           tabs 1 6 11 16 21
+
+       Use a "+" to treat a number as an increment relative  to  the  previous
+       value, e.g.,
+
+           tabs 1,+5,+5,+5,+5
+
+       which is equivalent to the 1,6,11,16,21 example.
+
+
+</PRE><H3><a name="h3-Predefined-Tab-Stops">Predefined Tab-Stops</a></H3><PRE>
+       POSIX defines several predefined lists of tab stops.
+
+       <STRONG>-a</STRONG>   Assembler, IBM S/370, first format
+            1,10,16,36,72
+
+       <STRONG>-a2</STRONG>  Assembler, IBM S/370, second format
+            1,10,16,40,72
+
+       <STRONG>-c</STRONG>   COBOL, normal format
+            1,8,12,16,20,55
+
+       <STRONG>-c2</STRONG>  COBOL compact format
+            1,6,10,14,49
+
+       <STRONG>-c3</STRONG>  COBOL compact format extended
+            1,6,10,14,18,22,26,30,34,38,42,46,50,54,58,62,67
+
+       <STRONG>-f</STRONG>   FORTRAN
+            1,7,11,15,19,23
+
+       <STRONG>-p</STRONG>   PL/I
+            1,5,9,13,17,21,25,29,33,37,41,45,49,53,57,61
+
+       <STRONG>-s</STRONG>   SNOBOL
+            1,10,55
+
+       <STRONG>-u</STRONG>   UNIVAC 1100 Assembler
+            1,12,20,44
+
+
+</PRE><H3><a name="h3-Margins">Margins</a></H3><PRE>
+       A  few  terminals  provide the capability for changing their left/right
+       margins.  The tabs program has an option to use this feature:
+
+       <STRONG>+m</STRONG> <EM>margin</EM>
+            The  effect  depends  on  whether  the  terminal  has  the  margin
+            capabilities:
+
+            <STRONG>o</STRONG>   If  the  terminal provides the capability for setting the left
+                margin, tabs uses this, and adjusts the  available  width  for
+                tab-stops.
+
+            <STRONG>o</STRONG>   If the terminal does not provide the margin capabilities, tabs
+                imitates the effect, putting the tab stops at the  appropriate
+                place  on  each  line.   The  terminal's  left-margin  is  not
+                modified.
+
+            If the <EM>margin</EM> parameter is omitted, the default is 10.  Use <STRONG>+m0</STRONG> to
+            reset  the  left  margin, i.e., to the left edge of the terminal's
+            display.  Before setting a left-margin, tabs resets the margin  to
+            reduce  problems which might arise on moving the cursor before the
+            current left-margin.
+
+       When setting or resetting the left-margin, tabs may  reset  the  right-
+       margin.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       <EM>IEEE</EM>   <EM>Std</EM>   <EM>1003.1/The</EM>   <EM>Open</EM>   <EM>Group</EM>   <EM>Base</EM>  <EM>Specifications</EM>  <EM>Issue</EM>  <EM>7</EM>
+       (POSIX.1-2008) describes a <STRONG>tabs</STRONG> utility.  However
+
+       <STRONG>o</STRONG>   This standard describes a <STRONG>+m</STRONG> option,  to  set  a  terminal's  left-
+           margin.   Very  few of the entries in the terminal database provide
+           the  <STRONG>smgl</STRONG>   (<STRONG>set_left_margin</STRONG>)   or   <STRONG>smglp</STRONG>   (<STRONG>set_left_margin_parm</STRONG>)
+           capability needed to support the feature.
+
+       <STRONG>o</STRONG>   There  is no counterpart in X/Open Curses Issue 7 for this utility,
+           unlike <STRONG><A HREF="tput.1.html">tput(1)</A></STRONG>.
+
+       The <STRONG>-d</STRONG> (debug) and <STRONG>-n</STRONG> (no-op) options are extensions  not  provided  by
+       other implementations.
+
+       A  <STRONG>tabs</STRONG>  utility  appeared in PWB/Unix 1.0 (1977).  There was a reduced
+       version of the <STRONG>tabs</STRONG> utility in Unix 7th edition  and  in  3BSD  (1979).
+       The  latter supported a single "-n" option (to cause the first tab stop
+       to be set on the left margin).  That option is not documented by POSIX.
+
+       The PWB/Unix <STRONG>tabs</STRONG> utility, which was included  in  System  III  (1980),
+       used  built-in  tables  rather than the terminal database, to support a
+       half-dozen hardcopy terminal (printer) types.   It  also  had  built-in
+       logic  to support the left-margin, as well as a feature for copying the
+       tab settings from a file.
+
+       Later versions of Unix, e.g., SVr4,  added  support  for  the  terminal
+       database,  but  kept the tables to support the printers.  In an earlier
+       development effort, the tab-stop initialization provided by <STRONG>tset</STRONG> (1982)
+       and incorporated into <STRONG>tput</STRONG> uses the terminal database,
+
+       The  <STRONG>+m</STRONG>  option  was  documented  in  the  Base  Specifications Issue 5
+       (Unix98,  1997),  and  omitted  in  Issue  6  (Unix03,  2004)   without
+       documenting   the   rationale,  though  an  introductory  comment  <EM>"and</EM>
+       <EM>optionally</EM> <EM>adjusts</EM> <EM>the</EM> <EM>margin"</EM> remains, overlooked in the removal.  The
+       documented  <STRONG>tabs</STRONG>  utility  in  Issues  6 and later has no mechanism for
+       setting margins.  The <STRONG>+m</STRONG> option in this implementation differs from the
+       feature  in  SVr4  by  using terminal capabilities rather than built-in
+       tables.
+
+       POSIX documents no limits on the number of  tab  stops.   Documentation
+       for other implementations states that there is a limit on the number of
+       tab stops (e.g., 20 in PWB/Unix's <STRONG>tabs</STRONG> utility).  While some  terminals
+       may  not  accept  an arbitrary number of tab stops, this implementation
+       will attempt to set tab stops up to the right margin of the screen,  if
+       the given list happens to be that long.
+
+       The  <EM>Rationale</EM> section of the POSIX documentation goes into some detail
+       about the ways the committee considered redesigning the <STRONG>tabs</STRONG>  and  <STRONG>tput</STRONG>
+       utilities, without proposing an improved solution.  It comments that
+
+            no  known  historical  version  of tabs supports the capability of
+            setting arbitrary tab stops.
+
+       However,  the  <EM>Explicit</EM>  <EM>Lists</EM>  described  in  this  manual  page  were
+       implemented  in  PWB/Unix.   Those  provide  the  capability of setting
+       abitrary tab stops.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="infocmp.1m.html">infocmp(1m)</A></STRONG>, <STRONG><A HREF="tset.1.html">tset(1)</A></STRONG>, <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="terminfo.5.html">terminfo(5)</A></STRONG>.
+
+       This describes <STRONG>ncurses</STRONG> version 6.3 (patch 20211021).
+
+
+
+                                                                       <STRONG><A HREF="tabs.1.html">tabs(1)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a></li>
+<li><a href="#h2-OPTIONS">OPTIONS</a>
+<ul>
+<li><a href="#h3-General-Options">General Options</a></li>
+<li><a href="#h3-Implicit-Lists">Implicit Lists</a></li>
+<li><a href="#h3-Explicit-Lists">Explicit Lists</a></li>
+<li><a href="#h3-Predefined-Tab-Stops">Predefined Tab-Stops</a></li>
+<li><a href="#h3-Margins">Margins</a></li>
+</ul>
+</li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

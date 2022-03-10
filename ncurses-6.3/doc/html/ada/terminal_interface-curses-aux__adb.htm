@@ -1,0 +1,135 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-aux.adb</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-aux.adb </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                      Terminal_Interface.Curses.Aux                       --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 B O D Y                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1999-2003,2009 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.12 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<span class="symbol"><A NAME="ref_42_40" HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A></span> <b>is</b>
+   <span class="comment"><EM>--</EM></span>
+   <span class="comment"><EM>--  Some helpers</EM></span>
+   <b>procedure</b> <span class="symbol"><A NAME="ref_45_14" HREF="terminal_interface-curses-aux__ads.htm#ref_91_14">Fill_String</A></span> (<span class="symbol"><A NAME="ref_45_27" HREF="terminal_interface-curses-aux__ads.htm#ref_91_27">Cp</A></span>  : chars_ptr;
+                          <span class="symbol"><A NAME="ref_46_27" HREF="terminal_interface-curses-aux__ads.htm#ref_92_27">Str</A></span> : <b>out</b> String)
+   <b>is</b>
+      <span class="comment"><EM>--  Fill the string with the characters referenced by the</EM></span>
+      <span class="comment"><EM>--  chars_ptr.</EM></span>
+      <span class="comment"><EM>--</EM></span>
+      <span class="symbol"><A NAME="ref_51_7">Len</A></span> : Natural;
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_91_27">Cp</A> /= Null_Ptr <b>then</b>
+         <A HREF="terminal_interface-curses-aux__adb.htm#ref_51_7">Len</A> := Natural (Strlen (<A HREF="terminal_interface-curses-aux__ads.htm#ref_91_27">Cp</A>));
+         <b>if</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_92_27">Str</A>'Length &lt; <A HREF="terminal_interface-curses-aux__adb.htm#ref_51_7">Len</A> <b>then</b>
+            <b>raise</b> Constraint_Error;
+         <b>end</b> <b>if</b>;
+         <b>declare</b>
+            <span class="symbol"><A NAME="ref_59_13">S</A></span> : String (1 .. <A HREF="terminal_interface-curses-aux__adb.htm#ref_51_7">Len</A>);
+         <b>begin</b>
+            <A HREF="terminal_interface-curses-aux__adb.htm#ref_59_13">S</A> := Value (<A HREF="terminal_interface-curses-aux__ads.htm#ref_91_27">Cp</A>);
+            <A HREF="terminal_interface-curses-aux__ads.htm#ref_92_27">Str</A> (<A HREF="terminal_interface-curses-aux__ads.htm#ref_92_27">Str</A>'First .. (<A HREF="terminal_interface-curses-aux__ads.htm#ref_92_27">Str</A>'First + <A HREF="terminal_interface-curses-aux__adb.htm#ref_51_7">Len</A> - 1)) := <A HREF="terminal_interface-curses-aux__adb.htm#ref_59_13">S</A> (<A HREF="terminal_interface-curses-aux__adb.htm#ref_59_13">S</A>'<b>Range</b>);
+         <b>end</b>;
+      <b>else</b>
+         <A HREF="terminal_interface-curses-aux__adb.htm#ref_51_7">Len</A> := 0;
+      <b>end</b> <b>if</b>;
+
+      <b>if</b> <A HREF="terminal_interface-curses-aux__adb.htm#ref_51_7">Len</A> &lt; <A HREF="terminal_interface-curses-aux__ads.htm#ref_92_27">Str</A>'Length <b>then</b>
+         <A HREF="terminal_interface-curses-aux__ads.htm#ref_92_27">Str</A> ((<A HREF="terminal_interface-curses-aux__ads.htm#ref_92_27">Str</A>'First + <A HREF="terminal_interface-curses-aux__adb.htm#ref_51_7">Len</A>) .. <A HREF="terminal_interface-curses-aux__ads.htm#ref_92_27">Str</A>'Last) := (<b>others</b> =&gt; ' ');
+      <b>end</b> <b>if</b>;
+
+   <b>end</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_91_14">Fill_String</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_74_13" HREF="terminal_interface-curses-aux__ads.htm#ref_96_13">Fill_String</A></span> (<span class="symbol"><A NAME="ref_74_26" HREF="terminal_interface-curses-aux__ads.htm#ref_96_26">Cp</A></span> : chars_ptr) <b>return</b> String
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_76_7">Len</A></span> : Natural;
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_96_26">Cp</A> /= Null_Ptr <b>then</b>
+         <A HREF="terminal_interface-curses-aux__adb.htm#ref_76_7">Len</A> := Natural (Strlen (<A HREF="terminal_interface-curses-aux__ads.htm#ref_96_26">Cp</A>));
+         <b>if</b> <A HREF="terminal_interface-curses-aux__adb.htm#ref_76_7">Len</A> = 0 <b>then</b>
+            <b>return</b> "";
+         <b>else</b>
+            <b>declare</b>
+               <span class="symbol"><A NAME="ref_84_16">S</A></span> : String (1 .. <A HREF="terminal_interface-curses-aux__adb.htm#ref_76_7">Len</A>);
+            <b>begin</b>
+               <A HREF="terminal_interface-curses-aux__ads.htm#ref_91_14">Fill_String</A> (<A HREF="terminal_interface-curses-aux__ads.htm#ref_96_26">Cp</A>, <A HREF="terminal_interface-curses-aux__adb.htm#ref_84_16">S</A>);
+               <b>return</b> <A HREF="terminal_interface-curses-aux__adb.htm#ref_84_16">S</A>;
+            <b>end</b>;
+         <b>end</b> <b>if</b>;
+      <b>else</b>
+         <b>return</b> "";
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_96_13">Fill_String</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_95_14" HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A></span> (<span class="symbol"><A NAME="ref_95_29" HREF="terminal_interface-curses-aux__ads.htm#ref_87_29">Code</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>)
+   <b>is</b>
+   <b>begin</b>
+      <b>case</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_29">Code</A> <b>is</b>
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_85_7">E_Ok</A>              =&gt; <b>null</b>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_84_7">E_System_Error</A>    =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_528_4">Eti_System_Error</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_83_7">E_Bad_Argument</A>    =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_529_4">Eti_Bad_Argument</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_82_7">E_Posted</A>          =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_530_4">Eti_Posted</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_81_7">E_Connected</A>       =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_531_4">Eti_Connected</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_80_7">E_Bad_State</A>       =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_532_4">Eti_Bad_State</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_79_7">E_No_Room</A>         =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_533_4">Eti_No_Room</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_78_7">E_Not_Posted</A>      =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_534_4">Eti_Not_Posted</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_77_7">E_Unknown_Command</A> =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_535_4">Eti_Unknown_Command</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_76_7">E_No_Match</A>        =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_536_4">Eti_No_Match</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_75_7">E_Not_Selectable</A>  =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_537_4">Eti_Not_Selectable</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_74_7">E_Not_Connected</A>   =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_538_4">Eti_Not_Connected</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_73_7">E_Request_Denied</A>  =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_539_4">Eti_Request_Denied</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_72_7">E_Invalid_Field</A>   =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_540_4">Eti_Invalid_Field</A>;
+         <b>when</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_71_7">E_Current</A>         =&gt; <b>raise</b> <A HREF="terminal_interface-curses__ads.htm#ref_541_4">Eti_Current</A>;
+      <b>end</b> <b>case</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A>;
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A>;
+</PRE></BODY></HTML>

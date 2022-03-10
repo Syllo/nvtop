@@ -1,0 +1,288 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-forms-field_types.adb</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-forms-field_types.adb </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                 Terminal_Interface.Curses.Forms.Field_Types              --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 B O D Y                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1999-2011,2014 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.29 @</EM></span>
+<span class="comment"><EM>--  @Date: 2020/02/02 23:34:34 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>with</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A>; <b>use</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A>;
+<b>with</b> Ada.Unchecked_Deallocation;
+<b>with</b> System.Address_To_Access_Conversions;
+
+<span class="comment"><EM>--  |</EM></span>
+<span class="comment"><EM>--  |=====================================================================</EM></span>
+<span class="comment"><EM>--  | man page form_fieldtype.3x</EM></span>
+<span class="comment"><EM>--  |=====================================================================</EM></span>
+<span class="comment"><EM>--  |</EM></span>
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-forms__ads.htm#ref_46_35">Forms</A>.<span class="symbol"><A NAME="ref_52_46" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_45_41">Field_Types</A></span> <b>is</b>
+
+   <b>use</b> <b>type</b> System.Address;
+
+   <b>package</b> Argument_Conversions <b>is</b>
+      <b>new</b> System.Address_To_Access_Conversions (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_212_9">Argument</A>);
+
+   <b>function</b> <span class="symbol"><A NAME="ref_59_13">Get_Fieldtype</A></span> (<span class="symbol"><A NAME="ref_59_28" HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_59_13">F</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A>;
+   <b>pragma</b> Import (C, Get_Fieldtype, "field_type");
+
+   <b>function</b> <span class="symbol"><A NAME="ref_62_13">Get_Arg</A></span> (<span class="symbol"><A NAME="ref_62_22" HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_62_13">F</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> System.Address;
+   <b>pragma</b> Import (C, Get_Arg, "field_arg");
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  | man page form_field_validation.3x</EM></span>
+   <span class="comment"><EM>--  |=====================================================================</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <span class="comment"><EM>--  |</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_71_13" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_80_13">Get_Type</A></span> (<span class="symbol"><A NAME="ref_71_23" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_80_23">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>) <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_64_9">Field_Type_Access</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_73_7">Low_Level</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A> := <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_59_13">Get_Fieldtype</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_80_23">Fld</A>);
+      <span class="symbol"><A NAME="ref_74_7">Arg</A></span> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>;
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_73_7">Low_Level</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A> <b>then</b>
+         <b>return</b> <b>null</b>;
+      <b>else</b>
+         <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_73_7">Low_Level</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_144_4">M_Builtin_Router</A> <b>or</b> <b>else</b>
+            <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_73_7">Low_Level</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_142_4">M_Generic_Type</A> <b>or</b> <b>else</b>
+            <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_73_7">Low_Level</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_145_4">M_Choice_Router</A> <b>or</b> <b>else</b>
+            <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_73_7">Low_Level</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_143_4">M_Generic_Choice</A>
+         <b>then</b>
+            <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_74_7">Arg</A> := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>
+         (Argument_Conversions.To_Pointer (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_62_13">Get_Arg</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_80_23">Fld</A>)));
+            <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_74_7">Arg</A> = <b>null</b> <b>then</b>
+               <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+            <b>else</b>
+               <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_74_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A>;
+            <b>end</b> <b>if</b>;
+         <b>else</b>
+            <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+         <b>end</b> <b>if</b>;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_80_13">Get_Type</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_97_13" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_168_13">Copy_Arg</A></span> (<span class="symbol"><A NAME="ref_97_23" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_168_23">Usr</A></span> : System.Address) <b>return</b> System.Address
+   <b>is</b>
+   <b>begin</b>
+      <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_168_23">Usr</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_168_13">Copy_Arg</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_103_14" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_173_14">Free_Arg</A></span> (<span class="symbol"><A NAME="ref_103_24" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_173_24">Usr</A></span> : System.Address)
+   <b>is</b>
+      <b>procedure</b> Free_Type <b>is</b> <b>new</b> Ada.Unchecked_Deallocation
+        (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_53_9">Field_Type</A>'Class, <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_64_9">Field_Type_Access</A>);
+      <b>procedure</b> Freeargs <b>is</b> <b>new</b> Ada.Unchecked_Deallocation
+        (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_212_9">Argument</A>, <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>);
+
+      <span class="symbol"><A NAME="ref_110_7">To_Be_Free</A></span> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>
+   := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A> (Argument_Conversions.To_Pointer (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_173_24">Usr</A>));
+      <span class="symbol"><A NAME="ref_112_7">Low_Level</A></span>  : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A>;
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_110_7">To_Be_Free</A> /= <b>null</b> <b>then</b>
+         <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_110_7">To_Be_Free</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A> /= System.Null_Address <b>then</b>
+            <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_112_7">Low_Level</A> := <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_110_7">To_Be_Free</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A>;
+            <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_112_7">Low_Level</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_127_10">Freearg</A> /= <b>null</b> <b>then</b>
+               <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_112_7">Low_Level</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_127_10">Freearg</A> (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_110_7">To_Be_Free</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A>);
+            <b>end</b> <b>if</b>;
+         <b>end</b> <b>if</b>;
+         <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_110_7">To_Be_Free</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A> /= <b>null</b> <b>then</b>
+            Free_Type (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_110_7">To_Be_Free</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A>);
+         <b>end</b> <b>if</b>;
+         Freeargs (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_110_7">To_Be_Free</A>);
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_173_14">Free_Arg</A>;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_128_14" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_152_14">Wrap_Builtin</A></span> (<span class="symbol"><A NAME="ref_128_28" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_152_28">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                           <span class="symbol"><A NAME="ref_129_28" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_153_28">Typ</A></span> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_53_9">Field_Type</A>'Class;
+                           <span class="symbol"><A NAME="ref_130_28" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_154_28">Cft</A></span> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A> := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_149_13">C_Builtin_Router</A>)
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_132_7">Usr_Arg</A></span>   : <b>constant</b> System.Address := <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_62_13">Get_Arg</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_152_28">Fld</A>);
+      <span class="symbol"><A NAME="ref_133_7">Low_Level</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A> := <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_59_13">Get_Fieldtype</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_152_28">Fld</A>);
+      <span class="symbol"><A NAME="ref_134_7">Arg</A></span> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>;
+      <b>function</b> <span class="symbol"><A NAME="ref_135_16">Set_Fld_Type</A></span> (<span class="symbol"><A NAME="ref_135_30" HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_135_16">F</A></span>    : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A> := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_152_28">Fld</A>;
+                             <span class="symbol"><A NAME="ref_136_30" HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_135_16">Cf</A></span>   : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A> := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_154_28">Cft</A>;
+                             <span class="symbol"><A NAME="ref_137_30" HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_135_16">Arg1</A></span> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>) <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Fld_Type, "set_field_type_user");
+
+   <b>begin</b>
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_133_7">Low_Level</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A>);
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_154_28">Cft</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_149_13">C_Builtin_Router</A> <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_154_28">Cft</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_150_13">C_Choice_Router</A> <b>then</b>
+         <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+      <b>else</b>
+         <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_134_7">Arg</A> := <b>new</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_212_9">Argument</A>'(<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A> =&gt; System.Null_Address,
+                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A> =&gt; <b>new</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_53_9">Field_Type</A>'Class'(<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_153_28">Typ</A>),
+                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A> =&gt; <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_59_13">Get_Fieldtype</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_152_28">Fld</A>));
+         <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_132_7">Usr_Arg</A> /= System.Null_Address <b>then</b>
+            <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_133_7">Low_Level</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_126_10">Copyarg</A> /= <b>null</b> <b>then</b>
+               <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_134_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A> := <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_133_7">Low_Level</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_126_10">Copyarg</A> (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_132_7">Usr_Arg</A>);
+            <b>else</b>
+               <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_134_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A> := <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_132_7">Usr_Arg</A>;
+            <b>end</b> <b>if</b>;
+         <b>end</b> <b>if</b>;
+
+         <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_135_16">Set_Fld_Type</A> (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_137_30">Arg1</A> =&gt; <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_134_7">Arg</A>));
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_152_14">Wrap_Builtin</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_160_13" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_178_13">Field_Check_Router</A></span> (<span class="symbol"><A NAME="ref_160_33" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_178_33">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                                <span class="symbol"><A NAME="ref_161_33" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_179_33">Usr</A></span> : System.Address) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_2099_9">Curses_Bool</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_163_7">Arg</A></span>  : <b>constant</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>
+   := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A> (Argument_Conversions.To_Pointer (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_179_33">Usr</A>));
+   <b>begin</b>
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_163_7">Arg</A> /= <b>null</b> <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_163_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A>
+                     <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_163_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A> /= <b>null</b>);
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_163_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_128_10">Fcheck</A> /= <b>null</b> <b>then</b>
+         <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_163_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_128_10">Fcheck</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_178_33">Fld</A>, <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_163_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A>);
+      <b>else</b>
+         <b>return</b> 1;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_178_13">Field_Check_Router</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_175_13" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_186_13">Char_Check_Router</A></span> (<span class="symbol"><A NAME="ref_175_32" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_186_32">Ch</A></span>  : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_47_12">C_Int</A>;
+                               <span class="symbol"><A NAME="ref_176_32" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_187_32">Usr</A></span> : System.Address) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_2099_9">Curses_Bool</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_178_7">Arg</A></span>  : <b>constant</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>
+   := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A> (Argument_Conversions.To_Pointer (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_187_32">Usr</A>));
+   <b>begin</b>
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_178_7">Arg</A> /= <b>null</b> <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_178_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A>
+                     <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_178_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A> /= <b>null</b>);
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_178_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_129_10">Ccheck</A> /= <b>null</b> <b>then</b>
+         <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_178_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_129_10">Ccheck</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_186_32">Ch</A>, <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_178_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A>);
+      <b>else</b>
+         <b>return</b> 1;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_186_13">Char_Check_Router</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_190_13" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_194_13">Next_Router</A></span> (<span class="symbol"><A NAME="ref_190_26" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_194_26">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                         <span class="symbol"><A NAME="ref_191_26" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_195_26">Usr</A></span> : System.Address) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_2099_9">Curses_Bool</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_193_7">Arg</A></span>  : <b>constant</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>
+   := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A> (Argument_Conversions.To_Pointer (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_195_26">Usr</A>));
+   <b>begin</b>
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_193_7">Arg</A> /= <b>null</b> <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_193_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A>
+                     <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_193_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A> /= <b>null</b>);
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_193_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_130_10">Next</A> /= <b>null</b> <b>then</b>
+         <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_193_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_130_10">Next</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_194_26">Fld</A>, <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_193_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A>);
+      <b>else</b>
+         <b>return</b> 1;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_194_13">Next_Router</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_205_13" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_202_13">Prev_Router</A></span> (<span class="symbol"><A NAME="ref_205_26" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_202_26">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                         <span class="symbol"><A NAME="ref_206_26" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_203_26">Usr</A></span> : System.Address) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_2099_9">Curses_Bool</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_208_7">Arg</A></span>  : <b>constant</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A> :=
+               <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A> (Argument_Conversions.To_Pointer (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_203_26">Usr</A>));
+   <b>begin</b>
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_208_7">Arg</A> /= <b>null</b> <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_208_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A>
+                     <b>and</b> <b>then</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_208_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A> /= <b>null</b>);
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_208_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_130_16">Prev</A> /= <b>null</b> <b>then</b>
+         <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_208_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_130_16">Prev</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_202_26">Fld</A>, <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_208_7">Arg</A>.<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A>);
+      <b>else</b>
+         <b>return</b> 1;
+      <b>end</b> <b>if</b>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_202_13">Prev_Router</A>;
+
+   <span class="comment"><EM>--  -----------------------------------------------------------------------</EM></span>
+   <span class="comment"><EM>--</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_222_13" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_149_13">C_Builtin_Router</A></span> <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_224_7">T</A></span>   : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A>;
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_144_4">M_Builtin_Router</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A> <b>then</b>
+         <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_224_7">T</A> := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_223_13">New_Fieldtype</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_178_13">Field_Check_Router</A>'<b>Access</b>,
+                             <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_186_13">Char_Check_Router</A>'<b>Access</b>);
+         <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_224_7">T</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A> <b>then</b>
+            <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+         <b>else</b>
+            <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_228_13">Set_Fieldtype_Arg</A> (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_224_7">T</A>,
+                                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_163_13">Make_Arg</A>'<b>Access</b>,
+                                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_168_13">Copy_Arg</A>'<b>Access</b>,
+                                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_173_14">Free_Arg</A>'<b>Access</b>));
+         <b>end</b> <b>if</b>;
+         <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_144_4">M_Builtin_Router</A> := <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_224_7">T</A>;
+      <b>end</b> <b>if</b>;
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_144_4">M_Builtin_Router</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A>);
+      <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_144_4">M_Builtin_Router</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_149_13">C_Builtin_Router</A>;
+
+   <span class="comment"><EM>--  -----------------------------------------------------------------------</EM></span>
+   <span class="comment"><EM>--</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_245_13" HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_150_13">C_Choice_Router</A></span> <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_247_7">T</A></span>   : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A>;
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_145_4">M_Choice_Router</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A> <b>then</b>
+         <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_247_7">T</A> := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_223_13">New_Fieldtype</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_178_13">Field_Check_Router</A>'<b>Access</b>,
+                             <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_186_13">Char_Check_Router</A>'<b>Access</b>);
+         <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_247_7">T</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A> <b>then</b>
+            <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+         <b>else</b>
+            <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_228_13">Set_Fieldtype_Arg</A> (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_247_7">T</A>,
+                                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_163_13">Make_Arg</A>'<b>Access</b>,
+                                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_168_13">Copy_Arg</A>'<b>Access</b>,
+                                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_173_14">Free_Arg</A>'<b>Access</b>));
+
+            <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_235_13">Set_Fieldtype_Choice</A> (<A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_247_7">T</A>,
+                                                 <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_194_13">Next_Router</A>'<b>Access</b>,
+                                                 <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_202_13">Prev_Router</A>'<b>Access</b>));
+         <b>end</b> <b>if</b>;
+         <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_145_4">M_Choice_Router</A> := <A HREF="terminal_interface-curses-forms-field_types__adb.htm#ref_247_7">T</A>;
+      <b>end</b> <b>if</b>;
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_145_4">M_Choice_Router</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A>);
+      <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_145_4">M_Choice_Router</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_150_13">C_Choice_Router</A>;
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-forms__ads.htm#ref_46_35">Forms</A>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_45_41">Field_Types</A>;
+</PRE></BODY></HTML>

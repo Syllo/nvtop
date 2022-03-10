@@ -1,0 +1,55 @@
+/* $Id*/
+/*
+ * vile:cmode:
+ * This file is part of ncurses, designed to be appended after curses.h.in
+ * (see that file for the relevant copyright).
+ */
+
+/*
+ * This is an extension to support events...
+ */
+#ifdef NCURSES_WGETCH_EVENTS
+#if !defined(__BEOS__) || defined(__HAIKU__)
+   /* Fix _nc_timed_wait() on BEOS... */
+#  define NCURSES_EVENT_VERSION	1
+#endif	/* !defined(__BEOS__) */
+
+/*
+ * Bits to set in _nc_event.data.flags
+ */
+#  define _NC_EVENT_TIMEOUT_MSEC	1
+#  define _NC_EVENT_FILE		2
+#  define _NC_EVENT_FILE_READABLE	2
+#  if 0					/* Not supported yet... */
+#    define _NC_EVENT_FILE_WRITABLE	4
+#    define _NC_EVENT_FILE_EXCEPTION	8
+#  endif
+
+typedef struct
+{
+    int type;
+    union
+    {
+	long timeout_msec;	/* _NC_EVENT_TIMEOUT_MSEC */
+	struct
+	{
+	    unsigned int flags;
+	    int fd;
+	    unsigned int result;
+	} fev;				/* _NC_EVENT_FILE */
+    } data;
+} _nc_event;
+
+typedef struct
+{
+    int count;
+    int result_flags;	/* _NC_EVENT_TIMEOUT_MSEC or _NC_EVENT_FILE_READABLE */
+    _nc_event *events[1];
+} _nc_eventlist;
+
+extern NCURSES_EXPORT(int) wgetch_events (WINDOW *, _nc_eventlist *) GCC_DEPRECATED(experimental option); /* experimental */
+extern NCURSES_EXPORT(int) wgetnstr_events (WINDOW *,char *,int,_nc_eventlist *) GCC_DEPRECATED(experimental option); /* experimental */
+
+#define KEY_EVENT	0633		/* We were interrupted by an event */
+
+#endif /* NCURSES_WGETCH_EVENTS */

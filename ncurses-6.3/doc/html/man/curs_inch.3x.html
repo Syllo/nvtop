@@ -1,0 +1,154 @@
+<!--
+  * t
+  ****************************************************************************
+  * Copyright 2018-2020,2021 Thomas E. Dickey                                *
+  * Copyright 1998-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_inch.3x,v 1.26 2021/06/17 21:30:22 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_inch 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_inch 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_inch.3x.html">curs_inch(3x)</A></STRONG>                                                    <STRONG><A HREF="curs_inch.3x.html">curs_inch(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>inch</STRONG>,  <STRONG>winch</STRONG>,  <STRONG>mvinch</STRONG>,  <STRONG>mvwinch</STRONG> - get a character and attributes from a
+       <STRONG>curses</STRONG> window
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>chtype</STRONG> <STRONG>inch(void);</STRONG>
+       <STRONG>chtype</STRONG> <STRONG>winch(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>);</STRONG>
+
+       <STRONG>chtype</STRONG> <STRONG>mvinch(int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>);</STRONG>
+       <STRONG>chtype</STRONG> <STRONG>mvwinch(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>y</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>x</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       These routines return the character, of type  <STRONG>chtype</STRONG>,  at  the  current
+       position  in  the  named  window.   If  any attributes are set for that
+       position, their values are OR'ed into the  value  returned.   Constants
+       defined  in <STRONG>&lt;curses.h&gt;</STRONG> can be used with the <STRONG>&amp;</STRONG> (logical AND) operator to
+       extract the character or attributes alone.
+
+
+</PRE><H3><a name="h3-Attributes">Attributes</a></H3><PRE>
+       The following bit-masks may  be  AND-ed  with  characters  returned  by
+       <STRONG>winch</STRONG>.
+
+       <STRONG>A_CHARTEXT</STRONG>     Bit-mask to extract character
+       <STRONG>A_ATTRIBUTES</STRONG>   Bit-mask to extract attributes
+       <STRONG>A_COLOR</STRONG>        Bit-mask to extract color-pair field information
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Functions  with  a  "mv"  prefix  first perform a cursor movement using
+       <STRONG>wmove</STRONG>, and return an error if the position is outside the window, or if
+       the window pointer is null.
+
+       The  <STRONG>winch</STRONG>  function  does  not  return an error if the window contains
+       characters larger than 8-bits (255).  Only the low-order 8 bits of  the
+       character are used by <STRONG>winch</STRONG>.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that all of these routines may be macros.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These functions are described in the XSI Curses standard, Issue 4.
+
+       Very  old systems (before standardization) provide a different function
+       with the same name:
+
+       <STRONG>o</STRONG>   The <STRONG>winch</STRONG> function was part of the  original  BSD  curses  library,
+           which   stored   a  7-bit  character  combined  with  the  <EM>standout</EM>
+           attribute.
+
+           In BSD curses, <STRONG>winch</STRONG> returned only the character  (as  an  integer)
+           with the <EM>standout</EM> attribute removed.
+
+       <STRONG>o</STRONG>   System  V  curses  added support for several video attributes which
+           could be combined with characters in the window.
+
+           Reflecting this improvement, the function was altered to return the
+           character combined with all video attributes in a <STRONG>chtype</STRONG> value.
+
+       X/Open Curses does not specify the size and layout of attributes, color
+       and character values in <STRONG>chtype</STRONG>; it is  implementation-dependent.   This
+       implementation  uses 8 bits for character values.  An application using
+       more bits,  e.g.,  a  Unicode  value,  should  use  the  wide-character
+       equivalents to these functions.
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>
+            gives an overview of the WINDOW and <STRONG>chtype</STRONG> data types.
+
+       <STRONG><A HREF="curs_attr.3x.html">curs_attr(3x)</A></STRONG>
+            goes  into  more  detail,  pointing  out  portability problems and
+            constraints on the use of <STRONG>chtype</STRONG> for returning window information.
+
+       <STRONG><A HREF="curs_in_wch.3x.html">curs_in_wch(3x)</A></STRONG>
+            describes comparable functions for the  wide-character  (ncursesw)
+            library.
+
+
+
+                                                                 <STRONG><A HREF="curs_inch.3x.html">curs_inch(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-Attributes">Attributes</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

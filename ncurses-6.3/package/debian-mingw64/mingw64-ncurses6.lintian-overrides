@@ -1,0 +1,7 @@
+mingw64-ncurses6: latest-debian-changelog-entry-changed-to-native
+
+mingw64-ncurses6: non-standard-dir-in-usr
+mingw64-ncurses6: file-in-unusual-dir
+
+mingw64-ncurses6: binary-without-manpage
+mingw64-ncurses6: executable-not-elf-or-script

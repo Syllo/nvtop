@@ -1,0 +1,145 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-forms-field_types-user.adb</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-forms-field_types-user.adb </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--              Terminal_Interface.Curses.Forms.Field_Types.User            --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 B O D Y                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1999-2011,2014 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.24 @</EM></span>
+<span class="comment"><EM>--  @Date: 2020/02/02 23:34:34 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>with</b> System.Address_To_Access_Conversions;
+<b>with</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A>; <b>use</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-aux__ads.htm#ref_46_35">Aux</A>;
+
+<b>package</b> <b>body</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-forms__ads.htm#ref_46_35">Forms</A>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_45_41">Field_Types</A>.<span class="symbol"><A NAME="ref_46_58" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_45_53">User</A></span> <b>is</b>
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_48_14" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_71_14">Set_Field_Type</A></span> (<span class="symbol"><A NAME="ref_48_30" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_71_30">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                             <span class="symbol"><A NAME="ref_49_30" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_72_30">Typ</A></span> : <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_49_9">User_Defined_Field_Type</A>)
+   <b>is</b>
+      <b>function</b> <span class="symbol"><A NAME="ref_51_16" HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_60_16">Allocate_Arg</A></span> (<span class="symbol"><A NAME="ref_51_30" HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_60_30">T</A></span> : <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_49_9">User_Defined_Field_Type</A>'Class)
+                             <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>;
+
+      <b>function</b> <span class="symbol"><A NAME="ref_54_16">Set_Fld_Type</A></span> (<span class="symbol"><A NAME="ref_54_30" HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_54_16">F</A></span>    : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A> := <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_71_30">Fld</A>;
+                             <span class="symbol"><A NAME="ref_55_30" HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_54_16">Cft</A></span>  : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A> := <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_80_13">C_Generic_Type</A>;
+                             <span class="symbol"><A NAME="ref_56_30" HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_54_16">Arg1</A></span> : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>)
+                             <b>return</b> <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <b>pragma</b> Import (C, Set_Fld_Type, "set_field_type_user");
+
+      <b>function</b> <span class="symbol"><A NAME="ref_60_16" HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_51_16">Allocate_Arg</A></span> (<span class="symbol"><A NAME="ref_60_30" HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_51_30">T</A></span> : <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_49_9">User_Defined_Field_Type</A>'Class)
+                             <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A>
+      <b>is</b>
+         <span class="symbol"><A NAME="ref_63_10">Ptr</A></span> : <b>constant</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_64_9">Field_Type_Access</A>
+             := <b>new</b> <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_49_9">User_Defined_Field_Type</A>'Class'(<A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_51_30">T</A>);
+      <b>begin</b>
+         <b>return</b> <b>new</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_212_9">Argument</A>'(<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_214_7">Usr</A> =&gt; System.Null_Address,
+                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A> =&gt; <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_63_10">Ptr</A>,
+                              <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_215_7">Cft</A> =&gt; <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A>);
+      <b>end</b> <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_51_16">Allocate_Arg</A>;
+
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_54_16">Set_Fld_Type</A> (<A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_56_30">Arg1</A> =&gt; <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_51_16">Allocate_Arg</A> (<A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_72_30">Typ</A>)));
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_71_14">Set_Field_Type</A>;
+
+   <b>package</b> Argument_Conversions <b>is</b>
+      <b>new</b> System.Address_To_Access_Conversions (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_212_9">Argument</A>);
+
+   <b>function</b> <span class="symbol"><A NAME="ref_78_13" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_82_13">Generic_Field_Check</A></span> (<span class="symbol"><A NAME="ref_78_34" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_82_34">Fld</A></span> : <A HREF="terminal_interface-curses-forms__ads.htm#ref_52_9">Field</A>;
+                                 <span class="symbol"><A NAME="ref_79_34" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_83_34">Usr</A></span> : System.Address) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_2099_9">Curses_Bool</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_81_7">Result</A></span> : Boolean;
+      <span class="symbol"><A NAME="ref_82_7">Udf</A></span>    : <b>constant</b> <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_54_9">User_Defined_Field_Type_Access</A> :=
+        <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_54_9">User_Defined_Field_Type_Access</A>
+          (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A> (Argument_Conversions.To_Pointer (<A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_83_34">Usr</A>)).<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A>);
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_81_7">Result</A> := <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_57_13">Field_Check</A> (<A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_82_34">Fld</A>, <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_82_7">Udf</A>.<b>all</b>);
+      <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_2099_9">Curses_Bool</A> (Boolean'Pos (<A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_81_7">Result</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_82_13">Generic_Field_Check</A>;
+
+   <b>function</b> <span class="symbol"><A NAME="ref_90_13" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_89_13">Generic_Char_Check</A></span> (<span class="symbol"><A NAME="ref_90_33" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_89_33">Ch</A></span>  : <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_47_12">C_Int</A>;
+                                <span class="symbol"><A NAME="ref_91_33" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_90_33">Usr</A></span> : System.Address) <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_2099_9">Curses_Bool</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_93_7">Result</A></span> : Boolean;
+      <span class="symbol"><A NAME="ref_94_7">Udf</A></span>    : <b>constant</b> <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_54_9">User_Defined_Field_Type_Access</A> :=
+        <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_54_9">User_Defined_Field_Type_Access</A>
+          (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_217_9">Argument_Access</A> (Argument_Conversions.To_Pointer (<A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_90_33">Usr</A>)).<b>all</b>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_213_7">Typ</A>);
+   <b>begin</b>
+      <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_93_7">Result</A> := <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_64_13">Character_Check</A> (Character'Val (<A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_89_33">Ch</A>), <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_94_7">Udf</A>.<b>all</b>);
+      <b>return</b> <A HREF="terminal_interface-curses__ads.htm#ref_2099_9">Curses_Bool</A> (Boolean'Pos (<A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_93_7">Result</A>));
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_89_13">Generic_Char_Check</A>;
+
+   <span class="comment"><EM>--  -----------------------------------------------------------------------</EM></span>
+   <span class="comment"><EM>--</EM></span>
+   <b>function</b> <span class="symbol"><A NAME="ref_104_13" HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_80_13">C_Generic_Type</A></span> <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A>
+   <b>is</b>
+      <span class="symbol"><A NAME="ref_106_7">Res</A></span> : <A HREF="terminal_interface-curses-aux__ads.htm#ref_70_9">Eti_Error</A>;
+      <span class="symbol"><A NAME="ref_107_7">T</A></span>   : <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_133_9">C_Field_Type</A>;
+   <b>begin</b>
+      <b>if</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_142_4">M_Generic_Type</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A> <b>then</b>
+         <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_107_7">T</A> := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_223_13">New_Fieldtype</A> (<A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_82_13">Generic_Field_Check</A>'<b>Access</b>,
+                             <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_89_13">Generic_Char_Check</A>'<b>Access</b>);
+         <b>if</b> <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_107_7">T</A> = <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A> <b>then</b>
+            <b>raise</b> <A HREF="terminal_interface-curses-forms__ads.htm#ref_288_4">Form_Exception</A>;
+         <b>else</b>
+            <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_106_7">Res</A> := <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_228_13">Set_Fieldtype_Arg</A> (<A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_107_7">T</A>,
+                                      <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_163_13">Make_Arg</A>'<b>Access</b>,
+                                      <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_168_13">Copy_Arg</A>'<b>Access</b>,
+                                      <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_173_14">Free_Arg</A>'<b>Access</b>);
+            <A HREF="terminal_interface-curses-aux__ads.htm#ref_87_14">Eti_Exception</A> (<A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_106_7">Res</A>);
+         <b>end</b> <b>if</b>;
+         <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_142_4">M_Generic_Type</A> := <A HREF="terminal_interface-curses-forms-field_types-user__adb.htm#ref_107_7">T</A>;
+      <b>end</b> <b>if</b>;
+      <b>pragma</b> Assert (<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_142_4">M_Generic_Type</A> /= <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_135_4">Null_Field_Type</A>);
+      <b>return</b> <A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_142_4">M_Generic_Type</A>;
+   <b>end</b> <A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_80_13">C_Generic_Type</A>;
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-forms__ads.htm#ref_46_35">Forms</A>.<A HREF="terminal_interface-curses-forms-field_types__ads.htm#ref_45_41">Field_Types</A>.<A HREF="terminal_interface-curses-forms-field_types-user__ads.htm#ref_45_53">User</A>;
+</PRE></BODY></HTML>

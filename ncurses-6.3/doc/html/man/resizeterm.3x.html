@@ -1,0 +1,184 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * Author: Thomas E. Dickey 1996-on
+  * @Id: resizeterm.3x,v 1.28 2020/10/17 23:55:41 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>resizeterm 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">resizeterm 3x</H1>
+<PRE>
+<STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>                                                  <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>is_term_resized</STRONG>,  <STRONG>resize_term</STRONG>,  <STRONG>resizeterm</STRONG> - change the curses terminal
+       size
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>bool</STRONG> <STRONG>is_term_resized(int</STRONG> <EM>lines</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>columns</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>resize_term(int</STRONG> <EM>lines</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>columns</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>resizeterm(int</STRONG> <EM>lines</EM><STRONG>,</STRONG> <STRONG>int</STRONG> <EM>columns</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       This is an extension to the curses library.  It provides callers with a
+       hook  into  the  <STRONG>ncurses</STRONG>  data  to resize windows, primarily for use by
+       programs running in an X Window terminal (e.g., xterm).
+
+
+</PRE><H3><a name="h3-resizeterm">resizeterm</a></H3><PRE>
+       The function <STRONG>resizeterm</STRONG> resizes the standard and current windows to the
+       specified  dimensions,  and  adjusts other bookkeeping data used by the
+       <STRONG>ncurses</STRONG> library that record the window dimensions such as the <STRONG>LINES</STRONG> and
+       <STRONG>COLS</STRONG> variables.
+
+
+</PRE><H3><a name="h3-resize_term">resize_term</a></H3><PRE>
+       Most  of the work is done by the inner function <STRONG>resize_term</STRONG>.  The outer
+       function <STRONG>resizeterm</STRONG> adds bookkeeping for the <STRONG>SIGWINCH</STRONG> handler, as  well
+       as repainting the soft-key area (see <STRONG><A HREF="curs_slk.3x.html">slk_touch(3x)</A></STRONG>).
+
+       When  resizing  the windows, <STRONG>resize_term</STRONG> blank-fills the areas that are
+       extended.  The calling application should  fill  in  these  areas  with
+       appropriate data.
+
+       The  <STRONG>resize_term</STRONG> function attempts to resize all windows.  However, due
+       to the calling convention of pads, it is not possible to  resize  these
+       without additional interaction with the application.
+
+       When  resizing  windows,  <STRONG>resize_term</STRONG>  recursively  adjusts subwindows,
+       keeping them within the updated parent window's limits.  If a top-level
+       window  happens  to extend to the screen's limits, then on resizing the
+       window, <STRONG>resize_term</STRONG> will keep the window extending to the corresponding
+       limit, regardless of whether the screen has shrunk or grown.
+
+
+</PRE><H3><a name="h3-is_term_resized">is_term_resized</a></H3><PRE>
+       A support function <STRONG>is_term_resized</STRONG> is provided so that applications can
+       check if the <STRONG>resize_term</STRONG> function would modify the  window  structures.
+       It returns <STRONG>TRUE</STRONG> if the windows would be modified, and <STRONG>FALSE</STRONG> otherwise.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       Except  as  noted,  these functions return the integer <STRONG>ERR</STRONG> upon failure
+       and <STRONG>OK</STRONG> on success.  They will fail if either of the dimensions are less
+       than  or  equal  to  zero,  or  if an error occurs while (re)allocating
+       memory for the windows.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       While these functions are intended to  be  used  to  support  a  signal
+       handler  (i.e.,  for  <STRONG>SIGWINCH</STRONG>), care should be taken to avoid invoking
+       them in a context where <STRONG>malloc</STRONG> or <STRONG>realloc</STRONG> may  have  been  interrupted,
+       since it uses those functions.
+
+       If ncurses is configured to supply its own <STRONG>SIGWINCH</STRONG> handler,
+
+       <STRONG>o</STRONG>   on receipt of a <STRONG>SIGWINCH</STRONG>, the handler sets a flag
+
+       <STRONG>o</STRONG>   which is tested in <STRONG><A HREF="curs_getch.3x.html">wgetch(3x)</A></STRONG> and <STRONG>doupdate</STRONG>,
+
+       <STRONG>o</STRONG>   in turn, calling the <STRONG>resizeterm</STRONG> function,
+
+       <STRONG>o</STRONG>   which <STRONG>ungetch</STRONG>'s a <STRONG>KEY_RESIZE</STRONG> which will be read on the next call to
+           <STRONG>wgetch</STRONG>.
+
+           The <STRONG>KEY_RESIZE</STRONG> alerts an  application  that  the  screen  size  has
+           changed,  and  that it should repaint special features such as pads
+           that cannot be done automatically.
+
+           Calling <STRONG>resizeterm</STRONG> or <STRONG>resize_term</STRONG> directly from a signal handler is
+           unsafe.   This  indirect  method  is  used to provide a safe way to
+           resize the ncurses data structures.
+
+       If the environment variables <STRONG>LINES</STRONG> or <STRONG>COLUMNS</STRONG> are set,  this  overrides
+       the  library's  use  of  the  window  size  obtained from the operating
+       system.  Thus, even if a <STRONG>SIGWINCH</STRONG> is received, no  screen  size  change
+       may be recorded.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       It is possible to resize the screen with SVr4 curses, by
+
+       <STRONG>o</STRONG>   exiting curses with <STRONG><A HREF="curs_initscr.3x.html">endwin(3x)</A></STRONG> and
+
+       <STRONG>o</STRONG>   resuming using <STRONG><A HREF="curs_refresh.3x.html">refresh(3x)</A></STRONG>.
+
+       Doing that clears the screen and is visually distracting.
+
+       This  extension  of ncurses was introduced in mid-1995.  It was adopted
+       in NetBSD curses (2001) and PDCurses (2003).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="curs_getch.3x.html">curs_getch(3x)</A></STRONG>, <STRONG><A HREF="curs_variables.3x.html">curs_variables(3x)</A></STRONG>, <STRONG><A HREF="wresize.3x.html">wresize(3x)</A></STRONG>.
+
+
+</PRE><H2><a name="h2-AUTHOR">AUTHOR</a></H2><PRE>
+       Thomas Dickey (from an equivalent function  written  in  1988  for  BSD
+       curses).
+
+
+
+                                                                <STRONG><A HREF="resizeterm.3x.html">resizeterm(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-resizeterm">resizeterm</a></li>
+<li><a href="#h3-resize_term">resize_term</a></li>
+<li><a href="#h3-is_term_resized">is_term_resized</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-AUTHOR">AUTHOR</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

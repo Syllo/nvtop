@@ -1,0 +1,85 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<TITLE>terminal_interface-curses-text_io-float_io.ads</TITLE>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<style type="text/css">
+*.comment {
+	color: green;
+}
+*.symbol {
+	color: red;
+}
+</style>
+</HEAD>
+<BODY>
+<HR><DIV style="text-align:center"><H1> File : terminal_interface-curses-text_io-float_io.ads </H1></DIV><HR>
+<PRE>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                           <A HREF="http://www.gnat.com">GNAT</A> ncurses Binding                           --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                Terminal_Interface.Curses.Text_IO.Float_IO                --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>--                                 S P E C                                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>-- Copyright 2020 Thomas E. Dickey                                          --</EM></span>
+<span class="comment"><EM>-- Copyright 1999-2003,2009 Free Software Foundation, Inc.                  --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Permission is hereby granted, free of charge, to any person obtaining a  --</EM></span>
+<span class="comment"><EM>-- copy of this software and associated documentation files (the            --</EM></span>
+<span class="comment"><EM>-- "Software"), to deal in the Software without restriction, including      --</EM></span>
+<span class="comment"><EM>-- without limitation the rights to use, copy, modify, merge, publish,      --</EM></span>
+<span class="comment"><EM>-- distribute, distribute with modifications, sublicense, and/or sell       --</EM></span>
+<span class="comment"><EM>-- copies of the Software, and to permit persons to whom the Software is    --</EM></span>
+<span class="comment"><EM>-- furnished to do so, subject to the following conditions:                 --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- The above copyright notice and this permission notice shall be included  --</EM></span>
+<span class="comment"><EM>-- in all copies or substantial portions of the Software.                   --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  --</EM></span>
+<span class="comment"><EM>-- OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               --</EM></span>
+<span class="comment"><EM>-- MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   --</EM></span>
+<span class="comment"><EM>-- IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   --</EM></span>
+<span class="comment"><EM>-- DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    --</EM></span>
+<span class="comment"><EM>-- OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    --</EM></span>
+<span class="comment"><EM>-- THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               --</EM></span>
+<span class="comment"><EM>--                                                                          --</EM></span>
+<span class="comment"><EM>-- Except as contained in this notice, the name(s) of the above copyright   --</EM></span>
+<span class="comment"><EM>-- holders shall not be used in advertising or otherwise to promote the     --</EM></span>
+<span class="comment"><EM>-- sale, use or other dealings in this Software without prior written       --</EM></span>
+<span class="comment"><EM>-- authorization.                                                           --</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<span class="comment"><EM>--  Author:  Juergen Pfeifer, 1996</EM></span>
+<span class="comment"><EM>--  Version Control:</EM></span>
+<span class="comment"><EM>--  @Revision: 1.13 @</EM></span>
+<span class="comment"><EM>--  Binding Version 01.00</EM></span>
+<span class="comment"><EM>------------------------------------------------------------------------------</EM></span>
+<b>generic</b>
+   <b>type</b> <span class="symbol"><A NAME="ref_43_9" HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_45_43">Num</A></span> <b>is</b> <b>digits</b> &lt;&gt;;
+
+<b>package</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__ads.htm#ref_45_35">Text_IO</A>.<span class="symbol"><A NAME="ref_45_43" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_45_48">Float_IO</A></span> <b>is</b>
+
+   <span class="symbol"><A NAME="ref_47_4">Default_Fore</A></span> : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := 2;
+   <span class="symbol"><A NAME="ref_48_4">Default_Aft</A></span>  : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_43_9">Num</A>'<b>Digits</b> - 1;
+   <span class="symbol"><A NAME="ref_49_4">Default_Exp</A></span>  : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := 3;
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_51_14" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_50_14">Put</A></span>
+     (<span class="symbol"><A NAME="ref_52_7" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_51_7">Win</A></span>  : <A HREF="terminal_interface-curses__ads.htm#ref_56_9">Window</A>;
+      <span class="symbol"><A NAME="ref_53_7" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_52_7">Item</A></span> : <A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_43_9">Num</A>;
+      <span class="symbol"><A NAME="ref_54_7" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_53_7">Fore</A></span> : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_47_4">Default_Fore</A>;
+      <span class="symbol"><A NAME="ref_55_7" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_54_7">Aft</A></span>  : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_48_4">Default_Aft</A>;
+      <span class="symbol"><A NAME="ref_56_7" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_55_7">Exp</A></span>  : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_49_4">Default_Exp</A>);
+
+   <b>procedure</b> <span class="symbol"><A NAME="ref_58_14" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_67_14">Put</A></span>
+     (<span class="symbol"><A NAME="ref_59_7" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_68_7">Item</A></span> : <A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_43_9">Num</A>;
+      <span class="symbol"><A NAME="ref_60_7" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_69_7">Fore</A></span> : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_47_4">Default_Fore</A>;
+      <span class="symbol"><A NAME="ref_61_7" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_70_7">Aft</A></span>  : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_48_4">Default_Aft</A>;
+      <span class="symbol"><A NAME="ref_62_7" HREF="terminal_interface-curses-text_io-float_io__adb.htm#ref_71_7">Exp</A></span>  : <A HREF="terminal_interface-curses-text_io__ads.htm#ref_51_12">Field</A> := <A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_49_4">Default_Exp</A>);
+
+<b>private</b>
+   <b>pragma</b> Inline (Put);
+
+<b>end</b> <A HREF="terminal_interface__ads.htm#ref_43_9">Terminal_Interface</A>.<A HREF="terminal_interface-curses__ads.htm#ref_48_28">Curses</A>.<A HREF="terminal_interface-curses-text_io__ads.htm#ref_45_35">Text_IO</A>.<A HREF="terminal_interface-curses-text_io-float_io__ads.htm#ref_45_43">Float_IO</A>;
+</PRE></BODY></HTML>

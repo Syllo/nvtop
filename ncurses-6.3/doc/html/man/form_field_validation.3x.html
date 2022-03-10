@@ -1,0 +1,249 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018-2019,2020 Thomas E. Dickey                                *
+  * Copyright 1998-2010,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: form_field_validation.3x,v 1.33 2020/12/12 19:57:55 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>form_field_validation 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">form_field_validation 3x</H1>
+<PRE>
+<STRONG><A HREF="form_field_validation.3x.html">form_field_validation(3x)</A></STRONG>                            <STRONG><A HREF="form_field_validation.3x.html">form_field_validation(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>form_field_validation</STRONG> - data type validation for fields
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;form.h&gt;</STRONG>
+
+       <STRONG>void</STRONG> <STRONG>*field_arg(const</STRONG> <STRONG>FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>);</STRONG>
+       <STRONG>FIELDTYPE</STRONG> <STRONG>*field_type(const</STRONG> <STRONG>FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>set_field_type(FIELD</STRONG> <STRONG>*</STRONG><EM>field</EM><STRONG>,</STRONG> <STRONG>FIELDTYPE</STRONG> <STRONG>*</STRONG><EM>type</EM><STRONG>,</STRONG> <STRONG>...);</STRONG>
+
+       /* predefined field types */
+       <STRONG>FIELDTYPE</STRONG> <STRONG>*TYPE_ALNUM;</STRONG>
+       <STRONG>FIELDTYPE</STRONG> <STRONG>*TYPE_ALPHA;</STRONG>
+       <STRONG>FIELDTYPE</STRONG> <STRONG>*TYPE_ENUM;</STRONG>
+       <STRONG>FIELDTYPE</STRONG> <STRONG>*TYPE_INTEGER;</STRONG>
+       <STRONG>FIELDTYPE</STRONG> <STRONG>*TYPE_NUMERIC;</STRONG>
+       <STRONG>FIELDTYPE</STRONG> <STRONG>*TYPE_REGEXP;</STRONG>
+       <STRONG>FIELDTYPE</STRONG> <STRONG>*TYPE_IPV4;</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+       By  default, no validation is done on form fields.  You can associate a
+       form with with a <EM>field</EM> <EM>type</EM>, making the form library validate input.
+
+
+</PRE><H3><a name="h3-field_arg">field_arg</a></H3><PRE>
+       Returns a pointer to the field's argument block.  The <EM>argument</EM> <EM>block</EM> is
+       an  opaque  structure  containing a copy of the arguments provided in a
+       <STRONG>set_field_type</STRONG> call.
+
+
+</PRE><H3><a name="h3-field_type">field_type</a></H3><PRE>
+       Returns a pointer to the <EM>field</EM> <EM>type</EM> associated  with  the  form  field,
+       i.e., by calling <STRONG>set_field_type</STRONG>.
+
+
+</PRE><H3><a name="h3-set_field_type">set_field_type</a></H3><PRE>
+       The  function  <STRONG>set_field_type</STRONG> associates a field type with a given form
+       field.  This is the type checked by validation functions.   Most  field
+       types  are  configurable,  via arguments which the caller provides when
+       calling <STRONG>set_field_type</STRONG>.
+
+       Several field types are predefined by the form library.
+
+
+</PRE><H3><a name="h3-Predefined-types">Predefined types</a></H3><PRE>
+       It is possible to set up new  programmer-defined  field  types.   Field
+       types  are implemented via the <STRONG>FIELDTYPE</STRONG> data structure, which contains
+       several pointers to functions.
+
+       See the <STRONG><A HREF="form_fieldtype.3x.html">form_fieldtype(3x)</A></STRONG> manual page, which describes functions which
+       can be used to construct a field-type dynamically.
+
+       The predefined types are as follows:
+
+       TYPE_ALNUM
+            Alphanumeric data.  Required parameter:
+
+            <STRONG>o</STRONG>   a third <STRONG>int</STRONG> argument, a minimum field width.
+
+       TYPE_ALPHA
+            Character data.  Required parameter:
+
+            <STRONG>o</STRONG>   a third <STRONG>int</STRONG> argument, a minimum field width.
+
+       TYPE_ENUM
+            Accept one of a specified set of strings.  Required parameters:
+
+            <STRONG>o</STRONG>   a third <STRONG>(char</STRONG> <STRONG>**)</STRONG> argument pointing to a string list;
+
+            <STRONG>o</STRONG>   a fourth <STRONG>int</STRONG> flag argument to enable case-sensitivity;
+
+            <STRONG>o</STRONG>   a  fifth  <STRONG>int</STRONG> flag argument specifying whether a partial match
+                must be a unique one.  If this flag is off, a  prefix  matches
+                the  first of any set of more than one list elements with that
+                prefix.
+
+            The library copies the string list, so you may  use  a  list  that
+            lives in automatic variables on the stack.
+
+       TYPE_INTEGER
+            Integer  data,  parsable  to  an  integer  by  <STRONG>atoi(3)</STRONG>.   Required
+            parameters:
+
+            <STRONG>o</STRONG>   a third <STRONG>int</STRONG> argument controlling the precision,
+
+            <STRONG>o</STRONG>   a fourth <STRONG>long</STRONG> argument constraining minimum value,
+
+            <STRONG>o</STRONG>   a fifth <STRONG>long</STRONG> constraining maximum value.  If the maximum value
+                is  less  than  or  equal  to  the minimum value, the range is
+                simply ignored.
+
+            On return, the field buffer is formatted according to  the  <STRONG>printf</STRONG>
+            format  specification  ".*ld",  where  the  "*" is replaced by the
+            precision argument.
+
+            For details of the precision handling see <STRONG>printf(3)</STRONG>.
+
+       TYPE_NUMERIC
+            Numeric  data  (may  have   a   decimal-point   part).    Required
+            parameters:
+
+            <STRONG>o</STRONG>   a third <STRONG>int</STRONG> argument controlling the precision,
+
+            <STRONG>o</STRONG>   a fourth <STRONG>double</STRONG> argument constraining minimum value,
+
+            <STRONG>o</STRONG>   and a fifth <STRONG>double</STRONG> constraining maximum value.  If your system
+                supports locales, the decimal point character must be the  one
+                specified  by  your locale.  If the maximum value is less than
+                or equal to the minimum value, the range is simply ignored.
+
+            On return, the field buffer is formatted according to  the  <STRONG>printf</STRONG>
+            format  specification  ".*f",  where  the  "*"  is replaced by the
+            precision argument.
+
+            For details of the precision handling see <STRONG>printf(3)</STRONG>.
+
+       TYPE_REGEXP
+            Regular expression data.  Required parameter:
+
+            <STRONG>o</STRONG>   a third argument, a regular expression <STRONG>(char</STRONG> <STRONG>*)</STRONG>  string.   The
+                data is valid if the regular expression matches it.
+
+            Regular expressions are in the format of <STRONG>regcomp</STRONG> and <STRONG>regexec</STRONG>.
+
+            The  regular  expression  must match the whole field.  If you have
+            for example, an eight character wide field, a  regular  expression
+            "^[0-9]*$"  always means that you have to fill all eight positions
+            with digits.  If you want to allow fewer digits, you may  use  for
+            example  "^[0-9]*  *$" which is good for trailing spaces (up to an
+            empty field), or "^ *[0-9]* *$" which  is  good  for  leading  and
+            trailing spaces around the digits.
+
+       TYPE_IPV4
+            An Internet Protocol Version 4 address.  Required parameter:
+
+            <STRONG>o</STRONG>   none
+
+            The  form  library  checks  whether or not the buffer has the form
+            <EM>a.b.c.d</EM>, where <EM>a</EM>, <EM>b</EM>, <EM>c</EM>, and <EM>d</EM> are numbers in the range 0  to  255.
+            Trailing  blanks in the buffer are ignored.  The address itself is
+            not validated.
+
+            This is an ncurses extension; this field type may not be available
+            in other curses implementations.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       The  functions  <STRONG>field_type</STRONG>  and  <STRONG>field_arg</STRONG>  return  <STRONG>NULL</STRONG> on error.  The
+       function <STRONG>set_field_type</STRONG> returns one of the following:
+
+       <STRONG>E_OK</STRONG> The routine succeeded.
+
+       <STRONG>E_SYSTEM_ERROR</STRONG>
+            System error occurred (see <STRONG>errno(3)</STRONG>).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="form.3x.html">form(3x)</A></STRONG>, <STRONG><A HREF="form_fieldtype.3x.html">form_fieldtype(3x)</A></STRONG>, <STRONG><A HREF="form_variables.3x.html">form_variables(3x)</A></STRONG>.
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       The  header  file  <STRONG>&lt;form.h&gt;</STRONG>  automatically  includes  the  header  file
+       <STRONG>&lt;curses.h&gt;</STRONG>.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These  routines  emulate  the  System  V  forms library.  They were not
+       supported on Version 7 or BSD versions.
+
+
+</PRE><H2><a name="h2-AUTHORS">AUTHORS</a></H2><PRE>
+       Juergen Pfeifer.  Manual pages and adaptation for new curses by Eric S.
+       Raymond.
+
+
+
+                                                     <STRONG><A HREF="form_field_validation.3x.html">form_field_validation(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-field_arg">field_arg</a></li>
+<li><a href="#h3-field_type">field_type</a></li>
+<li><a href="#h3-set_field_type">set_field_type</a></li>
+<li><a href="#h3-Predefined-types">Predefined types</a></li>
+</ul>
+</li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-AUTHORS">AUTHORS</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>

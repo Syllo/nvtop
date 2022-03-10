@@ -1,0 +1,152 @@
+<!--
+  ****************************************************************************
+  * Copyright 2018,2020 Thomas E. Dickey                                     *
+  * Copyright 2002-2015,2017 Free Software Foundation, Inc.                  *
+  *                                                                          *
+  * Permission is hereby granted, free of charge, to any person obtaining a  *
+  * copy of this software and associated documentation files (the            *
+  * "Software"), to deal in the Software without restriction, including      *
+  * without limitation the rights to use, copy, modify, merge, publish,      *
+  * distribute, distribute with modifications, sublicense, and/or sell       *
+  * copies of the Software, and to permit persons to whom the Software is    *
+  * furnished to do so, subject to the following conditions:                 *
+  *                                                                          *
+  * The above copyright notice and this permission notice shall be included  *
+  * in all copies or substantial portions of the Software.                   *
+  *                                                                          *
+  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS  *
+  * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF               *
+  * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.   *
+  * IN NO EVENT SHALL THE ABOVE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,   *
+  * DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR    *
+  * OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR    *
+  * THE USE OR OTHER DEALINGS IN THE SOFTWARE.                               *
+  *                                                                          *
+  * Except as contained in this notice, the name(s) of the above copyright   *
+  * holders shall not be used in advertising or otherwise to promote the     *
+  * sale, use or other dealings in this Software without prior written       *
+  * authorization.                                                           *
+  ****************************************************************************
+  * @Id: curs_bkgrnd.3x,v 1.12 2020/10/17 23:13:15 tom Exp @
+-->
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<HTML>
+<HEAD>
+<meta http-equiv="Content-Type" content="text/html; charset=us-ascii">
+<meta name="generator" content="Manpage converted by man2html - see https://invisible-island.net/scripts/readme.html#others_scripts">
+<TITLE>curs_bkgrnd 3x</TITLE>
+<link rel="author" href="mailto:bug-ncurses@gnu.org">
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+</HEAD>
+<BODY>
+<H1 class="no-header">curs_bkgrnd 3x</H1>
+<PRE>
+<STRONG><A HREF="curs_bkgrnd.3x.html">curs_bkgrnd(3x)</A></STRONG>                                                <STRONG><A HREF="curs_bkgrnd.3x.html">curs_bkgrnd(3x)</A></STRONG>
+
+
+
+
+</PRE><H2><a name="h2-NAME">NAME</a></H2><PRE>
+       <STRONG>bkgrnd</STRONG>,  <STRONG>wbkgrnd</STRONG>, <STRONG>bkgrndset</STRONG>, <STRONG>wbkgrndset</STRONG>, <STRONG>getbkgrnd</STRONG>, <STRONG>wgetbkgrnd</STRONG> - <STRONG>curses</STRONG>
+       window complex background manipulation routines
+
+
+</PRE><H2><a name="h2-SYNOPSIS">SYNOPSIS</a></H2><PRE>
+       <STRONG>#include</STRONG> <STRONG>&lt;curses.h&gt;</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>bkgrnd(</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wbkgrnd(</STRONG> <STRONG>WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+
+       <STRONG>void</STRONG> <STRONG>bkgrndset(const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM> <STRONG>);</STRONG>
+       <STRONG>void</STRONG> <STRONG>wbkgrndset(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>const</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+
+       <STRONG>int</STRONG> <STRONG>getbkgrnd(cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+       <STRONG>int</STRONG> <STRONG>wgetbkgrnd(WINDOW</STRONG> <STRONG>*</STRONG><EM>win</EM><STRONG>,</STRONG> <STRONG>cchar_t</STRONG> <STRONG>*</STRONG><EM>wch</EM><STRONG>);</STRONG>
+
+
+</PRE><H2><a name="h2-DESCRIPTION">DESCRIPTION</a></H2><PRE>
+
+</PRE><H3><a name="h3-bkgrndset">bkgrndset</a></H3><PRE>
+       The <STRONG>bkgrndset</STRONG> and <STRONG>wbkgrndset</STRONG> routines manipulate the background of  the
+       named  window.   The  window  background is a <STRONG>cchar_t</STRONG> consisting of any
+       combination of attributes (i.e., rendition) and  a  complex  character.
+       The  attribute part of the background is combined (OR'ed) with all non-
+       blank characters that are written into the window  with  <STRONG>waddch</STRONG>.   Both
+       the  character  and attribute parts of the background are combined with
+       the blank  characters.   The  background  becomes  a  property  of  the
+       character  and  moves  with  the  character  through  any scrolling and
+       insert/delete line/character operations.
+
+       To the extent possible on a particular terminal, the attribute part  of
+       the  background  is displayed as the graphic rendition of the character
+       put on the screen.
+
+
+</PRE><H3><a name="h3-bkgrnd">bkgrnd</a></H3><PRE>
+       The <STRONG>bkgrnd</STRONG> and <STRONG>wbkgrnd</STRONG> functions set the  background  property  of  the
+       current  or  specified  window  and  then  apply  this setting to every
+       character position in that window:
+
+       <STRONG>o</STRONG>   The rendition of every character on the screen is  changed  to  the
+           new background rendition.
+
+       <STRONG>o</STRONG>   Wherever  the former background character appears, it is changed to
+           the new background character.
+
+
+</PRE><H3><a name="h3-getbkgrnd">getbkgrnd</a></H3><PRE>
+       The <STRONG>getbkgrnd</STRONG> function returns the given  window's  current  background
+       character/attribute  pair  via  the  <STRONG>wch</STRONG>  pointer.  If the given window
+       pointer is null, the character is not updated (but no error returned).
+
+
+</PRE><H2><a name="h2-NOTES">NOTES</a></H2><PRE>
+       Note that <STRONG>bkgrnd</STRONG>, <STRONG>bkgrndset</STRONG>, and <STRONG>getbkgrnd</STRONG> may be macros.
+
+       X/Open Curses does not provide details on how the rendition is changed.
+       This  implementation follows the approach used in SVr4 curses, which is
+       explained in the manual page for <STRONG>wbkgd</STRONG>.
+
+
+</PRE><H2><a name="h2-RETURN-VALUE">RETURN VALUE</a></H2><PRE>
+       The <STRONG>bkgrndset</STRONG> and <STRONG>wbkgrndset</STRONG> routines do not return a value.
+
+       Upon successful completion, the other functions return <STRONG>OK</STRONG>.   Otherwise,
+       they return <STRONG>ERR</STRONG>:
+
+       <STRONG>o</STRONG>   A null window pointer is treated as an error.
+
+       <STRONG>o</STRONG>   A null character pointer is treated as an error.
+
+
+</PRE><H2><a name="h2-PORTABILITY">PORTABILITY</a></H2><PRE>
+       These  functions  are  described  in  the  XSI Curses standard, Issue 4
+       (X/Open Curses).
+
+
+</PRE><H2><a name="h2-SEE-ALSO">SEE ALSO</a></H2><PRE>
+       <STRONG><A HREF="ncurses.3x.html">curses(3x)</A></STRONG>, <STRONG><A HREF="curs_bkgd.3x.html">curs_bkgd(3x)</A></STRONG>
+
+
+
+                                                               <STRONG><A HREF="curs_bkgrnd.3x.html">curs_bkgrnd(3x)</A></STRONG>
+</PRE>
+<div class="nav">
+<ul>
+<li><a href="#h2-NAME">NAME</a></li>
+<li><a href="#h2-SYNOPSIS">SYNOPSIS</a></li>
+<li><a href="#h2-DESCRIPTION">DESCRIPTION</a>
+<ul>
+<li><a href="#h3-bkgrndset">bkgrndset</a></li>
+<li><a href="#h3-bkgrnd">bkgrnd</a></li>
+<li><a href="#h3-getbkgrnd">getbkgrnd</a></li>
+</ul>
+</li>
+<li><a href="#h2-NOTES">NOTES</a></li>
+<li><a href="#h2-RETURN-VALUE">RETURN VALUE</a></li>
+<li><a href="#h2-PORTABILITY">PORTABILITY</a></li>
+<li><a href="#h2-SEE-ALSO">SEE ALSO</a></li>
+</ul>
+</div>
+</BODY>
+</HTML>
