@@ -356,7 +356,7 @@ const char *gpuinfo_nvidia_last_error_string(void) {
 }
 
 bool gpuinfo_nvidia_get_device_handles(
-    gpuinfo_nvidia_device_handle **handle_array_ptr, unsigned *count,
+    nvmlDevice_t **handle_array_ptr, unsigned *count,
     uint64_t mask) {
 
   if (!libnvidia_ml_handle)
@@ -384,8 +384,8 @@ bool gpuinfo_nvidia_get_device_handles(
   return true;
 }
 
-void gpuinfo_nvidia_populate_static_info(gpuinfo_nvidia_device_handle device,
-                                         gpuinfo_static_info *static_info) {
+void gpuinfo_nvidia_populate_static_info(nvmlDevice_t device,
+                                         struct gpuinfo_static_info *static_info) {
   last_nvml_return_status =
       nvmlDeviceGetName(device, static_info->device_name, MAX_DEVICE_NAME);
   if (last_nvml_return_status == NVML_SUCCESS)
@@ -424,8 +424,8 @@ void gpuinfo_nvidia_populate_static_info(gpuinfo_nvidia_device_handle device,
     RESET_VALID(gpuinfo_temperature_slowdown_valid, static_info->valid);
 }
 
-void gpuinfo_nvidia_refresh_dynamic_info(gpuinfo_nvidia_device_handle device,
-                                         gpuinfo_dynamic_info *dynamic_info) {
+void gpuinfo_nvidia_refresh_dynamic_info(nvmlDevice_t device,
+                                         struct gpuinfo_dynamic_info *dynamic_info) {
 
   bool graphics_clock_valid = false;
   unsigned graphics_clock;
@@ -596,9 +596,9 @@ void gpuinfo_nvidia_refresh_dynamic_info(gpuinfo_nvidia_device_handle device,
 }
 
 static void gpuinfo_nvidia_get_process_utilization(
-    gpuinfo_nvidia_device_handle device, gpuinfo_nvidia_internal_data *internal,
+    nvmlDevice_t device, struct gpuinfo_nvidia_internal_data *internal,
     unsigned num_processes_recovered,
-    gpu_process processes[num_processes_recovered]) {
+    struct gpu_process processes[num_processes_recovered]) {
   if (num_processes_recovered && nvmlDeviceGetProcessUtilization) {
     unsigned samples_count = 0;
     nvmlReturn_t retval = nvmlDeviceGetProcessUtilization(
@@ -654,8 +654,8 @@ static void gpuinfo_nvidia_get_process_utilization(
 #define DEFAULT_PROCESS_ARRAY_SIZE 64
 
 void gpuinfo_nvidia_get_running_processes(
-    gpuinfo_nvidia_device_handle device, gpuinfo_nvidia_internal_data *internal,
-    unsigned *num_processes_recovered, gpu_process **processes_info) {
+    nvmlDevice_t device, struct gpuinfo_nvidia_internal_data *internal,
+    unsigned *num_processes_recovered, struct gpu_process **processes_info) {
   *num_processes_recovered = 0;
   size_t array_size = DEFAULT_PROCESS_ARRAY_SIZE;
   nvmlProcessInfo_t *retrieved_infos =

@@ -31,32 +31,32 @@ enum gpuinfo_gputype {
   gpuinfo_type_nvidia_proprietary,
 };
 
-typedef struct gpu_info_struct {
+struct gpu_info {
   enum gpuinfo_gputype gpu_type;
   union {
-    gpuinfo_nvidia_device_handle nvidia_gpuhandle;
+    nvmlDevice_t nvidia_gpuhandle;
   };
-  gpuinfo_static_info static_info;
-  gpuinfo_dynamic_info dynamic_info;
+  struct gpuinfo_static_info static_info;
+  struct gpuinfo_dynamic_info dynamic_info;
   unsigned processes_count;
-  gpu_process *processes;
+  struct gpu_process *processes;
   union {
-    gpuinfo_nvidia_internal_data nvidia_internal;
+    struct gpuinfo_nvidia_internal_data nvidia_internal;
   };
-} gpu_info;
+};
 
-bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count, gpu_info **devices);
+bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count, struct gpu_info **devices);
 
 bool gpuinfo_shutdown_info_extraction(unsigned device_count,
-                                      gpu_info *devices);
+                                      struct gpu_info *devices);
 
-bool gpuinfo_populate_static_infos(unsigned device_count, gpu_info *devices);
+bool gpuinfo_populate_static_infos(unsigned device_count, struct gpu_info *devices);
 
-bool gpuinfo_refresh_dynamic_info(unsigned device_count, gpu_info *devices);
+bool gpuinfo_refresh_dynamic_info(unsigned device_count, struct gpu_info *devices);
 
-bool gpuinfo_refresh_processes(unsigned device_count, gpu_info *devices);
+bool gpuinfo_refresh_processes(unsigned device_count, struct gpu_info *devices);
 
-void gpuinfo_clean(unsigned device_count, gpu_info *devices);
+void gpuinfo_clean(unsigned device_count, struct gpu_info *devices);
 
 void gpuinfo_clear_cache(void);
 

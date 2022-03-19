@@ -484,7 +484,7 @@ static inline void werase_and_wnoutrefresh(WINDOW *w) {
   wnoutrefresh(w);
 }
 
-static void draw_devices(unsigned devices_count, gpu_info *devices,
+static void draw_devices(unsigned devices_count, struct gpu_info *devices,
                          struct nvtop_interface *interface) {
 
   for (unsigned i = 0; i < devices_count; ++i) {
@@ -746,12 +746,12 @@ typedef struct {
   unsigned processes_count;
   struct gpuid_and_process {
     unsigned gpu_id;
-    gpu_process *process;
+    struct gpu_process *process;
   } * processes;
 } all_processes;
 
 static all_processes all_processes_array(unsigned devices_count,
-                                         gpu_info *devices) {
+                                         struct gpu_info *devices) {
 
   unsigned total_processes_count = 0;
   for (unsigned i = 0; i < devices_count; ++i) {
@@ -1302,7 +1302,7 @@ print_processes_on_screen(all_processes all_procs,
 
 static void update_process_option_win(struct nvtop_interface *interface);
 
-static void draw_processes(unsigned devices_count, gpu_info *devices,
+static void draw_processes(unsigned devices_count, struct gpu_info *devices,
                            struct nvtop_interface *interface) {
   if (interface->process.process_win == NULL)
     return;
@@ -1571,7 +1571,7 @@ static void draw_shortcuts(struct nvtop_interface *interface) {
   }
 }
 
-void save_current_data_to_ring(unsigned devices_count, gpu_info *devices,
+void save_current_data_to_ring(unsigned devices_count, struct gpu_info *devices,
                                struct nvtop_interface *interface) {
   for (unsigned dev_id = 0; dev_id < devices_count; ++dev_id) {
     unsigned data_index = 0;
@@ -1769,7 +1769,7 @@ static void draw_plots(struct nvtop_interface *interface) {
   }
 }
 
-void draw_gpu_info_ncurses(unsigned devices_count, gpu_info *devices,
+void draw_gpu_info_ncurses(unsigned devices_count, struct gpu_info *devices,
                            struct nvtop_interface *interface) {
 
   draw_devices(devices_count, devices, interface);
