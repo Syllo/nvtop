@@ -252,7 +252,7 @@ int main(int argc, char **argv) {
   }
 
   unsigned devices_count = 0;
-  struct gpu_info *devices = NULL;
+  LIST_HEAD(devices);
   if (!gpuinfo_init_info_extraction(gpu_mask_nvidia, &devices_count, &devices))
     return EXIT_FAILURE;
   if (devices_count == 0) {
@@ -303,13 +303,14 @@ int main(int argc, char **argv) {
   if (update_interval_option_set)
     interface_options.update_interval = update_interval_option;
 
-  gpuinfo_populate_static_infos(devices_count, devices);
+  gpuinfo_populate_static_infos(&devices);
 
   size_t biggest_name = 0;
-  for (unsigned i = 0; i < devices_count; ++i) {
+  struct gpu_info *device;
+  list_for_each_entry(device, &devices, list) {
     size_t device_name_size;
-    if (IS_VALID(gpuinfo_device_name_valid, devices[i].static_info.valid))
-      device_name_size = strlen(devices[i].static_info.device_name);
+    if (IS_VALID(gpuinfo_device_name_valid, device->static_info.valid))
+      device_name_size = strlen(device->static_info.device_name);
     else
       device_name_size = 4;
     if (device_name_size > biggest_name) {
@@ -327,18 +328,18 @@ int main(int argc, char **argv) {
       signal_resize_win = 0;
     }
     if (time_slept >= interface_update_interval(interface)) {
-      gpuinfo_refresh_dynamic_info(devices_count, devices);
+      gpuinfo_refresh_dynamic_info(&devices);
       if (!interface_freeze_processes(interface)) {
-        gpuinfo_refresh_processes(devices_count, devices);
+        gpuinfo_refresh_processes(&devices);
       }
-      save_current_data_to_ring(devices_count, devices, interface);
+      save_current_data_to_ring(&devices, interface);
       timeout(interface_update_interval(interface));
       time_slept = 0.;
     } else {
       int next_sleep = interface_update_interval(interface) - (int)time_slept;
       timeout(next_sleep);
     }
-    draw_gpu_info_ncurses(devices_count, devices, interface);
+    draw_gpu_info_ncurses(devices_count, &devices, interface);
 
     nvtop_time time_before_sleep, time_after_sleep;
     nvtop_get_current_time(&time_before_sleep);
@@ -388,7 +389,7 @@ int main(int argc, char **argv) {
   }
 
   clean_ncurses(interface);
-  gpuinfo_shutdown_info_extraction(devices_count, devices);
+  gpuinfo_shutdown_info_extraction(&devices);
 
   return EXIT_SUCCESS;
 }

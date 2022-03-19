@@ -26,6 +26,8 @@
 #include <stdlib.h>
 #include <sys/types.h>
 
+#include "list.h"
+
 #define IS_VALID(x, y) ((y)[(x) / CHAR_BIT] & (1 << ((x) % CHAR_BIT)))
 #define SET_VALID(x, y) ((y)[(x) / CHAR_BIT] |= (1 << ((x) % CHAR_BIT)))
 #define RESET_VALID(x, y) ((y)[(x) / CHAR_BIT] &= ~(1 << ((x) % CHAR_BIT)))
@@ -131,6 +133,19 @@ struct gpu_process {
   unsigned long cpu_memory_virt;
   unsigned long cpu_memory_res;
   unsigned char valid[gpuinfo_process_info_count / CHAR_BIT + 1];
+};
+
+enum gpuinfo_gputype {
+  gpuinfo_type_nvidia_proprietary,
+};
+
+struct gpu_info {
+  struct list_head list;
+  enum gpuinfo_gputype gpu_type;
+  struct gpuinfo_static_info static_info;
+  struct gpuinfo_dynamic_info dynamic_info;
+  unsigned processes_count;
+  struct gpu_process *processes;
 };
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

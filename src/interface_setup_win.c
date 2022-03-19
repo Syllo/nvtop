@@ -312,7 +312,7 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
   wnoutrefresh(options_win);
 }
 
-static void draw_setup_window_chart(unsigned devices_count, struct gpu_info *devices,
+static void draw_setup_window_chart(unsigned devices_count, struct list_head *devices,
                                     struct nvtop_interface *interface) {
   WINDOW *option_list_win;
 
@@ -398,11 +398,12 @@ static void draw_setup_window_chart(unsigned devices_count, struct gpu_info *dev
     if (interface->setup_win.options_selected[0] == setup_chart_all_gpu) {
       wprintw(value_list_win, " (All GPUs)");
     } else {
-      if (IS_VALID(gpuinfo_device_name_valid, devices->static_info.valid)) {
-        getyx(value_list_win, tmp, cur_col);
-        wprintw(value_list_win, " (%.*s)", maxcols - cur_col - 3,
-                devices->static_info.device_name);
-      } else
+      // FIXME: Figure out why is this only reading one device?
+      // if (IS_VALID(gpuinfo_device_name_valid, devices->static_info.valid)) {
+      //   getyx(value_list_win, tmp, cur_col);
+      //   wprintw(value_list_win, " (%.*s)", maxcols - cur_col - 3,
+      //           devices->static_info.device_name);
+      // } else
         wprintw(value_list_win, " (GPU %u)", selected_gpu);
     }
     wclrtoeol(value_list_win);
@@ -611,7 +612,7 @@ void draw_setup_window_shortcuts(struct nvtop_interface *interface) {
   wnoutrefresh(window);
 }
 
-void draw_setup_window(unsigned devices_count, struct gpu_info *devices,
+void draw_setup_window(unsigned devices_count, struct list_head *devices,
                        struct nvtop_interface *interface) {
   draw_setup_window_setup(interface);
   switch (interface->setup_win.selected_section) {

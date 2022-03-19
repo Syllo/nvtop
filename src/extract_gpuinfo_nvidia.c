@@ -176,6 +176,8 @@ nvmlReturn_t (*nvmlDeviceGetProcessUtilization)(
     nvmlDevice_t device, nvmlProcessUtilizationSample_t *utilization,
     unsigned int *processSamplesCount, unsigned long long lastSeenTimeStamp);
 
+static LIST_HEAD(allocations);
+
 /*
  *
  * This function loads the libnvidia-ml.so shared object, initializes the
@@ -342,6 +344,13 @@ void gpuinfo_nvidia_shutdown(void) {
     libnvidia_ml_handle = NULL;
     local_error_string = didnt_call_gpuinfo_init;
   }
+
+  struct gpu_info_nvidia *allocated, *tmp;
+
+  list_for_each_entry_safe(allocated, tmp, &allocations, allocate_list) {
+    list_del(&allocated->allocate_list);
+    free(allocated);
+  }
 }
 
 const char *gpuinfo_nvidia_last_error_string(void) {
@@ -356,7 +365,7 @@ const char *gpuinfo_nvidia_last_error_string(void) {
 }
 
 bool gpuinfo_nvidia_get_device_handles(
-    nvmlDevice_t **handle_array_ptr, unsigned *count,
+    struct list_head *devices, unsigned *count,
     uint64_t mask) {
 
   if (!libnvidia_ml_handle)
@@ -367,25 +376,37 @@ bool gpuinfo_nvidia_get_device_handles(
   if (last_nvml_return_status != NVML_SUCCESS)
     return false;
 
-  *handle_array_ptr = malloc(num_devices * sizeof(**handle_array_ptr));
-  if (!*handle_array_ptr) {
+  struct gpu_info_nvidia *gpu_infos =
+      calloc(num_devices, sizeof(*gpu_infos));
+  if (!gpu_infos) {
     local_error_string = strerror(errno);
     return false;
   }
+
+  list_add(&gpu_infos[0].allocate_list, &allocations);
+
   *count = 0;
   for (unsigned int i = 0; i < num_devices; ++i) {
     if (i < CHAR_BIT * sizeof(mask) && (mask & (1 << i)) == 0)
       continue;
     last_nvml_return_status =
-        nvmlDeviceGetHandleByIndex(i, &(*handle_array_ptr)[*count]);
-    if (last_nvml_return_status == NVML_SUCCESS)
+        nvmlDeviceGetHandleByIndex(i, &gpu_infos[*count].gpuhandle);
+    if (last_nvml_return_status == NVML_SUCCESS) {
+      gpu_infos[*count].base.gpu_type = gpuinfo_type_nvidia_proprietary;
+      list_add_tail(&gpu_infos[*count].base.list, devices);
       *count += 1;
+    }
   }
+
   return true;
 }
 
-void gpuinfo_nvidia_populate_static_info(nvmlDevice_t device,
-                                         struct gpuinfo_static_info *static_info) {
+void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
+  struct gpu_info_nvidia *gpu_info =
+    container_of(_gpu_info, struct gpu_info_nvidia, base);
+  struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
+  nvmlDevice_t device = gpu_info->gpuhandle;
+
   last_nvml_return_status =
       nvmlDeviceGetName(device, static_info->device_name, MAX_DEVICE_NAME);
   if (last_nvml_return_status == NVML_SUCCESS)
@@ -424,8 +445,11 @@ void gpuinfo_nvidia_populate_static_info(nvmlDevice_t device,
     RESET_VALID(gpuinfo_temperature_slowdown_valid, static_info->valid);
 }
 
-void gpuinfo_nvidia_refresh_dynamic_info(nvmlDevice_t device,
-                                         struct gpuinfo_dynamic_info *dynamic_info) {
+void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
+  struct gpu_info_nvidia *gpu_info =
+    container_of(_gpu_info, struct gpu_info_nvidia, base);
+  struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
+  nvmlDevice_t device = gpu_info->gpuhandle;
 
   bool graphics_clock_valid = false;
   unsigned graphics_clock;
@@ -596,25 +620,27 @@ void gpuinfo_nvidia_refresh_dynamic_info(nvmlDevice_t device,
 }
 
 static void gpuinfo_nvidia_get_process_utilization(
-    nvmlDevice_t device, struct gpuinfo_nvidia_internal_data *internal,
+    struct gpu_info_nvidia *gpu_info,
     unsigned num_processes_recovered,
     struct gpu_process processes[num_processes_recovered]) {
+  nvmlDevice_t device = gpu_info->gpuhandle;
+
   if (num_processes_recovered && nvmlDeviceGetProcessUtilization) {
     unsigned samples_count = 0;
     nvmlReturn_t retval = nvmlDeviceGetProcessUtilization(
-        device, NULL, &samples_count, internal->last_utilization_timestamp);
+        device, NULL, &samples_count, gpu_info->last_utilization_timestamp);
     if (retval != NVML_ERROR_INSUFFICIENT_SIZE)
       return;
     nvmlProcessUtilizationSample_t *samples =
         malloc(samples_count * sizeof(*samples));
     retval = nvmlDeviceGetProcessUtilization(
-        device, samples, &samples_count, internal->last_utilization_timestamp);
+        device, samples, &samples_count, gpu_info->last_utilization_timestamp);
     if (retval != NVML_SUCCESS) {
       free(samples);
       return;
     }
     unsigned long long newest_timestamp_candidate =
-        internal->last_utilization_timestamp;
+        gpu_info->last_utilization_timestamp;
     for (unsigned i = 0; i < samples_count; ++i) {
       bool process_matched = false;
       for (unsigned j = 0; !process_matched && j < num_processes_recovered;
@@ -629,7 +655,7 @@ static void gpuinfo_nvidia_get_process_utilization(
         if ((pid_t)samples[i].pid == processes[j].pid &&
             samples[i].smUtil <= 100 && samples[i].encUtil <= 100 &&
             samples[i].decUtil <= 100 &&
-            samples[i].timeStamp > internal->last_utilization_timestamp) {
+            samples[i].timeStamp > gpu_info->last_utilization_timestamp) {
           // Collect the largest valid timestamp for this device to filter out
           // the samples during the next call to the function
           // nvmlDeviceGetProcessUtilization
@@ -646,7 +672,7 @@ static void gpuinfo_nvidia_get_process_utilization(
         }
       }
     }
-    internal->last_utilization_timestamp = newest_timestamp_candidate;
+    gpu_info->last_utilization_timestamp = newest_timestamp_candidate;
     free(samples);
   }
 }
@@ -654,8 +680,12 @@ static void gpuinfo_nvidia_get_process_utilization(
 #define DEFAULT_PROCESS_ARRAY_SIZE 64
 
 void gpuinfo_nvidia_get_running_processes(
-    nvmlDevice_t device, struct gpuinfo_nvidia_internal_data *internal,
+    struct gpu_info *_gpu_info,
     unsigned *num_processes_recovered, struct gpu_process **processes_info) {
+  struct gpu_info_nvidia *gpu_info =
+    container_of(_gpu_info, struct gpu_info_nvidia, base);
+  nvmlDevice_t device = gpu_info->gpuhandle;
+
   *num_processes_recovered = 0;
   size_t array_size = DEFAULT_PROCESS_ARRAY_SIZE;
   nvmlProcessInfo_t *retrieved_infos =
@@ -737,5 +767,5 @@ retry_query_compute:
   }
   free(retrieved_infos);
   gpuinfo_nvidia_get_process_utilization(
-      device, internal, *num_processes_recovered, *processes_info);
+      gpu_info, *num_processes_recovered, *processes_info);
 }
