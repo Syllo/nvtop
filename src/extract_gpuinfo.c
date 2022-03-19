@@ -38,22 +38,22 @@
 #define HASH_ADD_PID(head, in_ptr)                                             \
   HASH_ADD(hh, head, pid, sizeof(pid_t), in_ptr)
 
-typedef struct process_info_cache_struct {
+struct process_info_cache {
   pid_t pid;
   char *cmdline;
   char *user_name;
   double last_total_consumed_cpu_time;
   nvtop_time last_measurement_timestamp;
   UT_hash_handle hh;
-} process_info_cache;
+};
 
-process_info_cache *cached_process_info = NULL;
-process_info_cache *updated_process_info = NULL;
+struct process_info_cache *cached_process_info = NULL;
+struct process_info_cache *updated_process_info = NULL;
 
 bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count,
-                                  gpu_info **devices) {
+                                  struct gpu_info **devices) {
   unsigned nvidia_devices_count = 0;
-  gpuinfo_nvidia_device_handle *nvidia_devices = NULL;
+  nvmlDevice_t *nvidia_devices = NULL;
   if (gpuinfo_nvidia_init()) {
     bool retval = gpuinfo_nvidia_get_device_handles(
         &nvidia_devices, &nvidia_devices_count, mask_nvidia);
@@ -88,7 +88,7 @@ bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count,
 }
 
 bool gpuinfo_shutdown_info_extraction(unsigned device_count,
-                                      gpu_info *devices) {
+                                      struct gpu_info *devices) {
   for (unsigned i = 0; i < device_count; ++i) {
     free(devices[i].processes);
   }
@@ -98,7 +98,7 @@ bool gpuinfo_shutdown_info_extraction(unsigned device_count,
   return true;
 }
 
-bool gpuinfo_populate_static_infos(unsigned device_count, gpu_info *devices) {
+bool gpuinfo_populate_static_infos(unsigned device_count, struct gpu_info *devices) {
   for (unsigned i = 0; i < device_count; ++i) {
     switch (devices[i].gpu_type) {
     case gpuinfo_type_nvidia_proprietary:
@@ -114,7 +114,7 @@ bool gpuinfo_populate_static_infos(unsigned device_count, gpu_info *devices) {
   return true;
 }
 
-bool gpuinfo_refresh_dynamic_info(unsigned device_count, gpu_info *devices) {
+bool gpuinfo_refresh_dynamic_info(unsigned device_count, struct gpu_info *devices) {
   for (unsigned i = 0; i < device_count; ++i) {
     switch (devices[i].gpu_type) {
     case gpuinfo_type_nvidia_proprietary:
@@ -131,11 +131,11 @@ bool gpuinfo_refresh_dynamic_info(unsigned device_count, gpu_info *devices) {
 }
 
 static void gpuinfo_populate_process_infos(unsigned device_count,
-                                           gpu_info *devices) {
+                                           struct gpu_info *devices) {
   for (unsigned i = 0; i < device_count; ++i) {
     for (unsigned j = 0; j < devices[i].processes_count; ++j) {
       pid_t current_pid = devices[i].processes[j].pid;
-      process_info_cache *cached_pid_info;
+      struct process_info_cache *cached_pid_info;
 
       HASH_FIND_PID(cached_process_info, &current_pid, cached_pid_info);
       if (!cached_pid_info) {
@@ -208,7 +208,7 @@ static void gpuinfo_populate_process_infos(unsigned device_count,
       }
     }
   }
-  process_info_cache *pid_not_encountered, *tmp;
+  struct process_info_cache *pid_not_encountered, *tmp;
   HASH_ITER(hh, cached_process_info, pid_not_encountered, tmp) {
     HASH_DEL(cached_process_info, pid_not_encountered);
     free(pid_not_encountered->cmdline);
@@ -219,12 +219,12 @@ static void gpuinfo_populate_process_infos(unsigned device_count,
   updated_process_info = NULL;
 }
 
-bool gpuinfo_refresh_processes(unsigned device_count, gpu_info *devices) {
+bool gpuinfo_refresh_processes(unsigned device_count, struct gpu_info *devices) {
   for (unsigned i = 0; i < device_count; ++i) {
     switch (devices[i].gpu_type) {
     case gpuinfo_type_nvidia_proprietary: {
       unsigned processes_count = 0;
-      gpu_process *processes = NULL;
+      struct gpu_process *processes = NULL;
       gpuinfo_nvidia_get_running_processes(devices[i].nvidia_gpuhandle,
                                            &devices[i].nvidia_internal,
                                            &processes_count, &processes);
@@ -246,7 +246,7 @@ bool gpuinfo_refresh_processes(unsigned device_count, gpu_info *devices) {
 
 void gpuinfo_clear_cache(void) {
   if (cached_process_info) {
-    process_info_cache *pid_cached, *tmp;
+    struct process_info_cache *pid_cached, *tmp;
     HASH_ITER(hh, cached_process_info, pid_cached, tmp) {
       HASH_DEL(cached_process_info, pid_cached);
       free(pid_cached->cmdline);

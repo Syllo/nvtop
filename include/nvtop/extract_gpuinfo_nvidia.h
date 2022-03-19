@@ -27,11 +27,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct nvmlDevice *nvmlDevice_t, *gpuinfo_nvidia_device_handle;
+typedef struct nvmlDevice *nvmlDevice_t;
 
-typedef struct gpuinfo_nvidia_internal_data {
+struct gpuinfo_nvidia_internal_data {
   unsigned long long last_utilization_timestamp;
-} gpuinfo_nvidia_internal_data;
+};
 
 bool gpuinfo_nvidia_init(void);
 
@@ -40,17 +40,17 @@ void gpuinfo_nvidia_shutdown(void);
 const char *gpuinfo_nvidia_last_error_string(void);
 
 bool gpuinfo_nvidia_get_device_handles(
-    gpuinfo_nvidia_device_handle **handle_array_ptr, unsigned *count,
+    nvmlDevice_t **handle_array_ptr, unsigned *count,
     uint64_t mask);
 
-void gpuinfo_nvidia_populate_static_info(gpuinfo_nvidia_device_handle device,
-                                         gpuinfo_static_info *static_info);
+void gpuinfo_nvidia_populate_static_info(nvmlDevice_t device,
+                                         struct gpuinfo_static_info *static_info);
 
-void gpuinfo_nvidia_refresh_dynamic_info(gpuinfo_nvidia_device_handle device,
-                                         gpuinfo_dynamic_info *dynamic_info);
+void gpuinfo_nvidia_refresh_dynamic_info(nvmlDevice_t device,
+                                         struct gpuinfo_dynamic_info *dynamic_info);
 
 void gpuinfo_nvidia_get_running_processes(
-    gpuinfo_nvidia_device_handle device, gpuinfo_nvidia_internal_data *internal,
-    unsigned *num_processes_recovered, gpu_process **processes_info);
+    nvmlDevice_t device, struct gpuinfo_nvidia_internal_data *internal,
+    unsigned *num_processes_recovered, struct gpu_process **processes_info);
 
 #endif // EXTRACT_GPUINFO_NVIDIA_H_

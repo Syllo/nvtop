@@ -41,14 +41,14 @@ enum gpuinfo_static_info_valid {
 
 #define MAX_DEVICE_NAME 128
 
-typedef struct gpuinfo_static_info_struct {
+struct gpuinfo_static_info {
   char device_name[MAX_DEVICE_NAME];
   unsigned max_pcie_gen;
   unsigned max_pcie_link_width;
   unsigned temperature_shutdown_threshold;
   unsigned temperature_slowdown_threshold;
   unsigned char valid[gpuinfo_static_info_count / CHAR_BIT + 1];
-} gpuinfo_static_info;
+};
 
 enum gpuinfo_dynamic_info_valid {
   gpuinfo_curr_gpu_clock_speed_valid = 0,
@@ -73,7 +73,7 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_dynamic_info_count,
 };
 
-typedef struct gpuinfo_dynamic_info_struct {
+struct gpuinfo_dynamic_info {
   unsigned int gpu_clock_speed;      // Device clock speed in MHz
   unsigned int gpu_clock_speed_max;  // Maximum clock speed in MHz
   unsigned int mem_clock_speed;      // Device clock speed in MHz
@@ -94,7 +94,7 @@ typedef struct gpuinfo_dynamic_info_struct {
   unsigned int power_draw;           // Power usage in milliwatts
   unsigned int power_draw_max;       // Max power usage in milliwatts
   unsigned char valid[gpuinfo_dynamic_info_count / CHAR_BIT + 1];
-} gpuinfo_dynamic_info;
+};
 
 enum gpu_process_type {
   gpu_process_graphical,
@@ -116,7 +116,7 @@ enum gpuinfo_process_info_valid {
   gpuinfo_process_info_count
 };
 
-typedef struct gpu_process_struct {
+struct gpu_process {
   enum gpu_process_type type;
   pid_t pid;                           // Process ID
   char *cmdline;                       // Process User Name
@@ -131,6 +131,6 @@ typedef struct gpu_process_struct {
   unsigned long cpu_memory_virt;
   unsigned long cpu_memory_res;
   unsigned char valid[gpuinfo_process_info_count / CHAR_BIT + 1];
-} gpu_process;
+};
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

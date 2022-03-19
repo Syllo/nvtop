@@ -252,7 +252,7 @@ int main(int argc, char **argv) {
   }
 
   unsigned devices_count = 0;
-  gpu_info *devices = NULL;
+  struct gpu_info *devices = NULL;
   if (!gpuinfo_init_info_extraction(gpu_mask_nvidia, &devices_count, &devices))
     return EXIT_FAILURE;
   if (devices_count == 0) {

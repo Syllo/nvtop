@@ -312,7 +312,7 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
   wnoutrefresh(options_win);
 }
 
-static void draw_setup_window_chart(unsigned devices_count, gpu_info *devices,
+static void draw_setup_window_chart(unsigned devices_count, struct gpu_info *devices,
                                     struct nvtop_interface *interface) {
   WINDOW *option_list_win;
 
@@ -611,7 +611,7 @@ void draw_setup_window_shortcuts(struct nvtop_interface *interface) {
   wnoutrefresh(window);
 }
 
-void draw_setup_window(unsigned devices_count, gpu_info *devices,
+void draw_setup_window(unsigned devices_count, struct gpu_info *devices,
                        struct nvtop_interface *interface) {
   draw_setup_window_setup(interface);
   switch (interface->setup_win.selected_section) {
