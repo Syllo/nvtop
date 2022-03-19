@@ -196,149 +196,130 @@ bool gpuinfo_nvidia_init(void) {
   }
 
   // Default to last version
-  nvmlInit = (__typeof__(nvmlInit))dlsym(libnvidia_ml_handle, "nvmlInit_v2");
+  nvmlInit = dlsym(libnvidia_ml_handle, "nvmlInit_v2");
   if (!nvmlInit)
-    nvmlInit = (__typeof__(nvmlInit))dlsym(libnvidia_ml_handle, "nvmlInit");
+    nvmlInit = dlsym(libnvidia_ml_handle, "nvmlInit");
   if (!nvmlInit)
     goto init_error_clean_exit;
 
-  nvmlShutdown =
-      (__typeof__(nvmlShutdown))dlsym(libnvidia_ml_handle, "nvmlShutdown");
+  nvmlShutdown = dlsym(libnvidia_ml_handle, "nvmlShutdown");
   if (!nvmlShutdown)
     goto init_error_clean_exit;
 
   // Default to last version if available
-  nvmlDeviceGetCount = (__typeof__(nvmlDeviceGetCount))dlsym(
-      libnvidia_ml_handle, "nvmlDeviceGetCount_v2");
+  nvmlDeviceGetCount = dlsym(libnvidia_ml_handle, "nvmlDeviceGetCount_v2");
   if (!nvmlDeviceGetCount)
-    nvmlDeviceGetCount = (__typeof__(nvmlDeviceGetCount))dlsym(
-        libnvidia_ml_handle, "nvmlDeviceGetCount");
+    nvmlDeviceGetCount = dlsym(libnvidia_ml_handle, "nvmlDeviceGetCount");
   if (!nvmlDeviceGetCount)
     goto init_error_clean_exit;
 
-  nvmlDeviceGetHandleByIndex = (__typeof__(nvmlDeviceGetHandleByIndex))dlsym(
-      libnvidia_ml_handle, "nvmlDeviceGetHandleByIndex_v2");
+  nvmlDeviceGetHandleByIndex =
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetHandleByIndex_v2");
   if (!nvmlDeviceGetHandleByIndex)
-    nvmlDeviceGetHandleByIndex = (__typeof__(nvmlDeviceGetHandleByIndex))dlsym(
-        libnvidia_ml_handle, "nvmlDeviceGetHandleByIndex");
+    nvmlDeviceGetHandleByIndex =
+        dlsym(libnvidia_ml_handle, "nvmlDeviceGetHandleByIndex");
   if (!nvmlDeviceGetHandleByIndex)
     goto init_error_clean_exit;
 
-  nvmlErrorString = (__typeof__(nvmlErrorString))dlsym(libnvidia_ml_handle,
-                                                       "nvmlErrorString");
+  nvmlErrorString = dlsym(libnvidia_ml_handle, "nvmlErrorString");
   if (!nvmlErrorString)
     goto init_error_clean_exit;
 
-  nvmlDeviceGetName = (__typeof__(nvmlDeviceGetName))dlsym(libnvidia_ml_handle,
-                                                           "nvmlDeviceGetName");
+  nvmlDeviceGetName = dlsym(libnvidia_ml_handle, "nvmlDeviceGetName");
   if (!nvmlDeviceGetName)
     goto init_error_clean_exit;
 
   nvmlDeviceGetMaxPcieLinkGeneration =
-      (__typeof__(nvmlDeviceGetMaxPcieLinkGeneration))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetMaxPcieLinkGeneration");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetMaxPcieLinkGeneration");
   if (!nvmlDeviceGetMaxPcieLinkGeneration)
     goto init_error_clean_exit;
 
   nvmlDeviceGetMaxPcieLinkWidth =
-      (__typeof__(nvmlDeviceGetMaxPcieLinkWidth))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetMaxPcieLinkWidth");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetMaxPcieLinkWidth");
   if (!nvmlDeviceGetMaxPcieLinkWidth)
     goto init_error_clean_exit;
 
   nvmlDeviceGetTemperatureThreshold =
-      (__typeof__(nvmlDeviceGetTemperatureThreshold))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetTemperatureThreshold");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetTemperatureThreshold");
   if (!nvmlDeviceGetTemperatureThreshold)
     goto init_error_clean_exit;
 
-  nvmlDeviceGetClockInfo = (__typeof__(nvmlDeviceGetClockInfo))dlsym(
-      libnvidia_ml_handle, "nvmlDeviceGetClockInfo");
+  nvmlDeviceGetClockInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetClockInfo");
   if (!nvmlDeviceGetClockInfo)
     goto init_error_clean_exit;
 
-  nvmlDeviceGetMaxClockInfo = (__typeof__(nvmlDeviceGetMaxClockInfo))dlsym(
+  nvmlDeviceGetMaxClockInfo = dlsym(
       libnvidia_ml_handle, "nvmlDeviceGetMaxClockInfo");
   if (!nvmlDeviceGetMaxClockInfo)
     goto init_error_clean_exit;
 
   nvmlDeviceGetUtilizationRates =
-      (__typeof__(nvmlDeviceGetUtilizationRates))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetUtilizationRates");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetUtilizationRates");
   if (!nvmlDeviceGetUtilizationRates)
     goto init_error_clean_exit;
 
-  nvmlDeviceGetMemoryInfo = (__typeof__(nvmlDeviceGetMemoryInfo))dlsym(
-      libnvidia_ml_handle, "nvmlDeviceGetMemoryInfo");
+  nvmlDeviceGetMemoryInfo =
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetMemoryInfo");
   if (!nvmlDeviceGetMemoryInfo)
     goto init_error_clean_exit;
 
   nvmlDeviceGetCurrPcieLinkGeneration =
-      (__typeof__(nvmlDeviceGetCurrPcieLinkGeneration))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetCurrPcieLinkGeneration");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetCurrPcieLinkGeneration");
   if (!nvmlDeviceGetCurrPcieLinkGeneration)
     goto init_error_clean_exit;
 
   nvmlDeviceGetCurrPcieLinkWidth =
-      (__typeof__(nvmlDeviceGetCurrPcieLinkWidth))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetCurrPcieLinkWidth");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetCurrPcieLinkWidth");
   if (!nvmlDeviceGetCurrPcieLinkWidth)
     goto init_error_clean_exit;
 
-  nvmlDeviceGetPcieThroughput = (__typeof__(nvmlDeviceGetPcieThroughput))dlsym(
-      libnvidia_ml_handle, "nvmlDeviceGetPcieThroughput");
+  nvmlDeviceGetPcieThroughput =
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetPcieThroughput");
   if (!nvmlDeviceGetPcieThroughput)
     goto init_error_clean_exit;
 
-  nvmlDeviceGetFanSpeed = (__typeof__(nvmlDeviceGetFanSpeed))dlsym(
-      libnvidia_ml_handle, "nvmlDeviceGetFanSpeed");
+  nvmlDeviceGetFanSpeed = dlsym(libnvidia_ml_handle, "nvmlDeviceGetFanSpeed");
   if (!nvmlDeviceGetFanSpeed)
     goto init_error_clean_exit;
 
-  nvmlDeviceGetTemperature = (__typeof__(nvmlDeviceGetTemperature))dlsym(
-      libnvidia_ml_handle, "nvmlDeviceGetTemperature");
+  nvmlDeviceGetTemperature =
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetTemperature");
   if (!nvmlDeviceGetTemperature)
     goto init_error_clean_exit;
 
-  nvmlDeviceGetPowerUsage = (__typeof__(nvmlDeviceGetPowerUsage))dlsym(
-      libnvidia_ml_handle, "nvmlDeviceGetPowerUsage");
+  nvmlDeviceGetPowerUsage =
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetPowerUsage");
   if (!nvmlDeviceGetPowerUsage)
     goto init_error_clean_exit;
 
   nvmlDeviceGetEnforcedPowerLimit =
-      (__typeof__(nvmlDeviceGetEnforcedPowerLimit))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetEnforcedPowerLimit");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetEnforcedPowerLimit");
   if (!nvmlDeviceGetEnforcedPowerLimit)
     goto init_error_clean_exit;
 
   nvmlDeviceGetEncoderUtilization =
-      (__typeof__(nvmlDeviceGetEncoderUtilization))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetEncoderUtilization");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetEncoderUtilization");
   if (!nvmlDeviceGetEncoderUtilization)
     goto init_error_clean_exit;
 
   nvmlDeviceGetDecoderUtilization =
-      (__typeof__(nvmlDeviceGetDecoderUtilization))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetDecoderUtilization");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetDecoderUtilization");
   if (!nvmlDeviceGetDecoderUtilization)
     goto init_error_clean_exit;
 
   nvmlDeviceGetGraphicsRunningProcesses =
-      (__typeof__(nvmlDeviceGetGraphicsRunningProcesses))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetGraphicsRunningProcesses");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetGraphicsRunningProcesses");
   if (!nvmlDeviceGetGraphicsRunningProcesses)
     goto init_error_clean_exit;
 
   nvmlDeviceGetComputeRunningProcesses =
-      (__typeof__(nvmlDeviceGetComputeRunningProcesses))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetComputeRunningProcesses");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetComputeRunningProcesses");
   if (!nvmlDeviceGetComputeRunningProcesses)
     goto init_error_clean_exit;
 
   // This one might not be available
   nvmlDeviceGetProcessUtilization =
-      (__typeof__(nvmlDeviceGetProcessUtilization))dlsym(
-          libnvidia_ml_handle, "nvmlDeviceGetProcessUtilization");
+      dlsym(libnvidia_ml_handle, "nvmlDeviceGetProcessUtilization");
 
   last_nvml_return_status = nvmlInit();
   if (last_nvml_return_status != NVML_SUCCESS) {
