@@ -23,11 +23,10 @@
 #define EXTRACT_GPUINFO_H_
 
 #include "nvtop/extract_gpuinfo_common.h"
-#include "nvtop/extract_gpuinfo_nvidia.h"
 
 #include <stdbool.h>
 
-bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count, struct list_head *devices);
+bool gpuinfo_init_info_extraction(uint64_t mask, unsigned *devices_count, struct list_head *devices);
 
 bool gpuinfo_shutdown_info_extraction(struct list_head *devices);
 
