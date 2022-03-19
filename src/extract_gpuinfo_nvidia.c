@@ -19,17 +19,19 @@
  *
  */
 
-#include "nvtop/extract_gpuinfo_nvidia.h"
 #include "nvtop/extract_gpuinfo_common.h"
 
 #include <dlfcn.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 #define NVML_SUCCESS 0
 #define NVML_ERROR_INSUFFICIENT_SIZE 7
 
+typedef struct nvmlDevice *nvmlDevice_t;
 typedef int nvmlReturn_t; // store the enum as int
 
 // Init and shutdown
@@ -176,7 +178,42 @@ nvmlReturn_t (*nvmlDeviceGetProcessUtilization)(
     nvmlDevice_t device, nvmlProcessUtilizationSample_t *utilization,
     unsigned int *processSamplesCount, unsigned long long lastSeenTimeStamp);
 
+struct gpu_info_nvidia {
+  struct gpu_info base;
+  struct list_head allocate_list;
+
+  nvmlDevice_t gpuhandle;
+  unsigned long long last_utilization_timestamp;
+};
+
 static LIST_HEAD(allocations);
+
+static bool gpuinfo_nvidia_init(void);
+static void gpuinfo_nvidia_shutdown(void);
+static const char *gpuinfo_nvidia_last_error_string(void);
+static bool gpuinfo_nvidia_get_device_handles(
+    struct list_head *devices, unsigned *count,
+    uint64_t *mask);
+static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info);
+static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info);
+static void gpuinfo_nvidia_get_running_processes(
+    struct gpu_info *_gpu_info,
+    unsigned *num_processes_recovered, struct gpu_process **processes_info);
+
+struct gpu_vendor gpu_vendor_nvidia = {
+  .init = gpuinfo_nvidia_init,
+  .shutdown = gpuinfo_nvidia_shutdown,
+  .last_error_string = gpuinfo_nvidia_last_error_string,
+  .get_device_handles = gpuinfo_nvidia_get_device_handles,
+  .populate_static_info = gpuinfo_nvidia_populate_static_info,
+  .refresh_dynamic_info = gpuinfo_nvidia_refresh_dynamic_info,
+  .get_running_processes = gpuinfo_nvidia_get_running_processes,
+};
+
+__attribute__((constructor))
+static void init_extract_gpuinfo_nvidia(void) {
+  register_gpu_vendor(&gpu_vendor_nvidia);
+}
 
 /*
  *
@@ -187,7 +224,7 @@ static LIST_HEAD(allocations);
  * function gpuinfo_nvidia_last_error_string.
  *
  */
-bool gpuinfo_nvidia_init(void) {
+static bool gpuinfo_nvidia_init(void) {
 
   libnvidia_ml_handle = dlopen("libnvidia-ml.so", RTLD_LAZY);
   if (!libnvidia_ml_handle)
@@ -337,7 +374,7 @@ init_error_clean_exit:
   return false;
 }
 
-void gpuinfo_nvidia_shutdown(void) {
+static void gpuinfo_nvidia_shutdown(void) {
   if (libnvidia_ml_handle) {
     nvmlShutdown();
     dlclose(libnvidia_ml_handle);
@@ -353,7 +390,7 @@ void gpuinfo_nvidia_shutdown(void) {
   }
 }
 
-const char *gpuinfo_nvidia_last_error_string(void) {
+static const char *gpuinfo_nvidia_last_error_string(void) {
   if (local_error_string) {
     return local_error_string;
   } else if (libnvidia_ml_handle && nvmlErrorString) {
@@ -364,9 +401,9 @@ const char *gpuinfo_nvidia_last_error_string(void) {
   }
 }
 
-bool gpuinfo_nvidia_get_device_handles(
+static bool gpuinfo_nvidia_get_device_handles(
     struct list_head *devices, unsigned *count,
-    uint64_t mask) {
+    uint64_t *mask) {
 
   if (!libnvidia_ml_handle)
     return false;
@@ -387,12 +424,12 @@ bool gpuinfo_nvidia_get_device_handles(
 
   *count = 0;
   for (unsigned int i = 0; i < num_devices; ++i) {
-    if (i < CHAR_BIT * sizeof(mask) && (mask & (1 << i)) == 0)
+    if (i < CHAR_BIT * sizeof(*mask) && (*mask & (1 << i)) == 0)
       continue;
     last_nvml_return_status =
         nvmlDeviceGetHandleByIndex(i, &gpu_infos[*count].gpuhandle);
     if (last_nvml_return_status == NVML_SUCCESS) {
-      gpu_infos[*count].base.gpu_type = gpuinfo_type_nvidia_proprietary;
+      gpu_infos[*count].base.vendor = &gpu_vendor_nvidia;
       list_add_tail(&gpu_infos[*count].base.list, devices);
       *count += 1;
     }
@@ -401,7 +438,7 @@ bool gpuinfo_nvidia_get_device_handles(
   return true;
 }
 
-void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
+static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_nvidia *gpu_info =
     container_of(_gpu_info, struct gpu_info_nvidia, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
@@ -445,7 +482,7 @@ void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
     RESET_VALID(gpuinfo_temperature_slowdown_valid, static_info->valid);
 }
 
-void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
+static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_nvidia *gpu_info =
     container_of(_gpu_info, struct gpu_info_nvidia, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
@@ -679,7 +716,7 @@ static void gpuinfo_nvidia_get_process_utilization(
 
 #define DEFAULT_PROCESS_ARRAY_SIZE 64
 
-void gpuinfo_nvidia_get_running_processes(
+static void gpuinfo_nvidia_get_running_processes(
     struct gpu_info *_gpu_info,
     unsigned *num_processes_recovered, struct gpu_process **processes_info) {
   struct gpu_info_nvidia *gpu_info =

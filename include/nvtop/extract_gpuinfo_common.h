@@ -23,7 +23,9 @@
 #define EXTRACT_GPUINFO_COMMON_H__
 
 #include <limits.h>
+#include <stdbool.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 #include "list.h"
@@ -135,17 +137,36 @@ struct gpu_process {
   unsigned char valid[gpuinfo_process_info_count / CHAR_BIT + 1];
 };
 
-enum gpuinfo_gputype {
-  gpuinfo_type_nvidia_proprietary,
+struct gpu_info;
+
+struct gpu_vendor {
+  struct list_head list;
+
+  bool (*init)(void);
+  void (*shutdown)(void);
+
+  const char *(*last_error_string)(void);
+
+  bool (*get_device_handles)(struct list_head *devices, unsigned *count,
+                             uint64_t *mask);
+
+  void (*populate_static_info)(struct gpu_info *gpu_info);
+  void (*refresh_dynamic_info)(struct gpu_info *gpu_info);
+
+  void (*get_running_processes)(struct gpu_info *gpu_info,
+                                unsigned *num_processes_recovered,
+                                struct gpu_process **processes_info);
 };
 
 struct gpu_info {
   struct list_head list;
-  enum gpuinfo_gputype gpu_type;
+  struct gpu_vendor *vendor;
   struct gpuinfo_static_info static_info;
   struct gpuinfo_dynamic_info dynamic_info;
   unsigned processes_count;
   struct gpu_process *processes;
 };
+
+void register_gpu_vendor(struct gpu_vendor *vendor);
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

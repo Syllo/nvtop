@@ -27,7 +27,6 @@
 
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/extract_gpuinfo_common.h"
-#include "nvtop/extract_gpuinfo_nvidia.h"
 #include "nvtop/get_process_info.h"
 #include "nvtop/time.h"
 #include "uthash.h"
@@ -50,31 +49,47 @@ struct process_info_cache {
 struct process_info_cache *cached_process_info = NULL;
 struct process_info_cache *updated_process_info = NULL;
 
-bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count,
+static LIST_HEAD(gpu_vendors);
+
+void register_gpu_vendor(struct gpu_vendor *vendor) {
+  list_add(&vendor->list, &gpu_vendors);
+}
+
+bool gpuinfo_init_info_extraction(uint64_t mask, unsigned *devices_count,
                                   struct list_head *devices) {
-  unsigned nvidia_devices_count = 0;
-  if (gpuinfo_nvidia_init()) {
-    bool retval = gpuinfo_nvidia_get_device_handles(
-        devices, &nvidia_devices_count, mask_nvidia);
-    if (!retval || (retval && nvidia_devices_count == 0)) {
-      gpuinfo_nvidia_shutdown();
-      nvidia_devices_count = 0;
+  struct gpu_vendor *vendor;
+
+  *devices_count = 0;
+  list_for_each_entry(vendor, &gpu_vendors, list) {
+    unsigned vendor_devices_count = 0;
+
+    if (vendor->init()) {
+      bool retval = vendor->get_device_handles(
+          devices, &vendor_devices_count, &mask);
+      if (!retval || (retval && vendor_devices_count == 0)) {
+        vendor->shutdown();
+        vendor_devices_count = 0;
+      }
     }
+
+    *devices_count += vendor_devices_count;
   }
 
-  *devices_count = nvidia_devices_count;
   return true;
 }
 
 bool gpuinfo_shutdown_info_extraction(struct list_head *devices) {
   struct gpu_info *device, *tmp;
+  struct gpu_vendor *vendor;
 
   list_for_each_entry_safe(device, tmp, devices, list) {
     free(device->processes);
     list_del(&device->list);
   }
 
-  gpuinfo_nvidia_shutdown();
+  list_for_each_entry(vendor, &gpu_vendors, list) {
+    vendor->shutdown();
+  }
   gpuinfo_clear_cache();
   return true;
 }
@@ -83,15 +98,7 @@ bool gpuinfo_populate_static_infos(struct list_head *devices) {
   struct gpu_info *device;
 
   list_for_each_entry(device, devices, list) {
-    switch (device->gpu_type) {
-    case gpuinfo_type_nvidia_proprietary:
-      gpuinfo_nvidia_populate_static_info(device);
-      break;
-    default:
-      fprintf(stderr,
-              "Unknown GPU type encountered during static initialization\n");
-      return false;
-    }
+    device->vendor->populate_static_info(device);
   }
   return true;
 }
@@ -100,15 +107,7 @@ bool gpuinfo_refresh_dynamic_info(struct list_head *devices) {
   struct gpu_info *device;
 
   list_for_each_entry(device, devices, list) {
-    switch (device->gpu_type) {
-    case gpuinfo_type_nvidia_proprietary:
-      gpuinfo_nvidia_refresh_dynamic_info(device);
-      break;
-    default:
-      fprintf(stderr,
-              "Unknown GPU type encountered during static initialization\n");
-      return false;
-    }
+    device->vendor->refresh_dynamic_info(device);
   }
   return true;
 }
@@ -207,21 +206,13 @@ bool gpuinfo_refresh_processes(struct list_head *devices) {
   struct gpu_info *device;
 
   list_for_each_entry(device, devices, list) {
-    switch (device->gpu_type) {
-    case gpuinfo_type_nvidia_proprietary: {
-      unsigned processes_count = 0;
-      struct gpu_process *processes = NULL;
-      gpuinfo_nvidia_get_running_processes(device,
-                                           &processes_count, &processes);
-      free(device->processes);
-      device->processes = processes;
-      device->processes_count = processes_count;
-    } break;
-    default:
-      fprintf(stderr,
-              "Unknown GPU type encountered during static initialization\n");
-      return false;
-    }
+    unsigned processes_count = 0;
+    struct gpu_process *processes = NULL;
+    device->vendor->get_running_processes(device,
+                                          &processes_count, &processes);
+    free(device->processes);
+    device->processes = processes;
+    device->processes_count = processes_count;
   }
 
   gpuinfo_populate_process_infos(devices);
