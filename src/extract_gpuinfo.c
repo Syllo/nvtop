@@ -51,59 +51,41 @@ struct process_info_cache *cached_process_info = NULL;
 struct process_info_cache *updated_process_info = NULL;
 
 bool gpuinfo_init_info_extraction(uint64_t mask_nvidia, unsigned *devices_count,
-                                  struct gpu_info **devices) {
+                                  struct list_head *devices) {
   unsigned nvidia_devices_count = 0;
-  nvmlDevice_t *nvidia_devices = NULL;
   if (gpuinfo_nvidia_init()) {
     bool retval = gpuinfo_nvidia_get_device_handles(
-        &nvidia_devices, &nvidia_devices_count, mask_nvidia);
+        devices, &nvidia_devices_count, mask_nvidia);
     if (!retval || (retval && nvidia_devices_count == 0)) {
       gpuinfo_nvidia_shutdown();
       nvidia_devices_count = 0;
-      nvidia_devices = NULL;
-    }
-  }
-  unsigned total_devices = nvidia_devices_count;
-  if (!total_devices) {
-    *devices = NULL;
-  } else {
-    *devices = malloc(total_devices * sizeof(**devices));
-    if (!*devices) {
-      perror("Cannot allocate memory: ");
-      free(nvidia_devices);
-      return false;
     }
   }
 
-  for (unsigned i = 0; i < nvidia_devices_count; ++i) {
-    (*devices)[i].gpu_type = gpuinfo_type_nvidia_proprietary;
-    (*devices)[i].nvidia_gpuhandle = nvidia_devices[i];
-    (*devices)[i].processes_count = 0;
-    (*devices)[i].processes = NULL;
-    (*devices)[i].nvidia_internal.last_utilization_timestamp = 0;
-  }
-  free(nvidia_devices);
-  *devices_count = total_devices;
+  *devices_count = nvidia_devices_count;
   return true;
 }
 
-bool gpuinfo_shutdown_info_extraction(unsigned device_count,
-                                      struct gpu_info *devices) {
-  for (unsigned i = 0; i < device_count; ++i) {
-    free(devices[i].processes);
+bool gpuinfo_shutdown_info_extraction(struct list_head *devices) {
+  struct gpu_info *device, *tmp;
+
+  list_for_each_entry_safe(device, tmp, devices, list) {
+    free(device->processes);
+    list_del(&device->list);
   }
-  free(devices);
+
   gpuinfo_nvidia_shutdown();
   gpuinfo_clear_cache();
   return true;
 }
 
-bool gpuinfo_populate_static_infos(unsigned device_count, struct gpu_info *devices) {
-  for (unsigned i = 0; i < device_count; ++i) {
-    switch (devices[i].gpu_type) {
+bool gpuinfo_populate_static_infos(struct list_head *devices) {
+  struct gpu_info *device;
+
+  list_for_each_entry(device, devices, list) {
+    switch (device->gpu_type) {
     case gpuinfo_type_nvidia_proprietary:
-      gpuinfo_nvidia_populate_static_info(devices[i].nvidia_gpuhandle,
-                                          &devices[i].static_info);
+      gpuinfo_nvidia_populate_static_info(device);
       break;
     default:
       fprintf(stderr,
@@ -114,12 +96,13 @@ bool gpuinfo_populate_static_infos(unsigned device_count, struct gpu_info *devic
   return true;
 }
 
-bool gpuinfo_refresh_dynamic_info(unsigned device_count, struct gpu_info *devices) {
-  for (unsigned i = 0; i < device_count; ++i) {
-    switch (devices[i].gpu_type) {
+bool gpuinfo_refresh_dynamic_info(struct list_head *devices) {
+  struct gpu_info *device;
+
+  list_for_each_entry(device, devices, list) {
+    switch (device->gpu_type) {
     case gpuinfo_type_nvidia_proprietary:
-      gpuinfo_nvidia_refresh_dynamic_info(devices[i].nvidia_gpuhandle,
-                                          &devices[i].dynamic_info);
+      gpuinfo_nvidia_refresh_dynamic_info(device);
       break;
     default:
       fprintf(stderr,
@@ -130,11 +113,12 @@ bool gpuinfo_refresh_dynamic_info(unsigned device_count, struct gpu_info *device
   return true;
 }
 
-static void gpuinfo_populate_process_infos(unsigned device_count,
-                                           struct gpu_info *devices) {
-  for (unsigned i = 0; i < device_count; ++i) {
-    for (unsigned j = 0; j < devices[i].processes_count; ++j) {
-      pid_t current_pid = devices[i].processes[j].pid;
+static void gpuinfo_populate_process_infos(struct list_head *devices) {
+  struct gpu_info *device;
+
+  list_for_each_entry(device, devices, list) {
+    for (unsigned j = 0; j < device->processes_count; ++j) {
+      pid_t current_pid = device->processes[j].pid;
       struct process_info_cache *cached_pid_info;
 
       HASH_FIND_PID(cached_process_info, &current_pid, cached_pid_info);
@@ -157,13 +141,13 @@ static void gpuinfo_populate_process_infos(unsigned device_count,
       }
 
       if (cached_pid_info->cmdline) {
-        devices[i].processes[j].cmdline = cached_pid_info->cmdline;
-        SET_VALID(gpuinfo_process_cmdline_valid, devices[i].processes[j].valid);
+        device->processes[j].cmdline = cached_pid_info->cmdline;
+        SET_VALID(gpuinfo_process_cmdline_valid, device->processes[j].valid);
       }
       if (cached_pid_info->user_name) {
-        devices[i].processes[j].user_name = cached_pid_info->user_name;
+        device->processes[j].user_name = cached_pid_info->user_name;
         SET_VALID(gpuinfo_process_user_name_valid,
-                  devices[i].processes[j].valid);
+                  device->processes[j].valid);
       }
 
       struct process_cpu_usage cpu_usage;
@@ -175,36 +159,36 @@ static void gpuinfo_populate_process_infos(unsigned device_count,
                      cached_pid_info->last_total_consumed_cpu_time) /
                     nvtop_difftime(cached_pid_info->last_measurement_timestamp,
                                    cpu_usage.timestamp));
-          devices[i].processes[j].cpu_usage = (unsigned)usage_percent;
+          device->processes[j].cpu_usage = (unsigned)usage_percent;
         } else {
-          devices[i].processes[j].cpu_usage = 0;
+          device->processes[j].cpu_usage = 0;
         }
         SET_VALID(gpuinfo_process_cpu_usage_valid,
-                  devices[i].processes[j].valid);
+                  device->processes[j].valid);
         cached_pid_info->last_measurement_timestamp = cpu_usage.timestamp;
         cached_pid_info->last_total_consumed_cpu_time =
             cpu_usage.total_kernel_time + cpu_usage.total_user_time;
-        devices[i].processes[j].cpu_memory_res = cpu_usage.resident_memory;
+        device->processes[j].cpu_memory_res = cpu_usage.resident_memory;
         SET_VALID(gpuinfo_process_cpu_memory_res_valid,
-                  devices[i].processes[j].valid);
-        devices[i].processes[j].cpu_memory_virt = cpu_usage.virtual_memory;
+                  device->processes[j].valid);
+        device->processes[j].cpu_memory_virt = cpu_usage.virtual_memory;
         SET_VALID(gpuinfo_process_cpu_memory_virt_valid,
-                  devices[i].processes[j].valid);
+                  device->processes[j].valid);
       } else {
         cached_pid_info->last_total_consumed_cpu_time = -1;
       }
 
       // Process memory usage percent of total device memory
-      if (IS_VALID(gpuinfo_total_memory_valid, devices[i].dynamic_info.valid) &&
+      if (IS_VALID(gpuinfo_total_memory_valid, device->dynamic_info.valid) &&
           IS_VALID(gpuinfo_process_gpu_memory_usage_valid,
-                   devices[i].processes[j].valid)) {
+                   device->processes[j].valid)) {
         float percentage =
-            roundf(100.f * (float)devices[i].processes[j].gpu_memory_usage /
-                   (float)devices[i].dynamic_info.total_memory);
-        devices[i].processes[j].gpu_memory_percentage = (unsigned)percentage;
-        assert(devices[i].processes[j].gpu_memory_percentage <= 100);
+            roundf(100.f * (float)device->processes[j].gpu_memory_usage /
+                   (float)device->dynamic_info.total_memory);
+        device->processes[j].gpu_memory_percentage = (unsigned)percentage;
+        assert(device->processes[j].gpu_memory_percentage <= 100);
         SET_VALID(gpuinfo_process_gpu_memory_percentage_valid,
-                  devices[i].processes[j].valid);
+                  device->processes[j].valid);
       }
     }
   }
@@ -219,18 +203,19 @@ static void gpuinfo_populate_process_infos(unsigned device_count,
   updated_process_info = NULL;
 }
 
-bool gpuinfo_refresh_processes(unsigned device_count, struct gpu_info *devices) {
-  for (unsigned i = 0; i < device_count; ++i) {
-    switch (devices[i].gpu_type) {
+bool gpuinfo_refresh_processes(struct list_head *devices) {
+  struct gpu_info *device;
+
+  list_for_each_entry(device, devices, list) {
+    switch (device->gpu_type) {
     case gpuinfo_type_nvidia_proprietary: {
       unsigned processes_count = 0;
       struct gpu_process *processes = NULL;
-      gpuinfo_nvidia_get_running_processes(devices[i].nvidia_gpuhandle,
-                                           &devices[i].nvidia_internal,
+      gpuinfo_nvidia_get_running_processes(device,
                                            &processes_count, &processes);
-      free(devices[i].processes);
-      devices[i].processes = processes;
-      devices[i].processes_count = processes_count;
+      free(device->processes);
+      device->processes = processes;
+      device->processes_count = processes_count;
     } break;
     default:
       fprintf(stderr,
@@ -239,7 +224,7 @@ bool gpuinfo_refresh_processes(unsigned device_count, struct gpu_info *devices) 
     }
   }
 
-  gpuinfo_populate_process_infos(device_count, devices);
+  gpuinfo_populate_process_infos(devices);
 
   return true;
 }

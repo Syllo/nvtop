@@ -484,17 +484,19 @@ static inline void werase_and_wnoutrefresh(WINDOW *w) {
   wnoutrefresh(w);
 }
 
-static void draw_devices(unsigned devices_count, struct gpu_info *devices,
+static void draw_devices(struct list_head *devices,
                          struct nvtop_interface *interface) {
+  struct gpu_info *device;
+  unsigned dev_id = 0;
 
-  for (unsigned i = 0; i < devices_count; ++i) {
-    struct device_window *dev = &interface->devices_win[i];
+  list_for_each_entry(device, devices, list) {
+    struct device_window *dev = &interface->devices_win[dev_id];
 
     wcolor_set(dev->name_win, cyan_color, NULL);
-    mvwprintw(dev->name_win, 0, 0, "Device %-2u", i);
+    mvwprintw(dev->name_win, 0, 0, "Device %-2u", dev_id);
     wstandend(dev->name_win);
-    if (IS_VALID(gpuinfo_device_name_valid, devices[i].static_info.valid)) {
-      wprintw(dev->name_win, "[%s]", devices[i].static_info.device_name);
+    if (IS_VALID(gpuinfo_device_name_valid, device->static_info.valid)) {
+      wprintw(dev->name_win, "[%s]", device->static_info.device_name);
       wnoutrefresh(dev->name_win);
     } else {
       wprintw(dev->name_win, "[N/A]");
@@ -505,8 +507,8 @@ static void draw_devices(unsigned devices_count, struct gpu_info *devices,
     nvtop_time tnow;
     nvtop_get_current_time(&tnow);
     bool is_encode_displayed = true;
-    if (IS_VALID(gpuinfo_encoder_rate_valid, devices[i].dynamic_info.valid)) {
-      if (devices[i].dynamic_info.encoder_rate > 0) {
+    if (IS_VALID(gpuinfo_encoder_rate_valid, device->dynamic_info.valid)) {
+      if (device->dynamic_info.encoder_rate > 0) {
         is_encode_displayed = true;
         dev->last_encode_seen = tnow;
         if (!dev->enc_was_visible) {
@@ -540,8 +542,8 @@ static void draw_devices(unsigned devices_count, struct gpu_info *devices,
       is_encode_displayed = false;
     }
     bool is_decode_displayed = true;
-    if (IS_VALID(gpuinfo_decoder_rate_valid, devices[i].dynamic_info.valid)) {
-      if (devices[i].dynamic_info.decoder_rate > 0) {
+    if (IS_VALID(gpuinfo_decoder_rate_valid, device->dynamic_info.valid)) {
+      if (device->dynamic_info.decoder_rate > 0) {
         is_decode_displayed = true;
         dev->last_decode_seen = tnow;
         if (!dev->dec_was_visible) {
@@ -593,32 +595,32 @@ static void draw_devices(unsigned devices_count, struct gpu_info *devices,
       }
     }
     if (is_encode_displayed) {
-      if (IS_VALID(gpuinfo_encoder_rate_valid, devices[i].dynamic_info.valid)) {
-        snprintf(buff, 1024, "%u%%", devices[i].dynamic_info.encoder_rate);
+      if (IS_VALID(gpuinfo_encoder_rate_valid, device->dynamic_info.valid)) {
+        snprintf(buff, 1024, "%u%%", device->dynamic_info.encoder_rate);
         draw_percentage_meter(encode_win, "ENC",
-                              devices[i].dynamic_info.encoder_rate, buff);
+                              device->dynamic_info.encoder_rate, buff);
       }
     }
     if (is_decode_displayed) {
-      if (IS_VALID(gpuinfo_decoder_rate_valid, devices[i].dynamic_info.valid)) {
-        snprintf(buff, 1024, "%u%%", devices[i].dynamic_info.decoder_rate);
+      if (IS_VALID(gpuinfo_decoder_rate_valid, device->dynamic_info.valid)) {
+        snprintf(buff, 1024, "%u%%", device->dynamic_info.decoder_rate);
         draw_percentage_meter(decode_win, "DEC",
-                              devices[i].dynamic_info.decoder_rate, buff);
+                              device->dynamic_info.decoder_rate, buff);
       }
     }
-    if (IS_VALID(gpuinfo_gpu_util_rate_valid, devices[i].dynamic_info.valid)) {
-      snprintf(buff, 1024, "%u%%", devices[i].dynamic_info.gpu_util_rate);
+    if (IS_VALID(gpuinfo_gpu_util_rate_valid, device->dynamic_info.valid)) {
+      snprintf(buff, 1024, "%u%%", device->dynamic_info.gpu_util_rate);
       draw_percentage_meter(gpu_util_win, "GPU",
-                            devices[i].dynamic_info.gpu_util_rate, buff);
+                            device->dynamic_info.gpu_util_rate, buff);
     } else {
       snprintf(buff, 1024, "N/A");
       draw_percentage_meter(gpu_util_win, "GPU", 0, buff);
     }
 
-    if (IS_VALID(gpuinfo_total_memory_valid, devices[i].dynamic_info.valid) &&
-        IS_VALID(gpuinfo_used_memory_valid, devices[i].dynamic_info.valid)) {
-      double total_mem = devices[i].dynamic_info.total_memory;
-      double used_mem = devices[i].dynamic_info.used_memory;
+    if (IS_VALID(gpuinfo_total_memory_valid, device->dynamic_info.valid) &&
+        IS_VALID(gpuinfo_used_memory_valid, device->dynamic_info.valid)) {
+      double total_mem = device->dynamic_info.total_memory;
+      double used_mem = device->dynamic_info.used_memory;
       double total_prefixed = total_mem, used_prefixed = used_mem;
       size_t prefix_off;
       for (prefix_off = 0; prefix_off < 5 && total_prefixed >= 1000.;
@@ -635,12 +637,12 @@ static void draw_devices(unsigned devices_count, struct gpu_info *devices,
       snprintf(buff, 1024, "N/A");
       draw_percentage_meter(mem_util_win, "MEM", 0, buff);
     }
-    if (IS_VALID(gpuinfo_gpu_temp_valid, devices[i].dynamic_info.valid)) {
+    if (IS_VALID(gpuinfo_gpu_temp_valid, device->dynamic_info.valid)) {
       if (!IS_VALID(gpuinfo_temperature_slowdown_valid,
-                    devices[i].static_info.valid))
-        devices[i].static_info.temperature_slowdown_threshold = 0;
-      draw_temp_color(dev->temperature, devices[i].dynamic_info.gpu_temp,
-                      devices[i].static_info.temperature_slowdown_threshold,
+                    device->static_info.valid))
+        device->static_info.temperature_slowdown_threshold = 0;
+      draw_temp_color(dev->temperature, device->dynamic_info.gpu_temp,
+                      device->static_info.temperature_slowdown_threshold,
                       !interface->options.temperature_in_fahrenheit);
     } else {
       mvwprintw(dev->temperature, 0, 0, "TEMP N/A");
@@ -653,9 +655,9 @@ static void draw_devices(unsigned devices_count, struct gpu_info *devices,
     }
 
     // FAN
-    if (IS_VALID(gpuinfo_fan_speed_valid, devices[i].dynamic_info.valid))
+    if (IS_VALID(gpuinfo_fan_speed_valid, device->dynamic_info.valid))
       mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%",
-                devices[i].dynamic_info.fan_speed);
+                device->dynamic_info.fan_speed);
     else
       mvwprintw(dev->fan_speed, 0, 0, "FAN N/A%%");
     mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
@@ -664,9 +666,9 @@ static void draw_devices(unsigned devices_count, struct gpu_info *devices,
     // GPU CLOCK
     werase(dev->gpu_clock_info);
     if (IS_VALID(gpuinfo_curr_gpu_clock_speed_valid,
-                 devices[i].dynamic_info.valid))
+                 device->dynamic_info.valid))
       mvwprintw(dev->gpu_clock_info, 0, 0, "GPU %uMHz",
-                devices[i].dynamic_info.gpu_clock_speed);
+                device->dynamic_info.gpu_clock_speed);
     else
       mvwprintw(dev->gpu_clock_info, 0, 0, "GPU N/A MHz");
 
@@ -676,9 +678,9 @@ static void draw_devices(unsigned devices_count, struct gpu_info *devices,
     // MEM CLOCK
     werase(dev->mem_clock_info);
     if (IS_VALID(gpuinfo_curr_mem_clock_speed_valid,
-                 devices[i].dynamic_info.valid))
+                 device->dynamic_info.valid))
       mvwprintw(dev->mem_clock_info, 0, 0, "MEM %uMHz",
-                devices[i].dynamic_info.mem_clock_speed);
+                device->dynamic_info.mem_clock_speed);
     else
       mvwprintw(dev->mem_clock_info, 0, 0, "MEM N/A MHz");
     mvwchgat(dev->mem_clock_info, 0, 0, 3, 0, cyan_color, NULL);
@@ -686,23 +688,23 @@ static void draw_devices(unsigned devices_count, struct gpu_info *devices,
 
     // POWER
     werase(dev->power_info);
-    if (IS_VALID(gpuinfo_power_draw_valid, devices[i].dynamic_info.valid) &&
-        IS_VALID(gpuinfo_power_draw_max_valid, devices[i].dynamic_info.valid))
+    if (IS_VALID(gpuinfo_power_draw_valid, device->dynamic_info.valid) &&
+        IS_VALID(gpuinfo_power_draw_max_valid, device->dynamic_info.valid))
       mvwprintw(dev->power_info, 0, 0, "POW %3u / %3u W",
-                devices[i].dynamic_info.power_draw / 1000,
-                devices[i].dynamic_info.power_draw_max / 1000);
+                device->dynamic_info.power_draw / 1000,
+                device->dynamic_info.power_draw_max / 1000);
     else if (IS_VALID(gpuinfo_power_draw_valid,
-                      devices[i].dynamic_info.valid) &&
+                      device->dynamic_info.valid) &&
              !IS_VALID(gpuinfo_power_draw_max_valid,
-                       devices[i].dynamic_info.valid))
+                       device->dynamic_info.valid))
       mvwprintw(dev->power_info, 0, 0, "POW %3u W",
-                devices[i].dynamic_info.power_draw / 1000);
+                device->dynamic_info.power_draw / 1000);
     else if (!IS_VALID(gpuinfo_power_draw_valid,
-                       devices[i].dynamic_info.valid) &&
+                       device->dynamic_info.valid) &&
              IS_VALID(gpuinfo_power_draw_max_valid,
-                      devices[i].dynamic_info.valid))
+                      device->dynamic_info.valid))
       mvwprintw(dev->power_info, 0, 0, "POW N/A / %3u W",
-                devices[i].dynamic_info.power_draw_max / 1000);
+                device->dynamic_info.power_draw_max / 1000);
     else
       mvwprintw(dev->power_info, 0, 0, "POW N/A W");
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
@@ -715,30 +717,32 @@ static void draw_devices(unsigned devices_count, struct gpu_info *devices,
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, "GEN ");
     wstandend(dev->pcie_info);
-    if (IS_VALID(gpuinfo_pcie_link_gen_valid, devices[i].dynamic_info.valid) &&
-        IS_VALID(gpuinfo_pcie_link_width_valid, devices[i].dynamic_info.valid))
+    if (IS_VALID(gpuinfo_pcie_link_gen_valid, device->dynamic_info.valid) &&
+        IS_VALID(gpuinfo_pcie_link_width_valid, device->dynamic_info.valid))
       wprintw(dev->pcie_info, "%u@%2ux",
-              devices[i].dynamic_info.curr_pcie_link_gen,
-              devices[i].dynamic_info.curr_pcie_link_width);
+              device->dynamic_info.curr_pcie_link_gen,
+              device->dynamic_info.curr_pcie_link_width);
     else
       wprintw(dev->pcie_info, "N/A");
 
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " RX: ");
     wstandend(dev->pcie_info);
-    if (IS_VALID(gpuinfo_pcie_rx_valid, devices[i].dynamic_info.valid))
-      print_pcie_at_scale(dev->pcie_info, devices[i].dynamic_info.pcie_rx);
+    if (IS_VALID(gpuinfo_pcie_rx_valid, device->dynamic_info.valid))
+      print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
     else
       wprintw(dev->pcie_info, "N/A");
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " TX: ");
     wstandend(dev->pcie_info);
-    if (IS_VALID(gpuinfo_pcie_tx_valid, devices[i].dynamic_info.valid))
-      print_pcie_at_scale(dev->pcie_info, devices[i].dynamic_info.pcie_tx);
+    if (IS_VALID(gpuinfo_pcie_tx_valid, device->dynamic_info.valid))
+      print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
     else
       wprintw(dev->pcie_info, "N/A");
 
     wnoutrefresh(dev->pcie_info);
+
+    dev_id++;
   }
 }
 
@@ -750,13 +754,15 @@ typedef struct {
   } * processes;
 } all_processes;
 
-static all_processes all_processes_array(unsigned devices_count,
-                                         struct gpu_info *devices) {
-
+static all_processes all_processes_array(struct list_head *devices) {
   unsigned total_processes_count = 0;
-  for (unsigned i = 0; i < devices_count; ++i) {
-    total_processes_count += devices[i].processes_count;
+  struct gpu_info *device;
+  unsigned dev_id = 0;
+
+  list_for_each_entry(device, devices, list) {
+    total_processes_count += device->processes_count;
   }
+
   all_processes merged_devices_processes;
   merged_devices_processes.processes_count = total_processes_count;
   if (total_processes_count) {
@@ -771,12 +777,14 @@ static all_processes all_processes_array(unsigned devices_count,
   }
 
   size_t offset = 0;
-  for (unsigned int i = 0; i < devices_count; ++i) {
-    for (unsigned int j = 0; j < devices[i].processes_count; ++j) {
-      merged_devices_processes.processes[offset].gpu_id = i;
+  list_for_each_entry(device, devices, list) {
+    for (unsigned int j = 0; j < device->processes_count; ++j) {
+      merged_devices_processes.processes[offset].gpu_id = dev_id;
       merged_devices_processes.processes[offset++].process =
-          &devices[i].processes[j];
+          &device->processes[j];
     }
+
+    dev_id++;
   }
 
   return merged_devices_processes;
@@ -1302,7 +1310,7 @@ print_processes_on_screen(all_processes all_procs,
 
 static void update_process_option_win(struct nvtop_interface *interface);
 
-static void draw_processes(unsigned devices_count, struct gpu_info *devices,
+static void draw_processes(struct list_head *devices,
                            struct nvtop_interface *interface) {
   if (interface->process.process_win == NULL)
     return;
@@ -1317,7 +1325,7 @@ static void draw_processes(unsigned devices_count, struct gpu_info *devices,
   if (interface->process.option_window.state != nvtop_option_state_hidden)
     update_process_option_win(interface);
 
-  all_processes all_procs = all_processes_array(devices_count, devices);
+  all_processes all_procs = all_processes_array(devices);
   sort_process(all_procs, interface->options.sort_processes_by,
                !interface->options.sort_descending_order);
 
@@ -1571,9 +1579,12 @@ static void draw_shortcuts(struct nvtop_interface *interface) {
   }
 }
 
-void save_current_data_to_ring(unsigned devices_count, struct gpu_info *devices,
+void save_current_data_to_ring(struct list_head *devices,
                                struct nvtop_interface *interface) {
-  for (unsigned dev_id = 0; dev_id < devices_count; ++dev_id) {
+  struct gpu_info *device;
+  unsigned dev_id = 0;
+
+  list_for_each_entry(device, devices, list) {
     unsigned data_index = 0;
     for (enum plot_information info = plot_gpu_rate;
          info < plot_information_count; ++info) {
@@ -1583,65 +1594,65 @@ void save_current_data_to_ring(unsigned devices_count, struct gpu_info *devices,
         switch (info) {
         case plot_gpu_rate:
           if (IS_VALID(gpuinfo_gpu_util_rate_valid,
-                       devices[dev_id].dynamic_info.valid))
-            data_val = devices[dev_id].dynamic_info.gpu_util_rate;
+                       device->dynamic_info.valid))
+            data_val = device->dynamic_info.gpu_util_rate;
           break;
         case plot_gpu_mem_rate:
           if (IS_VALID(gpuinfo_mem_util_rate_valid,
-                       devices[dev_id].dynamic_info.valid))
-            data_val = devices[dev_id].dynamic_info.mem_util_rate;
+                       device->dynamic_info.valid))
+            data_val = device->dynamic_info.mem_util_rate;
           break;
         case plot_encoder_rate:
           if (IS_VALID(gpuinfo_encoder_rate_valid,
-                       devices[dev_id].dynamic_info.valid))
-            data_val = devices[dev_id].dynamic_info.encoder_rate;
+                       device->dynamic_info.valid))
+            data_val = device->dynamic_info.encoder_rate;
           break;
         case plot_decoder_rate:
           if (IS_VALID(gpuinfo_decoder_rate_valid,
-                       devices[dev_id].dynamic_info.valid))
-            data_val = devices[dev_id].dynamic_info.decoder_rate;
+                       device->dynamic_info.valid))
+            data_val = device->dynamic_info.decoder_rate;
           break;
         case plot_gpu_temperature:
           if (IS_VALID(gpuinfo_gpu_temp_valid,
-                       devices[dev_id].dynamic_info.valid)) {
-            data_val = devices[dev_id].dynamic_info.gpu_temp;
+                       device->dynamic_info.valid)) {
+            data_val = device->dynamic_info.gpu_temp;
             if (data_val > 100)
               data_val = 100u;
           }
           break;
         case plot_gpu_power_draw_rate:
           if (IS_VALID(gpuinfo_power_draw_valid,
-                       devices[dev_id].dynamic_info.valid) &&
+                       device->dynamic_info.valid) &&
               IS_VALID(gpuinfo_power_draw_max_valid,
-                       devices[dev_id].dynamic_info.valid)) {
-            data_val = devices[dev_id].dynamic_info.power_draw * 100 /
-                       devices[dev_id].dynamic_info.power_draw_max;
+                       device->dynamic_info.valid)) {
+            data_val = device->dynamic_info.power_draw * 100 /
+                       device->dynamic_info.power_draw_max;
             if (data_val > 100)
               data_val = 100u;
           }
           break;
         case plot_fan_speed:
           if (IS_VALID(gpuinfo_fan_speed_valid,
-                       devices[dev_id].dynamic_info.valid)) {
-            data_val = devices[dev_id].dynamic_info.fan_speed;
+                       device->dynamic_info.valid)) {
+            data_val = device->dynamic_info.fan_speed;
           }
           break;
         case plot_gpu_clock_rate:
           if (IS_VALID(gpuinfo_curr_gpu_clock_speed_valid,
-                       devices[dev_id].dynamic_info.valid) &&
+                       device->dynamic_info.valid) &&
               IS_VALID(gpuinfo_max_gpu_clock_speed_valid,
-                       devices[dev_id].dynamic_info.valid)) {
-            data_val = devices[dev_id].dynamic_info.gpu_clock_speed * 100 /
-                       devices[dev_id].dynamic_info.gpu_clock_speed_max;
+                       device->dynamic_info.valid)) {
+            data_val = device->dynamic_info.gpu_clock_speed * 100 /
+                       device->dynamic_info.gpu_clock_speed_max;
           }
           break;
         case plot_gpu_mem_clock_rate:
           if (IS_VALID(gpuinfo_curr_mem_clock_speed_valid,
-                       devices[dev_id].dynamic_info.valid) &&
+                       device->dynamic_info.valid) &&
               IS_VALID(gpuinfo_max_mem_clock_speed_valid,
-                       devices[dev_id].dynamic_info.valid)) {
-            data_val = devices[dev_id].dynamic_info.mem_clock_speed * 100 /
-                       devices[dev_id].dynamic_info.mem_clock_speed_max;
+                       device->dynamic_info.valid)) {
+            data_val = device->dynamic_info.mem_clock_speed * 100 /
+                       device->dynamic_info.mem_clock_speed_max;
           }
           break;
         case plot_information_count:
@@ -1652,6 +1663,8 @@ void save_current_data_to_ring(unsigned devices_count, struct gpu_info *devices,
         data_index++;
       }
     }
+
+    dev_id++;
   }
 }
 
@@ -1769,13 +1782,13 @@ static void draw_plots(struct nvtop_interface *interface) {
   }
 }
 
-void draw_gpu_info_ncurses(unsigned devices_count, struct gpu_info *devices,
+void draw_gpu_info_ncurses(unsigned devices_count, struct list_head *devices,
                            struct nvtop_interface *interface) {
 
-  draw_devices(devices_count, devices, interface);
+  draw_devices(devices, interface);
   if (!interface->setup_win.visible) {
     draw_plots(interface);
-    draw_processes(devices_count, devices, interface);
+    draw_processes(devices, interface);
   } else {
     draw_setup_window(devices_count, devices, interface);
   }

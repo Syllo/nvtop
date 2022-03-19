@@ -34,10 +34,10 @@ struct nvtop_interface *initialize_curses(unsigned num_devices,
 
 void clean_ncurses(struct nvtop_interface *interface);
 
-void draw_gpu_info_ncurses(unsigned devices_count, struct gpu_info *devices,
+void draw_gpu_info_ncurses(unsigned devices_count, struct list_head *devices,
                            struct nvtop_interface *interface);
 
-void save_current_data_to_ring(unsigned devices_count, struct gpu_info *devices,
+void save_current_data_to_ring(struct list_head *devices,
                                struct nvtop_interface *interface);
 
 void update_window_size_to_terminal_size(struct nvtop_interface *inter);

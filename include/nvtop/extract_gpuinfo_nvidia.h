@@ -29,7 +29,11 @@
 
 typedef struct nvmlDevice *nvmlDevice_t;
 
-struct gpuinfo_nvidia_internal_data {
+struct gpu_info_nvidia {
+  struct gpu_info base;
+  struct list_head allocate_list;
+
+  nvmlDevice_t gpuhandle;
   unsigned long long last_utilization_timestamp;
 };
 
@@ -40,17 +44,15 @@ void gpuinfo_nvidia_shutdown(void);
 const char *gpuinfo_nvidia_last_error_string(void);
 
 bool gpuinfo_nvidia_get_device_handles(
-    nvmlDevice_t **handle_array_ptr, unsigned *count,
+    struct list_head *devices, unsigned *count,
     uint64_t mask);
 
-void gpuinfo_nvidia_populate_static_info(nvmlDevice_t device,
-                                         struct gpuinfo_static_info *static_info);
+void gpuinfo_nvidia_populate_static_info(struct gpu_info *gpu_info);
 
-void gpuinfo_nvidia_refresh_dynamic_info(nvmlDevice_t device,
-                                         struct gpuinfo_dynamic_info *dynamic_info);
+void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *gpu_info);
 
 void gpuinfo_nvidia_get_running_processes(
-    nvmlDevice_t device, struct gpuinfo_nvidia_internal_data *internal,
+    struct gpu_info *gpu_info,
     unsigned *num_processes_recovered, struct gpu_process **processes_info);
 
 #endif // EXTRACT_GPUINFO_NVIDIA_H_
