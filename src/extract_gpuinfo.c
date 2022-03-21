@@ -55,7 +55,7 @@ void register_gpu_vendor(struct gpu_vendor *vendor) {
   list_add(&vendor->list, &gpu_vendors);
 }
 
-bool gpuinfo_init_info_extraction(uint64_t mask, unsigned *devices_count,
+bool gpuinfo_init_info_extraction(ssize_t mask, unsigned *devices_count,
                                   struct list_head *devices) {
   struct gpu_vendor *vendor;
 

@@ -240,20 +240,20 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  size_t gpu_mask_nvidia;
+  ssize_t gpu_mask;
   if (selectedGPU != NULL) {
-    gpu_mask_nvidia = 0;
-    gpu_mask_nvidia = update_mask_value(selectedGPU, gpu_mask_nvidia, true);
+    gpu_mask = 0;
+    gpu_mask = update_mask_value(selectedGPU, gpu_mask, true);
   } else {
-    gpu_mask_nvidia = UINT_MAX;
+    gpu_mask = UINT_MAX;
   }
   if (ignoredGPU != NULL) {
-    gpu_mask_nvidia = update_mask_value(ignoredGPU, gpu_mask_nvidia, false);
+    gpu_mask = update_mask_value(ignoredGPU, gpu_mask, false);
   }
 
   unsigned devices_count = 0;
   LIST_HEAD(devices);
-  if (!gpuinfo_init_info_extraction(gpu_mask_nvidia, &devices_count, &devices))
+  if (!gpuinfo_init_info_extraction(gpu_mask, &devices_count, &devices))
     return EXIT_FAILURE;
   if (devices_count == 0) {
     fprintf(stdout, "No GPU to monitor.\n");
