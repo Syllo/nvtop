@@ -644,7 +644,7 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   else
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
-    dynamic_info->power_draw = out32;
+    dynamic_info->power_draw = out32 * 1000; // watts to milliwatts
     SET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
   } else
     RESET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
