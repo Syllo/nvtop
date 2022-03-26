@@ -2,6 +2,7 @@
  * Copyright (C) 2012 Lauri Kasanen
  * Copyright (C) 2018 Genesis Cloud Ltd.
  * Copyright (C) 2022 YiFei Zhu <zhuyifei1999@gmail.com>
+ * Copyright (C) 2022 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop and adapted from radeontop.
  *
@@ -324,7 +325,7 @@ static const char *gpuinfo_amdgpu_last_error_string(void) {
       return "unknown error\n";
     }
   } else {
-    return "An unanticipated error occurred while accessing NVIDIA GPU "
+    return "An unanticipated error occurred while accessing AMDGPU "
            "information\n";
   }
 }
@@ -544,6 +545,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     last_libdrm_return_status = amdgpu_query_sensor_info(
         gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GFX_SCLK,
         sizeof(out32), &out32);
+  else
+    last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
     dynamic_info->gpu_clock_speed = out32;
     SET_VALID(gpuinfo_curr_gpu_clock_speed_valid, dynamic_info->valid);
@@ -562,6 +565,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     last_libdrm_return_status = amdgpu_query_sensor_info(
         gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GFX_MCLK,
         sizeof(out32), &out32);
+  else
+    last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
     dynamic_info->mem_clock_speed = out32;
     SET_VALID(gpuinfo_curr_mem_clock_speed_valid, dynamic_info->valid);
@@ -580,6 +585,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     last_libdrm_return_status = amdgpu_query_sensor_info(
         gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GPU_LOAD,
         sizeof(out32), &out32);
+  else
+    last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
     dynamic_info->gpu_util_rate = out32;
     SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
@@ -592,6 +599,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     last_libdrm_return_status = amdgpu_query_info(
         gpu_info->amdgpu_device, AMDGPU_INFO_MEMORY,
         sizeof(memory_info), &memory_info);
+  else
+    last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
     // TODO: Determine if we want to include GTT (GPU accessible system memory)
     dynamic_info->total_memory = memory_info.vram.total_heap_size;
@@ -616,6 +625,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     last_libdrm_return_status = amdgpu_query_sensor_info(
         gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GPU_TEMP,
         sizeof(out32), &out32);
+  else
+    last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
     dynamic_info->gpu_temp = out32 / 1000;
     SET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
@@ -630,6 +641,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     last_libdrm_return_status = amdgpu_query_sensor_info(
         gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GPU_AVG_POWER,
         sizeof(out32), &out32);
+  else
+    last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
     dynamic_info->power_draw = out32;
     SET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
