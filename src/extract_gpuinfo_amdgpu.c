@@ -869,7 +869,7 @@ static void gpuinfo_amdgpu_get_running_processes(
       goto next;
 
     fdinfo_dir = fdopendir(fdinfo_dir_fd);
-    if (!fdinfo_dir_fd) {
+    if (!fdinfo_dir) {
       close(fdinfo_dir_fd);
       goto next;
     }
@@ -962,7 +962,8 @@ next:
     if (fdinfo_dir)
       closedir(fdinfo_dir);
 
-    close(fd_dir_fd);
+    if (fd_dir_fd >= 0)
+      close(fd_dir_fd);
     close(pid_dir_fd);
 
     free(seen_fds);
