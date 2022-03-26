@@ -398,12 +398,19 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
     if (interface->setup_win.options_selected[0] == setup_chart_all_gpu) {
       wprintw(value_list_win, " (All GPUs)");
     } else {
-      // FIXME: Figure out why is this only reading one device?
-      // if (IS_VALID(gpuinfo_device_name_valid, devices->static_info.valid)) {
-      //   getyx(value_list_win, tmp, cur_col);
-      //   wprintw(value_list_win, " (%.*s)", maxcols - cur_col - 3,
-      //           devices->static_info.device_name);
-      // } else
+      // Get the selected device
+      struct gpu_info *device;
+      unsigned index = 0;
+      list_for_each_entry(device, devices, list) {
+        if (index == selected_gpu)
+          break;
+        index++;
+      }
+      if (IS_VALID(gpuinfo_device_name_valid, device->static_info.valid)) {
+        getyx(value_list_win, tmp, cur_col);
+        wprintw(value_list_win, " (%.*s)", maxcols - cur_col - 3,
+                device->static_info.device_name);
+      } else
         wprintw(value_list_win, " (GPU %u)", selected_gpu);
     }
     wclrtoeol(value_list_win);
