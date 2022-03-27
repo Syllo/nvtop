@@ -25,16 +25,17 @@
 
 #include <assert.h>
 #include <ctype.h>
-#include <drm/amdgpu_drm.h>
 #include <dirent.h>
 #include <dlfcn.h>
+#include <drm/amdgpu_drm.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <linux/kcmp.h>
 #include <math.h>
+#include <stdarg.h>
 #include <stdbool.h>
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -183,7 +184,14 @@ struct gpu_info_amdgpu {
   int fd;
   amdgpu_device_handle amdgpu_device;
 
-  char pdev[20];
+  char pdev[PDEV_LEN];
+  int sysfsFD; // file descriptor for the /sys/bus/pci/devices/<this gpu>/ folder
+  int hwmonFD; // file descriptor for the /sys/bus/pci/devices/<this gpu>/hwmon/hwmon[0-9]+ folder
+
+  // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
+  FILE *fanSpeedFILE; // file descriptor for the current fan speed
+  // Used to compute the actual fan speed
+  unsigned maxFanValue;
 };
 
 static LIST_HEAD(allocations);
@@ -352,6 +360,38 @@ static void authenticate_drm(int fd) {
   fprintf(stderr, "Failed to authenticate to DRM; XCB authentication unimplemented\n");
 }
 
+static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
+  // Open the device sys folder to gather information not available through the DRM driver
+  char devicePath[22 + PDEV_LEN];
+  snprintf(devicePath, sizeof(devicePath), "/sys/bus/pci/devices/%s", gpu_info->pdev);
+  gpu_info->sysfsFD = open(devicePath, O_RDONLY);
+  gpu_info->hwmonFD = -1;
+
+  // Open the device hwmon folder (Fan speed are available there)
+  static const char hwmon[] = "hwmon";
+  if (gpu_info->sysfsFD >= 0) {
+    int hwmondirFD = openat(gpu_info->sysfsFD, hwmon, O_RDONLY);
+    if (hwmondirFD >= 0) {
+      DIR *hwmonDir = fdopendir(hwmondirFD);
+      if (!hwmonDir) {
+        close(hwmondirFD);
+      } else {
+        struct dirent *dirEntry;
+        while ((dirEntry = readdir(hwmonDir))) {
+          // There should be one directory inside hwmon, with a name having the following pattern hwmon[0-9]+
+          if (dirEntry->d_type == DT_DIR && strncmp(hwmon, dirEntry->d_name, sizeof(hwmon) - 1) == 0) {
+            break;
+          }
+        }
+        if (dirEntry) {
+          gpu_info->hwmonFD = openat(dirfd(hwmonDir), dirEntry->d_name, O_RDONLY);
+        }
+        closedir(hwmonDir);
+      }
+    }
+  }
+}
+
 #define VENDOR_AMD 0x1002
 
 static bool gpuinfo_amdgpu_get_device_handles(
@@ -450,6 +490,7 @@ static bool gpuinfo_amdgpu_get_device_handles(
                devs[i]->businfo.pci->bus,
                devs[i]->businfo.pci->dev,
                devs[i]->businfo.pci->func);
+      initDeviceSysfsPaths(&gpu_infos[*count]);
       list_add_tail(&gpu_infos[*count].base.list, devices);
       *count += 1;
     } else {
@@ -462,6 +503,35 @@ static bool gpuinfo_amdgpu_get_device_handles(
   drmFreeDevices(devs, libdrm_count);
 
   return true;
+}
+
+static int rewindAndReadPattern(FILE *file, const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  rewind(file);
+  fflush(file);
+  int matches = vfscanf(file, format, args);
+  va_end(args);
+  return matches;
+}
+
+static int readValueFromFileAt(int folderFD, const char *fileName, const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  // Open the file
+  int fd = openat(folderFD, fileName, O_RDONLY);
+  if (fd < 0)
+    return 0;
+  FILE *file = fdopen(fd, "r");
+  if (!file) {
+    close(fd);
+    return 0;
+  }
+  // Read the pattern
+  int nread = vfscanf(file, format, args);
+  fclose(file);
+  va_end(args);
+  return nread;
 }
 
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
@@ -527,6 +597,44 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
     }
   } else
     RESET_VALID(gpuinfo_device_name_valid, static_info->valid);
+
+  // Retrieve infos from sysfs.
+
+  // 1) Fan
+  // If multiple fans are present, use the first one. Some hardware do not wire
+  // the sensor for the second fan, or use the same value as the first fan.
+
+  // Look for which fan to use (PWM or RPM)
+  gpu_info->fanSpeedFILE = NULL;
+  unsigned pwmIsEnabled;
+  int NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, "pwm1_enable", "%u", &pwmIsEnabled);
+  bool usePWMSensor = NreadPatterns == 1 && pwmIsEnabled > 0;
+
+  bool useRPMSensor = false;
+  if (!usePWMSensor) {
+    unsigned rpmIsEnabled;
+    NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, "fan1_enable", "%u", &rpmIsEnabled);
+    useRPMSensor = NreadPatterns && rpmIsEnabled > 0;
+  }
+  // Either RPM or PWM or neither
+  assert((useRPMSensor ^ usePWMSensor) || (!useRPMSensor && !usePWMSensor));
+  if (usePWMSensor || useRPMSensor) {
+    char *maxFanSpeedFile = usePWMSensor ? "pwm1_max" : "fan1_max";
+    char *fanSensorFile = usePWMSensor ? "pwm1" : "fan1_input";
+    unsigned maxSpeedVal;
+    NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, maxFanSpeedFile, "%u", &maxSpeedVal);
+    if (NreadPatterns) {
+      gpu_info->maxFanValue = maxSpeedVal;
+      // Open the fan file
+      int fanSpeedFD = openat(gpu_info->hwmonFD, fanSensorFile, O_RDONLY);
+      if (fanSpeedFD >= 0) {
+        gpu_info->fanSpeedFILE = fdopen(fanSpeedFD, "r");
+        if (!gpu_info->fanSpeedFILE)
+          close(fanSpeedFD);
+      }
+    }
+  }
+  // TODO: temperature crit/emergency and PCIE max link/width
 }
 
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -633,8 +741,17 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   } else
     RESET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
 
-  // TODO: Fan speed
-  // You can get the fan speed from sysfs hwmon pwm1
+  // Fan speed
+  if (gpu_info->fanSpeedFILE) {
+    unsigned currentFanSpeed;
+    int patternsMatched = rewindAndReadPattern(gpu_info->fanSpeedFILE, "%u", &currentFanSpeed);
+    if (patternsMatched == 1) {
+      dynamic_info->fan_speed = currentFanSpeed * 100 / gpu_info->maxFanValue;
+      SET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
+    } else
+      RESET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
+  } else
+    RESET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
 
   // Device power usage
   if (libdrm_amdgpu_handle && amdgpu_query_sensor_info)
