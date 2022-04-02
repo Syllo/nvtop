@@ -194,6 +194,7 @@ struct gpu_info_amdgpu {
   FILE *PCIeLinkSpeed; // FILE* for this device PCIe link speed
   FILE *PCIeLinkWidth; // FILE* for this device PCIe link width
   FILE *PCIeBW; // FILE* for this device PCIe bandwidth over one second
+  FILE *powerCap; // FILE* for this device power cap
   // Used to compute the actual fan speed
   unsigned maxFanValue;
 };
@@ -723,6 +724,13 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   if (pcieBWFD) {
     gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
   }
+
+  // Open the power cap file for dynamic info gathering
+  gpu_info->powerCap = NULL;
+  int powerCapFD = openat(gpu_info->hwmonFD, "power1_cap", O_RDONLY);
+  if (powerCapFD) {
+    gpu_info->powerCap = fdopen(powerCapFD, "r");
+  }
 }
 
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -890,6 +898,16 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       dynamic_info->pcie_tx = transmitted;
       SET_VALID(gpuinfo_pcie_rx_valid, dynamic_info->valid);
       SET_VALID(gpuinfo_pcie_tx_valid, dynamic_info->valid);
+    }
+  }
+
+  if (gpu_info->powerCap) {
+    // The power cap in microwatts
+    unsigned powerCap;
+    int NreadPatterns = rewindAndReadPattern(gpu_info->powerCap, "%u", &powerCap);
+    if (NreadPatterns == 1) {
+      dynamic_info->power_draw_max = powerCap / 1000;
+      SET_VALID(gpuinfo_power_draw_max_valid, dynamic_info->valid);
     }
   }
 }
