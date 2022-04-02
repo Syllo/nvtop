@@ -30,6 +30,7 @@
 #include <drm/amdgpu_drm.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <linux/kcmp.h>
 #include <math.h>
 #include <stdarg.h>
@@ -189,7 +190,10 @@ struct gpu_info_amdgpu {
   int hwmonFD; // file descriptor for the /sys/bus/pci/devices/<this gpu>/hwmon/hwmon[0-9]+ folder
 
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
-  FILE *fanSpeedFILE; // file descriptor for the current fan speed
+  FILE *fanSpeedFILE; // FILE* for this device current fan speed
+  FILE *PCIeLinkSpeed; // FILE* for this device PCIe link speed
+  FILE *PCIeLinkWidth; // FILE* for this device PCIe link width
+  FILE *PCIeBW; // FILE* for this device PCIe bandwidth over one second
   // Used to compute the actual fan speed
   unsigned maxFanValue;
 };
@@ -534,6 +538,34 @@ static int readValueFromFileAt(int folderFD, const char *fileName, const char *f
   return nread;
 }
 
+// Converts the link speed in MT/s and laneWidth to a PCIe generation
+static unsigned pcieGenFromLinkSpeedAndWidth(unsigned linkSpeed, unsigned laneWidth) {
+  // Multiply by 100 to distinguish PCIe v1 and v2
+  unsigned laneSpeed = linkSpeed / laneWidth;
+  unsigned pcieGen = 0;
+  switch (laneSpeed) {
+  case 250:
+    pcieGen = 1;
+    break;
+  case 500:
+    pcieGen = 2;
+    break;
+  case 1000:
+    pcieGen = 3;
+    break;
+  case 2000:
+    pcieGen = 4;
+    break;
+  case 4000:
+    pcieGen = 5;
+    break;
+  case 8000:
+    pcieGen = 6;
+    break;
+  }
+  return pcieGen;
+}
+
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_amdgpu *gpu_info =
     container_of(_gpu_info, struct gpu_info_amdgpu, base);
@@ -623,9 +655,9 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
     char *fanSensorFile = usePWMSensor ? "pwm1" : "fan1_input";
     unsigned maxSpeedVal;
     NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, maxFanSpeedFile, "%u", &maxSpeedVal);
-    if (NreadPatterns) {
+    if (NreadPatterns == 1) {
       gpu_info->maxFanValue = maxSpeedVal;
-      // Open the fan file
+      // Open the fan file for dynamic info gathering
       int fanSpeedFD = openat(gpu_info->hwmonFD, fanSensorFile, O_RDONLY);
       if (fanSpeedFD >= 0) {
         gpu_info->fanSpeedFILE = fdopen(fanSpeedFD, "r");
@@ -634,7 +666,63 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
       }
     }
   }
-  // TODO: temperature crit/emergency and PCIE max link/width
+
+  // Critical temparature
+  // temp1_* files should always be the GPU die in millidegrees Celsius
+  unsigned criticalTemp;
+  NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, "temp1_crit", "%u", &criticalTemp);
+  if (NreadPatterns == 1) {
+    static_info->temperature_slowdown_threshold = criticalTemp;
+    SET_VALID(gpuinfo_temperature_slowdown_valid, static_info->valid);
+  }
+
+  // Emergency/shutdown temparature
+  unsigned emergemcyTemp;
+  NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, "temp1_emergency", "%u", &emergemcyTemp);
+  if (NreadPatterns == 1) {
+    static_info->temperature_shutdown_threshold = emergemcyTemp;
+    SET_VALID(gpuinfo_temperature_shutdown_valid, static_info->valid);
+  }
+
+  // PCIe max link width
+  unsigned maxLinkWidth;
+  NreadPatterns = readValueFromFileAt(gpu_info->sysfsFD, "max_link_width", "%u", &maxLinkWidth);
+  if (NreadPatterns == 1) {
+    static_info->max_pcie_link_width = maxLinkWidth;
+    SET_VALID(gpuinfo_max_link_width_valid, static_info->valid);
+  }
+  // Open current link width for dynamic info gathering
+  gpu_info->PCIeLinkWidth = NULL;
+  int linkWidthFD = openat(gpu_info->sysfsFD, "current_link_width", O_RDONLY);
+  if (linkWidthFD) {
+    gpu_info->PCIeLinkWidth = fdopen(linkWidthFD, "r");
+  }
+
+  // PCIe max link speed
+  // [max|current]_link_speed export the value as "x.y GT/s PCIe" where x.y is a float value.
+  float maxLinkSpeedf;
+  NreadPatterns = readValueFromFileAt(gpu_info->sysfsFD, "max_link_speed", "%f GT/s PCIe", &maxLinkSpeedf);
+  if (NreadPatterns == 1 && IS_VALID(gpuinfo_max_link_width_valid, static_info->valid)) {
+    unsigned maxLinkSpeed = (unsigned)(maxLinkSpeedf * 1000.f);
+    unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(maxLinkSpeed, static_info->max_pcie_link_width);
+    if (pcieGen) {
+      static_info->max_pcie_gen = pcieGen;
+      SET_VALID(gpuinfo_max_pcie_gen_valid, static_info->valid);
+    }
+  }
+  // Open current link speed
+  gpu_info->PCIeLinkSpeed = NULL;
+  int linkSpeedFD = openat(gpu_info->sysfsFD, "current_link_speed", O_RDONLY);
+  if (linkSpeedFD) {
+    gpu_info->PCIeLinkSpeed = fdopen(linkSpeedFD, "r");
+  }
+
+  // Open the PCIe bandwidth file for dynamic info gathering
+  gpu_info->PCIeBW = NULL;
+  int pcieBWFD = openat(gpu_info->sysfsFD, "pcie_bw", O_RDONLY);
+  if (pcieBWFD) {
+    gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
+  }
 }
 
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -765,6 +853,45 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
   } else
     RESET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
+
+  // Current PCIe link used
+  if (gpu_info->PCIeLinkWidth) {
+    unsigned currentLinkWidth = 0;
+    int NreadPatterns = rewindAndReadPattern(gpu_info->PCIeLinkWidth, "%u", &currentLinkWidth);
+    if (NreadPatterns == 1) {
+      dynamic_info->curr_pcie_link_width = currentLinkWidth;
+      SET_VALID(gpuinfo_pcie_link_width_valid, dynamic_info->valid);
+      if (gpu_info->PCIeLinkSpeed) {
+        float currentLinkSpeedf;
+        NreadPatterns = rewindAndReadPattern(gpu_info->PCIeLinkSpeed, "%f GT/s PCIe", &currentLinkSpeedf);
+        if (NreadPatterns == 1) {
+          unsigned currentLinkSpeed = (unsigned)(currentLinkSpeedf * 1000.f);
+          unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(currentLinkSpeed, currentLinkWidth);
+          if (pcieGen) {
+            dynamic_info->curr_pcie_link_gen = pcieGen;
+            SET_VALID(gpuinfo_pcie_link_gen_valid, dynamic_info->valid);
+          }
+        }
+      }
+    }
+  }
+  // PCIe bandwidth
+  if (gpu_info->PCIeBW) {
+    // According to https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/amd/pm/amdgpu_pm.c, under the pcie_bw
+    // section, we should be able to read the number of packets received and sent by the GPU and get the maximum payload
+    // size during the last second. This is untested but should work when the file is populated by the driver.
+    uint64_t received, transmitted;
+    int maxPayloadSize;
+    int NreadPatterns = rewindAndReadPattern(gpu_info->PCIeBW, "%" SCNu64 " %" SCNu64 " %i", &received, &transmitted, &maxPayloadSize);
+    if (NreadPatterns == 3) {
+      received *= maxPayloadSize;
+      transmitted *= maxPayloadSize;
+      dynamic_info->pcie_rx = received;
+      dynamic_info->pcie_tx = transmitted;
+      SET_VALID(gpuinfo_pcie_rx_valid, dynamic_info->valid);
+      SET_VALID(gpuinfo_pcie_tx_valid, dynamic_info->valid);
+    }
+  }
 }
 
 static bool is_drm_fd(int fd_dir_fd, const char *name) {
