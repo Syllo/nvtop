@@ -1,10 +1,10 @@
 .\" Manpage for nvtop
 .\" Contact maxime.schmitt91@gmail.com
 
-.TH nvtop 1 "May 2021" "Version @nvtop_VERSION_MAJOR@.@nvtop_VERSION_MINOR@.@nvtop_VERSION_PATCH@" "nvtop command"
+.TH nvtop 1 "April 2022" "Version @nvtop_VERSION_MAJOR@.@nvtop_VERSION_MINOR@.@nvtop_VERSION_PATCH@" "nvtop command"
 
 .SH NAME
-nvtop \- NVIDIA GPU top
+nvtop \- interactive GPU process viewer
 
 .SH SYNOPSIS
 .B nvtop
@@ -13,7 +13,7 @@ nvtop \- NVIDIA GPU top
 \fR[\fB\-d\fR \fIdelay\fR]
 
 .SH DESCRIPTION
-nvtop is a ncurses\-based GPU status viewer for NVIDIA GPUs.
+nvtop is a ncurses\-based GPU status viewer for AMD and NVIDIA GPUs.
 
 .SH COMMAND\-LINE OPTIONS
 .TP
@@ -118,9 +118,13 @@ Memory sizes in nvtop are displayed as multiples of 1024 bytes or 1 KiB.
 .SH BUGS
 .TP
 .BR "Some fields are shown as N/A"
-Ask NVIDIA for better support of your hardware!
+Ask AMD or NVIDIA for better support of your hardware!
+
+If your card uses the AMDGPU driver, a more recent kernel might have improved support.
 .TP
 .BR "Compatibility issues"
 Does not work with nouveau driver stack and older NVIDIA GPU for the time being.
+
+Does not work for AMD graphics card using the old radeon driver.
 .SH AUTHOR
 Written by Maxime Schmitt.

@@ -4,7 +4,7 @@ NVTOP
 What is NVTOP?
 --------------
 
-Nvtop stands for NVidia TOP, a (h)top like task monitor for NVIDIA GPUs. It can
+Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD and NVIDIA GPUs. It can
 handle multiple GPUs and print information about them in a htop familiar way.
 
 Because a picture is worth a thousand words:
@@ -19,6 +19,8 @@ Table of Contents
   - [Saving Preferences](#saving-preferences)
   - [NVTOP Manual and Command line Options](#nvtop-manual-and-command-line-options)
 - [GPU Support](#gpu-support)
+  - [AMD](#amd)
+  - [NVIDIA](#nvidia)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
@@ -60,6 +62,15 @@ nvtop --help
 GPU Support
 -----------
 
+### AMD
+
+NVTOP supports AMD GPUs using the amdgpu driver through the exposed DRM and sysfs interfaces.
+
+Support for recent GPUs are regularly mainlined into the linux kernel, so please
+use a recent-enough kernel for your GPU.
+
+### NVIDIA
+
 The *NVML library* does not support some of the queries for GPUs coming before the
 Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
@@ -68,18 +79,19 @@ take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/n
 Build
 -----
 
-Two libraries are required in order for NVTOP to display GPU information:
+Several libraries are required in order for NVTOP to display GPU information:
 
-* The *NVIDIA Management Library* (*NVML*) which comes with the GPU driver.
-  * This queries the GPU for information.
 * The *ncurses* library driving the user interface.
   * This makes the screen look beautiful.
+* For NVIDIA: the *NVIDIA Management Library* (*NVML*) which comes with the GPU driver.
+  * This queries the GPU for information.
+* For AMD: the libdrm library used to querry AMD GPUs through the kernel driver.
 
 ## Distribution Specific Installation Process
 
 ### Ubuntu / Debian
 
-#### Ubuntu disco (19.04) / Debian buster (stable)
+#### Ubuntu impish (21.10) / Debian buster (stable) and more recent
 
 - ```bash
   sudo apt install nvtop
@@ -87,31 +99,59 @@ Two libraries are required in order for NVTOP to display GPU information:
 
 #### Older
 
-- NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
-- CMake, ncurses and git
+- AMD Dependecy
+  ```bash
+  sudo apt install libdrm-dev
+  ```
+
+- NVIDIA Depenency
+  - NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
+
+- NVTOP Dependencies
+ - CMake, ncurses and git
   ```bash
   sudo apt install cmake libncurses5-dev libncursesw5-dev git
   ```
+
 - NVTOP
   - Follow the [NVTOP Build](#nvtop-build)
 
+
 ### Fedora / RedHat / CentOS
 
-- NVIDIA drivers, **CUDA required for nvml libraries** (see [RPM Fusion](https://rpmfusion.org/Howto/NVIDIA))
-- CMake, ncurses and git
+- AMD Dependecy
+  ```bash
+  sudo dnf install libdrm-devel
+  ```
+
+- NVIDIA Depenency
+  - NVIDIA drivers, **CUDA required for nvml libraries** (see [RPM Fusion](https://rpmfusion.org/Howto/NVIDIA))
+
+- NVTOP Dependencies
+ - CMake, ncurses and git
   ```bash
   sudo dnf install cmake ncurses-devel git
   ```
+
 - NVTOP
   - Follow the [NVTOP Build](#nvtop-build)
 
 ### OpenSUSE
 
-- NVIDIA drivers (see [SUSE Support Database](https://en.opensuse.org/SDB:NVIDIA_drivers))
-- CMake, ncurses and git
+- AMD Dependecy
   ```bash
-  sudo zypper install cmake ncurses-devel git
+  sudo zypper install libdrm-devel
   ```
+
+- NVIDIA Depenency
+  - NVIDIA drivers (see [SUSE Support Database](https://en.opensuse.org/SDB:NVIDIA_drivers))
+
+- NVTOP Dependencies
+  - CMake, ncurses and git
+    ```bash
+    sudo zypper install cmake ncurses-devel git
+    ```
+
 - NVTOP
   - Follow the [NVTOP Build](#nvtop-build)
 
@@ -144,7 +184,7 @@ Two libraries are required in order for NVTOP to display GPU information:
 ```bash
 git clone https://github.com/Syllo/nvtop.git
 mkdir -p nvtop/build && cd nvtop/build
-cmake ..
+cmake .. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON
 make
 
 # Install globally on the system
