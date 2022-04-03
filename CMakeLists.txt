@@ -60,6 +60,9 @@ else()
   set(CMAKE_INSTALL_RPATH "")
 endif()
 
+option(NVIDIA_SUPPORT "Build support for NVIDIA GPUs through libnvml" ON)
+option(AMDGPU_SUPPORT "Build support for AMD GPUs through amdgpu driver" ON)
+
 add_subdirectory(src)
 
 #///////////////////////////////////////////////////////////////////#

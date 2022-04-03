@@ -27,10 +27,11 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <dlfcn.h>
-#include <drm/amdgpu_drm.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <libdrm/amdgpu.h>
+#include <libdrm/amdgpu_drm.h>
 #include <linux/kcmp.h>
 #include <math.h>
 #include <stdarg.h>
@@ -43,130 +44,25 @@
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <xf86drm.h>
 
-typedef struct amdgpu_device *amdgpu_device_handle;
-typedef struct _drmDevice *drmDevicePtr;
+// Local function pointers to DRM interface
+static typeof(drmGetDevices) *_drmGetDevices;
+static typeof(drmGetDevices2) *_drmGetDevices2;
+static typeof(drmFreeDevices) *_drmFreeDevices;
+static typeof(drmGetVersion) *_drmGetVersion;
+static typeof(drmFreeVersion) *_drmFreeVersion;
+static typeof(drmGetMagic) *_drmGetMagic;
+static typeof(drmAuthMagic) *_drmAuthMagic;
+static typeof(drmDropMaster) *_drmDropMaster;
 
-// libdrm public structs seems ABI-stable according to latest git blame:
-// https://gitlab.freedesktop.org/mesa/drm/-/blame/7c28f528309d/xf86drm.h#L846
-// Copying the required struct defs here so we don't have a compile-time dependency
-
-typedef unsigned int drm_magic_t;
-
-#define DRM_NODE_PRIMARY 0
-#define DRM_NODE_CONTROL 1
-#define DRM_NODE_RENDER  2
-#define DRM_NODE_MAX     3
-
-#define DRM_BUS_PCI       0
-
-#define DRM_ERR_NO_DEVICE  (-1001)
-#define DRM_ERR_NO_ACCESS  (-1002)
-#define DRM_ERR_NOT_ROOT   (-1003)
-#define DRM_ERR_INVALID    (-1004)
-#define DRM_ERR_NO_FD      (-1005)
-
-typedef struct _drmPciBusInfo {
-    uint16_t domain;
-    uint8_t bus;
-    uint8_t dev;
-    uint8_t func;
-} drmPciBusInfo, *drmPciBusInfoPtr;
-
-typedef struct _drmPciDeviceInfo {
-    uint16_t vendor_id;
-    uint16_t device_id;
-    uint16_t subvendor_id;
-    uint16_t subdevice_id;
-    uint8_t revision_id;
-} drmPciDeviceInfo, *drmPciDeviceInfoPtr;
-
-typedef struct _drmDevice {
-  char **nodes;
-  int available_nodes;
-  int bustype;
-  union {
-    drmPciBusInfoPtr pci;
-  } businfo;
-  union {
-    drmPciDeviceInfoPtr pci;
-  } deviceinfo;
-} drmDevice, *drmDevicePtr;
-
-typedef struct _drmVersion {
-  int     version_major;
-  int     version_minor;
-  int     version_patchlevel;
-  int     name_len;
-  char    *name;
-  int     date_len;
-  char    *date;
-  int     desc_len;
-  char    *desc;
-} drmVersion, *drmVersionPtr;
-
-static int (*drmGetDevices)(drmDevicePtr devices[], int max_devices);
-static int (*drmGetDevices2)(uint32_t flags, drmDevicePtr devices[], int max_devices);
-static void (*drmFreeDevices)(drmDevicePtr devices[], int count);
-
-static drmVersionPtr (*drmGetVersion)(int fd);
-static void (*drmFreeVersion)(drmVersionPtr);
-
-static int (*drmGetMagic)(int fd, drm_magic_t * magic);
-static int (*drmAuthMagic)(int fd, drm_magic_t magic);
-static int (*drmDropMaster)(int fd);
-
-struct amdgpu_gpu_info {
-  uint32_t asic_id;
-  uint32_t chip_rev;
-  uint32_t chip_external_rev;
-  uint32_t family_id;
-  uint64_t ids_flags;
-  uint64_t max_engine_clk;
-  uint64_t max_memory_clk;
-  uint32_t num_shader_engines;
-  uint32_t num_shader_arrays_per_engine;
-  uint32_t avail_quad_shader_pipes;
-  uint32_t max_quad_shader_pipes;
-  uint32_t cache_entries_per_quad_pipe;
-  uint32_t num_hw_gfx_contexts;
-  uint32_t rb_pipes;
-  uint32_t enabled_rb_pipes_mask;
-  uint32_t gpu_counter_freq;
-  uint32_t backend_disable[4];
-  uint32_t mc_arb_ramcfg;
-  uint32_t gb_addr_cfg;
-  uint32_t gb_tile_mode[32];
-  uint32_t gb_macro_tile_mode[16];
-  uint32_t pa_sc_raster_cfg[4];
-  uint32_t pa_sc_raster_cfg1[4];
-  uint32_t cu_active_number;
-  uint32_t cu_ao_mask;
-  uint32_t cu_bitmap[4][4];
-  uint32_t vram_type;
-  uint32_t vram_bit_width;
-  uint32_t ce_ram_size;
-  uint32_t vce_harvest_config;
-  uint32_t pci_rev_id;
-};
-
-static int (*amdgpu_device_initialize)(int fd,
-                                       uint32_t *major_version,
-                                       uint32_t *minor_version,
-                                       amdgpu_device_handle *device_handle);
-
-static int (*amdgpu_device_deinitialize)(amdgpu_device_handle device_handle);
-
-static const char *(*amdgpu_get_marketing_name)(amdgpu_device_handle dev);
-
-static int (*amdgpu_query_gpu_info)(amdgpu_device_handle dev,
-                                    struct amdgpu_gpu_info *info);
-
-static int (*amdgpu_query_info)(amdgpu_device_handle dev, unsigned info_id,
-                                unsigned size, void *value);
-
-static int (*amdgpu_query_sensor_info)(amdgpu_device_handle dev, unsigned sensor_type,
-                                       unsigned size, void *value);
+// Local function pointers to amdgpu DRM interface
+static typeof(amdgpu_device_initialize) *_amdgpu_device_initialize;
+static typeof(amdgpu_device_deinitialize) *_amdgpu_device_deinitialize;
+static typeof(amdgpu_get_marketing_name) *_amdgpu_get_marketing_name;
+static typeof(amdgpu_query_gpu_info) *_amdgpu_query_gpu_info;
+static typeof(amdgpu_query_info) *_amdgpu_query_info;
+static typeof(amdgpu_query_sensor_info) *_amdgpu_query_sensor_info;
 
 static void *libdrm_handle;
 static void *libdrm_amdgpu_handle;
@@ -229,11 +125,11 @@ static void init_extract_gpuinfo_amdgpu(void) {
 }
 
 static int wrap_drmGetDevices(drmDevicePtr devices[], int max_devices) {
-  assert(drmGetDevices2 || drmGetDevices);
+  assert(_drmGetDevices2 || _drmGetDevices);
 
-  if (drmGetDevices2)
-    return drmGetDevices2(0, devices, max_devices);
-  return drmGetDevices(devices, max_devices);
+  if (_drmGetDevices2)
+    return _drmGetDevices2(0, devices, max_devices);
+  return _drmGetDevices(devices, max_devices);
 }
 
 static bool gpuinfo_amdgpu_init(void) {
@@ -247,34 +143,34 @@ static bool gpuinfo_amdgpu_init(void) {
     return false;
   }
 
-  drmGetDevices2 = dlsym(libdrm_handle, "drmGetDevices2");
-  if (!drmGetDevices2)
-    drmGetDevices = dlsym(libdrm_handle, "drmGetDevices");
-  if (!drmGetDevices2 && !drmGetDevices)
+  _drmGetDevices2 = dlsym(libdrm_handle, "drmGetDevices2");
+  if (!_drmGetDevices2)
+    _drmGetDevices = dlsym(libdrm_handle, "drmGetDevices");
+  if (!_drmGetDevices2 && !_drmGetDevices)
     goto init_error_clean_exit;
 
-  drmFreeDevices = dlsym(libdrm_handle, "drmFreeDevices");
-  if (!drmFreeDevices)
+  _drmFreeDevices = dlsym(libdrm_handle, "drmFreeDevices");
+  if (!_drmFreeDevices)
     goto init_error_clean_exit;
 
-  drmGetVersion = dlsym(libdrm_handle, "drmGetVersion");
-  if (!drmGetVersion)
+  _drmGetVersion = dlsym(libdrm_handle, "drmGetVersion");
+  if (!_drmGetVersion)
     goto init_error_clean_exit;
 
-  drmFreeVersion = dlsym(libdrm_handle, "drmFreeVersion");
-  if (!drmFreeVersion)
+  _drmFreeVersion = dlsym(libdrm_handle, "drmFreeVersion");
+  if (!_drmFreeVersion)
     goto init_error_clean_exit;
 
-  drmGetMagic = dlsym(libdrm_handle, "drmGetMagic");
-  if (!drmGetMagic)
+  _drmGetMagic = dlsym(libdrm_handle, "drmGetMagic");
+  if (!_drmGetMagic)
     goto init_error_clean_exit;
 
-  drmAuthMagic = dlsym(libdrm_handle, "drmAuthMagic");
-  if (!drmAuthMagic)
+  _drmAuthMagic = dlsym(libdrm_handle, "drmAuthMagic");
+  if (!_drmAuthMagic)
     goto init_error_clean_exit;
 
-  drmDropMaster = dlsym(libdrm_handle, "drmDropMaster");
-  if (!drmDropMaster)
+  _drmDropMaster = dlsym(libdrm_handle, "drmDropMaster");
+  if (!_drmDropMaster)
     goto init_error_clean_exit;
 
   libdrm_amdgpu_handle = dlopen("libdrm_amdgpu.so", RTLD_LAZY);
@@ -282,12 +178,12 @@ static bool gpuinfo_amdgpu_init(void) {
     libdrm_amdgpu_handle = dlopen("libdrm_amdgpu.so.1", RTLD_LAZY);
 
   if (libdrm_amdgpu_handle) {
-    amdgpu_device_initialize = dlsym(libdrm_amdgpu_handle, "amdgpu_device_initialize");
-    amdgpu_device_deinitialize = dlsym(libdrm_amdgpu_handle, "amdgpu_device_deinitialize");
-    amdgpu_get_marketing_name = dlsym(libdrm_amdgpu_handle, "amdgpu_get_marketing_name");
-    amdgpu_query_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_info");
-    amdgpu_query_gpu_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_gpu_info");
-    amdgpu_query_sensor_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_sensor_info");
+    _amdgpu_device_initialize = dlsym(libdrm_amdgpu_handle, "amdgpu_device_initialize");
+    _amdgpu_device_deinitialize = dlsym(libdrm_amdgpu_handle, "amdgpu_device_deinitialize");
+    _amdgpu_get_marketing_name = dlsym(libdrm_amdgpu_handle, "amdgpu_get_marketing_name");
+    _amdgpu_query_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_info");
+    _amdgpu_query_gpu_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_gpu_info");
+    _amdgpu_query_sensor_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_sensor_info");
   }
 
   local_error_string = NULL;
@@ -346,12 +242,12 @@ static const char *gpuinfo_amdgpu_last_error_string(void) {
 static void authenticate_drm(int fd) {
   drm_magic_t magic;
 
-  if (drmGetMagic(fd, &magic) < 0) {
+  if (_drmGetMagic(fd, &magic) < 0) {
     return;
   }
 
-  if (drmAuthMagic(fd, magic) == 0) {
-    if (drmDropMaster(fd)) {
+  if (_drmAuthMagic(fd, magic) == 0) {
+    if (_drmDropMaster(fd)) {
       perror("Failed to drop DRM master");
       fprintf(stderr, "\nWARNING: other DRM clients will crash on VT switch while nvtop is running!\npress ENTER to continue\n");
       fgetc(stdin);
@@ -443,7 +339,7 @@ static bool gpuinfo_amdgpu_get_device_handles(
     if (fd < 0)
       continue;
 
-    drmVersionPtr ver = drmGetVersion(fd);
+    drmVersionPtr ver = _drmGetVersion(fd);
 
     if (!ver) {
       close(fd);
@@ -454,14 +350,14 @@ static bool gpuinfo_amdgpu_get_device_handles(
     bool is_amdgpu = !strcmp(ver->name, "amdgpu");
 
     if (!is_amdgpu && !is_radeon) {
-      drmFreeVersion(ver);
+      _drmFreeVersion(ver);
       close(fd);
       continue;
     }
 
     if ((*mask & 1) == 0) {
       *mask >>= 1;
-      drmFreeVersion(ver);
+      _drmFreeVersion(ver);
       close(fd);
       continue;
     }
@@ -470,16 +366,15 @@ static bool gpuinfo_amdgpu_get_device_handles(
     authenticate_drm(fd);
 
     if (is_amdgpu) {
-      if (!libdrm_amdgpu_handle || !amdgpu_device_initialize) {
-        drmFreeVersion(ver);
+      if (!libdrm_amdgpu_handle || !_amdgpu_device_initialize) {
+        _drmFreeVersion(ver);
         close(fd);
         continue;
       }
 
       uint32_t drm_major, drm_minor;
-      last_libdrm_return_status = amdgpu_device_initialize(
-          fd, &drm_major, &drm_minor,
-          &gpu_infos[*count].amdgpu_device);
+      last_libdrm_return_status =
+          _amdgpu_device_initialize(fd, &drm_major, &drm_minor, &gpu_infos[*count].amdgpu_device);
     } else {
       // TODO: radeon suppport here
       assert(false);
@@ -499,13 +394,13 @@ static bool gpuinfo_amdgpu_get_device_handles(
       list_add_tail(&gpu_infos[*count].base.list, devices);
       *count += 1;
     } else {
-      drmFreeVersion(ver);
+      _drmFreeVersion(ver);
       close(fd);
       continue;
     }
   }
 
-  drmFreeDevices(devs, libdrm_count);
+  _drmFreeDevices(devs, libdrm_count);
 
   return true;
 }
@@ -575,11 +470,11 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   struct amdgpu_gpu_info info;
   const char *name = NULL;
 
-  if (libdrm_amdgpu_handle && amdgpu_get_marketing_name)
-    name = amdgpu_get_marketing_name(gpu_info->amdgpu_device);
+  if (libdrm_amdgpu_handle && _amdgpu_get_marketing_name)
+    name = _amdgpu_get_marketing_name(gpu_info->amdgpu_device);
 
-  if (libdrm_amdgpu_handle && amdgpu_query_gpu_info)
-    info_query_success = !amdgpu_query_gpu_info(gpu_info->amdgpu_device, &info);
+  if (libdrm_amdgpu_handle && _amdgpu_query_gpu_info)
+    info_query_success = !_amdgpu_query_gpu_info(gpu_info->amdgpu_device, &info);
 
   static_info->device_name[MAX_DEVICE_NAME - 1] = '\0';
   if (name && strlen(name)) {
@@ -741,14 +636,13 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct amdgpu_gpu_info info;
   uint32_t out32;
 
-  if (libdrm_amdgpu_handle && amdgpu_query_gpu_info)
-    info_query_success = !amdgpu_query_gpu_info(gpu_info->amdgpu_device, &info);
+  if (libdrm_amdgpu_handle && _amdgpu_query_gpu_info)
+    info_query_success = !_amdgpu_query_gpu_info(gpu_info->amdgpu_device, &info);
 
   // GPU current speed
-  if (libdrm_amdgpu_handle && amdgpu_query_sensor_info)
-    last_libdrm_return_status = amdgpu_query_sensor_info(
-        gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GFX_SCLK,
-        sizeof(out32), &out32);
+  if (libdrm_amdgpu_handle && _amdgpu_query_sensor_info)
+    last_libdrm_return_status =
+        _amdgpu_query_sensor_info(gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GFX_SCLK, sizeof(out32), &out32);
   else
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
@@ -765,10 +659,9 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     RESET_VALID(gpuinfo_max_gpu_clock_speed_valid, dynamic_info->valid);
 
   // Memory current speed
-  if (libdrm_amdgpu_handle && amdgpu_query_sensor_info)
-    last_libdrm_return_status = amdgpu_query_sensor_info(
-        gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GFX_MCLK,
-        sizeof(out32), &out32);
+  if (libdrm_amdgpu_handle && _amdgpu_query_sensor_info)
+    last_libdrm_return_status =
+        _amdgpu_query_sensor_info(gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GFX_MCLK, sizeof(out32), &out32);
   else
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
@@ -785,10 +678,9 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     RESET_VALID(gpuinfo_max_mem_clock_speed_valid, dynamic_info->valid);
 
   // Load
-  if (libdrm_amdgpu_handle && amdgpu_query_sensor_info)
-    last_libdrm_return_status = amdgpu_query_sensor_info(
-        gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GPU_LOAD,
-        sizeof(out32), &out32);
+  if (libdrm_amdgpu_handle && _amdgpu_query_sensor_info)
+    last_libdrm_return_status =
+        _amdgpu_query_sensor_info(gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GPU_LOAD, sizeof(out32), &out32);
   else
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
@@ -799,10 +691,9 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // Memory usage
   struct drm_amdgpu_memory_info memory_info;
-  if (libdrm_amdgpu_handle && amdgpu_query_info)
-    last_libdrm_return_status = amdgpu_query_info(
-        gpu_info->amdgpu_device, AMDGPU_INFO_MEMORY,
-        sizeof(memory_info), &memory_info);
+  if (libdrm_amdgpu_handle && _amdgpu_query_info)
+    last_libdrm_return_status =
+        _amdgpu_query_info(gpu_info->amdgpu_device, AMDGPU_INFO_MEMORY, sizeof(memory_info), &memory_info);
   else
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
@@ -825,10 +716,9 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 
   // GPU temperature
-  if (libdrm_amdgpu_handle && amdgpu_query_sensor_info)
-    last_libdrm_return_status = amdgpu_query_sensor_info(
-        gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GPU_TEMP,
-        sizeof(out32), &out32);
+  if (libdrm_amdgpu_handle && _amdgpu_query_sensor_info)
+    last_libdrm_return_status =
+        _amdgpu_query_sensor_info(gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GPU_TEMP, sizeof(out32), &out32);
   else
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
@@ -850,10 +740,9 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     RESET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
 
   // Device power usage
-  if (libdrm_amdgpu_handle && amdgpu_query_sensor_info)
-    last_libdrm_return_status = amdgpu_query_sensor_info(
-        gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GPU_AVG_POWER,
-        sizeof(out32), &out32);
+  if (libdrm_amdgpu_handle && _amdgpu_query_sensor_info)
+    last_libdrm_return_status =
+        _amdgpu_query_sensor_info(gpu_info->amdgpu_device, AMDGPU_INFO_SENSOR_GPU_AVG_POWER, sizeof(out32), &out32);
   else
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {

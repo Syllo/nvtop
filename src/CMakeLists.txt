@@ -14,11 +14,25 @@ add_executable (nvtop
   interface_ring_buffer.c
   get_process_info_linux.c
   extract_gpuinfo.c
-  extract_gpuinfo_amdgpu.c
-  extract_gpuinfo_nvidia.c
   time.c
   plot.c
   ini.c)
+
+if (NVIDIA_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
+endif()
+
+if (AMDGPU_SUPPORT)
+  # Search for libdrm for AMDGPU support
+  find_package(Libdrm)
+  if (Libdrm_FOUND)
+    message(STATUS "Found libdrm; Enabling AMDGPU support")
+    target_include_directories(nvtop PRIVATE ${Libdrm_INCLUDE_DIRS})
+    target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu.c)
+  else()
+    message(STATUS "libdrm not found; Disabling AMDGPU support")
+  endif()
+endif()
 
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
