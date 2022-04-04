@@ -1,11 +1,11 @@
 set(ADDITIONAL_DEBUG_COMPILE_OPTIONS
   "-Wall"
   #"-Wpedantic"
-  #"-Wextra"
+  "-Wextra"
   "-Waddress"
   "-Waggressive-loop-optimizations"
   #"-Wcast-qual"
-  "-Wcast-align"
+  #"-Wcast-align"
   "-Wbad-function-cast"
   "-Wmissing-declarations"
   "-Wmissing-parameter-type"
