@@ -38,6 +38,10 @@ target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
 
+find_package(Sanitizers)
+
+add_sanitizers(nvtop)
+
 set_property(TARGET nvtop PROPERTY C_STANDARD 11)
 
 target_compile_definitions(nvtop PRIVATE _GNU_SOURCE)
