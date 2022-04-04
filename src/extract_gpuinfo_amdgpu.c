@@ -1025,6 +1025,7 @@ static void gpuinfo_amdgpu_get_running_processes(
       goto next;
     }
 
+next_fd:
     while ((fdinfo_dent = readdir(fdinfo_dir)) != NULL) {
       struct gpu_process processes_info_local = {0};
       int fd_num;
@@ -1105,8 +1106,6 @@ static void gpuinfo_amdgpu_get_running_processes(
         SET_VALID(gpuinfo_process_gpu_decoder_valid,
                   process_info->valid);
       }
-
-next_fd:
     }
 
 next:
