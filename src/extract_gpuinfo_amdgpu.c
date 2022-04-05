@@ -491,35 +491,57 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
       char *dst = static_info->device_name + len;
       size_t remaining_len = MAX_DEVICE_NAME - 1 - len;
       switch (info.family_id) {
+#ifdef AMDGPU_FAMILY_SI
       case AMDGPU_FAMILY_SI:
         strncpy(dst, " (Hainan / Oland / Verde / Pitcairn / Tahiti)", remaining_len);
         break;
+#endif
+#ifdef AMDGPU_FAMILY_CI
       case AMDGPU_FAMILY_CI:
         strncpy(dst, " (Bonaire / Hawaii)", remaining_len);
         break;
+#endif
+#ifdef AMDGPU_FAMILY_KV
       case AMDGPU_FAMILY_KV:
         strncpy(dst, " (Kaveri / Kabini / Mullins)", remaining_len);
         break;
+#endif
+#ifdef AMDGPU_FAMILY_VI
       case AMDGPU_FAMILY_VI:
         strncpy(dst, " (Iceland / Tonga)", remaining_len);
         break;
+#endif
+#ifdef AMDGPU_FAMILY_CZ
       case AMDGPU_FAMILY_CZ:
         strncpy(dst, " (Carrizo / Stoney)", remaining_len);
         break;
+#endif
+#ifdef AMDGPU_FAMILY_AI
       case AMDGPU_FAMILY_AI:
         strncpy(dst, " (Vega10)", remaining_len);
         break;
+#endif
+#ifdef AMDGPU_FAMILY_RV
       case AMDGPU_FAMILY_RV:
         strncpy(dst, " (Raven)", remaining_len);
         break;
+#endif
+#ifdef AMDGPU_FAMILY_NV
       case AMDGPU_FAMILY_NV:
         strncpy(dst, " (Navi10)", remaining_len);
         break;
+#endif
+#ifdef AMDGPU_FAMILY_VGH
       case AMDGPU_FAMILY_VGH:
         strncpy(dst, " (Van Gogh)", remaining_len);
         break;
+#endif
+#ifdef AMDGPU_FAMILY_YC
       case AMDGPU_FAMILY_YC:
         strncpy(dst, " (Yellow Carp)", remaining_len);
+        break;
+#endif
+      default:
         break;
       }
     }
