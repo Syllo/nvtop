@@ -87,8 +87,7 @@ struct gpu_info_amdgpu {
 
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
   FILE *fanSpeedFILE; // FILE* for this device current fan speed
-  FILE *PCIeLinkSpeed; // FILE* for this device PCIe link speed
-  FILE *PCIeLinkWidth; // FILE* for this device PCIe link width
+  FILE *PCIeDPM; // FILE* for this device valid and active PCIe speed/width configurations
   FILE *PCIeBW; // FILE* for this device PCIe bandwidth over one second
   FILE *powerCap; // FILE* for this device power cap
   // Used to compute the actual fan speed
@@ -434,32 +433,57 @@ static int readValueFromFileAt(int folderFD, const char *fileName, const char *f
   return nread;
 }
 
-// Converts the link speed in MT/s and laneWidth to a PCIe generation
-static unsigned pcieGenFromLinkSpeedAndWidth(unsigned linkSpeed, unsigned laneWidth) {
-  // Multiply by 100 to distinguish PCIe v1 and v2
-  unsigned laneSpeed = linkSpeed / laneWidth;
+// Converts the link speed in GT/s to a PCIe generation
+static unsigned pcieGenFromLinkSpeedAndWidth(unsigned linkSpeed) {
   unsigned pcieGen = 0;
-  switch (laneSpeed) {
-  case 250:
+  switch (linkSpeed) {
+  case 2:
     pcieGen = 1;
     break;
-  case 500:
+  case 5:
     pcieGen = 2;
     break;
-  case 1000:
+  case 8:
     pcieGen = 3;
     break;
-  case 2000:
+  case 16:
     pcieGen = 4;
     break;
-  case 4000:
+  case 32:
     pcieGen = 5;
     break;
-  case 8000:
+  case 64:
     pcieGen = 6;
     break;
   }
   return pcieGen;
+}
+
+static bool getGenAndWidthFromPP_DPM_PCIE(FILE *pp_dpm_pcie, unsigned *speed, unsigned *width) {
+  rewind(pp_dpm_pcie);
+  fflush(pp_dpm_pcie);
+  // The line we are interested in looks like "1: 8.0GT/s, x16 619Mhz *"; the active configuration ends with a star
+  char line[64]; // 64 should be plenty enough
+  while (fgets(line, 64, pp_dpm_pcie)) {
+    // Look for a * character, with possible spece characters
+    size_t lineSize = strlen(line);
+    bool endsWithAStar = false;
+    for (unsigned pos = lineSize - 1; !endsWithAStar && pos < lineSize; --pos) {
+      endsWithAStar = line[pos] == '*';
+      if (!isspace(line[pos]))
+        break;
+    }
+    if (endsWithAStar) {
+      unsigned speedReading, widthReading;
+      unsigned nmatch = sscanf(line, "%*u: %u.%*uGT/s, x%u", &speedReading, &widthReading);
+      if (nmatch == 2) {
+        *speed = speedReading;
+        *width = widthReading;
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
@@ -609,30 +633,24 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
     static_info->max_pcie_link_width = maxLinkWidth;
     SET_VALID(gpuinfo_max_link_width_valid, static_info->valid);
   }
-  // Open current link width for dynamic info gathering
-  gpu_info->PCIeLinkWidth = NULL;
-  int linkWidthFD = openat(gpu_info->sysfsFD, "current_link_width", O_RDONLY);
-  if (linkWidthFD) {
-    gpu_info->PCIeLinkWidth = fdopen(linkWidthFD, "r");
-  }
 
   // PCIe max link speed
   // [max|current]_link_speed export the value as "x.y GT/s PCIe" where x.y is a float value.
   float maxLinkSpeedf;
   NreadPatterns = readValueFromFileAt(gpu_info->sysfsFD, "max_link_speed", "%f GT/s PCIe", &maxLinkSpeedf);
   if (NreadPatterns == 1 && IS_VALID(gpuinfo_max_link_width_valid, static_info->valid)) {
-    unsigned maxLinkSpeed = (unsigned)(maxLinkSpeedf * 1000.f);
-    unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(maxLinkSpeed, static_info->max_pcie_link_width);
+    unsigned maxLinkSpeed = (unsigned)floorf(maxLinkSpeedf);
+    unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(maxLinkSpeed);
     if (pcieGen) {
       static_info->max_pcie_gen = pcieGen;
       SET_VALID(gpuinfo_max_pcie_gen_valid, static_info->valid);
     }
   }
   // Open current link speed
-  gpu_info->PCIeLinkSpeed = NULL;
-  int linkSpeedFD = openat(gpu_info->sysfsFD, "current_link_speed", O_RDONLY);
-  if (linkSpeedFD) {
-    gpu_info->PCIeLinkSpeed = fdopen(linkSpeedFD, "r");
+  gpu_info->PCIeDPM = NULL;
+  int pcieDPMFD = openat(gpu_info->sysfsFD, "pp_dpm_pcie", O_RDONLY);
+  if (pcieDPMFD) {
+    gpu_info->PCIeDPM = fdopen(pcieDPMFD, "r");
   }
 
   // Open the PCIe bandwidth file for dynamic info gathering
@@ -774,23 +792,16 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     RESET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
 
   // Current PCIe link used
-  if (gpu_info->PCIeLinkWidth) {
+  if (gpu_info->PCIeDPM) {
+    unsigned currentLinkSpeed = 0;
     unsigned currentLinkWidth = 0;
-    int NreadPatterns = rewindAndReadPattern(gpu_info->PCIeLinkWidth, "%u", &currentLinkWidth);
-    if (NreadPatterns == 1) {
+    if (getGenAndWidthFromPP_DPM_PCIE(gpu_info->PCIeDPM, &currentLinkSpeed, &currentLinkWidth)) {
       dynamic_info->curr_pcie_link_width = currentLinkWidth;
       SET_VALID(gpuinfo_pcie_link_width_valid, dynamic_info->valid);
-      if (gpu_info->PCIeLinkSpeed) {
-        float currentLinkSpeedf;
-        NreadPatterns = rewindAndReadPattern(gpu_info->PCIeLinkSpeed, "%f GT/s PCIe", &currentLinkSpeedf);
-        if (NreadPatterns == 1) {
-          unsigned currentLinkSpeed = (unsigned)(currentLinkSpeedf * 1000.f);
-          unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(currentLinkSpeed, currentLinkWidth);
-          if (pcieGen) {
-            dynamic_info->curr_pcie_link_gen = pcieGen;
-            SET_VALID(gpuinfo_pcie_link_gen_valid, dynamic_info->valid);
-          }
-        }
+      unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(currentLinkSpeed);
+      if (pcieGen) {
+        dynamic_info->curr_pcie_link_gen = pcieGen;
+        SET_VALID(gpuinfo_pcie_link_gen_valid, dynamic_info->valid);
       }
     }
   }
