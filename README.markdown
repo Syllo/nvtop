@@ -85,7 +85,7 @@ Several libraries are required in order for NVTOP to display GPU information:
   * This makes the screen look beautiful.
 * For NVIDIA: the *NVIDIA Management Library* (*NVML*) which comes with the GPU driver.
   * This queries the GPU for information.
-* For AMD: the libdrm library used to querry AMD GPUs through the kernel driver.
+* For AMD: the libdrm library used to query AMD GPUs through the kernel driver.
 
 ## Distribution Specific Installation Process
 
