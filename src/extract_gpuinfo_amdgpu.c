@@ -22,6 +22,7 @@
  */
 
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/common.h"
 
 #include <assert.h>
 #include <ctype.h>
