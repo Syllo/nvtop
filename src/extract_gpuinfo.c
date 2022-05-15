@@ -112,6 +112,33 @@ bool gpuinfo_refresh_dynamic_info(struct list_head *devices) {
   return true;
 }
 
+#undef MYMIN
+#define MYMIN(a, b) (((a) < (b)) ? (a) : (b))
+bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
+  struct gpu_info *device;
+
+  list_for_each_entry(device, devices, list) {
+
+    // If the global GPU usage is not available, try computing it from the processes info
+    struct gpuinfo_dynamic_info *dynamic_info = &device->dynamic_info;
+    if (!IS_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid)) {
+      for (unsigned processIdx = 0; processIdx < device->processes_count; ++processIdx) {
+        struct gpu_process *process_info = &device->processes[processIdx];
+        if (IS_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid)) {
+          if (IS_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid)) {
+            dynamic_info->gpu_util_rate = MYMIN(100, dynamic_info->gpu_util_rate + process_info->gpu_usage);
+          } else {
+            dynamic_info->gpu_util_rate = MYMIN(100, process_info->gpu_usage);
+            SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
+          }
+        }
+      }
+    }
+  }
+  return true;
+}
+#undef MYMIN
+
 static void gpuinfo_populate_process_infos(struct list_head *devices) {
   struct gpu_info *device;
 
