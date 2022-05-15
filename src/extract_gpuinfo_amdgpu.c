@@ -640,7 +640,7 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   float maxLinkSpeedf;
   NreadPatterns = readValueFromFileAt(gpu_info->sysfsFD, "max_link_speed", "%f GT/s PCIe", &maxLinkSpeedf);
   if (NreadPatterns == 1 && IS_VALID(gpuinfo_max_link_width_valid, static_info->valid)) {
-    unsigned maxLinkSpeed = (unsigned)floorf(maxLinkSpeedf);
+    unsigned maxLinkSpeed = (unsigned)(floorf(maxLinkSpeedf));
     unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(maxLinkSpeed);
     if (pcieGen) {
       static_info->max_pcie_gen = pcieGen;
@@ -1009,6 +1009,10 @@ static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info,
   return true;
 }
 
+// Increment for the number DRM FD tracked per process
+// 8 has been experimentally selected for being small while avoiding multipe allocations in most common cases
+#define DRM_FD_LINEAR_REALLOC_INC 8
+
 static void gpuinfo_amdgpu_get_running_processes(
     struct gpu_info *_gpu_info,
     unsigned *num_processes_recovered, struct gpu_process **processes_info) {
@@ -1022,13 +1026,13 @@ static void gpuinfo_amdgpu_get_running_processes(
   if (!proc_dir)
     return;
 
+  unsigned int seen_fds_capacity = 0;
+  int *seen_fds = NULL;
   while ((proc_dent = readdir(proc_dir)) != NULL) {
     int pid_dir_fd = -1, fd_dir_fd = -1, fdinfo_dir_fd = -1;
     DIR *fdinfo_dir = NULL;
     struct gpu_process *process_info = NULL;
-    unsigned int seen_fds_capacity = 0;
     unsigned int seen_fds_len = 0;
-    int *seen_fds = NULL;
     struct dirent *fdinfo_dent;
     unsigned int client_pid;
 
@@ -1083,10 +1087,12 @@ next_fd:
       }
 
       if (seen_fds_len == seen_fds_capacity) {
-        seen_fds_capacity = seen_fds_capacity * 2 + 1;
+        seen_fds_capacity += DRM_FD_LINEAR_REALLOC_INC;
         seen_fds = reallocarray(seen_fds, seen_fds_capacity, sizeof(*seen_fds));
-        if (!seen_fds)
-          goto next;
+        if (!seen_fds) {
+          perror("Could not re-allocate memory: ");
+          exit(EXIT_FAILURE);
+        }
       }
       seen_fds[seen_fds_len++] = fd_num;
 
@@ -1096,11 +1102,11 @@ next_fd:
 
       if (!process_info) {
         if (*num_processes_recovered == processes_info_capacity) {
-          processes_info_capacity = processes_info_capacity * 2 + 1;
+          processes_info_capacity += COMMON_PROCESS_LINEAR_REALLOC_INC;
           *processes_info = reallocarray(*processes_info, processes_info_capacity, sizeof(**processes_info));
           if (!*processes_info) {
-            processes_info_capacity /= 2;
-            goto next;
+            perror("Could not re-allocate memory: ");
+            exit(EXIT_FAILURE);
           }
         }
 
@@ -1150,8 +1156,8 @@ next:
       close(fd_dir_fd);
     close(pid_dir_fd);
 
-    free(seen_fds);
   }
+  free(seen_fds);
 
   closedir(proc_dir);
 }

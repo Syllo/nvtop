@@ -719,8 +719,6 @@ static void gpuinfo_nvidia_get_process_utilization(
   }
 }
 
-#define DEFAULT_PROCESS_ARRAY_SIZE 64
-
 static void gpuinfo_nvidia_get_running_processes(
     struct gpu_info *_gpu_info,
     unsigned *num_processes_recovered, struct gpu_process **processes_info) {
@@ -729,7 +727,7 @@ static void gpuinfo_nvidia_get_running_processes(
   nvmlDevice_t device = gpu_info->gpuhandle;
 
   *num_processes_recovered = 0;
-  size_t array_size = DEFAULT_PROCESS_ARRAY_SIZE;
+  size_t array_size = COMMON_PROCESS_LINEAR_REALLOC_INC;
   nvmlProcessInfo_t *retrieved_infos =
       malloc(array_size * sizeof(*retrieved_infos));
   if (!retrieved_infos) {
@@ -742,7 +740,7 @@ retry_query_graphical:
   last_nvml_return_status = nvmlDeviceGetGraphicsRunningProcesses(
       device, &recovered_count, retrieved_infos);
   if (last_nvml_return_status == NVML_ERROR_INSUFFICIENT_SIZE) {
-    array_size += array_size;
+    array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
     retrieved_infos = reallocarray(retrieved_infos, array_size, sizeof(*retrieved_infos));
     if (!retrieved_infos) {
       perror("Could not re-allocate memory: ");
@@ -758,7 +756,7 @@ retry_query_compute:
   last_nvml_return_status = nvmlDeviceGetComputeRunningProcesses(
       device, &recovered_count, retrieved_infos + graphical_count);
   if (last_nvml_return_status == NVML_ERROR_INSUFFICIENT_SIZE) {
-    array_size += array_size;
+    array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
     retrieved_infos = reallocarray(retrieved_infos, array_size, sizeof(*retrieved_infos));
     if (!retrieved_infos) {
       perror("Could not re-allocate memory: ");
