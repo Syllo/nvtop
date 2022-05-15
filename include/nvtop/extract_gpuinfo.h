@@ -34,6 +34,8 @@ bool gpuinfo_populate_static_infos(struct list_head *devices);
 
 bool gpuinfo_refresh_dynamic_info(struct list_head *devices);
 
+bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices);
+
 bool gpuinfo_refresh_processes(struct list_head *devices);
 
 void gpuinfo_clean(struct list_head *devices);

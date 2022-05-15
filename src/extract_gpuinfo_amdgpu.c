@@ -494,6 +494,8 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   struct amdgpu_gpu_info info;
   const char *name = NULL;
 
+  RESET_ALL(static_info->valid);
+
   if (libdrm_amdgpu_handle && _amdgpu_get_marketing_name)
     name = _amdgpu_get_marketing_name(gpu_info->amdgpu_device);
 
@@ -569,8 +571,7 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
         break;
       }
     }
-  } else
-    RESET_VALID(gpuinfo_device_name_valid, static_info->valid);
+  }
 
   // Retrieve infos from sysfs.
 
@@ -676,6 +677,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct amdgpu_gpu_info info;
   uint32_t out32;
 
+  RESET_ALL(dynamic_info->valid);
+
   if (libdrm_amdgpu_handle && _amdgpu_query_gpu_info)
     info_query_success = !_amdgpu_query_gpu_info(gpu_info->amdgpu_device, &info);
 
@@ -688,15 +691,13 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (!last_libdrm_return_status) {
     dynamic_info->gpu_clock_speed = out32;
     SET_VALID(gpuinfo_curr_gpu_clock_speed_valid, dynamic_info->valid);
-  } else
-    RESET_VALID(gpuinfo_curr_gpu_clock_speed_valid, dynamic_info->valid);
+  }
 
   // GPU max speed
   if (info_query_success) {
     dynamic_info->gpu_clock_speed_max = info.max_engine_clk / 1000;
     SET_VALID(gpuinfo_max_gpu_clock_speed_valid, dynamic_info->valid);
-  } else
-    RESET_VALID(gpuinfo_max_gpu_clock_speed_valid, dynamic_info->valid);
+  }
 
   // Memory current speed
   if (libdrm_amdgpu_handle && _amdgpu_query_sensor_info)
@@ -707,15 +708,13 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (!last_libdrm_return_status) {
     dynamic_info->mem_clock_speed = out32;
     SET_VALID(gpuinfo_curr_mem_clock_speed_valid, dynamic_info->valid);
-  } else
-    RESET_VALID(gpuinfo_curr_mem_clock_speed_valid, dynamic_info->valid);
+  }
 
   // Memory max speed
   if (info_query_success) {
     dynamic_info->mem_clock_speed_max = info.max_memory_clk / 1000;
     SET_VALID(gpuinfo_max_mem_clock_speed_valid, dynamic_info->valid);
-  } else
-    RESET_VALID(gpuinfo_max_mem_clock_speed_valid, dynamic_info->valid);
+  }
 
   // Load
   if (libdrm_amdgpu_handle && _amdgpu_query_sensor_info)
@@ -726,8 +725,7 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (!last_libdrm_return_status) {
     dynamic_info->gpu_util_rate = out32;
     SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
-  } else
-    RESET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
+  }
 
   // Memory usage
   struct drm_amdgpu_memory_info memory_info;
@@ -748,11 +746,6 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_used_memory_valid, dynamic_info->valid);
     SET_VALID(gpuinfo_free_memory_valid, dynamic_info->valid);
     SET_VALID(gpuinfo_mem_util_rate_valid, dynamic_info->valid);
-  } else {
-    RESET_VALID(gpuinfo_total_memory_valid, dynamic_info->valid);
-    RESET_VALID(gpuinfo_used_memory_valid, dynamic_info->valid);
-    RESET_VALID(gpuinfo_free_memory_valid, dynamic_info->valid);
-    RESET_VALID(gpuinfo_mem_util_rate_valid, dynamic_info->valid);
   }
 
   // GPU temperature
@@ -764,8 +757,7 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (!last_libdrm_return_status) {
     dynamic_info->gpu_temp = out32 / 1000;
     SET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
-  } else
-    RESET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
+  }
 
   // Fan speed
   if (gpu_info->fanSpeedFILE) {
@@ -774,10 +766,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (patternsMatched == 1) {
       dynamic_info->fan_speed = currentFanSpeed * 100 / gpu_info->maxFanValue;
       SET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
-    } else
-      RESET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
-  } else
-    RESET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
+    }
+  }
 
   // Device power usage
   if (libdrm_amdgpu_handle && _amdgpu_query_sensor_info)
@@ -788,8 +778,7 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (!last_libdrm_return_status) {
     dynamic_info->power_draw = out32 * 1000; // watts to milliwatts
     SET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
-  } else
-    RESET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
+  }
 
   // Current PCIe link used
   if (gpu_info->PCIeDPM) {
@@ -994,12 +983,10 @@ static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info,
                   process_info->valid);
       } else if (is_dec) {
         process_info->decode_usage += usage_percent_int;
-        SET_VALID(gpuinfo_process_gpu_decoder_valid,
-                  process_info->valid);
+        SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
       } else if (is_enc) {
         process_info->encode_usage += usage_percent_int;
-        SET_VALID(gpuinfo_process_gpu_encoder_valid,
-                  process_info->valid);
+        SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
       }
     }
   }
@@ -1129,15 +1116,13 @@ next_fd:
       if (IS_VALID(gpuinfo_process_gpu_encoder_valid,
                    processes_info_local.valid)) {
         process_info->encode_usage += processes_info_local.encode_usage;
-        SET_VALID(gpuinfo_process_gpu_encoder_valid,
-                  process_info->valid);
+        SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
       }
 
       if (IS_VALID(gpuinfo_process_gpu_decoder_valid,
                    processes_info_local.valid)) {
-        process_info->decode_usage += processes_info_local.encode_usage;
-        SET_VALID(gpuinfo_process_gpu_decoder_valid,
-                  process_info->valid);
+        process_info->decode_usage += processes_info_local.decode_usage;
+        SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
       }
     }
 

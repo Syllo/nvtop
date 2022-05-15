@@ -331,6 +331,7 @@ int main(int argc, char **argv) {
       gpuinfo_refresh_dynamic_info(&devices);
       if (!interface_freeze_processes(interface)) {
         gpuinfo_refresh_processes(&devices);
+        gpuinfo_fix_dynamic_info_from_process_info(&devices);
       }
       save_current_data_to_ring(&devices, interface);
       timeout(interface_update_interval(interface));
