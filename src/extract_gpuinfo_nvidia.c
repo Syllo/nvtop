@@ -20,6 +20,7 @@
  */
 
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/common.h"
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -742,8 +743,7 @@ retry_query_graphical:
       device, &recovered_count, retrieved_infos);
   if (last_nvml_return_status == NVML_ERROR_INSUFFICIENT_SIZE) {
     array_size += array_size;
-    retrieved_infos =
-        realloc(retrieved_infos, array_size * sizeof(*retrieved_infos));
+    retrieved_infos = reallocarray(retrieved_infos, array_size, sizeof(*retrieved_infos));
     if (!retrieved_infos) {
       perror("Could not re-allocate memory: ");
       exit(EXIT_FAILURE);
@@ -759,8 +759,7 @@ retry_query_compute:
       device, &recovered_count, retrieved_infos + graphical_count);
   if (last_nvml_return_status == NVML_ERROR_INSUFFICIENT_SIZE) {
     array_size += array_size;
-    retrieved_infos =
-        realloc(retrieved_infos, array_size * sizeof(*retrieved_infos));
+    retrieved_infos = reallocarray(retrieved_infos, array_size, sizeof(*retrieved_infos));
     if (!retrieved_infos) {
       perror("Could not re-allocate memory: ");
       exit(EXIT_FAILURE);
