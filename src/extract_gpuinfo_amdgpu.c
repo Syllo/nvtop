@@ -994,12 +994,10 @@ static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info,
                   process_info->valid);
       } else if (is_dec) {
         process_info->decode_usage += usage_percent_int;
-        SET_VALID(gpuinfo_process_gpu_decoder_valid,
-                  process_info->valid);
+        SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
       } else if (is_enc) {
         process_info->encode_usage += usage_percent_int;
-        SET_VALID(gpuinfo_process_gpu_encoder_valid,
-                  process_info->valid);
+        SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
       }
     }
   }
@@ -1129,15 +1127,13 @@ next_fd:
       if (IS_VALID(gpuinfo_process_gpu_encoder_valid,
                    processes_info_local.valid)) {
         process_info->encode_usage += processes_info_local.encode_usage;
-        SET_VALID(gpuinfo_process_gpu_encoder_valid,
-                  process_info->valid);
+        SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
       }
 
       if (IS_VALID(gpuinfo_process_gpu_decoder_valid,
                    processes_info_local.valid)) {
-        process_info->decode_usage += processes_info_local.encode_usage;
-        SET_VALID(gpuinfo_process_gpu_decoder_valid,
-                  process_info->valid);
+        process_info->decode_usage += processes_info_local.decode_usage;
+        SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
       }
     }
 
