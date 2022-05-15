@@ -119,17 +119,38 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
 
   list_for_each_entry(device, devices, list) {
 
-    // If the global GPU usage is not available, try computing it from the processes info
     struct gpuinfo_dynamic_info *dynamic_info = &device->dynamic_info;
-    if (!IS_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid)) {
+    // If the global GPU usage is not available, try computing it from the processes info
+    bool needGpuRate = !IS_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
+    // AMDGPU does not provide encode and decode utilization through the DRM sensor info.
+    // Update them here since per-process sysfs exposes this information.
+    bool needGpuEncode = !IS_VALID(gpuinfo_encoder_rate_valid, dynamic_info->valid);
+    bool needGpuDecode = !IS_VALID(gpuinfo_decoder_rate_valid, dynamic_info->valid);
+    if (needGpuRate || needGpuEncode || needGpuDecode) {
       for (unsigned processIdx = 0; processIdx < device->processes_count; ++processIdx) {
         struct gpu_process *process_info = &device->processes[processIdx];
-        if (IS_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid)) {
+        if (needGpuRate && IS_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid)) {
           if (IS_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid)) {
             dynamic_info->gpu_util_rate = MYMIN(100, dynamic_info->gpu_util_rate + process_info->gpu_usage);
           } else {
             dynamic_info->gpu_util_rate = MYMIN(100, process_info->gpu_usage);
             SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
+          }
+        }
+        if (needGpuEncode && IS_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid)) {
+          if (IS_VALID(gpuinfo_encoder_rate_valid, dynamic_info->valid)) {
+            dynamic_info->encoder_rate = MYMIN(100, dynamic_info->encoder_rate + process_info->encode_usage);
+          } else {
+            dynamic_info->encoder_rate = MYMIN(100, process_info->encode_usage);
+            SET_VALID(gpuinfo_encoder_rate_valid, dynamic_info->valid);
+          }
+        }
+        if (needGpuDecode && IS_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid)) {
+          if (IS_VALID(gpuinfo_decoder_rate_valid, dynamic_info->valid)) {
+            dynamic_info->decoder_rate = MYMIN(100, dynamic_info->decoder_rate + process_info->decode_usage);
+          } else {
+            dynamic_info->decoder_rate = MYMIN(100, process_info->decode_usage);
+            SET_VALID(gpuinfo_decoder_rate_valid, dynamic_info->valid);
           }
         }
       }
