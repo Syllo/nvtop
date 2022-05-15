@@ -448,42 +448,34 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   nvmlDevice_t device = gpu_info->gpuhandle;
 
+  RESET_ALL(static_info->valid);
+
   last_nvml_return_status =
       nvmlDeviceGetName(device, static_info->device_name, MAX_DEVICE_NAME);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
-  else
-    RESET_VALID(gpuinfo_device_name_valid, static_info->valid);
 
   last_nvml_return_status =
       nvmlDeviceGetMaxPcieLinkGeneration(device, &static_info->max_pcie_gen);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_max_pcie_gen_valid, static_info->valid);
-  else
-    RESET_VALID(gpuinfo_max_pcie_gen_valid, static_info->valid);
 
   last_nvml_return_status =
       nvmlDeviceGetMaxPcieLinkWidth(device, &static_info->max_pcie_link_width);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_max_link_width_valid, static_info->valid);
-  else
-    RESET_VALID(gpuinfo_max_link_width_valid, static_info->valid);
 
   last_nvml_return_status = nvmlDeviceGetTemperatureThreshold(
       device, NVML_TEMPERATURE_THRESHOLD_SHUTDOWN,
       &static_info->temperature_shutdown_threshold);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_temperature_shutdown_valid, static_info->valid);
-  else
-    RESET_VALID(gpuinfo_temperature_shutdown_valid, static_info->valid);
 
   last_nvml_return_status = nvmlDeviceGetTemperatureThreshold(
       device, NVML_TEMPERATURE_THRESHOLD_SLOWDOWN,
       &static_info->temperature_slowdown_threshold);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_temperature_slowdown_valid, static_info->valid);
-  else
-    RESET_VALID(gpuinfo_temperature_slowdown_valid, static_info->valid);
 }
 
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -497,6 +489,8 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   bool sm_clock_valid = false;
   unsigned sm_clock;
   nvmlClockType_t getMaxClockFrom = NVML_CLOCK_GRAPHICS;
+
+  RESET_ALL(dynamic_info->valid);
 
   // GPU current speed
   // Maximum between SM and Graphical
@@ -514,7 +508,6 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     getMaxClockFrom = NVML_CLOCK_SM;
   }
 
-  RESET_VALID(gpuinfo_curr_gpu_clock_speed_valid, dynamic_info->valid);
   if (getMaxClockFrom == NVML_CLOCK_GRAPHICS && graphics_clock_valid) {
     dynamic_info->gpu_clock_speed = graphics_clock;
     SET_VALID(gpuinfo_curr_gpu_clock_speed_valid, dynamic_info->valid);
@@ -529,24 +522,18 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       device, getMaxClockFrom, &dynamic_info->gpu_clock_speed_max);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_max_gpu_clock_speed_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_max_gpu_clock_speed_valid, dynamic_info->valid);
 
   // Memory current speed
   last_nvml_return_status = nvmlDeviceGetClockInfo(
       device, NVML_CLOCK_MEM, &dynamic_info->mem_clock_speed);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_curr_mem_clock_speed_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_curr_mem_clock_speed_valid, dynamic_info->valid);
 
   // Memory max speed
   last_nvml_return_status = nvmlDeviceGetMaxClockInfo(
       device, NVML_CLOCK_MEM, &dynamic_info->mem_clock_speed_max);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_max_mem_clock_speed_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_max_mem_clock_speed_valid, dynamic_info->valid);
 
   // CPU and Memory utilization rates
   nvmlUtilization_t utilization_percentages;
@@ -555,8 +542,6 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (last_nvml_return_status == NVML_SUCCESS) {
     dynamic_info->gpu_util_rate = utilization_percentages.gpu;
     SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
-  } else {
-    RESET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
   }
 
   // Encoder utilization rate
@@ -565,16 +550,12 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       device, &dynamic_info->encoder_rate, &ignored_period);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_encoder_rate_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_encoder_rate_valid, dynamic_info->valid);
 
   // Decoder utilization rate
   last_nvml_return_status = nvmlDeviceGetDecoderUtilization(
       device, &dynamic_info->decoder_rate, &ignored_period);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_decoder_rate_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_decoder_rate_valid, dynamic_info->valid);
 
   // Device memory info (total,used,free)
   nvmlMemory_t memory_info;
@@ -588,11 +569,6 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_used_memory_valid, dynamic_info->valid);
     SET_VALID(gpuinfo_free_memory_valid, dynamic_info->valid);
     SET_VALID(gpuinfo_mem_util_rate_valid, dynamic_info->valid);
-  } else {
-    RESET_VALID(gpuinfo_total_memory_valid, dynamic_info->valid);
-    RESET_VALID(gpuinfo_used_memory_valid, dynamic_info->valid);
-    RESET_VALID(gpuinfo_free_memory_valid, dynamic_info->valid);
-    RESET_VALID(gpuinfo_mem_util_rate_valid, dynamic_info->valid);
   }
 
   // Pcie generation used by the device
@@ -600,64 +576,48 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       device, &dynamic_info->curr_pcie_link_gen);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_pcie_link_gen_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_pcie_link_gen_valid, dynamic_info->valid);
 
   // Pcie width used by the device
   last_nvml_return_status = nvmlDeviceGetCurrPcieLinkWidth(
       device, &dynamic_info->curr_pcie_link_width);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_pcie_link_width_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_pcie_link_width_valid, dynamic_info->valid);
 
   // Pcie reception throughput
   last_nvml_return_status = nvmlDeviceGetPcieThroughput(
       device, NVML_PCIE_UTIL_RX_BYTES, &dynamic_info->pcie_rx);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_pcie_rx_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_pcie_rx_valid, dynamic_info->valid);
 
   // Pcie transmission throughput
   last_nvml_return_status = nvmlDeviceGetPcieThroughput(
       device, NVML_PCIE_UTIL_TX_BYTES, &dynamic_info->pcie_tx);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_pcie_tx_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_pcie_tx_valid, dynamic_info->valid);
 
   // Fan speed
   last_nvml_return_status =
       nvmlDeviceGetFanSpeed(device, &dynamic_info->fan_speed);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
 
   // GPU temperature
   last_nvml_return_status = nvmlDeviceGetTemperature(
       device, NVML_TEMPERATURE_GPU, &dynamic_info->gpu_temp);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
 
   // Device power usage
   last_nvml_return_status =
       nvmlDeviceGetPowerUsage(device, &dynamic_info->power_draw);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_power_draw_valid, dynamic_info->valid);
 
   // Maximum enforced power usage
   last_nvml_return_status =
       nvmlDeviceGetEnforcedPowerLimit(device, &dynamic_info->power_draw_max);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_power_draw_max_valid, dynamic_info->valid);
-  else
-    RESET_VALID(gpuinfo_power_draw_max_valid, dynamic_info->valid);
 }
 
 static void gpuinfo_nvidia_get_process_utilization(
@@ -773,8 +733,7 @@ retry_query_compute:
 
   *num_processes_recovered = graphical_count + compute_count;
   if (*num_processes_recovered > 0) {
-    *processes_info =
-        malloc(*num_processes_recovered * sizeof(**processes_info));
+    *processes_info = calloc(*num_processes_recovered, sizeof(**processes_info));
     if (!*processes_info) {
       perror("Could not allocate memory: ");
       exit(EXIT_FAILURE);
@@ -788,20 +747,6 @@ retry_query_compute:
       (*processes_info)[i].gpu_memory_usage = retrieved_infos[i].usedGpuMemory;
       SET_VALID(gpuinfo_process_gpu_memory_usage_valid,
                 (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_cmdline_valid, (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_user_name_valid, (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_gpu_usage_valid, (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_gpu_encoder_valid,
-                  (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_gpu_decoder_valid,
-                  (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_gpu_memory_percentage_valid,
-                  (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_cpu_usage_valid, (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_cpu_memory_virt_valid,
-                  (*processes_info)[i].valid);
-      RESET_VALID(gpuinfo_process_cpu_memory_res_valid,
-                  (*processes_info)[i].valid);
     }
   } else {
     *processes_info = NULL;

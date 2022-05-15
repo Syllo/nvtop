@@ -33,6 +33,7 @@
 #define IS_VALID(x, y) ((y)[(x) / CHAR_BIT] & (1 << ((x) % CHAR_BIT)))
 #define SET_VALID(x, y) ((y)[(x) / CHAR_BIT] |= (1 << ((x) % CHAR_BIT)))
 #define RESET_VALID(x, y) ((y)[(x) / CHAR_BIT] &= ~(1 << ((x) % CHAR_BIT)))
+#define RESET_ALL(y) memset(y, 0, sizeof(y))
 
 enum gpuinfo_static_info_valid {
   gpuinfo_device_name_valid = 0,
