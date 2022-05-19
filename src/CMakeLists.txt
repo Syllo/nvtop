@@ -18,31 +18,32 @@ add_executable (nvtop
   plot.c
   ini.c)
 
+check_c_source_compiles(
+  "
+  #include <stdlib.h>
+  int main() {
+    int *buf = NULL;
+    buf = reallocarray(buf, 15, sizeof(*buf));
+    return EXIT_SUCCESS;
+  }
+  "
+  HAS_REALLOCARRAY
+  )
+if (HAS_REALLOCARRAY)
+  target_compile_definitions(nvtop PRIVATE HAS_REALLOCARRAY)
+endif()
+
 if (NVIDIA_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
 endif()
 
 if (AMDGPU_SUPPORT)
-  check_c_source_compiles(
-    "
-    #include <stdlib.h>
-    int main() {
-      int *buf = NULL;
-      buf = reallocarray(buf, 15, sizeof(*buf));
-      return EXIT_SUCCESS;
-    }
-    "
-    HAS_REALLOCARRAY
-    )
   # Search for libdrm for AMDGPU support
   find_package(Libdrm)
   if (Libdrm_FOUND)
     message(STATUS "Found libdrm; Enabling AMDGPU support")
     target_include_directories(nvtop PRIVATE ${Libdrm_INCLUDE_DIRS})
     target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu.c)
-    if (HAS_REALLOCARRAY)
-      target_compile_definitions(nvtop PRIVATE HAS_REALLOCARRAY)
-    endif()
   else()
     message(STATUS "libdrm not found; Disabling AMDGPU support")
   endif()
