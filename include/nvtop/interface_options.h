@@ -54,9 +54,8 @@ inline bool plot_isset_draw_info(enum plot_information check_info,
 
 inline unsigned plot_count_draw_info(plot_info_to_draw to_draw) {
   unsigned count = 0;
-  for (enum plot_information i = plot_gpu_rate; i < plot_information_count;
-       ++i) {
-    count += plot_isset_draw_info(i, to_draw);
+  for (int i = plot_gpu_rate; i < plot_information_count; ++i) {
+    count += plot_isset_draw_info((enum plot_information)i, to_draw);
   }
   return count;
 }
@@ -108,9 +107,8 @@ process_add_field_to_display(enum process_field field,
 
 inline process_field_displayed process_default_displayed_field(void) {
   process_field_displayed to_display = 0;
-  for (enum process_field field = process_pid; field < process_field_count;
-       ++field) {
-    to_display = process_add_field_to_display(field, to_display);
+  for (int field = process_pid; field < process_field_count; ++field) {
+    to_display = process_add_field_to_display((enum process_field)field, to_display);
   }
   to_display = process_remove_field_to_display(process_enc_rate, to_display);
   to_display = process_remove_field_to_display(process_dec_rate, to_display);
@@ -120,9 +118,8 @@ inline process_field_displayed process_default_displayed_field(void) {
 inline unsigned
 process_field_displayed_count(process_field_displayed fields_displayed) {
   unsigned displayed_count = 0;
-  for (enum process_field field = process_pid; field < process_field_count;
-       ++field) {
-    if (process_is_field_displayed(field, fields_displayed))
+  for (int field = process_pid; field < process_field_count; ++field) {
+    if (process_is_field_displayed((enum process_field)field, fields_displayed))
       displayed_count++;
   }
   return displayed_count;
