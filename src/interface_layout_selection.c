@@ -22,40 +22,32 @@ static unsigned min_plot_cols(unsigned num_data_info_to_plot) {
   return cols_needed_box_drawing + 10 * num_data_info_to_plot;
 }
 
-// The merge works as follows:
-// Try to merge consecutive devices pairs, i.e. (0,1),(1,2), ..., (n-1,n)
-// And then every 2 separated devices pairs, i.e. (0,2),(1,3), ... ,(n-2,n)
-// And then every p separated devices pairs, i.e. (0,p),(1,p), ... ,(n-p,n)
-static bool who_to_merge(unsigned n_th_merge, unsigned devices_count,
-                         const plot_info_to_draw to_draw[devices_count],
+// If true, returns two plot indices that yields to the lowest number of info in
+// a plot when merged.
+// In case of ties, plots at the end of the list are prioritized.
+static bool who_to_merge(unsigned max_merge_size, unsigned plot_count, unsigned num_info_per_plot[plot_count],
                          unsigned merge_ids[2]) {
-  unsigned valid_merge_encountered = 0;
-  unsigned merge1 = 0, merge2;
-  unsigned separation = 1;
-
-  while (true) {
-    merge2 = merge1 + separation;
-    if (merge2 < devices_count) {
-      unsigned dev1_info_count = plot_count_draw_info(to_draw[merge1]);
-      unsigned dev2_info_count = plot_count_draw_info(to_draw[merge2]);
-      if (dev1_info_count > 0 && dev2_info_count > 0 &&
-          dev1_info_count + dev2_info_count <= 4) {
-        if (valid_merge_encountered == n_th_merge) {
-          merge_ids[0] = merge1;
-          merge_ids[1] = merge2;
-          return true;
-        }
-        valid_merge_encountered++;
+  unsigned smallest_merge = UINT_MAX;
+  for (unsigned notEmptyPlotIdx = plot_count - 1; notEmptyPlotIdx < plot_count; --notEmptyPlotIdx) {
+    if (!num_info_per_plot[notEmptyPlotIdx])
+      continue;
+    // We want to preserve the devices order when merging, hence we only look
+    // for the closest non empty neighbor for each plot.
+    unsigned merge_with = notEmptyPlotIdx;
+    for (unsigned j = notEmptyPlotIdx - 1; j < notEmptyPlotIdx; --j) {
+      if (num_info_per_plot[j]) {
+        merge_with = j;
+        break;
       }
-      merge1++;
-    } else {
-      merge1 = 0;
-      separation++;
-      // Has exhausted all possibilities
-      if (separation >= devices_count)
-        return false;
+    }
+    unsigned num_info_merged = num_info_per_plot[notEmptyPlotIdx] + num_info_per_plot[merge_with];
+    if (merge_with < notEmptyPlotIdx && num_info_merged <= max_merge_size && num_info_merged < smallest_merge) {
+      smallest_merge = num_info_merged;
+      merge_ids[0] = merge_with;
+      merge_ids[1] = notEmptyPlotIdx;
     }
   }
+  return smallest_merge != UCHAR_MAX;
 }
 
 static bool move_plot_to_stack(unsigned stack_max_cols, unsigned plot_id,
@@ -118,22 +110,20 @@ size_differences_between_stacks(unsigned plot_count, unsigned stack_count,
   return sum;
 }
 
-static void
-preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols,
-                             unsigned devices_count,
-                             const plot_info_to_draw to_draw[devices_count],
-                             unsigned map_device_to_plot[devices_count],
-                             unsigned plot_in_stack[devices_count],
-                             unsigned *num_plots, unsigned *plot_stack_count) {
+static void preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols, unsigned devices_count,
+                                         const plot_info_to_draw to_draw[devices_count],
+                                         unsigned map_device_to_plot[devices_count],
+                                         unsigned plot_in_stack[devices_count], unsigned *num_plots,
+                                         unsigned *plot_stack_count) {
 
   // Used to handle the merging process
-  unsigned num_info_per_devices[MAX_CHARTS];
-  unsigned how_many_to_merge = 0;
+  unsigned num_info_per_plot[MAX_CHARTS];
 
   bool plot_anything = false;
   for (unsigned i = 0; i < devices_count; ++i) {
-    num_info_per_devices[i] = plot_count_draw_info(to_draw[i]);
-    if (num_info_per_devices[i])
+    num_info_per_plot[i] = plot_count_draw_info(to_draw[i]);
+    map_device_to_plot[i] = i;
+    if (num_info_per_plot[i])
       plot_anything = true;
   }
 
@@ -141,8 +131,7 @@ preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols,
   // possible.
   // If there is not enough place, merge the charts and retry.
   unsigned num_plot_stacks = 0;
-  bool search_a_window_configuration =
-      plot_anything && rows_for_plots >= min_plot_rows;
+  bool search_a_window_configuration = plot_anything && rows_for_plots >= min_plot_rows;
   while (search_a_window_configuration) {
     search_a_window_configuration = false;
     unsigned plot_id = 0;
@@ -151,7 +140,7 @@ preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols,
     unsigned rows_left_to_allocate = rows_for_plots - min_plot_rows;
 
     for (unsigned i = 0; i < devices_count; ++i) {
-      unsigned num_info_for_this_plot = num_info_per_devices[i];
+      unsigned num_info_for_this_plot = num_info_per_plot[i];
       if (num_info_for_this_plot == 0)
         continue;
 
@@ -160,7 +149,6 @@ preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols,
       if (plot_total_cols >= cols_this_plot + cols_used_in_stack) {
         cols_used_in_stack += cols_this_plot;
         plot_in_stack[plot_id] = num_plot_stacks - 1;
-        map_device_to_plot[i] = plot_id;
         plot_id++;
       } else {
         // This plot is too wide for an empty stack, abort
@@ -176,12 +164,14 @@ preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols,
           i--;
         } else { // Not enough space for a stack: retry and merge one more
           unsigned to_merge[2];
-          if (who_to_merge(how_many_to_merge, devices_count, to_draw,
-                           to_merge)) {
-            num_info_per_devices[to_merge[0]] +=
-                num_info_per_devices[to_merge[1]];
-            num_info_per_devices[to_merge[1]] = 0;
-            how_many_to_merge++;
+          if (who_to_merge(MAX_LINES_PER_PLOT, devices_count, num_info_per_plot, to_merge)) {
+            num_info_per_plot[to_merge[0]] += num_info_per_plot[to_merge[1]];
+            num_info_per_plot[to_merge[1]] = 0;
+            unsigned oldLocation = map_device_to_plot[to_merge[1]];
+            for (unsigned devId = 0; devId < devices_count; ++devId) {
+              if (map_device_to_plot[devId] == oldLocation)
+                map_device_to_plot[devId] = map_device_to_plot[to_merge[0]];
+            }
             search_a_window_configuration = true;
           } else { // No merge left
             num_plot_stacks = 0;
@@ -196,17 +186,25 @@ preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols,
   *num_plots = 0;
   *plot_stack_count = num_plot_stacks;
   if (num_plot_stacks > 0) {
-    for (unsigned i = 0; i < devices_count; ++i) {
-      if (num_info_per_devices[i]) {
-        map_device_to_plot[i] = *num_plots;
-        *num_plots += 1;
+    // Move non-empty plots over empty ones caused by merges
+    for (unsigned idx = 0; idx < devices_count; ++idx) {
+      if (!num_info_per_plot[idx]) {
+        // Search next non-empty and move it here
+        for (unsigned nextIdx = idx + 1; nextIdx < devices_count; ++nextIdx) {
+          if (num_info_per_plot[nextIdx]) {
+            num_info_per_plot[idx] = num_info_per_plot[nextIdx];
+            num_info_per_plot[nextIdx] = 0;
+            for (unsigned devId = 0; devId < devices_count; ++devId) {
+              if (map_device_to_plot[devId] == nextIdx)
+                map_device_to_plot[devId] = idx;
+            }
+            (*num_plots)++;
+            break;
+          }
+        }
+      } else {
+        (*num_plots)++;
       }
-    }
-    // For the devices that were merged
-    for (unsigned i = 0; i < how_many_to_merge; ++i) {
-      unsigned to_merge[2];
-      who_to_merge(i, devices_count, to_draw, to_merge);
-      map_device_to_plot[to_merge[1]] = map_device_to_plot[to_merge[0]];
     }
   }
 }
