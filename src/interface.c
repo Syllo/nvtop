@@ -20,6 +20,7 @@
  */
 
 #include "nvtop/interface.h"
+#include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface_common.h"
@@ -1671,7 +1672,7 @@ void save_current_data_to_ring(struct list_head *devices,
 static unsigned populate_plot_data_from_ring_buffer(
     const struct nvtop_interface *interface, struct plot_window *plot_win,
     unsigned size_data_buff, double data[size_data_buff],
-    char plot_legend[4][PLOT_MAX_LEGEND_SIZE]) {
+    char plot_legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE]) {
 
   memset(data, 0, size_data_buff * sizeof(*data));
   unsigned total_to_draw = 0;
@@ -1766,7 +1767,7 @@ static void draw_plots(struct nvtop_interface *interface) {
   for (unsigned plot_id = 0; plot_id < interface->num_plots; ++plot_id) {
     werase(interface->plots[plot_id].plot_window);
 
-    char plot_legend[4][PLOT_MAX_LEGEND_SIZE];
+    char plot_legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE];
 
     unsigned num_lines = populate_plot_data_from_ring_buffer(
         interface, &interface->plots[plot_id],

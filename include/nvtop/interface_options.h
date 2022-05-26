@@ -22,6 +22,7 @@
 #ifndef INTERFACE_OPTIONS_H__
 #define INTERFACE_OPTIONS_H__
 
+#include "nvtop/common.h"
 #include "nvtop/interface_common.h"
 
 #include <stdbool.h>
@@ -62,7 +63,7 @@ inline unsigned plot_count_draw_info(plot_info_to_draw to_draw) {
 
 inline plot_info_to_draw plot_add_draw_info(enum plot_information set_info,
                                             plot_info_to_draw to_draw) {
-  if (plot_count_draw_info(to_draw) < 4)
+  if (plot_count_draw_info(to_draw) < MAX_LINES_PER_PLOT)
     return to_draw | (1 << set_info);
   else
     return to_draw;

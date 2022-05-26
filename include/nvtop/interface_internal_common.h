@@ -22,6 +22,7 @@
 #ifndef INTERFACE_INTERNAL_COMMON_H__
 #define INTERFACE_INTERNAL_COMMON_H__
 
+#include "nvtop/common.h"
 #include "nvtop/interface_layout_selection.h"
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
@@ -95,7 +96,7 @@ struct plot_window {
   WINDOW *win;
   WINDOW *plot_window;
   unsigned num_devices_to_plot;
-  unsigned devices_ids[4];
+  unsigned devices_ids[MAX_LINES_PER_PLOT];
 };
 
 enum setup_window_section {
