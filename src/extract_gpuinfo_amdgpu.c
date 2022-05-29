@@ -326,7 +326,7 @@ static bool gpuinfo_amdgpu_get_device_handles(
 
     int fd = -1;
 
-    for (unsigned int j = DRM_NODE_MAX - 1; j >= 0; j--) {
+    for (unsigned int j = DRM_NODE_MAX - 1;; j--) {
       if (!(1 << j & devs[i]->available_nodes))
         continue;
 
@@ -641,7 +641,8 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   float maxLinkSpeedf;
   NreadPatterns = readValueFromFileAt(gpu_info->sysfsFD, "max_link_speed", "%f GT/s PCIe", &maxLinkSpeedf);
   if (NreadPatterns == 1 && IS_VALID(gpuinfo_max_link_width_valid, static_info->valid)) {
-    unsigned maxLinkSpeed = (unsigned)(floorf(maxLinkSpeedf));
+    maxLinkSpeedf = floorf(maxLinkSpeedf);
+    unsigned maxLinkSpeed = (unsigned)maxLinkSpeedf;
     unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(maxLinkSpeed);
     if (pcieGen) {
       static_info->max_pcie_gen = pcieGen;
@@ -836,7 +837,7 @@ static bool is_drm_fd(int fd_dir_fd, const char *name) {
 }
 
 static ssize_t read_whole_file(int dirfd, const char *pathname, char **data) {
-  ssize_t read_size = 0;
+  size_t read_size = 0;
   size_t buf_size = 0;
   char *buf = NULL;
   int fd;

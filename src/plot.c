@@ -32,7 +32,7 @@ static inline int data_level(double rows, double data, double increment) {
 }
 
 void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
-                     unsigned num_plots, bool legend_left,
+                     unsigned num_lines, bool legend_left,
                      char legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE]) {
   if (num_data == 0)
     return;
@@ -41,13 +41,13 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
   rows -= 1;
   double increment = 100. / (double)(rows);
 
-  assert(num_plots <= MAX_LINES_PER_PLOT && "Cannot plot more than " EXPAND_AND_QUOTE(MAX_LINES_PER_PLOT) " lines");
+  assert(num_lines <= MAX_LINES_PER_PLOT && "Cannot plot more than " EXPAND_AND_QUOTE(MAX_LINES_PER_PLOT) " lines");
   unsigned lvl_before[MAX_LINES_PER_PLOT];
-  for (size_t k = 0; k < num_plots; ++k)
+  for (size_t k = 0; k < num_lines; ++k)
     lvl_before[k] = data_level(rows, data[k], increment);
 
-  for (size_t i = 0; i < num_data || i < (size_t)cols; i += num_plots) {
-    for (unsigned k = 0; k < num_plots; ++k) {
+  for (size_t i = 0; i < num_data || i < (size_t)cols; i += num_lines) {
+    for (unsigned k = 0; k < num_lines; ++k) {
       unsigned lvl_now_k = data_level(rows, data[i + k], increment);
       wcolor_set(win, k + 1, NULL);
       // Three cases: has increased, has decreased and remained level
@@ -69,7 +69,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
         }
 
         // Draw the continuation of the other metrics
-        for (unsigned j = 0; j < num_plots; ++j) {
+        for (unsigned j = 0; j < num_lines; ++j) {
           if (j != k) {
             if (lvl_before[j] == top)
               // The continuation is at the same level as the bottom corner
@@ -92,7 +92,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
       } else {
         // Case 3: stayed level
         mvwhline(win, lvl_now_k, i + k, 0, 1);
-        for (unsigned j = 0; j < num_plots; ++j) {
+        for (unsigned j = 0; j < num_lines; ++j) {
           if (j != k) {
             if (lvl_before[j] != lvl_now_k) {
               // Add the continuation of other metric lines
@@ -107,21 +107,19 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
     }
   }
   int plot_y_position = 0;
-  for (unsigned i = 0; i < num_plots && plot_y_position < rows; ++i) {
-    if (legend[i]) {
-      wcolor_set(win, i + 1, NULL);
-      if (legend_left) {
-        mvwprintw(win, plot_y_position, 0, "%.*s", cols, legend[i]);
+  for (unsigned i = 0; i < num_lines && plot_y_position < rows; ++i) {
+    wcolor_set(win, i + 1, NULL);
+    if (legend_left) {
+      mvwprintw(win, plot_y_position, 0, "%.*s", cols, legend[i]);
+    } else {
+      size_t length = strlen(legend[i]);
+      if (length <= (size_t)cols) {
+        mvwprintw(win, plot_y_position, cols - length, "%s", legend[i]);
       } else {
-        size_t length = strlen(legend[i]);
-        if (length <= (size_t)cols) {
-          mvwprintw(win, plot_y_position, cols - length, "%s", legend[i]);
-        } else {
-          mvwprintw(win, plot_y_position, 0, "%.*s", length - cols, legend[i]);
-        }
+        mvwprintw(win, plot_y_position, 0, "%.*s", length - cols, legend[i]);
       }
-      plot_y_position++;
     }
+    plot_y_position++;
   }
 }
 
