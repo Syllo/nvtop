@@ -19,25 +19,145 @@
  *
  */
 
+#include <algorithm>
 #include <gtest/gtest.h>
+#include <iostream>
+#include <vector>
 
 extern "C" {
+#include "nvtop/interface.h"
 #include "nvtop/interface_layout_selection.h"
 }
 
-TEST(InterfaceLayour, LayoutSelection_issue_147) {
-    plot_info_to_draw to_draw_default = plot_default_draw_info();
-    unsigned nGpu = 8;
-    plot_info_to_draw plot_display[8];
-    for (unsigned i = 0; i < nGpu; ++i)
-        plot_display[i] = to_draw_default;
-    process_field_displayed proc_display = process_default_displayed_field();
-    struct window_position dev_positions[8];
-    struct window_position plot_positions[MAX_CHARTS];
-    unsigned num_plots = 0;
-    unsigned map_dev_to_plot[8];
-    struct window_position process_position;
-    struct window_position setup_position;
-    compute_sizes_from_layout(8, 3, 78, 26, 189, plot_display, proc_display, dev_positions, &num_plots, plot_positions,
-                              map_dev_to_plot, &process_position, &setup_position);
+static std::ostream &operator<<(std::ostream &os, const struct window_position &win) {
+  os << "Win (" << win.posX << ", " << win.posY << ")--(" << win.posX + win.sizeX << "," << win.posY + win.sizeY << ")";
+  return os;
+}
+
+namespace {
+
+// Returns true if the two windows overlap, false otherwise.
+bool window_position_overlap(struct window_position &w1, struct window_position &w2) {
+  bool overlapX = w1.posX == w2.posX || (w1.posX < w2.posX && w1.posX + w1.sizeX - 1 >= w2.posX) ||
+                  (w1.posX > w2.posX && w2.posX + w2.sizeX - 1 >= w1.posX);
+  bool overlapY = w1.posY == w2.posY || (w1.posY < w2.posY && w1.posY + w1.sizeY - 1 >= w2.posY) ||
+                  (w1.posY > w2.posY && w2.posY + w2.sizeY - 1 >= w1.posY);
+  return overlapX && overlapY;
+}
+
+bool window_is_empty(const struct window_position &w1) { return w1.sizeX == 0 || w1.sizeY == 0; }
+
+// Check that the window is not empty
+// Returns true if the window is not empty
+bool check_non_empty_window(const struct window_position &w1) {
+  EXPECT_GT(w1.sizeX, 0) << "Window " << w1 << " should not be empty";
+  EXPECT_GT(w1.sizeY, 0) << "Window " << w1 << " should not be empty";
+  return not window_is_empty(w1);
+}
+
+// Check that the none of the windows overlap any other
+bool check_no_windows_overlap(std::vector<struct window_position> &windows) {
+  bool has_overlap = false;
+  for (unsigned winId = 0; winId < windows.size(); ++winId) {
+    struct window_position &currentWin = windows[winId];
+    for (unsigned winCompareId = winId + 1; winCompareId < windows.size(); ++winCompareId) {
+      struct window_position &compareTo = windows[winCompareId];
+      bool overlaps = window_position_overlap(currentWin, compareTo);
+      EXPECT_FALSE(overlaps) << "Between " << currentWin << " and " << compareTo;
+      has_overlap = has_overlap || overlaps;
+    }
+  }
+  return !has_overlap;
+}
+
+// Check that win does not extend past the container
+// Returns true if win is contained inside the container
+bool check_window_inside(const struct window_position &win, const struct window_position &container) {
+  bool insideX = win.posX >= container.posX && win.posX + win.sizeX - 1 <= container.posX + container.sizeX - 1;
+  EXPECT_TRUE(insideX) << win << " is not inside " << container;
+  bool insideY = win.posY >= container.posY && win.posY + win.sizeY - 1 <= container.posY + container.sizeY - 1;
+  EXPECT_TRUE(insideY) << win << " is not inside " << container;
+  return insideX && insideY;
+}
+
+// Check that w1 is below w2
+bool check_window_below(const struct window_position &w1, const struct window_position &w2) {
+  EXPECT_GT(w1.posY, w2.posY + w2.sizeY - 1) << w1 << " is not below " << w2;
+  return w1.posY > w2.posY + w2.sizeY - 1;
+}
+
+// Returns true if the layout is valid
+bool check_layout(struct window_position screen, std::vector<struct window_position> &dev_pos,
+                  std::vector<struct window_position> &plot_position, struct window_position process_position,
+                  struct window_position setup_position) {
+  bool layout_valid = true;
+
+  // Header
+  // A particularity of the header is that it can be bigger than the screen
+  for (auto const &dev_win : dev_pos) {
+    layout_valid = layout_valid && check_non_empty_window(dev_win);
+  }
+  layout_valid = layout_valid && check_no_windows_overlap(dev_pos);
+
+  // Plots
+  for (auto const &plot_win : plot_position) {
+    layout_valid = layout_valid && check_non_empty_window(plot_win);
+  }
+  for (auto const &dev_win : dev_pos) {
+    for (auto const &plot_win : plot_position) {
+      layout_valid = layout_valid && check_window_below(plot_win, dev_win);
+      layout_valid = layout_valid && check_window_inside(plot_win, screen);
+    }
+  }
+  layout_valid = layout_valid && check_no_windows_overlap(plot_position);
+
+  // Processes
+  for (auto const &plot_win : plot_position) {
+    layout_valid = layout_valid && check_window_below(process_position, plot_win);
+  }
+  if (not window_is_empty(process_position))
+    layout_valid = layout_valid && check_window_inside(process_position, screen);
+
+  return layout_valid;
+}
+
+bool test_with_terminal_size(unsigned device_count, unsigned header_rows, unsigned header_cols, unsigned rows,
+                             unsigned cols) {
+  struct window_position screen = {.posX = 0, .posY = 0, .sizeX = cols, .sizeY = rows};
+
+  plot_info_to_draw to_draw_default = plot_default_draw_info();
+  std::vector<plot_info_to_draw> plot_display(device_count, to_draw_default);
+
+  process_field_displayed proc_display = process_default_displayed_field();
+
+  unsigned num_plots = 0;
+  std::vector<struct window_position> dev_positions(device_count);
+  std::vector<struct window_position> plot_positions(MAX_CHARTS);
+  struct window_position process_position;
+  struct window_position setup_position;
+  std::vector<unsigned> map_dev_to_plot(device_count);
+  compute_sizes_from_layout(device_count, header_rows, header_cols, rows, cols, plot_display.data(), proc_display,
+                            dev_positions.data(), &num_plots, plot_positions.data(), map_dev_to_plot.data(),
+                            &process_position, &setup_position);
+  plot_positions.resize(num_plots);
+
+  return check_layout(screen, dev_positions, plot_positions, process_position, setup_position);
+}
+
+} // namespace
+
+TEST(InterfaceLayout, LayoutSelection_issue_147) { test_with_terminal_size(8, 3, 78, 26, 189); }
+
+TEST(InterfaceLayout, CheckManyTermSize) {
+  for (unsigned dev_count = 0; dev_count <= 64; dev_count++) {
+    for (unsigned screen_rows = 1; screen_rows < 2048; screen_rows++) {
+      for (unsigned screen_cols = 1; screen_cols < 2048; screen_cols++) {
+        for (unsigned header_cols = 55; header_cols < 120; header_cols++) {
+          ASSERT_TRUE(test_with_terminal_size(dev_count, 3, header_cols, screen_rows, screen_cols))
+              << "Problem found with " << dev_count << " devices, (" << 3 << ", header " << header_cols
+              << "), terminal size (" << screen_rows << ", " << screen_cols << ")";
+        }
+      }
+    }
+  }
 }
