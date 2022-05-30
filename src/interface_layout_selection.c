@@ -47,7 +47,7 @@ static bool who_to_merge(unsigned max_merge_size, unsigned plot_count, unsigned 
       merge_ids[1] = notEmptyPlotIdx;
     }
   }
-  return smallest_merge != UCHAR_MAX;
+  return smallest_merge != UINT_MAX;
 }
 
 static bool move_plot_to_stack(unsigned stack_max_cols, unsigned plot_id,
