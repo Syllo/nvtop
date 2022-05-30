@@ -388,7 +388,7 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
       rows_left_for_process = rows_for_plots - rows_per_stack * num_plot_stacks;
   } else {
     // No plot displayed, allocate the leftover space to the processes
-    if (process_field_displayed_count(process_displayed) > 0)
+    if (process_field_displayed_count(process_displayed) > 0 && rows_for_plots > 0)
       rows_for_process += rows_for_plots - 1;
   }
 
