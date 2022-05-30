@@ -252,8 +252,7 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
 
   unsigned min_rows_for_header = 0, header_stacks = 0, num_device_per_row = 0;
   num_device_per_row = max(1, cols / device_header_cols);
-  header_stacks = devices_count / num_device_per_row +
-                  ((devices_count % num_device_per_row) > 0);
+  header_stacks = max(1, devices_count / num_device_per_row + ((devices_count % num_device_per_row) > 0));
   if (devices_count % header_stacks == 0)
     num_device_per_row = devices_count / header_stacks;
   min_rows_for_header = header_stacks * device_header_rows;
