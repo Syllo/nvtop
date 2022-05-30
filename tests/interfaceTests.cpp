@@ -184,3 +184,24 @@ TEST(InterfaceLayout, CheckEmptyProcessWindow) {
   EXPECT_EQ(num_plots, 0);
   EXPECT_TRUE(window_is_empty(process_position));
 }
+
+TEST(InterfaceLayout, FixInfiniteLoop) {
+  unsigned device_count = 3, header_rows = 3, header_cols = 55, rows = 22, cols = 25;
+  struct window_position screen = {.posX = 0, .posY = 0, .sizeX = cols, .sizeY = rows};
+
+  plot_info_to_draw to_draw_default = plot_default_draw_info();
+  std::vector<plot_info_to_draw> plot_display(device_count, to_draw_default);
+
+  process_field_displayed proc_display = process_default_displayed_field();
+
+  unsigned num_plots = 0;
+  std::vector<struct window_position> dev_positions(device_count);
+  std::vector<struct window_position> plot_positions(MAX_CHARTS);
+  struct window_position process_position;
+  struct window_position setup_position;
+  std::vector<unsigned> map_dev_to_plot(device_count);
+  compute_sizes_from_layout(device_count, header_rows, header_cols, rows, cols, plot_display.data(), proc_display,
+                            dev_positions.data(), &num_plots, plot_positions.data(), map_dev_to_plot.data(),
+                            &process_position, &setup_position);
+  plot_positions.resize(num_plots);
+}
