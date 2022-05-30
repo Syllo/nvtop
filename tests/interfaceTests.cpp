@@ -148,20 +148,6 @@ bool test_with_terminal_size(unsigned device_count, unsigned header_rows, unsign
 
 TEST(InterfaceLayout, LayoutSelection_issue_147) { test_with_terminal_size(8, 3, 78, 26, 189); }
 
-TEST(InterfaceLayout, CheckManyTermSize) {
-  for (unsigned dev_count = 0; dev_count <= 64; dev_count++) {
-    for (unsigned screen_rows = 1; screen_rows < 2048; screen_rows++) {
-      for (unsigned screen_cols = 1; screen_cols < 2048; screen_cols++) {
-        for (unsigned header_cols = 55; header_cols < 120; header_cols++) {
-          ASSERT_TRUE(test_with_terminal_size(dev_count, 3, header_cols, screen_rows, screen_cols))
-              << "Problem found with " << dev_count << " devices, (" << 3 << ", header " << header_cols
-              << "), terminal size (" << screen_rows << ", " << screen_cols << ")";
-        }
-      }
-    }
-  }
-}
-
 TEST(InterfaceLayout, CheckEmptyProcessWindow) {
   unsigned device_count = 3, header_rows = 3, header_cols = 55, rows = 4, cols = 120;
   struct window_position screen = {.posX = 0, .posY = 0, .sizeX = cols, .sizeY = rows};
@@ -204,4 +190,18 @@ TEST(InterfaceLayout, FixInfiniteLoop) {
                             dev_positions.data(), &num_plots, plot_positions.data(), map_dev_to_plot.data(),
                             &process_position, &setup_position);
   plot_positions.resize(num_plots);
+}
+
+TEST(InterfaceLayout, CheckManyTermSize) {
+  for (unsigned dev_count = 0; dev_count <= 64; dev_count++) {
+    for (unsigned screen_rows = 1; screen_rows < 2048; screen_rows++) {
+      for (unsigned screen_cols = 1; screen_cols < 2048; screen_cols++) {
+        for (unsigned header_cols = 55; header_cols < 120; header_cols++) {
+          ASSERT_TRUE(test_with_terminal_size(dev_count, 3, header_cols, screen_rows, screen_cols))
+              << "Problem found with " << dev_count << " devices, (" << 3 << ", header " << header_cols
+              << "), terminal size (" << screen_rows << ", " << screen_cols << ")";
+        }
+      }
+    }
+  }
 }
