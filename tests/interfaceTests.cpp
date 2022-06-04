@@ -200,11 +200,15 @@ TEST(InterfaceLayout, FixInfiniteLoop) {
 
 TEST(InterfaceLayout, LayoutSelection_test_fail_case1) { test_with_terminal_size(32, 3, 55, 16, 1760); }
 
+#ifdef THOROUGH_TESTING
+
 TEST(InterfaceLayout, CheckManyTermSize) {
-  for (unsigned dev_count = 0; dev_count <= 64; dev_count++) {
-    for (unsigned screen_rows = 1; screen_rows < 2048; screen_rows++) {
-      for (unsigned screen_cols = 1; screen_cols < 2048; screen_cols++) {
-        for (unsigned header_cols = 55; header_cols < 120; header_cols++) {
+  const std::array<unsigned, 8> dev_count_to_test = {0, 1, 2, 3, 6, 16, 32, 64};
+  const std::map<unsigned, unsigned> extra_increment = {{0, 0}, {1, 0}, {2, 0}, {3, 0}, {6, 4}, {16, 6}, {32, 8}, {64, 17}};
+  for (unsigned dev_count : dev_count_to_test) {
+    for (unsigned screen_rows = 1; screen_rows < 2048; screen_rows += 1 + extra_increment.at(dev_count)) {
+      for (unsigned screen_cols = 1; screen_cols < 2048; screen_cols += 1 + extra_increment.at(dev_count)) {
+        for (unsigned header_cols = 55; header_cols < 120; header_cols += 1 + extra_increment.at(dev_count)) {
           ASSERT_TRUE(test_with_terminal_size(dev_count, 3, header_cols, screen_rows, screen_cols))
               << "Problem found with " << dev_count << " devices, (" << 3 << ", header " << header_cols
               << "), terminal size (" << screen_rows << ", " << screen_cols << ")";
@@ -213,3 +217,5 @@ TEST(InterfaceLayout, CheckManyTermSize) {
     }
   }
 }
+
+#endif // THOROUGH_TESTING
