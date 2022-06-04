@@ -20,7 +20,9 @@
  */
 
 #include "nvtop/plot.h"
+#include "nvtop/common.h"
 
+#include <assert.h>
 #include <ncurses.h>
 #include <string.h>
 #include <tgmath.h>
@@ -31,7 +33,7 @@ static inline int data_level(double rows, double data, double increment) {
 
 void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
                      unsigned num_plots, bool legend_left,
-                     char legend[4][PLOT_MAX_LEGEND_SIZE]) {
+                     char legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE]) {
   if (num_data == 0)
     return;
   int rows, cols;
@@ -39,7 +41,8 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
   rows -= 1;
   double increment = 100. / (double)(rows);
 
-  unsigned lvl_before[4];
+  assert(num_plots <= MAX_LINES_PER_PLOT && "Cannot plot more than " EXPAND_AND_QUOTE(MAX_LINES_PER_PLOT) " lines");
+  unsigned lvl_before[MAX_LINES_PER_PLOT];
   for (size_t k = 0; k < num_plots; ++k)
     lvl_before[k] = data_level(rows, data[k], increment);
 

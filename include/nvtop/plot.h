@@ -22,15 +22,16 @@
 #ifndef __PLOT_H_
 #define __PLOT_H_
 
+#include "nvtop/common.h"
+
 #include <ncurses.h>
 #include <stdbool.h>
 #include <stddef.h>
 
 #define PLOT_MAX_LEGEND_SIZE 35
 
-void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
-                     unsigned num_plots, bool legend_left,
-                     char legend[4][PLOT_MAX_LEGEND_SIZE]);
+void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned num_plots, bool legend_left,
+                     char legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE]);
 
 void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY,
                     unsigned sizeX, unsigned sizeY);
