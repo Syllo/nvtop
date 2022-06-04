@@ -95,13 +95,19 @@ bool check_layout(struct window_position screen, std::vector<struct window_posit
   // Header
   // A particularity of the header is that it can be bigger than the screen
   for (auto const &dev_win : dev_pos) {
-    layout_valid = layout_valid && check_non_empty_window(dev_win);
+    bool valid = check_non_empty_window(dev_win);
+    if (!valid)
+      std::cout << "Error with header window: " << dev_win << std::endl;
+    layout_valid = layout_valid && valid;
   }
   layout_valid = layout_valid && check_no_windows_overlap(dev_pos);
 
   // Plots
   for (auto const &plot_win : plot_position) {
-    layout_valid = layout_valid && check_non_empty_window(plot_win);
+    bool valid = check_non_empty_window(plot_win);
+    if (!valid)
+      std::cout << "Error with plot window: " << plot_win << std::endl;
+    layout_valid = layout_valid && valid;
   }
   for (auto const &dev_win : dev_pos) {
     for (auto const &plot_win : plot_position) {
@@ -191,6 +197,8 @@ TEST(InterfaceLayout, FixInfiniteLoop) {
                             &process_position, &setup_position);
   plot_positions.resize(num_plots);
 }
+
+TEST(InterfaceLayout, LayoutSelection_test_fail_case1) { test_with_terminal_size(32, 3, 55, 16, 1760); }
 
 TEST(InterfaceLayout, CheckManyTermSize) {
   for (unsigned dev_count = 0; dev_count <= 64; dev_count++) {

@@ -11,7 +11,7 @@ struct window_position {
 };
 
 // Should be fine
-#define MAX_CHARTS 30
+#define MAX_CHARTS 64
 
 void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_rows, unsigned device_header_cols,
                                unsigned rows, unsigned cols, const plot_info_to_draw *to_draw,
