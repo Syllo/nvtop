@@ -23,6 +23,7 @@
 #include "ini.h"
 #include "nvtop/interface_common.h"
 
+#include <assert.h>
 #include <errno.h>
 #include <libgen.h>
 #include <limits.h>
@@ -216,7 +217,8 @@ static int nvtop_option_ini_handler(void *user, const char *section,
     }
   }
   // Per-Device Sections
-  for (unsigned i = 0; i < ini_data->num_devices; ++i) {
+  assert(ini_data->num_devices < 1000 && "Not enough room for 1000 devices");
+  for (unsigned i = 0; i < ini_data->num_devices && i < 1000; ++i) {
     char gpu_section_name[sizeof(device_section) + 4];
     snprintf(gpu_section_name, sizeof(device_section) + 3, "%s%u",
              device_section, i);

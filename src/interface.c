@@ -1275,6 +1275,7 @@ print_processes_on_screen(all_processes all_procs,
               &process_print_buffer[process->offset_column]);
     unsigned row, col;
     getyx(win, row, col);
+    (void)col;
     if (row == write_at)
       wclrtoeol(win);
     last_line_printed = write_at;

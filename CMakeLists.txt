@@ -91,6 +91,10 @@ add_custom_target(uninstall
 #                             TESTING                               #
 #///////////////////////////////////////////////////////////////////#
 
+
+if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+  option(BUILD_TESTING "Build tests" OFF)
+endif()
 include(CTest)
 add_subdirectory(tests)
 
