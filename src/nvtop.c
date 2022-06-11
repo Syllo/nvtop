@@ -324,8 +324,8 @@ int main(int argc, char **argv) {
   double time_slept = interface_update_interval(interface);
   while (!signal_exit) {
     if (signal_resize_win) {
-      update_window_size_to_terminal_size(interface);
       signal_resize_win = 0;
+      update_window_size_to_terminal_size(interface);
     }
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&devices);
