@@ -116,7 +116,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
       if (length <= (size_t)cols) {
         mvwprintw(win, plot_y_position, cols - length, "%s", legend[i]);
       } else {
-        mvwprintw(win, plot_y_position, 0, "%.*s", length - cols, legend[i]);
+        mvwprintw(win, plot_y_position, 0, "%.*s", (int)(length - cols), legend[i]);
       }
     }
     plot_y_position++;

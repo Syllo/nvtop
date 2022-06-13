@@ -220,7 +220,7 @@ static int nvtop_option_ini_handler(void *user, const char *section,
   assert(ini_data->num_devices < 1000 && "Not enough room for 1000 devices");
   for (unsigned i = 0; i < ini_data->num_devices && i < 1000; ++i) {
     char gpu_section_name[sizeof(device_section) + 4];
-    snprintf(gpu_section_name, sizeof(device_section) + 3, "%s%u",
+    snprintf(gpu_section_name, sizeof(device_section) + 4, "%s%u",
              device_section, i);
     if (strcmp(section, gpu_section_name) == 0) {
       if (strcmp(name, device_shown_value) == 0) {
