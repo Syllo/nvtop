@@ -63,6 +63,9 @@ target_compile_definitions(nvtop PRIVATE _GNU_SOURCE)
 
 target_link_libraries(nvtop
   PRIVATE ncurses m ${CMAKE_DL_LIBS})
+if(UNIX AND NOT APPLE)
+    target_link_libraries(nvtop PRIVATE rt)
+endif()
 
 install (TARGETS nvtop
   RUNTIME DESTINATION bin)
