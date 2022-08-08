@@ -128,9 +128,9 @@ Several libraries are required in order for NVTOP to display GPU information:
   - NVIDIA drivers, **CUDA required for nvml libraries** (see [RPM Fusion](https://rpmfusion.org/Howto/NVIDIA))
 
 - NVTOP Dependencies
- - CMake, ncurses and git
+ - CMake, ncurses, c++ and git
   ```bash
-  sudo dnf install cmake ncurses-devel git
+  sudo dnf install cmake ncurses-devel git gcc-c++
   ```
 
 - NVTOP
