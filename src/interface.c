@@ -1404,7 +1404,7 @@ static void draw_kill_option(struct nvtop_interface *interface) {
     if (i == interface->process.option_window.selected_row) {
       wattr_set(win, A_STANDOUT, cyan_color, NULL);
     }
-    wprintw(win, "%*d %s", 2, i, signalNames[i]);
+    wprintw(win, "%*zu %s", 2, i, signalNames[i]);
     getyx(win, rows, cols);
 
     for (unsigned int j = cols; j < option_window_size; ++j)
