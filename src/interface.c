@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2017-2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2017-2022 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -227,8 +227,8 @@ static void alloc_process_with_option(struct nvtop_interface *interface,
   interface->process.option_window.selected_row = 0;
 }
 
-static void initialize_gpu_mem_plot(struct plot_window *plot,
-                                    struct window_position *position) {
+static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_position *position,
+                                    nvtop_interface_option *options) {
   unsigned rows = position->sizeY;
   unsigned cols = position->sizeX;
   cols -= 5;
@@ -243,6 +243,81 @@ static void initialize_gpu_mem_plot(struct plot_window *plot,
   mvwprintw(plot->win, rows, 0, "  0");
   plot->data = calloc(cols, sizeof(*plot->data));
   plot->num_data = cols;
+
+  unsigned column_divisor = 0;
+  for (unsigned i = 0; i < plot->num_devices_to_plot; ++i) {
+    unsigned dev_id = plot->devices_ids[i];
+    plot_info_to_draw to_draw = options->device_information_drawn[dev_id];
+    column_divisor += plot_count_draw_info(to_draw);
+  }
+  assert(column_divisor > 0);
+  char elapsedSeconds[5];
+  char *err = "err";
+  char *zeroSec = "0s";
+  if (options->plot_left_to_right) {
+    char *toPrint = zeroSec;
+    mvwprintw(plot->win, position->sizeY - 1, 4, toPrint);
+
+    int retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / 4 / column_divisor / 1000);
+    if (retval > 4)
+      toPrint = err;
+    else
+      toPrint = elapsedSeconds;
+    mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 4 - strlen(toPrint) / 2, toPrint);
+
+    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / 2 / column_divisor / 1000);
+    if (retval > 4)
+      toPrint = err;
+    else
+      toPrint = elapsedSeconds;
+    mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 2 - strlen(toPrint) / 2, toPrint);
+
+    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols * 3 / 4 / column_divisor / 1000);
+    if (retval > 4)
+      toPrint = err;
+    else
+      toPrint = elapsedSeconds;
+    mvwprintw(plot->win, position->sizeY - 1, 4 + cols * 3 / 4 - strlen(toPrint) / 2, toPrint);
+
+    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / column_divisor / 1000);
+    if (retval > 4)
+      toPrint = err;
+    else
+      toPrint = elapsedSeconds;
+    mvwprintw(plot->win, position->sizeY - 1, 4 + cols - strlen(toPrint), toPrint);
+  } else {
+    char *toPrint;
+    int retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / column_divisor / 1000);
+    if (retval > 4)
+      toPrint = err;
+    else
+      toPrint = elapsedSeconds;
+    mvwprintw(plot->win, position->sizeY - 1, 4, toPrint);
+
+    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols * 3 / 4 / column_divisor / 1000);
+    if (retval > 4)
+      toPrint = err;
+    else
+      toPrint = elapsedSeconds;
+    mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 4 - strlen(toPrint) / 2, toPrint);
+
+    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / 2 / column_divisor / 1000);
+    if (retval > 4)
+      toPrint = err;
+    else
+      toPrint = elapsedSeconds;
+    mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 2 - strlen(toPrint) / 2, toPrint);
+
+    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / 4 / column_divisor / 1000);
+    if (retval > 4)
+      toPrint = err;
+    else
+      toPrint = elapsedSeconds;
+    mvwprintw(plot->win, position->sizeY - 1, 4 + cols * 3 / 4 - strlen(toPrint) / 2, toPrint);
+
+    toPrint = zeroSec;
+    mvwprintw(plot->win, position->sizeY - 1, 4 + cols - strlen(toPrint), toPrint);
+  }
   wnoutrefresh(plot->win);
 }
 
@@ -267,7 +342,7 @@ static void alloc_plot_window(unsigned devices_count,
     interface->plots[i].win =
         newwin(plot_positions[i].sizeY, plot_positions[i].sizeX,
                plot_positions[i].posY, plot_positions[i].posX);
-    initialize_gpu_mem_plot(&interface->plots[i], &plot_positions[i]);
+    initialize_gpu_mem_plot(&interface->plots[i], &plot_positions[i], &interface->options);
   }
 }
 
