@@ -21,8 +21,9 @@
  *
  */
 
-#include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/common.h"
+#include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/time.h"
 
 #include <assert.h>
 #include <ctype.h>
@@ -45,6 +46,7 @@
 #include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <uthash.h>
 #include <xf86drm.h>
 
 // Local function pointers to DRM interface
@@ -72,6 +74,19 @@ static int last_libdrm_return_status = 0;
 static char didnt_call_gpuinfo_init[] = "uninitialized";
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
+#define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(unsigned), out_ptr)
+
+#define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(unsigned), in_ptr)
+
+struct amdgpu_process_info_cache {
+  unsigned client_id;
+  uint64_t gfx_engine_used;
+  uint64_t enc_engine_used;
+  uint64_t dec_engine_used;
+  nvtop_time last_measurement_tstamp;
+  UT_hash_handle hh;
+};
+
 #define PDEV_LEN 20
 
 struct gpu_info_amdgpu {
@@ -91,6 +106,8 @@ struct gpu_info_amdgpu {
   FILE *PCIeDPM; // FILE* for this device valid and active PCIe speed/width configurations
   FILE *PCIeBW; // FILE* for this device PCIe bandwidth over one second
   FILE *powerCap; // FILE* for this device power cap
+  struct amdgpu_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
+
   // Used to compute the actual fan speed
   unsigned maxFanValue;
 };
@@ -909,9 +926,26 @@ static bool extract_kv(char *buf, char **key, char **val)
   return true;
 }
 
-static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info,
-                             struct gpu_process *process_info,
-                             int dir, const char *fd) {
+static unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
+                                                 uint64_t time_between_measurement) {
+  assert(current_use_ns >= previous_use_ns);
+  return ((current_use_ns - previous_use_ns) * 100 + time_between_measurement / 2) / time_between_measurement;
+}
+
+static const char pdev_old[] = "pdev";
+static const char pdev_new[] = "drm-pdev";
+static const char vram_old[] = "vram mem";
+static const char vram_new[] = "drm-memory-vram";
+static const char gfx_old[] = "gfx";
+static const char gfx_new[] = "drm-engine-gfx";
+static const char dec_old[] = "dec";
+static const char dec_new[] = "drm-engine-dec";
+static const char enc_old[] = "dec";
+static const char enc_new[] = "drm-engine-enc";
+static const char client_id[] = "drm-client-id";
+
+static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info, struct gpu_process *process_info, int dir,
+                             const char *fd) {
   char *buf = NULL, *_buf;
   char *line, *ctx = NULL;
   ssize_t count;
@@ -922,6 +956,11 @@ static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info,
 
   _buf = buf;
 
+  bool client_id_set = false;
+  unsigned cid;
+  nvtop_time current_time;
+  nvtop_get_current_time(&current_time);
+
   while ((line = strtok_r(_buf, "\n", &ctx))) {
     char *key, *val;
 
@@ -931,70 +970,165 @@ static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info,
       continue;
 
     // see drivers/gpu/drm/amd/amdgpu/amdgpu_fdinfo.c amdgpu_show_fdinfo()
-    if (!strcmp(key, "pdev")) {
+    if (!strcmp(key, pdev_old) || !strcmp(key, pdev_new)) {
       if (strcmp(val, gpu_info->pdev)) {
         free(buf);
         return false;
       }
-    } else if (!strcmp(key, "vram mem")) {
+    } else if (!strcmp(key, client_id)) {
+      // Client id is a unique identifier. From the DRM documentation "Unique value relating to the open DRM
+      // file descriptor used to distinguish duplicated and shared file descriptors. Conceptually the value should map
+      // 1:1 to the in kernel representation of struct drm_file instances."
+      // This information is available for the AMDGPU driver shipping with
+      // the kernel >= 5.19. We still have to use the kcmp syscall to
+      // distinguish duplicated file descriptors for older kernels.
+      char *endptr;
+      cid = strtoul(val, &endptr, 10);
+      if (*endptr)
+        continue;
+      client_id_set = true;
+    } else if (!strcmp(key, vram_old) || !strcmp(key, vram_new)) {
       // TODO: do we count "gtt mem" too?
       unsigned long mem_int;
       char *endptr;
 
       mem_int = strtoul(val, &endptr, 10);
-      if (endptr == val || strcmp(endptr, " kB"))
+      if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
         continue;
 
       process_info->gpu_memory_usage = mem_int * 1024;
       SET_VALID(gpuinfo_process_gpu_memory_usage_valid, process_info->valid);
     } else {
-      bool is_gfx = !strncmp(key, "gfx", sizeof("gfx") - 1);
-      // bool is_compute = !strncmp(key, "compute", sizeof("compute") - 1);
-      bool is_dec = !strncmp(key, "dec", sizeof("dec") - 1);
-      bool is_enc = !strncmp(key, "enc", sizeof("enc") - 1);
-      bool is_enc_1 = !strncmp(key, "enc_1", sizeof("enc_1") - 1);
-      unsigned int usage_percent_int;
-      char *key_off, *endptr;
-      double usage_percent;
+      bool is_gfx_old = !strncmp(key, gfx_old, sizeof(gfx_old) - 1);
+      bool is_dec_old = !strncmp(key, dec_old, sizeof(dec_old) - 1);
+      bool is_enc_old = !strncmp(key, enc_old, sizeof(enc_old) - 1);
 
-      if (is_gfx)
-        key_off = key + sizeof("gfx") - 1;
-      else if (is_dec)
-        key_off = key + sizeof("dec") - 1;
-      else if (is_enc_1)
-        key_off = key + sizeof("enc_1") - 1;
-      else if (is_enc)
-        key_off = key + sizeof("enc") - 1;
-      else
-        continue;
+      bool is_gfx_new = !strncmp(key, gfx_new, sizeof(gfx_new) - 1);
+      bool is_dec_new = !strncmp(key, dec_new, sizeof(dec_new) - 1);
+      bool is_enc_new = !strncmp(key, enc_new, sizeof(enc_new) - 1);
 
-      // The prefix should be followed by a number and only a number
-      if (!*key_off)
-        continue;
-      strtoul(key_off, &endptr, 10);
-      if (*endptr)
-        continue;
+      if (is_gfx_old || is_dec_old || is_enc_old) {
+        // The old interface exposes a usage percentage with an unknown update interval
+        unsigned int usage_percent_int;
+        char *key_off, *endptr;
+        double usage_percent;
 
-      usage_percent_int = (unsigned int)(usage_percent = strtod(val, &endptr));
-      if (endptr == val || strcmp(endptr, "%"))
-        continue;
+        if (is_gfx_old)
+          key_off = key + sizeof(gfx_old) - 1;
+        else if (is_dec_old)
+          key_off = key + sizeof(dec_old) - 1;
+        else if (is_enc_old)
+          key_off = key + sizeof(enc_old) - 1;
+        else
+          continue;
 
-      if (is_gfx) {
-        process_info->gpu_usage += usage_percent_int;
-        SET_VALID(gpuinfo_process_gpu_usage_valid,
-                  process_info->valid);
-      } else if (is_dec) {
-        process_info->decode_usage += usage_percent_int;
-        SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
-      } else if (is_enc) {
-        process_info->encode_usage += usage_percent_int;
-        SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
+        // The prefix should be followed by a number and only a number
+        if (!*key_off)
+          continue;
+        strtoul(key_off, &endptr, 10);
+        if (*endptr)
+          continue;
+
+        usage_percent_int = (unsigned int)(usage_percent = round(strtod(val, &endptr)));
+        if (endptr == val || strcmp(endptr, "%"))
+          continue;
+
+        if (is_gfx_old) {
+          process_info->gpu_usage += usage_percent_int;
+          SET_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid);
+        } else if (is_dec_old) {
+          process_info->decode_usage += usage_percent_int;
+          SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
+        } else if (is_enc_old) {
+          process_info->encode_usage += usage_percent_int;
+          SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
+        }
+      } else if (is_gfx_new || is_dec_new || is_enc_new) {
+        char *endptr;
+        uint64_t time_spent = strtoull(val, &endptr, 10);
+        if (endptr == val || strcmp(endptr, " ns"))
+          continue;
+
+        if (is_gfx_new) {
+          process_info->gfx_engine_used = time_spent;
+          SET_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid);
+        } else if (is_enc_new) {
+          process_info->enc_engine_used = time_spent;
+          SET_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid);
+        } else if (is_dec_new) {
+          process_info->dec_engine_used = time_spent;
+          SET_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid);
+        }
+
       }
     }
   }
 
+  // The AMDGPU fdinfo interface in kernels >=5.19 is way nicer; it provides the
+  // cumulative GPU engines (e.g., gfx, enc, dec) usage in nanoseconds.
+  // Previously, we displayed the usage provided in fdinfo by the kernel/driver
+  // which uses an internal update interval. Now, we can compute an accurate
+  // busy percentage since the last measurement.
+  if (client_id_set) {
+    struct amdgpu_process_info_cache *cache_entry;
+    HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &cid, cache_entry);
+    if (cache_entry) {
+      uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
+      HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
+      if (IS_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid)) {
+        process_info->gpu_usage =
+            busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->gfx_engine_used, time_elapsed);
+        SET_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid);
+      }
+      if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid)) {
+        process_info->decode_usage =
+            busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->dec_engine_used, time_elapsed);
+        SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
+      }
+      if (IS_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid)) {
+        process_info->encode_usage =
+            busy_usage_from_time_usage_round(process_info->enc_engine_used, cache_entry->enc_engine_used, time_elapsed);
+        SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
+      }
+    } else {
+      cache_entry = calloc(1, sizeof(*cache_entry));
+      if (!cache_entry)
+        goto parse_fdinfo_exit;
+      cache_entry->client_id = cid;
+    }
+    // We should only process one fdinfo entry per client id per update
+    struct amdgpu_process_info_cache *cache_entry_check;
+    HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cid, cache_entry_check);
+    (void)cache_entry_check;
+    assert(!cache_entry_check && "We should not be processing a client id twice per update");
+
+    // Store this measurement data
+    if (IS_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid))
+      cache_entry->gfx_engine_used = process_info->gfx_engine_used;
+    if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid))
+      cache_entry->dec_engine_used = process_info->dec_engine_used;
+    if (IS_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid))
+      cache_entry->enc_engine_used = process_info->enc_engine_used;
+    cache_entry->last_measurement_tstamp = current_time;
+    HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
+  }
+
+parse_fdinfo_exit:
   free(buf);
   return true;
+}
+
+static void swap_process_cache_for_next_update(struct gpu_info_amdgpu *gpu_info) {
+  // Free old cache data and set the cache for the next update
+  if (gpu_info->last_update_process_cache) {
+    struct amdgpu_process_info_cache *cache_entry, *tmp;
+    HASH_ITER(hh, gpu_info->last_update_process_cache, cache_entry, tmp) {
+      HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
+      free(cache_entry);
+    }
+  }
+  gpu_info->last_update_process_cache = gpu_info->current_update_process_cache;
+  gpu_info->current_update_process_cache = NULL;
 }
 
 // Increment for the number DRM FD tracked per process
@@ -1084,8 +1218,7 @@ next_fd:
       }
       seen_fds[seen_fds_len++] = fd_num;
 
-      if (!parse_drm_fdinfo(gpu_info, &processes_info_local,
-                            fdinfo_dir_fd, fdinfo_dent->d_name))
+      if (!parse_drm_fdinfo(gpu_info, &processes_info_local, fdinfo_dir_fd, fdinfo_dent->d_name))
         continue;
 
       if (!process_info) {
@@ -1132,6 +1265,21 @@ next_fd:
         process_info->decode_usage += processes_info_local.decode_usage;
         SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
       }
+
+      if (IS_VALID(gpuinfo_process_gpu_gfx_engine_used, processes_info_local.valid)) {
+        process_info->gfx_engine_used += processes_info_local.gfx_engine_used;
+        SET_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid);
+      }
+
+      if (IS_VALID(gpuinfo_process_gpu_enc_engine_used, processes_info_local.valid)) {
+        process_info->enc_engine_used += processes_info_local.enc_engine_used;
+        SET_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid);
+      }
+
+      if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, processes_info_local.valid)) {
+        process_info->dec_engine_used += processes_info_local.dec_engine_used;
+        SET_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid);
+      }
     }
 
 next:
@@ -1143,6 +1291,9 @@ next:
     close(pid_dir_fd);
 
   }
+
+  swap_process_cache_for_next_update(gpu_info);
+
   free(seen_fds);
 
   closedir(proc_dir);

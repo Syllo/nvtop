@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2021-2022 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -110,6 +110,9 @@ enum gpu_process_type {
 enum gpuinfo_process_info_valid {
   gpuinfo_process_cmdline_valid,
   gpuinfo_process_user_name_valid,
+  gpuinfo_process_gpu_gfx_engine_used,
+  gpuinfo_process_gpu_enc_engine_used,
+  gpuinfo_process_gpu_dec_engine_used,
   gpuinfo_process_gpu_usage_valid,
   gpuinfo_process_gpu_encoder_valid,
   gpuinfo_process_gpu_decoder_valid,
@@ -126,6 +129,9 @@ struct gpu_process {
   pid_t pid;                           // Process ID
   char *cmdline;                       // Process User Name
   char *user_name;                     // Process User Name
+  uint64_t gfx_engine_used;            // Time in nanoseconds this process spent using the GPU gfx
+  uint64_t enc_engine_used;            // Time in nanoseconds this process spent using the GPU encoder
+  uint64_t dec_engine_used;            // Time in nanoseconds this process spent using the GPU decoder
   unsigned gpu_usage;                  // Percentage of GPU used by the process
   unsigned encode_usage;               // Percentage of GPU encoder used by the process
   unsigned decode_usage;               // Percentage of GPU decoder used by the process

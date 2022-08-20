@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2017-2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2017-2022 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -160,85 +160,74 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
 }
 #undef MYMIN
 
-static void gpuinfo_populate_process_infos(struct list_head *devices) {
-  struct gpu_info *device;
+static void gpuinfo_populate_process_info(struct gpu_info *device) {
+  for (unsigned j = 0; j < device->processes_count; ++j) {
+    pid_t current_pid = device->processes[j].pid;
+    struct process_info_cache *cached_pid_info;
 
-  list_for_each_entry(device, devices, list) {
-    for (unsigned j = 0; j < device->processes_count; ++j) {
-      pid_t current_pid = device->processes[j].pid;
-      struct process_info_cache *cached_pid_info;
-
-      HASH_FIND_PID(cached_process_info, &current_pid, cached_pid_info);
+    HASH_FIND_PID(cached_process_info, &current_pid, cached_pid_info);
+    if (!cached_pid_info) {
+      HASH_FIND_PID(updated_process_info, &current_pid, cached_pid_info);
       if (!cached_pid_info) {
-        HASH_FIND_PID(updated_process_info, &current_pid, cached_pid_info);
-        if (!cached_pid_info) {
-          // Newly encountered pid
-          cached_pid_info = malloc(sizeof(*cached_pid_info));
-          cached_pid_info->pid = current_pid;
-          get_username_from_pid(current_pid, &cached_pid_info->user_name);
-          get_command_from_pid(current_pid, &cached_pid_info->cmdline);
-          cached_pid_info->last_total_consumed_cpu_time = -1.;
-          HASH_ADD_PID(updated_process_info, cached_pid_info);
-        }
-      } else {
-        // Already encountered so delete from cached list to avoid freeing
-        // memory at the end of this function
-        HASH_DEL(cached_process_info, cached_pid_info);
+        // Newly encountered pid
+        cached_pid_info = calloc(1, sizeof(*cached_pid_info));
+        cached_pid_info->pid = current_pid;
+        get_username_from_pid(current_pid, &cached_pid_info->user_name);
+        get_command_from_pid(current_pid, &cached_pid_info->cmdline);
+        cached_pid_info->last_total_consumed_cpu_time = -1.;
         HASH_ADD_PID(updated_process_info, cached_pid_info);
       }
+    } else {
+      // Already encountered so delete from cached list to avoid freeing
+      // memory at the end of this function
+      HASH_DEL(cached_process_info, cached_pid_info);
+      HASH_ADD_PID(updated_process_info, cached_pid_info);
+    }
 
-      if (cached_pid_info->cmdline) {
-        device->processes[j].cmdline = cached_pid_info->cmdline;
-        SET_VALID(gpuinfo_process_cmdline_valid, device->processes[j].valid);
-      }
-      if (cached_pid_info->user_name) {
-        device->processes[j].user_name = cached_pid_info->user_name;
-        SET_VALID(gpuinfo_process_user_name_valid,
-                  device->processes[j].valid);
-      }
+    if (cached_pid_info->cmdline) {
+      device->processes[j].cmdline = cached_pid_info->cmdline;
+      SET_VALID(gpuinfo_process_cmdline_valid, device->processes[j].valid);
+    }
+    if (cached_pid_info->user_name) {
+      device->processes[j].user_name = cached_pid_info->user_name;
+      SET_VALID(gpuinfo_process_user_name_valid, device->processes[j].valid);
+    }
 
-      struct process_cpu_usage cpu_usage;
-      if (get_process_info(current_pid, &cpu_usage)) {
-        if (cached_pid_info->last_total_consumed_cpu_time > -1.) {
-          double usage_percent =
-              round(100. *
-                    (cpu_usage.total_user_time + cpu_usage.total_kernel_time -
-                     cached_pid_info->last_total_consumed_cpu_time) /
-                    nvtop_difftime(cached_pid_info->last_measurement_timestamp,
-                                   cpu_usage.timestamp));
-          device->processes[j].cpu_usage = (unsigned)usage_percent;
-        } else {
-          device->processes[j].cpu_usage = 0;
-        }
-        SET_VALID(gpuinfo_process_cpu_usage_valid,
-                  device->processes[j].valid);
-        cached_pid_info->last_measurement_timestamp = cpu_usage.timestamp;
-        cached_pid_info->last_total_consumed_cpu_time =
-            cpu_usage.total_kernel_time + cpu_usage.total_user_time;
-        device->processes[j].cpu_memory_res = cpu_usage.resident_memory;
-        SET_VALID(gpuinfo_process_cpu_memory_res_valid,
-                  device->processes[j].valid);
-        device->processes[j].cpu_memory_virt = cpu_usage.virtual_memory;
-        SET_VALID(gpuinfo_process_cpu_memory_virt_valid,
-                  device->processes[j].valid);
+    struct process_cpu_usage cpu_usage;
+    if (get_process_info(current_pid, &cpu_usage)) {
+      if (cached_pid_info->last_total_consumed_cpu_time > -1.) {
+        double usage_percent = round(
+            100. *
+            (cpu_usage.total_user_time + cpu_usage.total_kernel_time - cached_pid_info->last_total_consumed_cpu_time) /
+            nvtop_difftime(cached_pid_info->last_measurement_timestamp, cpu_usage.timestamp));
+        device->processes[j].cpu_usage = (unsigned)usage_percent;
       } else {
-        cached_pid_info->last_total_consumed_cpu_time = -1;
+        device->processes[j].cpu_usage = 0;
       }
+      SET_VALID(gpuinfo_process_cpu_usage_valid, device->processes[j].valid);
+      cached_pid_info->last_measurement_timestamp = cpu_usage.timestamp;
+      cached_pid_info->last_total_consumed_cpu_time = cpu_usage.total_kernel_time + cpu_usage.total_user_time;
+      device->processes[j].cpu_memory_res = cpu_usage.resident_memory;
+      SET_VALID(gpuinfo_process_cpu_memory_res_valid, device->processes[j].valid);
+      device->processes[j].cpu_memory_virt = cpu_usage.virtual_memory;
+      SET_VALID(gpuinfo_process_cpu_memory_virt_valid, device->processes[j].valid);
+    } else {
+      cached_pid_info->last_total_consumed_cpu_time = -1;
+    }
 
-      // Process memory usage percent of total device memory
-      if (IS_VALID(gpuinfo_total_memory_valid, device->dynamic_info.valid) &&
-          IS_VALID(gpuinfo_process_gpu_memory_usage_valid,
-                   device->processes[j].valid)) {
-        float percentage =
-            roundf(100.f * (float)device->processes[j].gpu_memory_usage /
-                   (float)device->dynamic_info.total_memory);
-        device->processes[j].gpu_memory_percentage = (unsigned)percentage;
-        assert(device->processes[j].gpu_memory_percentage <= 100);
-        SET_VALID(gpuinfo_process_gpu_memory_percentage_valid,
-                  device->processes[j].valid);
-      }
+    // Process memory usage percent of total device memory
+    if (IS_VALID(gpuinfo_total_memory_valid, device->dynamic_info.valid) &&
+        IS_VALID(gpuinfo_process_gpu_memory_usage_valid, device->processes[j].valid)) {
+      float percentage =
+          roundf(100.f * (float)device->processes[j].gpu_memory_usage / (float)device->dynamic_info.total_memory);
+      device->processes[j].gpu_memory_percentage = (unsigned)percentage;
+      assert(device->processes[j].gpu_memory_percentage <= 100);
+      SET_VALID(gpuinfo_process_gpu_memory_percentage_valid, device->processes[j].valid);
     }
   }
+}
+
+static void gpuinfo_clean_old_cache(void) {
   struct process_info_cache *pid_not_encountered, *tmp;
   HASH_ITER(hh, cached_process_info, pid_not_encountered, tmp) {
     HASH_DEL(cached_process_info, pid_not_encountered);
@@ -254,16 +243,14 @@ bool gpuinfo_refresh_processes(struct list_head *devices) {
   struct gpu_info *device;
 
   list_for_each_entry(device, devices, list) {
-    unsigned processes_count = 0;
-    struct gpu_process *processes = NULL;
-    device->vendor->get_running_processes(device,
-                                          &processes_count, &processes);
     free(device->processes);
-    device->processes = processes;
-    device->processes_count = processes_count;
+    device->processes = NULL;
+    device->processes_count = 0;
+    device->vendor->get_running_processes(device, &device->processes_count, &device->processes);
+    gpuinfo_populate_process_info(device);
   }
 
-  gpuinfo_populate_process_infos(devices);
+  gpuinfo_clean_old_cache();
 
   return true;
 }

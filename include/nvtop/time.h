@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2018 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2018-2022 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -24,6 +24,7 @@
 
 #include <stdbool.h>
 #include <time.h>
+#include <stdint.h>
 
 #ifdef CLOCK_MONOTONIC_RAW
 #define NVTOP_CLOCK CLOCK_MONOTONIC_RAW
@@ -47,6 +48,10 @@ inline double nvtop_difftime(nvtop_time t0, nvtop_time t1) {
     secdiff += (double)val / 1e9;
   }
   return secdiff;
+}
+
+inline uint64_t nvtop_difftime_u64(nvtop_time t0, nvtop_time t1) {
+  return (uint64_t)(t1.tv_sec - t0.tv_sec) * 1000000000 + t1.tv_nsec - t0.tv_nsec;
 }
 
 inline nvtop_time nvtop_hmns_to_time(unsigned hour, unsigned minutes,
