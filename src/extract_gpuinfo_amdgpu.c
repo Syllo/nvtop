@@ -91,7 +91,6 @@ struct amdgpu_process_info_cache {
 
 struct gpu_info_amdgpu {
   struct gpu_info base;
-  struct list_head allocate_list;
 
   drmVersionPtr drmVersion;
   int fd;
@@ -112,7 +111,8 @@ struct gpu_info_amdgpu {
   unsigned maxFanValue;
 };
 
-static LIST_HEAD(allocations);
+unsigned amdgpu_count;
+static struct gpu_info_amdgpu *gpu_infos;
 
 static bool gpuinfo_amdgpu_init(void);
 static void gpuinfo_amdgpu_shutdown(void);
@@ -213,6 +213,29 @@ init_error_clean_exit:
 }
 
 static void gpuinfo_amdgpu_shutdown(void) {
+  for (unsigned i = 0; i < amdgpu_count; ++i) {
+    struct gpu_info_amdgpu *gpu_info = &gpu_infos[i];
+    if (gpu_info->fanSpeedFILE)
+      fclose(gpu_info->fanSpeedFILE);
+    if (gpu_info->PCIeDPM)
+      fclose(gpu_info->PCIeDPM);
+    if (gpu_info->PCIeBW)
+      fclose(gpu_info->PCIeBW);
+    if (gpu_info->powerCap)
+      fclose(gpu_info->powerCap);
+    _drmFreeVersion(gpu_info->drmVersion);
+    _amdgpu_device_deinitialize(gpu_info->amdgpu_device);
+    // Clean the process cache
+    struct amdgpu_process_info_cache *cache_entry, *cache_tmp;
+    HASH_ITER(hh, gpu_info->last_update_process_cache, cache_entry, cache_tmp) {
+      HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
+      free(cache_entry);
+    }
+  }
+  free(gpu_infos);
+  gpu_infos = NULL;
+  amdgpu_count = 0;
+
   if (libdrm_handle) {
     dlclose(libdrm_handle);
     libdrm_handle = NULL;
@@ -222,13 +245,6 @@ static void gpuinfo_amdgpu_shutdown(void) {
   if (libdrm_amdgpu_handle) {
     dlclose(libdrm_amdgpu_handle);
     libdrm_amdgpu_handle = NULL;
-  }
-
-  struct gpu_info_amdgpu *allocated, *tmp;
-
-  list_for_each_entry_safe(allocated, tmp, &allocations, allocate_list) {
-    list_del(&allocated->allocate_list);
-    free(allocated);
   }
 }
 
@@ -328,13 +344,11 @@ static bool gpuinfo_amdgpu_get_device_handles(
     return false;
 
   unsigned int libdrm_count = last_libdrm_return_status;
-  struct gpu_info_amdgpu *gpu_infos = calloc(libdrm_count, sizeof(*gpu_infos));
+  gpu_infos = calloc(libdrm_count, sizeof(*gpu_infos));
   if (!gpu_infos) {
     local_error_string = strerror(errno);
     return false;
   }
-
-  list_add(&gpu_infos[0].allocate_list, &allocations);
 
   for (unsigned int i = 0; i < libdrm_count; i++) {
     if (devs[i]->bustype != DRM_BUS_PCI ||
@@ -391,25 +405,25 @@ static bool gpuinfo_amdgpu_get_device_handles(
 
       uint32_t drm_major, drm_minor;
       last_libdrm_return_status =
-          _amdgpu_device_initialize(fd, &drm_major, &drm_minor, &gpu_infos[*count].amdgpu_device);
+          _amdgpu_device_initialize(fd, &drm_major, &drm_minor, &gpu_infos[amdgpu_count].amdgpu_device);
     } else {
       // TODO: radeon suppport here
       assert(false);
     }
 
     if (!last_libdrm_return_status) {
-      gpu_infos[*count].drmVersion = ver;
-      gpu_infos[*count].fd = fd;
-      gpu_infos[*count].base.vendor = &gpu_vendor_amdgpu;
+      gpu_infos[amdgpu_count].drmVersion = ver;
+      gpu_infos[amdgpu_count].fd = fd;
+      gpu_infos[amdgpu_count].base.vendor = &gpu_vendor_amdgpu;
 
       snprintf(gpu_infos[*count].pdev, PDEV_LEN - 1, "%04x:%02x:%02x.%d",
                devs[i]->businfo.pci->domain,
                devs[i]->businfo.pci->bus,
                devs[i]->businfo.pci->dev,
                devs[i]->businfo.pci->func);
-      initDeviceSysfsPaths(&gpu_infos[*count]);
-      list_add_tail(&gpu_infos[*count].base.list, devices);
-      *count += 1;
+      initDeviceSysfsPaths(&gpu_infos[amdgpu_count]);
+      list_add_tail(&gpu_infos[amdgpu_count].base.list, devices);
+      amdgpu_count++;
     } else {
       _drmFreeVersion(ver);
       close(fd);
@@ -418,6 +432,7 @@ static bool gpuinfo_amdgpu_get_device_handles(
   }
 
   _drmFreeDevices(devs, libdrm_count);
+  *count = amdgpu_count;
 
   return true;
 }
