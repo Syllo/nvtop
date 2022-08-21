@@ -955,7 +955,7 @@ static const char gfx_old[] = "gfx";
 static const char gfx_new[] = "drm-engine-gfx";
 static const char dec_old[] = "dec";
 static const char dec_new[] = "drm-engine-dec";
-static const char enc_old[] = "dec";
+static const char enc_old[] = "enc";
 static const char enc_new[] = "drm-engine-enc";
 static const char client_id[] = "drm-client-id";
 
