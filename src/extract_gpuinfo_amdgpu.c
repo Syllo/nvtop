@@ -357,14 +357,15 @@ static bool gpuinfo_amdgpu_get_device_handles(
 
     int fd = -1;
 
-    for (unsigned int j = DRM_NODE_MAX - 1;; j--) {
-      if (!(1 << j & devs[i]->available_nodes))
-        continue;
-
-      if ((fd = open(devs[i]->nodes[j], O_RDWR)) < 0)
-        continue;
-
-      break;
+    // Try render node first
+    if (1 << DRM_NODE_RENDER & devs[i]->available_nodes) {
+      fd = open(devs[i]->nodes[DRM_NODE_RENDER], O_RDWR);
+    }
+    if (fd < 0) {
+      // Fallback to primary node (control nodes are unused according to the DRM documentation)
+      if (1 << DRM_NODE_PRIMARY & devs[i]->available_nodes) {
+        fd = open(devs[i]->nodes[DRM_NODE_PRIMARY], O_RDWR);
+      }
     }
 
     if (fd < 0)
