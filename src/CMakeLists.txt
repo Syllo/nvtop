@@ -72,5 +72,3 @@ include(${PROJECT_SOURCE_DIR}/cmake/optimization_flags.cmake)
 
 add_compiler_option_to_target_type(nvtop Debug PRIVATE ${ADDITIONAL_DEBUG_COMPILE_OPTIONS})
 add_linker_option_to_all_but_target_type(nvtop dummy PRIVATE ${ADDITIONAL_RELEASE_LINK_OPTIONS})
-
-add_sanitizers_to_target(nvtop Debug PRIVATE address undefined)

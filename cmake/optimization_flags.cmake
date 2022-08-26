@@ -33,6 +33,8 @@ set(ADDITIONAL_DEBUG_COMPILE_OPTIONS
   "-Wunused-result"
   "-Werror=implicit-function-declaration"
   #"-Wpadded"
+  "-Wformat"
+  "-Wformat-security"
   CACHE INTERNAL "String"
   )
 
