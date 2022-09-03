@@ -23,6 +23,7 @@
 
 #include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/time.h"
 
 #include <assert.h>
@@ -122,18 +123,16 @@ static bool gpuinfo_amdgpu_get_device_handles(
     ssize_t *mask);
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info);
-static void gpuinfo_amdgpu_get_running_processes(
-    struct gpu_info *_gpu_info,
-    unsigned *num_processes_recovered, struct gpu_process **processes_info);
+static void gpuinfo_amdgpu_get_running_processes(struct gpu_info *_gpu_info);
 
 struct gpu_vendor gpu_vendor_amdgpu = {
-  .init = gpuinfo_amdgpu_init,
-  .shutdown = gpuinfo_amdgpu_shutdown,
-  .last_error_string = gpuinfo_amdgpu_last_error_string,
-  .get_device_handles = gpuinfo_amdgpu_get_device_handles,
-  .populate_static_info = gpuinfo_amdgpu_populate_static_info,
-  .refresh_dynamic_info = gpuinfo_amdgpu_refresh_dynamic_info,
-  .get_running_processes = gpuinfo_amdgpu_get_running_processes,
+    .init = gpuinfo_amdgpu_init,
+    .shutdown = gpuinfo_amdgpu_shutdown,
+    .last_error_string = gpuinfo_amdgpu_last_error_string,
+    .get_device_handles = gpuinfo_amdgpu_get_device_handles,
+    .populate_static_info = gpuinfo_amdgpu_populate_static_info,
+    .refresh_dynamic_info = gpuinfo_amdgpu_refresh_dynamic_info,
+    .refresh_running_processes = gpuinfo_amdgpu_get_running_processes,
 };
 
 __attribute__((constructor))
@@ -148,6 +147,8 @@ static int wrap_drmGetDevices(drmDevicePtr devices[], int max_devices) {
     return _drmGetDevices2(0, devices, max_devices);
   return _drmGetDevices(devices, max_devices);
 }
+
+static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info);
 
 static bool gpuinfo_amdgpu_init(void) {
   libdrm_handle = dlopen("libdrm.so", RTLD_LAZY);
@@ -424,6 +425,8 @@ static bool gpuinfo_amdgpu_get_device_handles(
                devs[i]->businfo.pci->func);
       initDeviceSysfsPaths(&gpu_infos[amdgpu_count]);
       list_add_tail(&gpu_infos[amdgpu_count].base.list, devices);
+      // Register a fdinfo callback for this GPU
+      processinfo_register_fdinfo_callback(parse_drm_fdinfo_amd, &gpu_infos[amdgpu_count].base);
       amdgpu_count++;
     } else {
       _drmFreeVersion(ver);
@@ -858,73 +861,7 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 }
 
-static bool is_drm_fd(int fd_dir_fd, const char *name) {
-  struct stat stat;
-  int ret;
-
-  ret = fstatat(fd_dir_fd, name, &stat, 0);
-
-  return ret == 0 &&
-         (stat.st_mode & S_IFMT) == S_IFCHR &&
-         major(stat.st_rdev) == 226;
-}
-
-static ssize_t read_whole_file(int dirfd, const char *pathname, char **data) {
-  size_t read_size = 0;
-  size_t buf_size = 0;
-  char *buf = NULL;
-  int fd;
-  FILE *f;
-
-  fd = openat(dirfd, pathname, O_RDONLY);
-  if (fd < 0)
-    return -1;
-
-  f = fdopen(fd, "r");
-  if (!f) {
-    close(fd);
-    return -1;
-  }
-
-  while (true) {
-    if (read_size + 1024 > buf_size) {
-      buf_size += 1024;
-      buf = realloc(buf, buf_size);
-      if (!buf)
-        goto err;
-    }
-
-    size_t read_bytes = fread(buf + read_size, 1, 1024, f);
-    if (read_bytes) {
-      read_size += read_bytes;
-      continue;
-    }
-
-    if (feof(f))
-      break;
-
-    goto err;
-  }
-
-  buf = realloc(buf, read_size + 1);
-  if (!buf)
-    goto err;
-
-  buf[read_size] = 0;
-  fclose(f);
-
-  *data = buf;
-  return read_size;
-
-err:
-  fclose(f);
-  free(buf);
-
-  return -1;
-}
-
-static bool extract_kv(char *buf, char **key, char **val)
-{
+static bool extract_kv(char *buf, char **key, char **val) {
   char *p = buf;
 
   p = index(buf, ':');
@@ -932,7 +869,8 @@ static bool extract_kv(char *buf, char **key, char **val)
     return false;
   *p = '\0';
 
-  while (*++p && isspace(*p));
+  while (*++p && isspace(*p))
+    ;
   if (!*p)
     return false;
 
@@ -960,27 +898,23 @@ static const char enc_old[] = "enc";
 static const char enc_new[] = "drm-engine-enc";
 static const char client_id[] = "drm-client-id";
 
-static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info, struct gpu_process *process_info, int dir,
-                             const char *fd) {
-  char *buf = NULL, *_buf;
-  char *line, *ctx = NULL;
-  ssize_t count;
-
-  count = read_whole_file(dir, fd, &buf);
-  if (count <= 0)
-    return false;
-
-  _buf = buf;
+static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
+  struct gpu_info_amdgpu *gpu_info = container_of(info, struct gpu_info_amdgpu, base);
+  static char *line = NULL;
+  static size_t line_buf_size = 0;
+  ssize_t count = 0;
 
   bool client_id_set = false;
   unsigned cid;
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
 
-  while ((line = strtok_r(_buf, "\n", &ctx))) {
+  while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
     char *key, *val;
-
-    _buf = NULL;
+    // Get rid of the newline if present
+    if (line[count - 1] == '\n') {
+      line[--count] = '\0';
+    }
 
     if (!extract_kv(line, &key, &val))
       continue;
@@ -988,7 +922,6 @@ static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info, struct gpu_proces
     // see drivers/gpu/drm/amd/amdgpu/amdgpu_fdinfo.c amdgpu_show_fdinfo()
     if (!strcmp(key, pdev_old) || !strcmp(key, pdev_new)) {
       if (strcmp(val, gpu_info->pdev)) {
-        free(buf);
         return false;
       }
     } else if (!strcmp(key, client_id)) {
@@ -1075,7 +1008,6 @@ static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info, struct gpu_proces
           process_info->dec_engine_used = time_spent;
           SET_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid);
         }
-
       }
     }
   }
@@ -1130,7 +1062,6 @@ static bool parse_drm_fdinfo(struct gpu_info_amdgpu *gpu_info, struct gpu_proces
   }
 
 parse_fdinfo_exit:
-  free(buf);
   return true;
 }
 
@@ -1147,170 +1078,9 @@ static void swap_process_cache_for_next_update(struct gpu_info_amdgpu *gpu_info)
   gpu_info->current_update_process_cache = NULL;
 }
 
-// Increment for the number DRM FD tracked per process
-// 8 has been experimentally selected for being small while avoiding multipe allocations in most common cases
-#define DRM_FD_LINEAR_REALLOC_INC 8
-
-static void gpuinfo_amdgpu_get_running_processes(
-    struct gpu_info *_gpu_info,
-    unsigned *num_processes_recovered, struct gpu_process **processes_info) {
-  struct gpu_info_amdgpu *gpu_info =
-    container_of(_gpu_info, struct gpu_info_amdgpu, base);
-  unsigned int processes_info_capacity = 0;
-  struct dirent *proc_dent;
-  DIR *proc_dir;
-
-  proc_dir = opendir("/proc");
-  if (!proc_dir)
-    return;
-
-  unsigned int seen_fds_capacity = 0;
-  int *seen_fds = NULL;
-  while ((proc_dent = readdir(proc_dir)) != NULL) {
-    int pid_dir_fd = -1, fd_dir_fd = -1, fdinfo_dir_fd = -1;
-    DIR *fdinfo_dir = NULL;
-    struct gpu_process *process_info = NULL;
-    unsigned int seen_fds_len = 0;
-    struct dirent *fdinfo_dent;
-    unsigned int client_pid;
-
-    if (proc_dent->d_type != DT_DIR)
-      continue;
-    if (!isdigit(proc_dent->d_name[0]))
-      continue;
-
-    pid_dir_fd = openat(dirfd(proc_dir), proc_dent->d_name, O_DIRECTORY);
-    if (pid_dir_fd < 0)
-      continue;
-
-    client_pid = atoi(proc_dent->d_name);
-    if (!client_pid)
-      goto next;
-
-    fd_dir_fd = openat(pid_dir_fd, "fd", O_DIRECTORY);
-    if (fd_dir_fd < 0)
-      goto next;
-
-    fdinfo_dir_fd = openat(pid_dir_fd, "fdinfo", O_DIRECTORY);
-    if (fdinfo_dir_fd < 0)
-      goto next;
-
-    fdinfo_dir = fdopendir(fdinfo_dir_fd);
-    if (!fdinfo_dir) {
-      close(fdinfo_dir_fd);
-      goto next;
-    }
-
-next_fd:
-    while ((fdinfo_dent = readdir(fdinfo_dir)) != NULL) {
-      struct gpu_process processes_info_local = {0};
-      int fd_num;
-
-      if (fdinfo_dent->d_type != DT_REG)
-        continue;
-      if (!isdigit(fdinfo_dent->d_name[0]))
-        continue;
-
-      if (!is_drm_fd(fd_dir_fd, fdinfo_dent->d_name))
-        continue;
-
-      fd_num = atoi(fdinfo_dent->d_name);
-
-      // check if this fd refers to the same open file as any seen ones.
-      // we only care about unique opens
-      for (unsigned i = 0; i < seen_fds_len; i++) {
-        if (syscall(SYS_kcmp, client_pid, client_pid, KCMP_FILE,
-                    fd_num, seen_fds[i]) <= 0)
-          goto next_fd;
-      }
-
-      if (seen_fds_len == seen_fds_capacity) {
-        seen_fds_capacity += DRM_FD_LINEAR_REALLOC_INC;
-        seen_fds = reallocarray(seen_fds, seen_fds_capacity, sizeof(*seen_fds));
-        if (!seen_fds) {
-          perror("Could not re-allocate memory: ");
-          exit(EXIT_FAILURE);
-        }
-      }
-      seen_fds[seen_fds_len++] = fd_num;
-
-      if (!parse_drm_fdinfo(gpu_info, &processes_info_local, fdinfo_dir_fd, fdinfo_dent->d_name))
-        continue;
-
-      if (!process_info) {
-        if (*num_processes_recovered == processes_info_capacity) {
-          processes_info_capacity += COMMON_PROCESS_LINEAR_REALLOC_INC;
-          *processes_info = reallocarray(*processes_info, processes_info_capacity, sizeof(**processes_info));
-          if (!*processes_info) {
-            perror("Could not re-allocate memory: ");
-            exit(EXIT_FAILURE);
-          }
-        }
-
-        process_info = &(*processes_info)[(*num_processes_recovered)++];
-        memset(process_info, 0, sizeof(*process_info));
-
-        process_info->type = gpu_process_graphical;
-        // TODO: What condition would I have:
-        //   process_info->type = gpu_process_compute;
-        process_info->pid = client_pid;
-      }
-
-      if (IS_VALID(gpuinfo_process_gpu_memory_usage_valid,
-                   processes_info_local.valid)) {
-        process_info->gpu_memory_usage += processes_info_local.gpu_memory_usage;
-        SET_VALID(gpuinfo_process_gpu_memory_usage_valid,
-                  process_info->valid);
-      }
-
-      if (IS_VALID(gpuinfo_process_gpu_usage_valid,
-                   processes_info_local.valid)) {
-        process_info->gpu_usage += processes_info_local.gpu_usage;
-        SET_VALID(gpuinfo_process_gpu_usage_valid,
-                  process_info->valid);
-      }
-
-      if (IS_VALID(gpuinfo_process_gpu_encoder_valid,
-                   processes_info_local.valid)) {
-        process_info->encode_usage += processes_info_local.encode_usage;
-        SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
-      }
-
-      if (IS_VALID(gpuinfo_process_gpu_decoder_valid,
-                   processes_info_local.valid)) {
-        process_info->decode_usage += processes_info_local.decode_usage;
-        SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
-      }
-
-      if (IS_VALID(gpuinfo_process_gpu_gfx_engine_used, processes_info_local.valid)) {
-        process_info->gfx_engine_used += processes_info_local.gfx_engine_used;
-        SET_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid);
-      }
-
-      if (IS_VALID(gpuinfo_process_gpu_enc_engine_used, processes_info_local.valid)) {
-        process_info->enc_engine_used += processes_info_local.enc_engine_used;
-        SET_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid);
-      }
-
-      if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, processes_info_local.valid)) {
-        process_info->dec_engine_used += processes_info_local.dec_engine_used;
-        SET_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid);
-      }
-    }
-
-next:
-    if (fdinfo_dir)
-      closedir(fdinfo_dir);
-
-    if (fd_dir_fd >= 0)
-      close(fd_dir_fd);
-    close(pid_dir_fd);
-
-  }
-
+static void gpuinfo_amdgpu_get_running_processes(struct gpu_info *_gpu_info) {
+  // For AMDGPU, we register a fdinfo callback that will fill the gpu_process datastructure of the gpu_info structure
+  // for us. This avoids going through /proc multiple times per update for multiple GPUs.
+  struct gpu_info_amdgpu *gpu_info = container_of(_gpu_info, struct gpu_info_amdgpu, base);
   swap_process_cache_for_next_update(gpu_info);
-
-  free(seen_fds);
-
-  closedir(proc_dir);
 }

@@ -160,9 +160,7 @@ struct gpu_vendor {
   void (*populate_static_info)(struct gpu_info *gpu_info);
   void (*refresh_dynamic_info)(struct gpu_info *gpu_info);
 
-  void (*get_running_processes)(struct gpu_info *gpu_info,
-                                unsigned *num_processes_recovered,
-                                struct gpu_process **processes_info);
+  void (*refresh_running_processes)(struct gpu_info *gpu_info);
 };
 
 struct gpu_info {
@@ -172,6 +170,7 @@ struct gpu_info {
   struct gpuinfo_dynamic_info dynamic_info;
   unsigned processes_count;
   struct gpu_process *processes;
+  unsigned processes_array_size;
 };
 
 void register_gpu_vendor(struct gpu_vendor *vendor);

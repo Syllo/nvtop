@@ -197,9 +197,7 @@ static bool gpuinfo_nvidia_get_device_handles(
     ssize_t *mask);
 static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info);
-static void gpuinfo_nvidia_get_running_processes(
-    struct gpu_info *_gpu_info,
-    unsigned *num_processes_recovered, struct gpu_process **processes_info);
+static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info);
 
 struct gpu_vendor gpu_vendor_nvidia = {
   .init = gpuinfo_nvidia_init,
@@ -208,7 +206,7 @@ struct gpu_vendor gpu_vendor_nvidia = {
   .get_device_handles = gpuinfo_nvidia_get_device_handles,
   .populate_static_info = gpuinfo_nvidia_populate_static_info,
   .refresh_dynamic_info = gpuinfo_nvidia_refresh_dynamic_info,
-  .get_running_processes = gpuinfo_nvidia_get_running_processes,
+  .refresh_running_processes = gpuinfo_nvidia_get_running_processes,
 };
 
 __attribute__((constructor))
@@ -679,21 +677,14 @@ static void gpuinfo_nvidia_get_process_utilization(
   }
 }
 
-static void gpuinfo_nvidia_get_running_processes(
-    struct gpu_info *_gpu_info,
-    unsigned *num_processes_recovered, struct gpu_process **processes_info) {
+static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
   struct gpu_info_nvidia *gpu_info =
     container_of(_gpu_info, struct gpu_info_nvidia, base);
   nvmlDevice_t device = gpu_info->gpuhandle;
 
-  *num_processes_recovered = 0;
-  size_t array_size = COMMON_PROCESS_LINEAR_REALLOC_INC;
-  nvmlProcessInfo_t *retrieved_infos =
-      malloc(array_size * sizeof(*retrieved_infos));
-  if (!retrieved_infos) {
-    perror("Could not allocate memory: ");
-    exit(EXIT_FAILURE);
-  }
+  _gpu_info->processes_count = 0;
+  static size_t array_size = 0;
+  static nvmlProcessInfo_t *retrieved_infos = NULL;
   unsigned graphical_count = 0, compute_count = 0, recovered_count;
 retry_query_graphical:
   recovered_count = array_size;
@@ -728,27 +719,27 @@ retry_query_compute:
     compute_count = recovered_count;
   }
 
-  *num_processes_recovered = graphical_count + compute_count;
-  if (*num_processes_recovered > 0) {
-    *processes_info = calloc(*num_processes_recovered, sizeof(**processes_info));
-    if (!*processes_info) {
-      perror("Could not allocate memory: ");
-      exit(EXIT_FAILURE);
+  _gpu_info->processes_count = graphical_count + compute_count;
+  if (_gpu_info->processes_count > 0) {
+    if (_gpu_info->processes_count > _gpu_info->processes_array_size) {
+      _gpu_info->processes_array_size = _gpu_info->processes_count + COMMON_PROCESS_LINEAR_REALLOC_INC;
+      _gpu_info->processes =
+          reallocarray(_gpu_info->processes, _gpu_info->processes_array_size, sizeof(*_gpu_info->processes));
+      if (!_gpu_info->processes) {
+        perror("Could not allocate memory: ");
+        exit(EXIT_FAILURE);
+      }
     }
+    memset(_gpu_info->processes, 0, _gpu_info->processes_count * sizeof(*_gpu_info->processes));
     for (unsigned i = 0; i < graphical_count + compute_count; ++i) {
       if (i < graphical_count)
-        (*processes_info)[i].type = gpu_process_graphical;
+        _gpu_info->processes[i].type = gpu_process_graphical;
       else
-        (*processes_info)[i].type = gpu_process_compute;
-      (*processes_info)[i].pid = retrieved_infos[i].pid;
-      (*processes_info)[i].gpu_memory_usage = retrieved_infos[i].usedGpuMemory;
-      SET_VALID(gpuinfo_process_gpu_memory_usage_valid,
-                (*processes_info)[i].valid);
+        _gpu_info->processes[i].type = gpu_process_compute;
+      _gpu_info->processes[i].pid = retrieved_infos[i].pid;
+      _gpu_info->processes[i].gpu_memory_usage = retrieved_infos[i].usedGpuMemory;
+      SET_VALID(gpuinfo_process_gpu_memory_usage_valid, _gpu_info->processes[i].valid);
     }
-  } else {
-    *processes_info = NULL;
   }
-  free(retrieved_infos);
-  gpuinfo_nvidia_get_process_utilization(
-      gpu_info, *num_processes_recovered, *processes_info);
+  gpuinfo_nvidia_get_process_utilization(gpu_info, _gpu_info->processes_count, _gpu_info->processes);
 }

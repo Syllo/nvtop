@@ -27,6 +27,7 @@
 
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/get_process_info.h"
 #include "nvtop/time.h"
 #include "uthash.h"
@@ -242,14 +243,15 @@ static void gpuinfo_clean_old_cache(void) {
 bool gpuinfo_refresh_processes(struct list_head *devices) {
   struct gpu_info *device;
 
+  list_for_each_entry(device, devices, list) { device->processes_count = 0; }
+
+  // Go through the /proc hierarchy once and populate the processes for all registered GPUs
+  processinfo_sweep_fdinfos();
+
   list_for_each_entry(device, devices, list) {
-    free(device->processes);
-    device->processes = NULL;
-    device->processes_count = 0;
-    device->vendor->get_running_processes(device, &device->processes_count, &device->processes);
+    device->vendor->refresh_running_processes(device);
     gpuinfo_populate_process_info(device);
   }
-
   gpuinfo_clean_old_cache();
 
   return true;
