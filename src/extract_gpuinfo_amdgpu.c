@@ -82,6 +82,7 @@ static const char *local_error_string = didnt_call_gpuinfo_init;
 struct amdgpu_process_info_cache {
   unsigned client_id;
   uint64_t gfx_engine_used;
+  uint64_t compute_engine_used;
   uint64_t enc_engine_used;
   uint64_t dec_engine_used;
   nvtop_time last_measurement_tstamp;
@@ -892,6 +893,8 @@ static const char vram_old[] = "vram mem";
 static const char vram_new[] = "drm-memory-vram";
 static const char gfx_old[] = "gfx";
 static const char gfx_new[] = "drm-engine-gfx";
+static const char compute_old[] = "compute";
+static const char compute_new[] = "drm-engine-compute";
 static const char dec_old[] = "dec";
 static const char dec_new[] = "drm-engine-dec";
 static const char enc_old[] = "enc";
@@ -909,6 +912,8 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
 
+  // Default to graphical process type
+  process_info->type = gpu_process_graphical;
   while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
     char *key, *val;
     // Get rid of the newline if present
@@ -949,14 +954,16 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       SET_VALID(gpuinfo_process_gpu_memory_usage_valid, process_info->valid);
     } else {
       bool is_gfx_old = !strncmp(key, gfx_old, sizeof(gfx_old) - 1);
+      bool is_compute_old = !strncmp(key, compute_old, sizeof(compute_old) - 1);
       bool is_dec_old = !strncmp(key, dec_old, sizeof(dec_old) - 1);
       bool is_enc_old = !strncmp(key, enc_old, sizeof(enc_old) - 1);
 
       bool is_gfx_new = !strncmp(key, gfx_new, sizeof(gfx_new) - 1);
       bool is_dec_new = !strncmp(key, dec_new, sizeof(dec_new) - 1);
       bool is_enc_new = !strncmp(key, enc_new, sizeof(enc_new) - 1);
+      bool is_compute_new = !strncmp(key, compute_new, sizeof(compute_new) - 1);
 
-      if (is_gfx_old || is_dec_old || is_enc_old) {
+      if (is_gfx_old || is_compute_old || is_dec_old || is_enc_old) {
         // The old interface exposes a usage percentage with an unknown update interval
         unsigned int usage_percent_int;
         char *key_off, *endptr;
@@ -964,6 +971,8 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
 
         if (is_gfx_old)
           key_off = key + sizeof(gfx_old) - 1;
+        else if (is_compute_old)
+          key_off = key + sizeof(compute_old) - 1;
         else if (is_dec_old)
           key_off = key + sizeof(dec_old) - 1;
         else if (is_enc_old)
@@ -985,6 +994,10 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
         if (is_gfx_old) {
           process_info->gpu_usage += usage_percent_int;
           SET_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid);
+        } else if (is_compute_old) {
+          process_info->gpu_usage += usage_percent_int;
+          process_info->type = gpu_process_compute;
+          SET_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid);
         } else if (is_dec_old) {
           process_info->decode_usage += usage_percent_int;
           SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
@@ -992,7 +1005,7 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
           process_info->encode_usage += usage_percent_int;
           SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
         }
-      } else if (is_gfx_new || is_dec_new || is_enc_new) {
+      } else if (is_gfx_new || is_compute_new || is_dec_new || is_enc_new) {
         char *endptr;
         uint64_t time_spent = strtoull(val, &endptr, 10);
         if (endptr == val || strcmp(endptr, " ns"))
@@ -1001,6 +1014,10 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
         if (is_gfx_new) {
           process_info->gfx_engine_used = time_spent;
           SET_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid);
+        } else if (is_compute_new) {
+          process_info->compute_engine_used = time_spent;
+          process_info->type = gpu_process_compute;
+          SET_VALID(gpuinfo_process_gpu_compute_engine_used, process_info->valid);
         } else if (is_enc_new) {
           process_info->enc_engine_used = time_spent;
           SET_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid);
@@ -1028,6 +1045,11 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
             busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->gfx_engine_used, time_elapsed);
         SET_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid);
       }
+      if (IS_VALID(gpuinfo_process_gpu_compute_engine_used, process_info->valid)) {
+        process_info->gpu_usage = busy_usage_from_time_usage_round(process_info->compute_engine_used,
+                                                                   cache_entry->compute_engine_used, time_elapsed);
+        SET_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid);
+      }
       if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid)) {
         process_info->decode_usage =
             busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->dec_engine_used, time_elapsed);
@@ -1053,6 +1075,8 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
     // Store this measurement data
     if (IS_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid))
       cache_entry->gfx_engine_used = process_info->gfx_engine_used;
+    if (IS_VALID(gpuinfo_process_gpu_compute_engine_used, process_info->valid))
+      cache_entry->compute_engine_used = process_info->compute_engine_used;
     if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid))
       cache_entry->dec_engine_used = process_info->dec_engine_used;
     if (IS_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid))

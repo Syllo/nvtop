@@ -197,8 +197,6 @@ void processinfo_sweep_fdinfos(void) {
         memset(&current_callback->gpu_info->processes[process_index], 0,
                sizeof(*current_callback->gpu_info->processes));
         current_callback->gpu_info->processes[process_index].pid = client_pid;
-        // Default to graphical
-        current_callback->gpu_info->processes[process_index].type = gpu_process_graphical;
       }
       // No alloc/realloc with different pid case
       if (current_callback->gpu_info->processes_count == 0 ||
@@ -206,6 +204,8 @@ void processinfo_sweep_fdinfos(void) {
         goto new_empty_process_entry;
       }
       struct gpu_process *process_info = &current_callback->gpu_info->processes[process_index];
+
+      process_info->type = processes_info_local.type;
 
       if (IS_VALID(gpuinfo_process_gpu_memory_usage_valid, processes_info_local.valid)) {
         process_info->gpu_memory_usage += processes_info_local.gpu_memory_usage;

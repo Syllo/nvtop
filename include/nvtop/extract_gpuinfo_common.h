@@ -111,6 +111,7 @@ enum gpuinfo_process_info_valid {
   gpuinfo_process_cmdline_valid,
   gpuinfo_process_user_name_valid,
   gpuinfo_process_gpu_gfx_engine_used,
+  gpuinfo_process_gpu_compute_engine_used,
   gpuinfo_process_gpu_enc_engine_used,
   gpuinfo_process_gpu_dec_engine_used,
   gpuinfo_process_gpu_usage_valid,
@@ -130,6 +131,7 @@ struct gpu_process {
   char *cmdline;                       // Process User Name
   char *user_name;                     // Process User Name
   uint64_t gfx_engine_used;            // Time in nanoseconds this process spent using the GPU gfx
+  uint64_t compute_engine_used;        // Time in nanoseconds this process spent using the GPU compute
   uint64_t enc_engine_used;            // Time in nanoseconds this process spent using the GPU encoder
   uint64_t dec_engine_used;            // Time in nanoseconds this process spent using the GPU decoder
   unsigned gpu_usage;                  // Percentage of GPU used by the process
