@@ -79,6 +79,18 @@ static const char *local_error_string = didnt_call_gpuinfo_init;
 
 #define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(unsigned), in_ptr)
 
+#define SET_AMDGPU_CACHE(cachePtr, field, value) SET_VALUE(cachePtr, field, value, amdgpu_cache_)
+#define RESET_AMDGPU_CACHE(cachePtr, field) INVALIDATE_VALUE(cachePtr, field, amdgpu_cache_)
+#define AMDGPU_CACHE_FIELD_VALID(cachePtr, field) VALUE_IS_VALID(cachePtr, field, amdgpu_cache_)
+
+enum amdgpu_process_info_cache_valid {
+  amdgpu_cache_gfx_engine_used_valid = 0,
+  amdgpu_cache_compute_engine_used_valid,
+  amdgpu_cache_enc_engine_used_valid,
+  amdgpu_cache_dec_engine_used_valid,
+  amdgpu_cache_process_info_cache_valid_count
+};
+
 struct amdgpu_process_info_cache {
   unsigned client_id;
   uint64_t gfx_engine_used;
@@ -86,6 +98,7 @@ struct amdgpu_process_info_cache {
   uint64_t enc_engine_used;
   uint64_t dec_engine_used;
   nvtop_time last_measurement_tstamp;
+  unsigned char valid[(amdgpu_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
   UT_hash_handle hh;
 };
 
@@ -1040,22 +1053,26 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
     if (cache_entry) {
       uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
       HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
-      if (IS_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid)) {
+      if (IS_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid) &&
+          AMDGPU_CACHE_FIELD_VALID(cache_entry, gfx_engine_used)) {
         process_info->gpu_usage =
             busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->gfx_engine_used, time_elapsed);
         SET_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid);
       }
-      if (IS_VALID(gpuinfo_process_gpu_compute_engine_used, process_info->valid)) {
+      if (IS_VALID(gpuinfo_process_gpu_compute_engine_used, process_info->valid) &&
+          AMDGPU_CACHE_FIELD_VALID(cache_entry, compute_engine_used)) {
         process_info->gpu_usage = busy_usage_from_time_usage_round(process_info->compute_engine_used,
                                                                    cache_entry->compute_engine_used, time_elapsed);
         SET_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid);
       }
-      if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid)) {
+      if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid) &&
+          AMDGPU_CACHE_FIELD_VALID(cache_entry, dec_engine_used)) {
         process_info->decode_usage =
             busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->dec_engine_used, time_elapsed);
         SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
       }
-      if (IS_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid)) {
+      if (IS_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid) &&
+          AMDGPU_CACHE_FIELD_VALID(cache_entry, enc_engine_used)) {
         process_info->encode_usage =
             busy_usage_from_time_usage_round(process_info->enc_engine_used, cache_entry->enc_engine_used, time_elapsed);
         SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
@@ -1073,14 +1090,16 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
     assert(!cache_entry_check && "We should not be processing a client id twice per update");
 
     // Store this measurement data
+    memset(&cache_entry->valid, 0, sizeof(cache_entry->valid));
     if (IS_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid))
-      cache_entry->gfx_engine_used = process_info->gfx_engine_used;
+      SET_AMDGPU_CACHE(cache_entry, gfx_engine_used, process_info->gfx_engine_used);
     if (IS_VALID(gpuinfo_process_gpu_compute_engine_used, process_info->valid))
-      cache_entry->compute_engine_used = process_info->compute_engine_used;
+      SET_AMDGPU_CACHE(cache_entry, compute_engine_used, process_info->compute_engine_used);
     if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid))
-      cache_entry->dec_engine_used = process_info->dec_engine_used;
+      SET_AMDGPU_CACHE(cache_entry, dec_engine_used, process_info->dec_engine_used);
     if (IS_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid))
-      cache_entry->enc_engine_used = process_info->enc_engine_used;
+      SET_AMDGPU_CACHE(cache_entry, enc_engine_used, process_info->enc_engine_used);
+
     cache_entry->last_measurement_tstamp = current_time;
     HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
   }

@@ -35,6 +35,17 @@
 #define RESET_VALID(x, y) ((y)[(x) / CHAR_BIT] &= ~(1 << ((x) % CHAR_BIT)))
 #define RESET_ALL(y) memset(y, 0, sizeof(y))
 
+#define SET_VALUE(structPtr, field, value, prefix)                                                                     \
+  do {                                                                                                                 \
+    (structPtr)->field = (value);                                                                                      \
+    SET_VALID(prefix##field##_valid, (structPtr)->valid);                                                              \
+  } while (0)
+#define INVALIDATE_VALUE(structPtr, field, prefix)                                                                     \
+  do {                                                                                                                 \
+    RESET_VALID(prefix##field##_valid, (structPtr)->valid);                                                            \
+  } while (0)
+#define VALUE_IS_VALID(structPtr, field, prefix) IS_VALID(prefix##field##_valid, (structPtr)->valid)
+
 enum gpuinfo_static_info_valid {
   gpuinfo_device_name_valid = 0,
   gpuinfo_max_pcie_gen_valid,
