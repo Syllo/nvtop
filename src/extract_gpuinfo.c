@@ -122,36 +122,33 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
 
     struct gpuinfo_dynamic_info *dynamic_info = &device->dynamic_info;
     // If the global GPU usage is not available, try computing it from the processes info
-    bool needGpuRate = !IS_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
+    bool needGpuRate = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate);
     // AMDGPU does not provide encode and decode utilization through the DRM sensor info.
     // Update them here since per-process sysfs exposes this information.
-    bool needGpuEncode = !IS_VALID(gpuinfo_encoder_rate_valid, dynamic_info->valid);
-    bool needGpuDecode = !IS_VALID(gpuinfo_decoder_rate_valid, dynamic_info->valid);
+    bool needGpuEncode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate);
+    bool needGpuDecode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate);
     if (needGpuRate || needGpuEncode || needGpuDecode) {
       for (unsigned processIdx = 0; processIdx < device->processes_count; ++processIdx) {
         struct gpu_process *process_info = &device->processes[processIdx];
-        if (needGpuRate && IS_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid)) {
-          if (IS_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid)) {
+        if (needGpuRate && GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage)) {
+          if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate)) {
             dynamic_info->gpu_util_rate = MYMIN(100, dynamic_info->gpu_util_rate + process_info->gpu_usage);
           } else {
-            dynamic_info->gpu_util_rate = MYMIN(100, process_info->gpu_usage);
-            SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
+            SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, MYMIN(100, process_info->gpu_usage));
           }
         }
-        if (needGpuEncode && IS_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid)) {
-          if (IS_VALID(gpuinfo_encoder_rate_valid, dynamic_info->valid)) {
+        if (needGpuEncode && GPUINFO_PROCESS_FIELD_VALID(process_info, encode_usage)) {
+          if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate)) {
             dynamic_info->encoder_rate = MYMIN(100, dynamic_info->encoder_rate + process_info->encode_usage);
           } else {
-            dynamic_info->encoder_rate = MYMIN(100, process_info->encode_usage);
-            SET_VALID(gpuinfo_encoder_rate_valid, dynamic_info->valid);
+            SET_GPUINFO_DYNAMIC(dynamic_info, encoder_rate, MYMIN(100, process_info->encode_usage));
           }
         }
-        if (needGpuDecode && IS_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid)) {
-          if (IS_VALID(gpuinfo_decoder_rate_valid, dynamic_info->valid)) {
+        if (needGpuDecode && GPUINFO_PROCESS_FIELD_VALID(process_info, decode_usage)) {
+          if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate)) {
             dynamic_info->decoder_rate = MYMIN(100, dynamic_info->decoder_rate + process_info->decode_usage);
           } else {
-            dynamic_info->decoder_rate = MYMIN(100, process_info->decode_usage);
-            SET_VALID(gpuinfo_decoder_rate_valid, dynamic_info->valid);
+            SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, MYMIN(100, process_info->decode_usage));
           }
         }
       }
@@ -186,12 +183,10 @@ static void gpuinfo_populate_process_info(struct gpu_info *device) {
     }
 
     if (cached_pid_info->cmdline) {
-      device->processes[j].cmdline = cached_pid_info->cmdline;
-      SET_VALID(gpuinfo_process_cmdline_valid, device->processes[j].valid);
+      SET_GPUINFO_PROCESS(&device->processes[j], cmdline, cached_pid_info->cmdline);
     }
     if (cached_pid_info->user_name) {
-      device->processes[j].user_name = cached_pid_info->user_name;
-      SET_VALID(gpuinfo_process_user_name_valid, device->processes[j].valid);
+      SET_GPUINFO_PROCESS(&device->processes[j], user_name, cached_pid_info->user_name);
     }
 
     struct process_cpu_usage cpu_usage;
@@ -201,29 +196,25 @@ static void gpuinfo_populate_process_info(struct gpu_info *device) {
             100. *
             (cpu_usage.total_user_time + cpu_usage.total_kernel_time - cached_pid_info->last_total_consumed_cpu_time) /
             nvtop_difftime(cached_pid_info->last_measurement_timestamp, cpu_usage.timestamp));
-        device->processes[j].cpu_usage = (unsigned)usage_percent;
+        SET_GPUINFO_PROCESS(&device->processes[j], cpu_usage, (unsigned)usage_percent);
       } else {
-        device->processes[j].cpu_usage = 0;
+        SET_GPUINFO_PROCESS(&device->processes[j], cpu_usage, 0);
       }
-      SET_VALID(gpuinfo_process_cpu_usage_valid, device->processes[j].valid);
+      SET_GPUINFO_PROCESS(&device->processes[j], cpu_memory_res, cpu_usage.resident_memory);
+      SET_GPUINFO_PROCESS(&device->processes[j], cpu_memory_virt, cpu_usage.virtual_memory);
       cached_pid_info->last_measurement_timestamp = cpu_usage.timestamp;
       cached_pid_info->last_total_consumed_cpu_time = cpu_usage.total_kernel_time + cpu_usage.total_user_time;
-      device->processes[j].cpu_memory_res = cpu_usage.resident_memory;
-      SET_VALID(gpuinfo_process_cpu_memory_res_valid, device->processes[j].valid);
-      device->processes[j].cpu_memory_virt = cpu_usage.virtual_memory;
-      SET_VALID(gpuinfo_process_cpu_memory_virt_valid, device->processes[j].valid);
     } else {
       cached_pid_info->last_total_consumed_cpu_time = -1;
     }
 
     // Process memory usage percent of total device memory
-    if (IS_VALID(gpuinfo_total_memory_valid, device->dynamic_info.valid) &&
-        IS_VALID(gpuinfo_process_gpu_memory_usage_valid, device->processes[j].valid)) {
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory) &&
+        GPUINFO_PROCESS_FIELD_VALID(&device->processes[j], gpu_memory_usage)) {
       float percentage =
           roundf(100.f * (float)device->processes[j].gpu_memory_usage / (float)device->dynamic_info.total_memory);
-      device->processes[j].gpu_memory_percentage = (unsigned)percentage;
       assert(device->processes[j].gpu_memory_percentage <= 100);
-      SET_VALID(gpuinfo_process_gpu_memory_percentage_valid, device->processes[j].valid);
+      SET_GPUINFO_PROCESS(&device->processes[j], gpu_memory_percentage, (unsigned)percentage);
     }
   }
 }

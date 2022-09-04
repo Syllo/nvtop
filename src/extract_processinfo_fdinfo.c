@@ -207,39 +207,41 @@ void processinfo_sweep_fdinfos(void) {
 
       process_info->type = processes_info_local.type;
 
-      if (IS_VALID(gpuinfo_process_gpu_memory_usage_valid, processes_info_local.valid)) {
-        process_info->gpu_memory_usage += processes_info_local.gpu_memory_usage;
-        SET_VALID(gpuinfo_process_gpu_memory_usage_valid, process_info->valid);
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_memory_usage)) {
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage,
+                            process_info->gpu_memory_usage + processes_info_local.gpu_memory_usage);
       }
 
-      if (IS_VALID(gpuinfo_process_gpu_usage_valid, processes_info_local.valid)) {
-        process_info->gpu_usage += processes_info_local.gpu_usage;
-        SET_VALID(gpuinfo_process_gpu_usage_valid, process_info->valid);
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_usage)) {
+        SET_GPUINFO_PROCESS(process_info, gpu_usage, process_info->gpu_usage + processes_info_local.gpu_usage);
       }
 
-      if (IS_VALID(gpuinfo_process_gpu_encoder_valid, processes_info_local.valid)) {
-        process_info->encode_usage += processes_info_local.encode_usage;
-        SET_VALID(gpuinfo_process_gpu_encoder_valid, process_info->valid);
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, encode_usage)) {
+        SET_GPUINFO_PROCESS(process_info, encode_usage, process_info->encode_usage + processes_info_local.encode_usage);
       }
 
-      if (IS_VALID(gpuinfo_process_gpu_decoder_valid, processes_info_local.valid)) {
-        process_info->decode_usage += processes_info_local.decode_usage;
-        SET_VALID(gpuinfo_process_gpu_decoder_valid, process_info->valid);
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, decode_usage)) {
+        SET_GPUINFO_PROCESS(process_info, decode_usage, process_info->decode_usage + processes_info_local.decode_usage);
       }
 
-      if (IS_VALID(gpuinfo_process_gpu_gfx_engine_used, processes_info_local.valid)) {
-        process_info->gfx_engine_used += processes_info_local.gfx_engine_used;
-        SET_VALID(gpuinfo_process_gpu_gfx_engine_used, process_info->valid);
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gfx_engine_used)) {
+        SET_GPUINFO_PROCESS(process_info, gfx_engine_used,
+                            process_info->gfx_engine_used + processes_info_local.gfx_engine_used);
       }
 
-      if (IS_VALID(gpuinfo_process_gpu_enc_engine_used, processes_info_local.valid)) {
-        process_info->enc_engine_used += processes_info_local.enc_engine_used;
-        SET_VALID(gpuinfo_process_gpu_enc_engine_used, process_info->valid);
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, compute_engine_used)) {
+        SET_GPUINFO_PROCESS(process_info, compute_engine_used,
+                            process_info->compute_engine_used + processes_info_local.compute_engine_used);
       }
 
-      if (IS_VALID(gpuinfo_process_gpu_dec_engine_used, processes_info_local.valid)) {
-        process_info->dec_engine_used += processes_info_local.dec_engine_used;
-        SET_VALID(gpuinfo_process_gpu_dec_engine_used, process_info->valid);
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, enc_engine_used)) {
+        SET_GPUINFO_PROCESS(process_info, enc_engine_used,
+                            process_info->enc_engine_used + processes_info_local.enc_engine_used);
+      }
+
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, dec_engine_used)) {
+        SET_GPUINFO_PROCESS(process_info, dec_engine_used,
+                            process_info->dec_engine_used + processes_info_local.dec_engine_used);
       }
     }
 
