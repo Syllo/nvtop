@@ -107,8 +107,6 @@ struct amdgpu_process_info_cache {
   UT_hash_handle hh;
 };
 
-#define PDEV_LEN 20
-
 struct gpu_info_amdgpu {
   struct gpu_info base;
 
@@ -858,44 +856,17 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 }
 
-static bool extract_kv(char *buf, char **key, char **val) {
-  char *p = buf;
-
-  p = index(buf, ':');
-  if (!p || p == buf)
-    return false;
-  *p = '\0';
-
-  while (*++p && isspace(*p))
-    ;
-  if (!*p)
-    return false;
-
-  *key = buf;
-  *val = p;
-
-  return true;
-}
-
-static inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
-                                                        uint64_t time_between_measurement) {
-  return ((current_use_ns - previous_use_ns) * UINT64_C(100) + time_between_measurement / UINT64_C(2)) /
-         time_between_measurement;
-}
-
-static const char pdev_old[] = "pdev";
-static const char pdev_new[] = "drm-pdev";
-static const char vram_old[] = "vram mem";
-static const char vram_new[] = "drm-memory-vram";
-static const char gfx_old[] = "gfx";
-static const char gfx_new[] = "drm-engine-gfx";
-static const char compute_old[] = "compute";
-static const char compute_new[] = "drm-engine-compute";
-static const char dec_old[] = "dec";
-static const char dec_new[] = "drm-engine-dec";
-static const char enc_old[] = "enc";
-static const char enc_new[] = "drm-engine-enc";
-static const char client_id[] = "drm-client-id";
+static const char drm_amdgpu_pdev_old[] = "pdev";
+static const char drm_amdgpu_vram_old[] = "vram mem";
+static const char drm_amdgpu_vram[] = "drm-memory-vram";
+static const char drm_amdgpu_gfx_old[] = "gfx";
+static const char drm_amdgpu_gfx[] = "drm-engine-gfx";
+static const char drm_amdgpu_compute_old[] = "compute";
+static const char drm_amdgpu_compute[] = "drm-engine-compute";
+static const char drm_amdgpu_dec_old[] = "dec";
+static const char drm_amdgpu_dec[] = "drm-engine-dec";
+static const char drm_amdgpu_enc_old[] = "enc";
+static const char drm_amdgpu_enc[] = "drm-engine-enc";
 
 static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_amdgpu *gpu_info = container_of(info, struct gpu_info_amdgpu, base);
@@ -915,15 +886,15 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       line[--count] = '\0';
     }
 
-    if (!extract_kv(line, &key, &val))
+    if (!extract_drm_fdinfo_key_value(line, &key, &val))
       continue;
 
     // see drivers/gpu/drm/amd/amdgpu/amdgpu_fdinfo.c amdgpu_show_fdinfo()
-    if (!strcmp(key, pdev_old) || !strcmp(key, pdev_new)) {
+    if (!strcmp(key, drm_amdgpu_pdev_old) || !strcmp(key, drm_pdev)) {
       if (strcmp(val, gpu_info->pdev)) {
         return false;
       }
-    } else if (!strcmp(key, client_id)) {
+    } else if (!strcmp(key, drm_client_id)) {
       // Client id is a unique identifier. From the DRM documentation "Unique value relating to the open DRM
       // file descriptor used to distinguish duplicated and shared file descriptors. Conceptually the value should map
       // 1:1 to the in kernel representation of struct drm_file instances."
@@ -935,7 +906,7 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if (*endptr)
         continue;
       client_id_set = true;
-    } else if (!strcmp(key, vram_old) || !strcmp(key, vram_new)) {
+    } else if (!strcmp(key, drm_amdgpu_vram_old) || !strcmp(key, drm_amdgpu_vram)) {
       // TODO: do we count "gtt mem" too?
       unsigned long mem_int;
       char *endptr;
@@ -946,15 +917,15 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
 
       SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
     } else {
-      bool is_gfx_old = !strncmp(key, gfx_old, sizeof(gfx_old) - 1);
-      bool is_compute_old = !strncmp(key, compute_old, sizeof(compute_old) - 1);
-      bool is_dec_old = !strncmp(key, dec_old, sizeof(dec_old) - 1);
-      bool is_enc_old = !strncmp(key, enc_old, sizeof(enc_old) - 1);
+      bool is_gfx_old = !strncmp(key, drm_amdgpu_gfx_old, sizeof(drm_amdgpu_gfx_old) - 1);
+      bool is_compute_old = !strncmp(key, drm_amdgpu_compute_old, sizeof(drm_amdgpu_compute_old) - 1);
+      bool is_dec_old = !strncmp(key, drm_amdgpu_dec_old, sizeof(drm_amdgpu_dec_old) - 1);
+      bool is_enc_old = !strncmp(key, drm_amdgpu_enc_old, sizeof(drm_amdgpu_enc_old) - 1);
 
-      bool is_gfx_new = !strncmp(key, gfx_new, sizeof(gfx_new) - 1);
-      bool is_dec_new = !strncmp(key, dec_new, sizeof(dec_new) - 1);
-      bool is_enc_new = !strncmp(key, enc_new, sizeof(enc_new) - 1);
-      bool is_compute_new = !strncmp(key, compute_new, sizeof(compute_new) - 1);
+      bool is_gfx_new = !strncmp(key, drm_amdgpu_gfx, sizeof(drm_amdgpu_gfx) - 1);
+      bool is_dec_new = !strncmp(key, drm_amdgpu_dec, sizeof(drm_amdgpu_dec) - 1);
+      bool is_enc_new = !strncmp(key, drm_amdgpu_enc, sizeof(drm_amdgpu_enc) - 1);
+      bool is_compute_new = !strncmp(key, drm_amdgpu_compute, sizeof(drm_amdgpu_compute) - 1);
 
       if (is_gfx_old || is_compute_old || is_dec_old || is_enc_old) {
         // The old interface exposes a usage percentage with an unknown update interval
@@ -963,13 +934,13 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
         double usage_percent;
 
         if (is_gfx_old)
-          key_off = key + sizeof(gfx_old) - 1;
+          key_off = key + sizeof(drm_amdgpu_gfx_old) - 1;
         else if (is_compute_old)
-          key_off = key + sizeof(compute_old) - 1;
+          key_off = key + sizeof(drm_amdgpu_compute_old) - 1;
         else if (is_dec_old)
-          key_off = key + sizeof(dec_old) - 1;
+          key_off = key + sizeof(drm_amdgpu_dec_old) - 1;
         else if (is_enc_old)
-          key_off = key + sizeof(enc_old) - 1;
+          key_off = key + sizeof(drm_amdgpu_enc_old) - 1;
         else
           continue;
 

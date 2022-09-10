@@ -50,6 +50,17 @@ if (AMDGPU_SUPPORT)
   endif()
 endif()
 
+if (INTEL_SUPPORT)
+  find_package(UDev)
+  if (UDEV_FOUND)
+    target_include_directories(nvtop PRIVATE ${UDEV_INCLUDE_DIR})
+    target_sources(nvtop PRIVATE extract_gpuinfo_intel.c)
+    target_link_libraries(nvtop PRIVATE ${UDEV_LIBRARIES})
+  else()
+    message(STATUS "libdrm not found; Disabling Intel support")
+  endif()
+endif()
+
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)

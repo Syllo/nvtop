@@ -197,4 +197,17 @@ struct gpu_info {
 
 void register_gpu_vendor(struct gpu_vendor *vendor);
 
+bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
+
+// fdinfo DRM interface names common to multiple drivers
+#define PDEV_LEN 16
+extern const char drm_pdev[];
+extern const char drm_client_id[];
+
+inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
+                                                 uint64_t time_between_measurement) {
+  return ((current_use_ns - previous_use_ns) * UINT64_C(100) + time_between_measurement / UINT64_C(2)) /
+         time_between_measurement;
+}
+
 #endif // EXTRACT_GPUINFO_COMMON_H__
