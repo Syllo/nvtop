@@ -168,9 +168,12 @@ void processinfo_sweep_fdinfos(void) {
 
       bool callback_success = false;
       struct callback_entry *current_callback = NULL;
+      processes_info_local.pid = client_pid;
+      processes_info_local.type = gpu_process_graphical;
       for (unsigned callback_idx = 0; !callback_success && callback_idx < registered_callback_entries; ++callback_idx) {
         rewind(fdinfo_file);
         fflush(fdinfo_file);
+        RESET_ALL(processes_info_local.valid);
         current_callback = &callback_entries[callback_idx];
         callback_success = current_callback->callback(current_callback->gpu_info, fdinfo_file, &processes_info_local);
       }

@@ -91,8 +91,13 @@ enum amdgpu_process_info_cache_valid {
   amdgpu_cache_process_info_cache_valid_count
 };
 
-struct amdgpu_process_info_cache {
+struct __attribute__((__packed__)) unique_cache_id {
   unsigned client_id;
+  pid_t pid;
+};
+
+struct amdgpu_process_info_cache {
+  struct unique_cache_id client_id;
   uint64_t gfx_engine_used;
   uint64_t compute_engine_used;
   uint64_t enc_engine_used;
@@ -874,7 +879,6 @@ static bool extract_kv(char *buf, char **key, char **val) {
 
 static unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
                                                  uint64_t time_between_measurement) {
-  assert(current_use_ns >= previous_use_ns);
   return ((current_use_ns - previous_use_ns) * 100 + time_between_measurement / 2) / time_between_measurement;
 }
 
@@ -903,8 +907,6 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
 
-  // Default to graphical process type
-  process_info->type = gpu_process_graphical;
   while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
     char *key, *val;
     // Get rid of the newline if present
@@ -1018,30 +1020,36 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
   // busy percentage since the last measurement.
   if (client_id_set) {
     struct amdgpu_process_info_cache *cache_entry;
-    HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &cid, cache_entry);
+    struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid};
+    HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &ucid, cache_entry);
     if (cache_entry) {
       uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
       HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
-          AMDGPU_CACHE_FIELD_VALID(cache_entry, gfx_engine_used)) {
+          AMDGPU_CACHE_FIELD_VALID(cache_entry, gfx_engine_used) &&
+          // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
+          process_info->gfx_engine_used >= cache_entry->gfx_engine_used) {
         SET_GPUINFO_PROCESS(process_info, gpu_usage,
                             busy_usage_from_time_usage_round(process_info->gfx_engine_used,
                                                              cache_entry->gfx_engine_used, time_elapsed));
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used) &&
-          AMDGPU_CACHE_FIELD_VALID(cache_entry, compute_engine_used)) {
+          AMDGPU_CACHE_FIELD_VALID(cache_entry, compute_engine_used) &&
+          process_info->compute_engine_used >= cache_entry->compute_engine_used) {
         SET_GPUINFO_PROCESS(process_info, gpu_usage,
                             busy_usage_from_time_usage_round(process_info->compute_engine_used,
                                                              cache_entry->compute_engine_used, time_elapsed));
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used) &&
-          AMDGPU_CACHE_FIELD_VALID(cache_entry, dec_engine_used)) {
+          AMDGPU_CACHE_FIELD_VALID(cache_entry, dec_engine_used) &&
+          process_info->dec_engine_used >= cache_entry->dec_engine_used) {
         SET_GPUINFO_PROCESS(process_info, decode_usage,
                             busy_usage_from_time_usage_round(process_info->dec_engine_used,
                                                              cache_entry->dec_engine_used, time_elapsed));
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used) &&
-          AMDGPU_CACHE_FIELD_VALID(cache_entry, enc_engine_used)) {
+          AMDGPU_CACHE_FIELD_VALID(cache_entry, enc_engine_used) &&
+          process_info->enc_engine_used >= cache_entry->enc_engine_used) {
         SET_GPUINFO_PROCESS(process_info, encode_usage,
                             busy_usage_from_time_usage_round(process_info->enc_engine_used,
                                                              cache_entry->enc_engine_used, time_elapsed));
@@ -1050,13 +1058,16 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       cache_entry = calloc(1, sizeof(*cache_entry));
       if (!cache_entry)
         goto parse_fdinfo_exit;
-      cache_entry->client_id = cid;
+      cache_entry->client_id.client_id = cid;
+      cache_entry->client_id.pid = process_info->pid;
     }
+
+#ifndef NDEBUG
     // We should only process one fdinfo entry per client id per update
     struct amdgpu_process_info_cache *cache_entry_check;
     HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cid, cache_entry_check);
-    (void)cache_entry_check;
     assert(!cache_entry_check && "We should not be processing a client id twice per update");
+#endif
 
     // Store this measurement data
     RESET_ALL(cache_entry->valid);
