@@ -24,6 +24,7 @@
 extern inline void nvtop_get_current_time(nvtop_time *time);
 extern inline double nvtop_difftime(nvtop_time t0, nvtop_time t1);
 extern inline uint64_t nvtop_difftime_u64(nvtop_time t0, nvtop_time t1);
+extern inline uint64_t nvtop_time_u64(nvtop_time t0);
 extern inline nvtop_time nvtop_add_time(nvtop_time t0, nvtop_time t1);
 extern inline nvtop_time nvtop_substract_time(nvtop_time t0, nvtop_time t1);
 extern inline nvtop_time nvtop_hmns_to_time(unsigned hour, unsigned minutes,
