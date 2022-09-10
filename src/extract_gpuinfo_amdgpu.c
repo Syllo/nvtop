@@ -877,8 +877,8 @@ static bool extract_kv(char *buf, char **key, char **val) {
   return true;
 }
 
-static unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
-                                                 uint64_t time_between_measurement) {
+static inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
+                                                        uint64_t time_between_measurement) {
   return ((current_use_ns - previous_use_ns) * UINT64_C(100) + time_between_measurement / UINT64_C(2)) /
          time_between_measurement;
 }
@@ -1029,28 +1029,32 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
           AMDGPU_CACHE_FIELD_VALID(cache_entry, gfx_engine_used) &&
           // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
-          process_info->gfx_engine_used >= cache_entry->gfx_engine_used) {
+          process_info->gfx_engine_used >= cache_entry->gfx_engine_used &&
+          process_info->gfx_engine_used - cache_entry->gfx_engine_used <= time_elapsed) {
         SET_GPUINFO_PROCESS(process_info, gpu_usage,
                             busy_usage_from_time_usage_round(process_info->gfx_engine_used,
                                                              cache_entry->gfx_engine_used, time_elapsed));
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used) &&
           AMDGPU_CACHE_FIELD_VALID(cache_entry, compute_engine_used) &&
-          process_info->compute_engine_used >= cache_entry->compute_engine_used) {
+          process_info->compute_engine_used >= cache_entry->compute_engine_used &&
+          process_info->compute_engine_used - cache_entry->compute_engine_used <= time_elapsed) {
         SET_GPUINFO_PROCESS(process_info, gpu_usage,
                             busy_usage_from_time_usage_round(process_info->compute_engine_used,
                                                              cache_entry->compute_engine_used, time_elapsed));
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used) &&
           AMDGPU_CACHE_FIELD_VALID(cache_entry, dec_engine_used) &&
-          process_info->dec_engine_used >= cache_entry->dec_engine_used) {
+          process_info->dec_engine_used >= cache_entry->dec_engine_used &&
+          process_info->dec_engine_used - cache_entry->dec_engine_used <= time_elapsed) {
         SET_GPUINFO_PROCESS(process_info, decode_usage,
                             busy_usage_from_time_usage_round(process_info->dec_engine_used,
                                                              cache_entry->dec_engine_used, time_elapsed));
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used) &&
           AMDGPU_CACHE_FIELD_VALID(cache_entry, enc_engine_used) &&
-          process_info->enc_engine_used >= cache_entry->enc_engine_used) {
+          process_info->enc_engine_used >= cache_entry->enc_engine_used &&
+          process_info->enc_engine_used - cache_entry->enc_engine_used <= time_elapsed) {
         SET_GPUINFO_PROCESS(process_info, encode_usage,
                             busy_usage_from_time_usage_round(process_info->enc_engine_used,
                                                              cache_entry->enc_engine_used, time_elapsed));
