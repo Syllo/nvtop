@@ -14,6 +14,7 @@ add_executable (nvtop
   interface_ring_buffer.c
   get_process_info_linux.c
   extract_gpuinfo.c
+  extract_processinfo_fdinfo.c
   time.c
   plot.c
   ini.c)

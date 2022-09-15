@@ -645,7 +645,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     wcolor_set(dev->name_win, cyan_color, NULL);
     mvwprintw(dev->name_win, 0, 0, "Device %-2u", dev_id);
     wstandend(dev->name_win);
-    if (IS_VALID(gpuinfo_device_name_valid, device->static_info.valid)) {
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name)) {
       wprintw(dev->name_win, "[%s]", device->static_info.device_name);
       wnoutrefresh(dev->name_win);
     } else {
@@ -654,8 +654,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     }
     bool display_encode = false;
     bool display_decode = false;
-    encode_decode_show_select(dev, IS_VALID(gpuinfo_encoder_rate_valid, device->dynamic_info.valid),
-                              IS_VALID(gpuinfo_decoder_rate_valid, device->dynamic_info.valid),
+    encode_decode_show_select(dev, GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate),
+                              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate),
                               device->dynamic_info.encoder_rate, device->dynamic_info.decoder_rate,
                               interface->options.encode_decode_hiding_timer, &display_encode, &display_decode);
 
@@ -680,17 +680,17 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     char buff[1024];
     if (display_encode) {
       unsigned rate =
-          IS_VALID(gpuinfo_encoder_rate_valid, device->dynamic_info.valid) ? device->dynamic_info.encoder_rate : 0;
+          GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate) ? device->dynamic_info.encoder_rate : 0;
       snprintf(buff, 1024, "%u%%", rate);
       draw_percentage_meter(encode_win, "ENC", rate, buff);
     }
     if (display_decode) {
       unsigned rate =
-          IS_VALID(gpuinfo_decoder_rate_valid, device->dynamic_info.valid) ? device->dynamic_info.decoder_rate : 0;
+          GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate) ? device->dynamic_info.decoder_rate : 0;
       snprintf(buff, 1024, "%u%%", rate);
       draw_percentage_meter(decode_win, "DEC", rate, buff);
     }
-    if (IS_VALID(gpuinfo_gpu_util_rate_valid, device->dynamic_info.valid)) {
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate)) {
       snprintf(buff, 1024, "%u%%", device->dynamic_info.gpu_util_rate);
       draw_percentage_meter(gpu_util_win, "GPU",
                             device->dynamic_info.gpu_util_rate, buff);
@@ -699,8 +699,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       draw_percentage_meter(gpu_util_win, "GPU", 0, buff);
     }
 
-    if (IS_VALID(gpuinfo_total_memory_valid, device->dynamic_info.valid) &&
-        IS_VALID(gpuinfo_used_memory_valid, device->dynamic_info.valid)) {
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory) &&
+        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, used_memory)) {
       double total_mem = device->dynamic_info.total_memory;
       double used_mem = device->dynamic_info.used_memory;
       double total_prefixed = total_mem, used_prefixed = used_mem;
@@ -719,9 +719,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       snprintf(buff, 1024, "N/A");
       draw_percentage_meter(mem_util_win, "MEM", 0, buff);
     }
-    if (IS_VALID(gpuinfo_gpu_temp_valid, device->dynamic_info.valid)) {
-      if (!IS_VALID(gpuinfo_temperature_slowdown_valid,
-                    device->static_info.valid))
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
+      if (!GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_slowdown_threshold))
         device->static_info.temperature_slowdown_threshold = 0;
       draw_temp_color(dev->temperature, device->dynamic_info.gpu_temp,
                       device->static_info.temperature_slowdown_threshold,
@@ -737,7 +736,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     }
 
     // FAN
-    if (IS_VALID(gpuinfo_fan_speed_valid, device->dynamic_info.valid))
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed))
       mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%",
                 device->dynamic_info.fan_speed);
     else
@@ -747,8 +746,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // GPU CLOCK
     werase(dev->gpu_clock_info);
-    if (IS_VALID(gpuinfo_curr_gpu_clock_speed_valid,
-                 device->dynamic_info.valid))
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed))
       mvwprintw(dev->gpu_clock_info, 0, 0, "GPU %uMHz",
                 device->dynamic_info.gpu_clock_speed);
     else
@@ -759,8 +757,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // MEM CLOCK
     werase(dev->mem_clock_info);
-    if (IS_VALID(gpuinfo_curr_mem_clock_speed_valid,
-                 device->dynamic_info.valid))
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed))
       mvwprintw(dev->mem_clock_info, 0, 0, "MEM %uMHz",
                 device->dynamic_info.mem_clock_speed);
     else
@@ -770,21 +767,17 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // POWER
     werase(dev->power_info);
-    if (IS_VALID(gpuinfo_power_draw_valid, device->dynamic_info.valid) &&
-        IS_VALID(gpuinfo_power_draw_max_valid, device->dynamic_info.valid))
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
+        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
       mvwprintw(dev->power_info, 0, 0, "POW %3u / %3u W",
                 device->dynamic_info.power_draw / 1000,
                 device->dynamic_info.power_draw_max / 1000);
-    else if (IS_VALID(gpuinfo_power_draw_valid,
-                      device->dynamic_info.valid) &&
-             !IS_VALID(gpuinfo_power_draw_max_valid,
-                       device->dynamic_info.valid))
+    else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
+             !GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
       mvwprintw(dev->power_info, 0, 0, "POW %3u W",
                 device->dynamic_info.power_draw / 1000);
-    else if (!IS_VALID(gpuinfo_power_draw_valid,
-                       device->dynamic_info.valid) &&
-             IS_VALID(gpuinfo_power_draw_max_valid,
-                      device->dynamic_info.valid))
+    else if (!GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
+             GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
       mvwprintw(dev->power_info, 0, 0, "POW N/A / %3u W",
                 device->dynamic_info.power_draw_max / 1000);
     else
@@ -799,25 +792,25 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, "GEN ");
     wstandend(dev->pcie_info);
-    if (IS_VALID(gpuinfo_pcie_link_gen_valid, device->dynamic_info.valid) &&
-        IS_VALID(gpuinfo_pcie_link_width_valid, device->dynamic_info.valid))
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen) &&
+        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_width))
       wprintw(dev->pcie_info, "%u@%2ux",
-              device->dynamic_info.curr_pcie_link_gen,
-              device->dynamic_info.curr_pcie_link_width);
+              device->dynamic_info.pcie_link_gen,
+              device->dynamic_info.pcie_link_width);
     else
       wprintw(dev->pcie_info, "N/A");
 
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " RX: ");
     wstandend(dev->pcie_info);
-    if (IS_VALID(gpuinfo_pcie_rx_valid, device->dynamic_info.valid))
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
       print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
     else
       wprintw(dev->pcie_info, "N/A");
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " TX: ");
     wstandend(dev->pcie_info);
-    if (IS_VALID(gpuinfo_pcie_tx_valid, device->dynamic_info.valid))
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
       print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
     else
       wprintw(dev->pcie_info, "N/A");
@@ -885,8 +878,7 @@ static int compare_pid_asc(const void *pp1, const void *pp2) {
 static int compare_username_desc(const void *pp1, const void *pp2) {
   const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
   const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (IS_VALID(gpuinfo_process_user_name_valid, p1->process->valid) &&
-      IS_VALID(gpuinfo_process_user_name_valid, p2->process->valid))
+  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, user_name) && GPUINFO_PROCESS_FIELD_VALID(p2->process, user_name))
     return -strcmp(p1->process->user_name, p2->process->user_name);
   else
     return 0;
@@ -899,8 +891,7 @@ static int compare_username_asc(const void *pp1, const void *pp2) {
 static int compare_process_name_desc(const void *pp1, const void *pp2) {
   const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
   const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (IS_VALID(gpuinfo_process_cmdline_valid, p1->process->valid) &&
-      IS_VALID(gpuinfo_process_cmdline_valid, p2->process->valid))
+  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, cmdline) && GPUINFO_PROCESS_FIELD_VALID(p2->process, cmdline))
     return -strcmp(p1->process->cmdline, p2->process->cmdline);
   else
     return 0;
@@ -913,10 +904,9 @@ static int compare_process_name_asc(const void *pp1, const void *pp2) {
 static int compare_mem_usage_desc(const void *pp1, const void *pp2) {
   const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
   const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (IS_VALID(gpuinfo_process_gpu_memory_usage_valid, p1->process->valid) &&
-      IS_VALID(gpuinfo_process_gpu_memory_usage_valid, p2->process->valid))
-    return p1->process->gpu_memory_usage >= p2->process->gpu_memory_usage ? -1
-                                                                          : 1;
+  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, gpu_memory_usage) &&
+      GPUINFO_PROCESS_FIELD_VALID(p2->process, gpu_memory_usage))
+    return p1->process->gpu_memory_usage >= p2->process->gpu_memory_usage ? -1 : 1;
   else
     return 0;
 }
@@ -928,8 +918,7 @@ static int compare_mem_usage_asc(const void *pp1, const void *pp2) {
 static int compare_cpu_usage_desc(const void *pp1, const void *pp2) {
   const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
   const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (IS_VALID(gpuinfo_process_cpu_usage_valid, p1->process->valid) &&
-      IS_VALID(gpuinfo_process_cpu_usage_valid, p2->process->valid))
+  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, cpu_usage) && GPUINFO_PROCESS_FIELD_VALID(p2->process, cpu_usage))
     return p1->process->cpu_usage >= p2->process->cpu_usage ? -1 : 1;
   else
     return 0;
@@ -942,8 +931,8 @@ static int compare_cpu_usage_asc(const void *pp1, const void *pp2) {
 static int compare_cpu_mem_usage_desc(const void *pp1, const void *pp2) {
   const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
   const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (IS_VALID(gpuinfo_process_cpu_memory_res_valid, p1->process->valid) &&
-      IS_VALID(gpuinfo_process_cpu_memory_res_valid, p2->process->valid))
+  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, cpu_memory_res) &&
+      GPUINFO_PROCESS_FIELD_VALID(p2->process, cpu_memory_res))
     return p1->process->cpu_memory_res >= p2->process->cpu_memory_res ? -1 : 1;
   else
     return 0;
@@ -977,13 +966,12 @@ static int compare_process_type_asc(const void *pp1, const void *pp2) {
 static int compare_process_gpu_rate_desc(const void *pp1, const void *pp2) {
   const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
   const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (IS_VALID(gpuinfo_process_gpu_usage_valid, p1->process->valid) &&
-      IS_VALID(gpuinfo_process_gpu_usage_valid, p2->process->valid)) {
+  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, gpu_usage) && GPUINFO_PROCESS_FIELD_VALID(p2->process, gpu_usage)) {
     return p1->process->gpu_usage > p2->process->gpu_usage ? -1 : 1;
   } else {
-    if (IS_VALID(gpuinfo_process_gpu_usage_valid, p1->process->valid)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(p1->process, gpu_usage)) {
       return p1->process->gpu_usage > 0 ? -1 : 0;
-    } else if (IS_VALID(gpuinfo_process_gpu_usage_valid, p2->process->valid)) {
+    } else if (GPUINFO_PROCESS_FIELD_VALID(p2->process, gpu_usage)) {
       return p2->process->gpu_usage > 0 ? 1 : 0;
     } else {
       return 0;
@@ -998,14 +986,13 @@ static int compare_process_gpu_rate_asc(const void *pp1, const void *pp2) {
 static int compare_process_enc_rate_desc(const void *pp1, const void *pp2) {
   const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
   const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (IS_VALID(gpuinfo_process_gpu_encoder_valid, p1->process->valid) &&
-      IS_VALID(gpuinfo_process_gpu_encoder_valid, p2->process->valid)) {
+  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, encode_usage) &&
+      GPUINFO_PROCESS_FIELD_VALID(p2->process, encode_usage)) {
     return p1->process->encode_usage >= p2->process->encode_usage ? -1 : 1;
   } else {
-    if (IS_VALID(gpuinfo_process_gpu_encoder_valid, p1->process->valid)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(p1->process, encode_usage)) {
       return p1->process->encode_usage > 0 ? -1 : 0;
-    } else if (IS_VALID(gpuinfo_process_gpu_encoder_valid,
-                        p2->process->valid)) {
+    } else if (GPUINFO_PROCESS_FIELD_VALID(p2->process, encode_usage)) {
       return p2->process->encode_usage > 0 ? 1 : 0;
     } else {
       return 0;
@@ -1020,14 +1007,13 @@ static int compare_process_enc_rate_asc(const void *pp1, const void *pp2) {
 static int compare_process_dec_rate_desc(const void *pp1, const void *pp2) {
   const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
   const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (IS_VALID(gpuinfo_process_gpu_decoder_valid, p1->process->valid) &&
-      IS_VALID(gpuinfo_process_gpu_decoder_valid, p2->process->valid)) {
+  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, decode_usage) &&
+      GPUINFO_PROCESS_FIELD_VALID(p2->process, decode_usage)) {
     return p1->process->decode_usage >= p2->process->decode_usage ? -1 : 1;
   } else {
-    if (IS_VALID(gpuinfo_process_gpu_decoder_valid, p1->process->valid)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(p1->process, decode_usage)) {
       return p1->process->decode_usage > 0 ? -1 : 0;
-    } else if (IS_VALID(gpuinfo_process_gpu_decoder_valid,
-                        p2->process->valid)) {
+    } else if (GPUINFO_PROCESS_FIELD_VALID(p2->process, decode_usage)) {
       return p2->process->decode_usage > 0 ? 1 : 0;
     } else {
       return 0;
@@ -1227,8 +1213,7 @@ print_processes_on_screen(all_processes all_procs,
 
     if (process_is_field_displayed(process_user, fields_to_display)) {
       const char *username;
-      if (IS_VALID(gpuinfo_process_user_name_valid,
-                   processes[i].process->valid)) {
+      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, user_name)) {
         username = processes[i].process->user_name;
       } else {
         username = "N/A";
@@ -1263,8 +1248,7 @@ print_processes_on_screen(all_processes all_procs,
 
     if (process_is_field_displayed(process_gpu_rate, fields_to_display)) {
       unsigned gpu_usage = 0;
-      if (IS_VALID(gpuinfo_process_gpu_usage_valid,
-                   processes[i].process->valid)) {
+      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_usage)) {
         gpu_usage = processes[i].process->gpu_usage;
       }
       printed +=
@@ -1274,8 +1258,7 @@ print_processes_on_screen(all_processes all_procs,
 
     if (process_is_field_displayed(process_enc_rate, fields_to_display)) {
       unsigned encoder_rate = 0;
-      if (IS_VALID(gpuinfo_process_gpu_encoder_valid,
-                   processes[i].process->valid)) {
+      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, encode_usage)) {
         encoder_rate = processes[i].process->encode_usage;
       }
       printed +=
@@ -1285,8 +1268,7 @@ print_processes_on_screen(all_processes all_procs,
 
     if (process_is_field_displayed(process_dec_rate, fields_to_display)) {
       unsigned decode_rate = 0;
-      if (IS_VALID(gpuinfo_process_gpu_decoder_valid,
-                   processes[i].process->valid)) {
+      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, decode_usage)) {
         decode_rate = processes[i].process->decode_usage;
       }
       printed +=
@@ -1295,10 +1277,8 @@ print_processes_on_screen(all_processes all_procs,
     }
 
     if (process_is_field_displayed(process_memory, fields_to_display)) {
-      if (IS_VALID(gpuinfo_process_gpu_memory_usage_valid,
-                   processes[i].process->valid)) {
-        if (IS_VALID(gpuinfo_process_gpu_memory_percentage_valid,
-                     processes[i].process->valid)) {
+      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_usage)) {
+        if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_percentage)) {
           snprintf(
               memory, 9 + 1, "%6uMiB",
               (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
@@ -1318,8 +1298,7 @@ print_processes_on_screen(all_processes all_procs,
     }
 
     if (process_is_field_displayed(process_cpu_usage, fields_to_display)) {
-      if (IS_VALID(gpuinfo_process_cpu_usage_valid,
-                   processes[i].process->valid))
+      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, cpu_usage))
         snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1,
                  "%u%%", processes[i].process->cpu_usage);
       else
@@ -1331,8 +1310,7 @@ print_processes_on_screen(all_processes all_procs,
     }
 
     if (process_is_field_displayed(process_cpu_mem_usage, fields_to_display)) {
-      if (IS_VALID(gpuinfo_process_cpu_memory_res_valid,
-                   processes[i].process->valid))
+      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, cpu_memory_res))
         snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1,
                  "%zuMiB", processes[i].process->cpu_memory_res / 1048576);
       else
@@ -1344,7 +1322,7 @@ print_processes_on_screen(all_processes all_procs,
     }
 
     if (process_is_field_displayed(process_command, fields_to_display)) {
-      if (IS_VALID(gpuinfo_process_cmdline_valid, processes[i].process->valid))
+      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, cmdline))
         printed += snprintf(&process_print_buffer[printed],
                             process_buffer_line_size - printed, "%.*s",
                             process_buffer_line_size - printed,
@@ -1424,8 +1402,7 @@ static void draw_processes(struct list_head *devices,
 
   unsigned largest_username = 4;
   for (unsigned i = 0; i < all_procs.processes_count; ++i) {
-    if (IS_VALID(gpuinfo_process_user_name_valid,
-                 all_procs.processes[i].process->valid)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(all_procs.processes[i].process, user_name)) {
       unsigned length = strlen(all_procs.processes[i].process->user_name);
       if (length > largest_username)
         largest_username = length;
@@ -1676,38 +1653,31 @@ void save_current_data_to_ring(struct list_head *devices,
         unsigned data_val = 0;
         switch (info) {
         case plot_gpu_rate:
-          if (IS_VALID(gpuinfo_gpu_util_rate_valid,
-                       device->dynamic_info.valid))
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate))
             data_val = device->dynamic_info.gpu_util_rate;
           break;
         case plot_gpu_mem_rate:
-          if (IS_VALID(gpuinfo_mem_util_rate_valid,
-                       device->dynamic_info.valid))
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_util_rate))
             data_val = device->dynamic_info.mem_util_rate;
           break;
         case plot_encoder_rate:
-          if (IS_VALID(gpuinfo_encoder_rate_valid,
-                       device->dynamic_info.valid))
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate))
             data_val = device->dynamic_info.encoder_rate;
           break;
         case plot_decoder_rate:
-          if (IS_VALID(gpuinfo_decoder_rate_valid,
-                       device->dynamic_info.valid))
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate))
             data_val = device->dynamic_info.decoder_rate;
           break;
         case plot_gpu_temperature:
-          if (IS_VALID(gpuinfo_gpu_temp_valid,
-                       device->dynamic_info.valid)) {
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
             data_val = device->dynamic_info.gpu_temp;
             if (data_val > 100)
               data_val = 100u;
           }
           break;
         case plot_gpu_power_draw_rate:
-          if (IS_VALID(gpuinfo_power_draw_valid,
-                       device->dynamic_info.valid) &&
-              IS_VALID(gpuinfo_power_draw_max_valid,
-                       device->dynamic_info.valid)) {
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
+              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max)) {
             data_val = device->dynamic_info.power_draw * 100 /
                        device->dynamic_info.power_draw_max;
             if (data_val > 100)
@@ -1715,25 +1685,20 @@ void save_current_data_to_ring(struct list_head *devices,
           }
           break;
         case plot_fan_speed:
-          if (IS_VALID(gpuinfo_fan_speed_valid,
-                       device->dynamic_info.valid)) {
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed)) {
             data_val = device->dynamic_info.fan_speed;
           }
           break;
         case plot_gpu_clock_rate:
-          if (IS_VALID(gpuinfo_curr_gpu_clock_speed_valid,
-                       device->dynamic_info.valid) &&
-              IS_VALID(gpuinfo_max_gpu_clock_speed_valid,
-                       device->dynamic_info.valid)) {
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed) &&
+              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed_max)) {
             data_val = device->dynamic_info.gpu_clock_speed * 100 /
                        device->dynamic_info.gpu_clock_speed_max;
           }
           break;
         case plot_gpu_mem_clock_rate:
-          if (IS_VALID(gpuinfo_curr_mem_clock_speed_valid,
-                       device->dynamic_info.valid) &&
-              IS_VALID(gpuinfo_max_mem_clock_speed_valid,
-                       device->dynamic_info.valid)) {
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed) &&
+              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed_max)) {
             data_val = device->dynamic_info.mem_clock_speed * 100 /
                        device->dynamic_info.mem_clock_speed_max;
           }

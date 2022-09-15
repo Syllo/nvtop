@@ -50,8 +50,10 @@ inline double nvtop_difftime(nvtop_time t0, nvtop_time t1) {
   return secdiff;
 }
 
+inline uint64_t nvtop_time_u64(nvtop_time t0) { return (uint64_t)(t0.tv_sec) * UINT64_C(1000000000) + t0.tv_nsec; }
+
 inline uint64_t nvtop_difftime_u64(nvtop_time t0, nvtop_time t1) {
-  return (uint64_t)(t1.tv_sec - t0.tv_sec) * 1000000000 + t1.tv_nsec - t0.tv_nsec;
+  return (uint64_t)(t1.tv_sec - t0.tv_sec) * UINT64_C(1000000000) + (uint64_t)t1.tv_nsec - (uint64_t)t0.tv_nsec;
 }
 
 inline nvtop_time nvtop_hmns_to_time(unsigned hour, unsigned minutes,
