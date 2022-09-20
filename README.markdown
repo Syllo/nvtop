@@ -167,6 +167,13 @@ Several libraries are required in order for NVTOP to display GPU information:
   sudo layman -a guru && sudo emerge -av nvtop
   ```
 
+### Snap
+
+- ```bash
+  snap install nvtop
+  snap connect nvtop:hardware-observe
+  ```
+
 ### Docker
 
 - NVIDIA drivers (same as above)

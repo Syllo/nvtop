@@ -1,0 +1,72 @@
+name: nvtop
+base: core22
+adopt-info: nvtop
+summary: 'AMD and NVIDIA GPUs htop like monitoring tool'
+description: |
+  Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD and NVIDIA GPUs. It can handle multiple GPUs and print information about them in a htop familiar way.
+license: GPL-3.0
+grade: stable
+confinement: strict
+architectures:
+- build-on: amd64
+- build-on: arm64
+- build-on: armhf
+- build-on: ppc64el
+- build-on: s390x
+compression: lzo
+apps:
+  nvtop:
+    command: usr/bin/nvtop
+    plugs:
+    - opengl
+    - home
+    - hardware-observe
+layout:
+  /usr/share/libdrm:
+    symlink: $SNAP/usr/share/libdrm
+parts:
+  libdrm:
+    source: https://gitlab.freedesktop.org/mesa/drm.git
+    source-tag: libdrm-2.4.113
+    plugin: meson
+    meson-parameters:
+    - --prefix=/usr
+    - --sysconfdir=/etc
+    - --libdir=lib/$CRAFT_ARCH_TRIPLET
+    - -Dradeon=enabled
+    - -Damdgpu=enabled
+    - -Dudev=true
+    - -Dnouveau=enabled
+    - -Dintel=enabled
+    build-packages:
+    - meson
+    - pkg-config
+    - libudev-dev
+    - libpciaccess-dev
+    prime:
+    - -usr/include
+    - -usr/lib/$CRAFT_ARCH_TRIPLET/pkgconfig
+  nvtop:
+    after: [ libdrm ]
+    source: .
+    plugin: cmake
+    cmake-parameters:
+    - -DCMAKE_INSTALL_PREFIX=/usr
+    - -DNVIDIA_SUPPORT=ON
+    - -DAMDGPU_SUPPORT=ON
+    override-pull: |
+      set -eux
+      craftctl default
+      VERSION="$(git describe --tags $(git rev-list --tags --max-count=1))"
+      craftctl set version=$VERSION
+      git checkout $VERSION
+    build-snaps:
+    - cmake
+    build-packages:
+    - gcc
+    - libncurses-dev
+    stage-packages:
+    - libncurses6
+    - libncursesw6
+    prime:
+    - -usr/share/doc
