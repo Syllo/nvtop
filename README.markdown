@@ -172,6 +172,7 @@ Several libraries are required in order for NVTOP to display GPU information:
 - ```bash
   snap install nvtop
   snap connect nvtop:hardware-observe
+  snap connect nvtop:process-control
   ```
 
 ### Docker

@@ -21,6 +21,7 @@ apps:
     - opengl
     - home
     - hardware-observe
+    - process-control
 layout:
   /usr/share/libdrm:
     symlink: $SNAP/usr/share/libdrm
