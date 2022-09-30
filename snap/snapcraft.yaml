@@ -22,6 +22,8 @@ apps:
     - home
     - hardware-observe
     - process-control
+    - system-observe
+    - kubernetes-support # Temporarily required for nvtop to display AMD GPU processes. Once apparmor rule to allow access to @{PROC}/[0-9]*/fdinfo/ is added to system-observe, this can be removed.
 layout:
   /usr/share/libdrm:
     symlink: $SNAP/usr/share/libdrm
