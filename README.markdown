@@ -28,6 +28,7 @@ Table of Contents
   - [Fedora / RedHat / CentOS](#fedora--redhat--centos)
   - [OpenSUSE](#opensuse)
   - [Arch Linux](#arch-linux)
+  - [Snap](#snap)
   - [Docker](#docker)
 - [NVTOP Build](#nvtop-build)
 - [Troubleshoot](#troubleshoot)
@@ -91,7 +92,9 @@ Several libraries are required in order for NVTOP to display GPU information:
 
 ### Ubuntu / Debian
 
-#### Ubuntu impish (21.10) / Debian buster (stable) and more recent
+If your distribution provides the snap utility, follow the [snap installation process](#snap) to obtain an up-to-date version of nvtop.
+
+#### Ubuntu Impish (21.10), Debian buster (stable) and more recent
 
 - ```bash
   sudo apt install nvtop
@@ -166,6 +169,22 @@ Several libraries are required in order for NVTOP to display GPU information:
 - ```bash
   sudo layman -a guru && sudo emerge -av nvtop
   ```
+
+### Snap
+
+- ```bash
+  snap install nvtop
+  # Add the capability to kill processes inside nvtop
+  snap connect nvtop:process-control
+  # Add the capability to inspect GPU info (Fan, PCIe, Power, etc)
+  snap connect nvtop:hardware-observe
+  # AMDGPU process list support (read /proc/<pid>)
+  snap connect nvtop:system-observe
+  # Temporary workaround to get per-process GPU usage (read /proc/<pid>/fdinfo)
+  snap connect nvtop:kubernetes-support
+  ```
+
+Notice: The connect commands allow 
 
 ### Docker
 
