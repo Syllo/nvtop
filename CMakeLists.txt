@@ -78,6 +78,14 @@ install(FILES
   DESTINATION share/man/man1/
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ
   RENAME nvtop.1)
+install(FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/desktop/nvtop.svg"
+  DESTINATION share/icons
+  PERMISSIONS OWNER_READ GROUP_READ WORLD_READ)
+install(FILES
+  "${CMAKE_CURRENT_SOURCE_DIR}/desktop/nvtop.desktop"
+  DESTINATION share/applications
+  PERMISSIONS OWNER_READ GROUP_READ WORLD_READ)
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
