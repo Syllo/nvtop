@@ -28,6 +28,7 @@ Table of Contents
   - [Fedora / RedHat / CentOS](#fedora--redhat--centos)
   - [OpenSUSE](#opensuse)
   - [Arch Linux](#arch-linux)
+  - [AppImage](#appimage)
   - [Snap](#snap)
   - [Docker](#docker)
 - [NVTOP Build](#nvtop-build)
@@ -94,6 +95,8 @@ Several libraries are required in order for NVTOP to display GPU information:
 
 If your distribution provides the snap utility, follow the [snap installation process](#snap) to obtain an up-to-date version of nvtop.
 
+A standalone application is available as [AppImage](#appimage).
+
 #### Ubuntu Impish (21.10), Debian buster (stable) and more recent
 
 - ```bash
@@ -122,6 +125,10 @@ If your distribution provides the snap utility, follow the [snap installation pr
 
 ### Fedora / RedHat / CentOS
 
+A standalone application is available as [AppImage](#appimage).
+
+#### Build process for Fedora / RedHat / CentOS:
+
 - AMD Dependecy
   ```bash
   sudo dnf install libdrm-devel
@@ -140,6 +147,10 @@ If your distribution provides the snap utility, follow the [snap installation pr
   - Follow the [NVTOP Build](#nvtop-build)
 
 ### OpenSUSE
+
+A standalone application is available as [AppImage](#appimage).
+
+Build process for OpenSUSE:
 
 - AMD Dependecy
   ```bash
@@ -169,6 +180,23 @@ If your distribution provides the snap utility, follow the [snap installation pr
 - ```bash
   sudo layman -a guru && sudo emerge -av nvtop
   ```
+
+### AppImage
+
+An AppImage is a standalone application. Just download the AppImage, make it executable and run it!
+
+- Go to the [release page](https://github.com/Syllo/nvtop/releases/latest) and download `nvtop-x86_64.AppImage`
+
+- ```bash
+  # Go to the download location ** The path may differ on your system **
+  cd $HOME/Downloads
+  # Make the AppImage executable
+  chmod u+x nvtop-x86_64.AppImage
+  # Enjoy nvtop
+  ./nvtop-x86_64.AppImage
+  ```
+
+If you are curious how that works, please visit the [AppImage website](https://appimage.org/).
 
 ### Snap
 
