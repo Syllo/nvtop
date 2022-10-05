@@ -4,7 +4,9 @@ adopt-info: nvtop
 summary: 'AMD and NVIDIA GPUs htop like monitoring tool'
 description: |
   Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD and NVIDIA GPUs. It can handle multiple GPUs and print information about them in a htop familiar way.
-license: GPL-3.0
+license: GPL-3.0-or-later
+issues: https://github.com/Syllo/nvtop/issues
+icon: desktop/nvtop.svg
 grade: stable
 confinement: strict
 architectures:
@@ -17,13 +19,14 @@ compression: lzo
 apps:
   nvtop:
     command: usr/bin/nvtop
+    desktop: usr/share/applications/nvtop.desktop
     plugs:
     - opengl
     - home
     - hardware-observe
     - process-control
     - system-observe
-    - kubernetes-support # Temporarily required for nvtop to display AMD GPU processes. Once apparmor rule to allow access to @{PROC}/[0-9]*/fdinfo/ is added to system-observe, this can be removed.
+    # - kubernetes-support # Temporarily required for nvtop to display AMD GPU processes. Once apparmor rule to allow access to @{PROC}/[0-9]*/fdinfo/ is added to system-observe, this can be removed.
 layout:
   /usr/share/libdrm:
     symlink: $SNAP/usr/share/libdrm
