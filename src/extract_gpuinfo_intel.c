@@ -167,12 +167,12 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
           (void)time_spent;
         }
         if (is_video) {
-          // TODO: is this truly decode?
+          // Video is either encode or decode, hence set both
+          SET_GPUINFO_PROCESS(process_info, dec_engine_used, time_spent);
           SET_GPUINFO_PROCESS(process_info, enc_engine_used, time_spent);
         }
         if (is_video_enhance) {
-          // TODO: is this truly decode?
-          SET_GPUINFO_PROCESS(process_info, dec_engine_used, time_spent);
+          // TODO: what is this
         }
       }
     }
@@ -248,6 +248,7 @@ static void add_intel_cards(struct udev_device *dev, struct list_head *devices, 
       !strcmp(udev_device_get_driver(parent), "i915") &&
       !strcmp(udev_device_get_sysattr_value(parent, "enable"), "1")) {
     struct gpu_info_intel *thisGPU = &gpu_infos[intel_gpu_count++];
+    thisGPU->base.vendor = &gpu_vendor_intel;
     thisGPU->card_device = udev_device_ref(dev);
     thisGPU->card_parent = udev_device_ref(parent);
     const char *pdev_val = udev_device_get_property_value(thisGPU->card_parent, "PCI_SLOT_NAME");
@@ -290,7 +291,7 @@ bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *
 
   unsigned num_devices = 0;
   udev_list_entry_foreach(dev_list_entry, devices) { num_devices++; }
-  gpu_infos = reallocarray(gpu_infos, num_devices, sizeof(*gpu_infos));
+  gpu_infos = calloc(num_devices, sizeof(*gpu_infos));
   if (!gpu_infos)
     return false;
 
@@ -325,8 +326,10 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
+  RESET_ALL(dynamic_info->valid);
+
   // GPU clock
-  const char *gt_cur_freq = udev_device_get_sysattr_value(gpu_info->card_device, "gt_gt_cur_freq_mhz");
+  const char *gt_cur_freq = udev_device_get_sysattr_value(gpu_info->card_device, "gt_cur_freq_mhz");
   if (gt_cur_freq) {
     unsigned val = strtoul(gt_cur_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
@@ -334,7 +337,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   const char *gt_max_freq = udev_device_get_sysattr_value(gpu_info->card_device, "gt_max_freq_mhz");
   if (gt_max_freq) {
     unsigned val = strtoul(gt_max_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
   }
 
   // Mem clock
