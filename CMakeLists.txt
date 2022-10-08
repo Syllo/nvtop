@@ -75,6 +75,10 @@ configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/manpage/nvtop.in"
   "${CMAKE_CURRENT_BINARY_DIR}/manpage/nvtop"
   IMMEDIATE @ONLY)
+configure_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/desktop/nvtop.metainfo.xml.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/desktop/nvtop.metainfo.xml"
+  IMMEDIATE @ONLY)
 install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/manpage/nvtop"
   DESTINATION share/man/man1/
@@ -83,11 +87,15 @@ install(FILES
 install(FILES
   "${CMAKE_CURRENT_SOURCE_DIR}/desktop/nvtop.svg"
   DESTINATION share/icons
-  PERMISSIONS OWNER_READ GROUP_READ WORLD_READ)
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 install(FILES
   "${CMAKE_CURRENT_SOURCE_DIR}/desktop/nvtop.desktop"
   DESTINATION share/applications
-  PERMISSIONS OWNER_READ GROUP_READ WORLD_READ)
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/desktop/nvtop.metainfo.xml"
+  DESTINATION share/metainfo
+  PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"

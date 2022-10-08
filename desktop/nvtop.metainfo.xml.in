@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="console-application">
+    <id>io.github.syllo.nvtop</id>
+
+    <name>nvtop</name>
+    <summary>AMD and NVIDIA GPU process monitoring</summary>
+
+    <metadata_license>CC0-1.0</metadata_license>
+    <project_license>GPL-3.0-or-later</project_license>
+    <developer_name>Maxime Schmitt</developer_name>
+
+    <description>
+        <p>Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD and NVIDIA GPUs. It can handle multiple GPUs and print information about them in a htop familiar way.</p>
+    </description>
+
+    <launchable type="desktop-id">nvtop.desktop</launchable>
+
+    <icon type="stock">nvtop</icon>
+
+    <categories>
+        <category>System</category>
+        <category>Monitor</category>
+    </categories>
+
+    <url type="homepage">https://github.com/Syllo/nvtop</url>
+
+    <screenshots>
+        <screenshot type="default">
+            <caption>The nvtop interface</caption>
+            <image>https://github.com/Syllo/nvtop/blob/master/screenshot/NVTOP_ex1.png</image>
+        </screenshot>
+        <screenshot>
+            <caption>The nvtop option screen</caption>
+            <image>https://github.com/Syllo/nvtop/blob/master/screenshot/Nvtop-config.png</image>
+        </screenshot>
+    </screenshots>
+
+    <provides>
+        <binary>nvtop</binary>
+    </provides>
+    <releases>
+    <release version="@nvtop_VERSION_MAJOR@.@nvtop_VERSION_MINOR@.@nvtop_VERSION_PATCH@" date="@TODAY_ISO_8601@"></release>
+    </releases>
+</component>
