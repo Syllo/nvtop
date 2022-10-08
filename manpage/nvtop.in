@@ -1,7 +1,7 @@
 .\" Manpage for nvtop
 .\" Contact maxime.schmitt91@gmail.com
 
-.TH nvtop 1 "April 2022" "Version @nvtop_VERSION_MAJOR@.@nvtop_VERSION_MINOR@.@nvtop_VERSION_PATCH@" "nvtop command"
+.TH nvtop 1 "@TODAY_MANPAGE@" "Version @nvtop_VERSION_MAJOR@.@nvtop_VERSION_MINOR@.@nvtop_VERSION_PATCH@" "nvtop command"
 
 .SH NAME
 nvtop \- interactive GPU process viewer

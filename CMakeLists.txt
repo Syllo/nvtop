@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.10)
 
 #///////////////////////////////////////////////////////////////////#
 #                              PROJECT                              #
@@ -69,6 +69,8 @@ add_subdirectory(src)
 #                             INSTALL                               #
 #///////////////////////////////////////////////////////////////////#
 
+string(TIMESTAMP TODAY_MANPAGE "%B %Y")
+string(TIMESTAMP TODAY_ISO_8601 "%Y-%m-%d")
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/manpage/nvtop.in"
   "${CMAKE_CURRENT_BINARY_DIR}/manpage/nvtop"
