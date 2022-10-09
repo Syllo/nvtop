@@ -2,3 +2,4 @@
 *ctags
 build/
 cmake-build*/
+.vscode
