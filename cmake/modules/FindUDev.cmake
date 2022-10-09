@@ -4,50 +4,52 @@
 # UDEV_INCLUDE_DIR - where to find header files
 # UDEV_LIBRARIES - the libraries to link against udev
 # UDEV_STABLE - it's true when is the version greater or equals to 143 - version when the libudev was stabilized in its API
+# An "udev" target is created when found
 #
+# Adapted from a version of Petr Vanek
 # copyright (c) 2011 Petr Vanek <petr@scribus.info>
+# copyright (c) 2022 Maxime Schmitt <maxime.schmitt91@gmail.com>
+#
 # Redistribution and use of this file is allowed according to the terms of the BSD license.
 #
 
-find_path(
-    UDEV_INCLUDE_DIR
+pkg_search_module(PC_UDEV QUIET libudev)
+
+find_path(UDEV_INCLUDE_DIR
+    NAMES
     libudev.h
-    /usr/include
-    /usr/local/include
-    ${UDEV_PATH_INCLUDES}
+    HINTS
+    ${PC_UDEV_INCLUDE_DIRS}
 )
 
-find_library(
-    UDEV_LIBRARIES
-    NAMES udev libudev
-    PATHS ${ADDITIONAL_LIBRARY_PATHS}
-        ${UDEV_PATH_LIB}
+find_library(UDEV_LIBRARY
+    NAMES udev
+    HINTS
+    ${PC_UDEV_LIBRARY_DIRS}
 )
-
-if(UDEV_LIBRARIES AND UDEV_INCLUDE_DIR)
-    set(UDEV_FOUND "YES")
-    execute_process(COMMAND pkg-config --atleast-version=143 libudev RESULT_VARIABLE UDEV_STABLE)
-    # retvale is 0 of the condition is "true" so we need to negate the value...
-    if(UDEV_STABLE)
-        set(UDEV_STABLE 0)
-    else()
-        set(UDEV_STABLE 1)
-    endif()
-    message(STATUS "libudev stable: ${UDEV_STABLE}")
-endif()
+include(FindPackageHandleStandardArgs)
+find_package_handle_standard_args(UDev
+    REQUIRED_VARS UDEV_LIBRARY UDEV_INCLUDE_DIR
+    VERSION_VAR PC_UDEV_VERSION)
 
 if(UDEV_FOUND)
-    message(STATUS "Found UDev: ${UDEV_LIBRARIES}")
-    message(STATUS "   include: ${UDEV_INCLUDE_DIR}")
-else()
-    message(STATUS "UDev not found.")
-    message(STATUS "UDev: You can specify includes: -DUDEV_PATH_INCLUDES=/opt/udev/include")
-    message(STATUS "      currently found includes: ${UDEV_INCLUDE_DIR}")
-    message(STATUS "UDev: You can specify libs: -DUDEV_PATH_LIB=/opt/udev/lib")
-    message(STATUS "      currently found libs: ${UDEV_LIBRARIES}")
-    if(UDev_FIND_REQUIRED)
-        message(FATAL_ERROR "Could not find UDev library")
+    if(PC_UDEV_VERSION GREATER_EQUAL "143")
+        set(UDEV_STABLE TRUE)
+    else()
+        set(UDEV_STABLE FALSE)
     endif()
+
+    set(UDEV_LIBRARIES ${UDEV_LIBRARY})
+    set(UDEV_INCLUDE_DIRS ${UDEV_INCLUDE_DIR})
+
+    message(STATUS "Libudev stable: ${UDEV_STABLE}")
+
+    add_library(udev INTERFACE IMPORTED GLOBAL)
+    target_include_directories(udev INTERFACE ${UDEV_INCLUDE_DIRS})
+    target_link_libraries(udev INTERFACE ${UDEV_LIBRARIES})
+else()
+    set(UDEV_LIBRARIES)
+    set(UDEV_INCLUDE_DIRS)
 endif()
 
-mark_as_advanced(UDEV_INCLUDE_DIR UDEV_LIBRARIES)
+mark_as_advanced(UDEV_LIBRARIES UDEV_INCLUDE_DIRS)
