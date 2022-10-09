@@ -28,11 +28,13 @@ typedef struct nvtop_device nvtop_device;
 nvtop_device *nvtop_device_ref(nvtop_device *device);
 nvtop_device *nvtop_device_unref(nvtop_device *device);
 
+int nvtop_device_new_from_syspath(nvtop_device **ret, const char *syspath);
 int nvtop_device_get_parent(nvtop_device *child, nvtop_device **parent);
 int nvtop_device_get_driver(nvtop_device *device, const char **driver);
 int nvtop_device_get_devname(nvtop_device *device, const char **devname);
 int nvtop_device_get_property_value(nvtop_device *device, const char *key, const char **value);
 int nvtop_device_get_sysattr_value(nvtop_device *device, const char *sysattr, const char **value);
+int nvtop_device_get_syspath(nvtop_device *device, const char **sysPath);
 
 // Devices enumerator
 typedef struct nvtop_device_enumerator nvtop_device_enumerator;
@@ -44,7 +46,19 @@ nvtop_device_enumerator *nvtop_enumerator_unref(nvtop_device_enumerator *enumera
 int nvtop_device_enumerator_add_match_subsystem(nvtop_device_enumerator *enumerator, const char *subsystem, int match);
 int nvtop_device_enumerator_add_match_property(nvtop_device_enumerator *enumerator, const char *property,
                                                const char *value);
+int nvtop_device_enumerator_add_match_parent(nvtop_device_enumerator *enumerator, nvtop_device *parent);
+
 nvtop_device *nvtop_enumerator_get_device_first(nvtop_device_enumerator *enumerator);
 nvtop_device *nvtop_enumerator_get_device_next(nvtop_device_enumerator *enumerator);
+
+typedef struct {
+  unsigned width;
+  unsigned speed;
+} nvtop_pcie_link;
+
+int nvtop_device_maximum_pcie_link(nvtop_device *dev, nvtop_pcie_link *pcie_info);
+int nvtop_device_current_pcie_link(nvtop_device *dev, nvtop_pcie_link *pcie_info);
+
+nvtop_device *nvtop_device_get_hwmon(nvtop_device *dev);
 
 #endif // NVTOP_DEVICE_DISCOVERY_H__

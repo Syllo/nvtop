@@ -22,6 +22,7 @@
  */
 
 #include "nvtop/common.h"
+#include "nvtop/device_discovery.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/time.h"
@@ -115,14 +116,14 @@ struct gpu_info_amdgpu {
   amdgpu_device_handle amdgpu_device;
 
   char pdev[PDEV_LEN];
-  int sysfsFD; // file descriptor for the /sys/bus/pci/devices/<this gpu>/ folder
-  int hwmonFD; // file descriptor for the /sys/bus/pci/devices/<this gpu>/hwmon/hwmon[0-9]+ folder
-
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
   FILE *fanSpeedFILE; // FILE* for this device current fan speed
-  FILE *PCIeDPM; // FILE* for this device valid and active PCIe speed/width configurations
-  FILE *PCIeBW; // FILE* for this device PCIe bandwidth over one second
-  FILE *powerCap; // FILE* for this device power cap
+  FILE *PCIeBW;       // FILE* for this device PCIe bandwidth over one second
+  FILE *powerCap;     // FILE* for this device power cap
+
+  nvtop_device *amdgpuDevice; // The AMDGPU driver device
+  nvtop_device *hwmonDevice;  // The AMDGPU driver hwmon device
+
   struct amdgpu_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
 
   // Used to compute the actual fan speed
@@ -135,9 +136,7 @@ static struct gpu_info_amdgpu *gpu_infos;
 static bool gpuinfo_amdgpu_init(void);
 static void gpuinfo_amdgpu_shutdown(void);
 static const char *gpuinfo_amdgpu_last_error_string(void);
-static bool gpuinfo_amdgpu_get_device_handles(
-    struct list_head *devices, unsigned *count,
-    ssize_t *mask);
+static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count, ssize_t *mask);
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_amdgpu_get_running_processes(struct gpu_info *_gpu_info);
@@ -152,10 +151,9 @@ struct gpu_vendor gpu_vendor_amdgpu = {
     .refresh_running_processes = gpuinfo_amdgpu_get_running_processes,
 };
 
-__attribute__((constructor))
-static void init_extract_gpuinfo_amdgpu(void) {
-  register_gpu_vendor(&gpu_vendor_amdgpu);
-}
+static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const char *format, ...);
+
+__attribute__((constructor)) static void init_extract_gpuinfo_amdgpu(void) { register_gpu_vendor(&gpu_vendor_amdgpu); }
 
 static int wrap_drmGetDevices(drmDevicePtr devices[], int max_devices) {
   assert(_drmGetDevices2 || _drmGetDevices);
@@ -235,12 +233,12 @@ static void gpuinfo_amdgpu_shutdown(void) {
     struct gpu_info_amdgpu *gpu_info = &gpu_infos[i];
     if (gpu_info->fanSpeedFILE)
       fclose(gpu_info->fanSpeedFILE);
-    if (gpu_info->PCIeDPM)
-      fclose(gpu_info->PCIeDPM);
     if (gpu_info->PCIeBW)
       fclose(gpu_info->PCIeBW);
     if (gpu_info->powerCap)
       fclose(gpu_info->powerCap);
+    nvtop_device_unref(gpu_info->amdgpuDevice);
+    nvtop_device_unref(gpu_info->hwmonDevice);
     _drmFreeVersion(gpu_info->drmVersion);
     _amdgpu_device_deinitialize(gpu_info->amdgpu_device);
     // Clean the process cache
@@ -300,7 +298,9 @@ static void authenticate_drm(int fd) {
   if (_drmAuthMagic(fd, magic) == 0) {
     if (_drmDropMaster(fd)) {
       perror("Failed to drop DRM master");
-      fprintf(stderr, "\nWARNING: other DRM clients will crash on VT switch while nvtop is running!\npress ENTER to continue\n");
+      fprintf(
+          stderr,
+          "\nWARNING: other DRM clients will crash on VT switch while nvtop is running!\npress ENTER to continue\n");
       fgetc(stdin);
     }
     return;
@@ -316,39 +316,68 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
   // Open the device sys folder to gather information not available through the DRM driver
   char devicePath[22 + PDEV_LEN];
   snprintf(devicePath, sizeof(devicePath), "/sys/bus/pci/devices/%s", gpu_info->pdev);
-  gpu_info->sysfsFD = open(devicePath, O_RDONLY);
-  gpu_info->hwmonFD = -1;
+  nvtop_device_new_from_syspath(&gpu_info->amdgpuDevice, devicePath);
+  assert(gpu_info->amdgpuDevice != NULL);
 
+  int sysfsFD = open(devicePath, O_RDONLY);
+  gpu_info->hwmonDevice = nvtop_device_get_hwmon(gpu_info->amdgpuDevice);
+  assert(gpu_info->hwmonDevice != NULL);
   // Open the device hwmon folder (Fan speed are available there)
-  static const char hwmon[] = "hwmon";
-  if (gpu_info->sysfsFD >= 0) {
-    int hwmondirFD = openat(gpu_info->sysfsFD, hwmon, O_RDONLY);
-    if (hwmondirFD >= 0) {
-      DIR *hwmonDir = fdopendir(hwmondirFD);
-      if (!hwmonDir) {
-        close(hwmondirFD);
-      } else {
-        struct dirent *dirEntry;
-        while ((dirEntry = readdir(hwmonDir))) {
-          // There should be one directory inside hwmon, with a name having the following pattern hwmon[0-9]+
-          if (dirEntry->d_type == DT_DIR && strncmp(hwmon, dirEntry->d_name, sizeof(hwmon) - 1) == 0) {
-            break;
-          }
-        }
-        if (dirEntry) {
-          gpu_info->hwmonFD = openat(dirfd(hwmonDir), dirEntry->d_name, O_RDONLY);
-        }
-        closedir(hwmonDir);
+  const char *hwmonPath;
+  nvtop_device_get_syspath(gpu_info->hwmonDevice, &hwmonPath);
+  int hwmonFD = open(hwmonPath, O_RDONLY);
+
+  // Look for which fan to use (PWM or RPM)
+  gpu_info->fanSpeedFILE = NULL;
+  unsigned pwmIsEnabled;
+  int NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "pwm1_enable", "%u", &pwmIsEnabled);
+  bool usePWMSensor = NreadPatterns == 1 && pwmIsEnabled > 0;
+
+  bool useRPMSensor = false;
+  if (!usePWMSensor) {
+    unsigned rpmIsEnabled;
+    NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "fan1_enable", "%u", &rpmIsEnabled);
+    useRPMSensor = NreadPatterns && rpmIsEnabled > 0;
+  }
+  // Either RPM or PWM or neither
+  assert((useRPMSensor ^ usePWMSensor) || (!useRPMSensor && !usePWMSensor));
+  if (usePWMSensor || useRPMSensor) {
+    char *maxFanSpeedFile = usePWMSensor ? "pwm1_max" : "fan1_max";
+    char *fanSensorFile = usePWMSensor ? "pwm1" : "fan1_input";
+    unsigned maxSpeedVal;
+    NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, maxFanSpeedFile, "%u", &maxSpeedVal);
+    if (NreadPatterns == 1) {
+      gpu_info->maxFanValue = maxSpeedVal;
+      // Open the fan file for dynamic info gathering
+      int fanSpeedFD = openat(hwmonFD, fanSensorFile, O_RDONLY);
+      if (fanSpeedFD >= 0) {
+        gpu_info->fanSpeedFILE = fdopen(fanSpeedFD, "r");
+        if (!gpu_info->fanSpeedFILE)
+          close(fanSpeedFD);
       }
     }
   }
+
+  // Open the PCIe bandwidth file for dynamic info gathering
+  gpu_info->PCIeBW = NULL;
+  int pcieBWFD = openat(sysfsFD, "pcie_bw", O_RDONLY);
+  if (pcieBWFD) {
+    gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
+  }
+
+  // Open the power cap file for dynamic info gathering
+  gpu_info->powerCap = NULL;
+  int powerCapFD = openat(hwmonFD, "power1_cap", O_RDONLY);
+  if (powerCapFD) {
+    gpu_info->powerCap = fdopen(powerCapFD, "r");
+  }
+  close(hwmonFD);
+  close(sysfsFD);
 }
 
 #define VENDOR_AMD 0x1002
 
-static bool gpuinfo_amdgpu_get_device_handles(
-    struct list_head *devices, unsigned *count,
-    ssize_t *mask) {
+static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count, ssize_t *mask) {
   if (!libdrm_handle)
     return false;
 
@@ -369,8 +398,7 @@ static bool gpuinfo_amdgpu_get_device_handles(
   }
 
   for (unsigned int i = 0; i < libdrm_count; i++) {
-    if (devs[i]->bustype != DRM_BUS_PCI ||
-        devs[i]->deviceinfo.pci->vendor_id != VENDOR_AMD)
+    if (devs[i]->bustype != DRM_BUS_PCI || devs[i]->deviceinfo.pci->vendor_id != VENDOR_AMD)
       continue;
 
     int fd = -1;
@@ -435,11 +463,8 @@ static bool gpuinfo_amdgpu_get_device_handles(
       gpu_infos[amdgpu_count].fd = fd;
       gpu_infos[amdgpu_count].base.vendor = &gpu_vendor_amdgpu;
 
-      snprintf(gpu_infos[*count].pdev, PDEV_LEN - 1, "%04x:%02x:%02x.%d",
-               devs[i]->businfo.pci->domain,
-               devs[i]->businfo.pci->bus,
-               devs[i]->businfo.pci->dev,
-               devs[i]->businfo.pci->func);
+      snprintf(gpu_infos[*count].pdev, PDEV_LEN - 1, "%04x:%02x:%02x.%d", devs[i]->businfo.pci->domain,
+               devs[i]->businfo.pci->bus, devs[i]->businfo.pci->dev, devs[i]->businfo.pci->func);
       initDeviceSysfsPaths(&gpu_infos[amdgpu_count]);
       list_add_tail(&gpu_infos[amdgpu_count].base.list, devices);
       // Register a fdinfo callback for this GPU
@@ -468,81 +493,21 @@ static int rewindAndReadPattern(FILE *file, const char *format, ...) {
   return matches;
 }
 
-static int readValueFromFileAt(int folderFD, const char *fileName, const char *format, ...) {
+static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const char *format, ...) {
   va_list args;
   va_start(args, format);
-  // Open the file
-  int fd = openat(folderFD, fileName, O_RDONLY);
-  if (fd < 0)
-    return 0;
-  FILE *file = fdopen(fd, "r");
-  if (!file) {
-    close(fd);
-    return 0;
-  }
+  const char *val;
+  int ret = nvtop_device_get_sysattr_value(dev, sysAttr, &val);
+  if (ret < 0)
+    return ret;
   // Read the pattern
-  int nread = vfscanf(file, format, args);
-  fclose(file);
+  int nread = vsscanf(val, format, args);
   va_end(args);
   return nread;
 }
 
-// Converts the link speed in GT/s to a PCIe generation
-static unsigned pcieGenFromLinkSpeedAndWidth(unsigned linkSpeed) {
-  unsigned pcieGen = 0;
-  switch (linkSpeed) {
-  case 2:
-    pcieGen = 1;
-    break;
-  case 5:
-    pcieGen = 2;
-    break;
-  case 8:
-    pcieGen = 3;
-    break;
-  case 16:
-    pcieGen = 4;
-    break;
-  case 32:
-    pcieGen = 5;
-    break;
-  case 64:
-    pcieGen = 6;
-    break;
-  }
-  return pcieGen;
-}
-
-static bool getGenAndWidthFromPP_DPM_PCIE(FILE *pp_dpm_pcie, unsigned *speed, unsigned *width) {
-  rewind(pp_dpm_pcie);
-  fflush(pp_dpm_pcie);
-  // The line we are interested in looks like "1: 8.0GT/s, x16 619Mhz *"; the active configuration ends with a star
-  char line[64]; // 64 should be plenty enough
-  while (fgets(line, 64, pp_dpm_pcie)) {
-    // Look for a * character, with possible spece characters
-    size_t lineSize = strlen(line);
-    bool endsWithAStar = false;
-    for (unsigned pos = lineSize - 1; !endsWithAStar && pos < lineSize; --pos) {
-      endsWithAStar = line[pos] == '*';
-      if (!isspace(line[pos]))
-        break;
-    }
-    if (endsWithAStar) {
-      unsigned speedReading, widthReading;
-      unsigned nmatch = sscanf(line, "%*u: %u.%*uGT/s, x%u", &speedReading, &widthReading);
-      if (nmatch == 2) {
-        *speed = speedReading;
-        *width = widthReading;
-        return true;
-      }
-    }
-  }
-  return false;
-}
-
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
-  struct gpu_info_amdgpu *gpu_info =
-    container_of(_gpu_info, struct gpu_info_amdgpu, base);
+  struct gpu_info_amdgpu *gpu_info = container_of(_gpu_info, struct gpu_info_amdgpu, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   bool info_query_success = false;
   struct amdgpu_gpu_info info;
@@ -633,96 +598,32 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   // If multiple fans are present, use the first one. Some hardware do not wire
   // the sensor for the second fan, or use the same value as the first fan.
 
-  // Look for which fan to use (PWM or RPM)
-  gpu_info->fanSpeedFILE = NULL;
-  unsigned pwmIsEnabled;
-  int NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, "pwm1_enable", "%u", &pwmIsEnabled);
-  bool usePWMSensor = NreadPatterns == 1 && pwmIsEnabled > 0;
-
-  bool useRPMSensor = false;
-  if (!usePWMSensor) {
-    unsigned rpmIsEnabled;
-    NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, "fan1_enable", "%u", &rpmIsEnabled);
-    useRPMSensor = NreadPatterns && rpmIsEnabled > 0;
-  }
-  // Either RPM or PWM or neither
-  assert((useRPMSensor ^ usePWMSensor) || (!useRPMSensor && !usePWMSensor));
-  if (usePWMSensor || useRPMSensor) {
-    char *maxFanSpeedFile = usePWMSensor ? "pwm1_max" : "fan1_max";
-    char *fanSensorFile = usePWMSensor ? "pwm1" : "fan1_input";
-    unsigned maxSpeedVal;
-    NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, maxFanSpeedFile, "%u", &maxSpeedVal);
-    if (NreadPatterns == 1) {
-      gpu_info->maxFanValue = maxSpeedVal;
-      // Open the fan file for dynamic info gathering
-      int fanSpeedFD = openat(gpu_info->hwmonFD, fanSensorFile, O_RDONLY);
-      if (fanSpeedFD >= 0) {
-        gpu_info->fanSpeedFILE = fdopen(fanSpeedFD, "r");
-        if (!gpu_info->fanSpeedFILE)
-          close(fanSpeedFD);
-      }
-    }
-  }
-
   // Critical temparature
   // temp1_* files should always be the GPU die in millidegrees Celsius
   unsigned criticalTemp;
-  NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, "temp1_crit", "%u", &criticalTemp);
+  int NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_crit", "%u", &criticalTemp);
   if (NreadPatterns == 1) {
     SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, criticalTemp);
   }
 
   // Emergency/shutdown temparature
   unsigned emergemcyTemp;
-  NreadPatterns = readValueFromFileAt(gpu_info->hwmonFD, "temp1_emergency", "%u", &emergemcyTemp);
+  NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_emergency", "%u", &emergemcyTemp);
   if (NreadPatterns == 1) {
     SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergemcyTemp);
   }
 
-  // PCIe max link width
-  unsigned maxLinkWidth;
-  NreadPatterns = readValueFromFileAt(gpu_info->sysfsFD, "max_link_width", "%u", &maxLinkWidth);
-  if (NreadPatterns == 1) {
-    SET_GPUINFO_STATIC(static_info, max_pcie_link_width, maxLinkWidth);
-  }
-
-  // PCIe max link speed
-  // [max|current]_link_speed export the value as "x.y GT/s PCIe" where x.y is a float value.
-  float maxLinkSpeedf;
-  NreadPatterns = readValueFromFileAt(gpu_info->sysfsFD, "max_link_speed", "%f GT/s PCIe", &maxLinkSpeedf);
-  if (NreadPatterns == 1 && GPUINFO_STATIC_FIELD_VALID(static_info, max_pcie_link_width)) {
-    maxLinkSpeedf = floorf(maxLinkSpeedf);
-    unsigned maxLinkSpeed = (unsigned)maxLinkSpeedf;
-    unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(maxLinkSpeed);
-    if (pcieGen) {
-      SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
-    }
-  }
-  // Open current link speed
-  gpu_info->PCIeDPM = NULL;
-  int pcieDPMFD = openat(gpu_info->sysfsFD, "pp_dpm_pcie", O_RDONLY);
-  if (pcieDPMFD) {
-    gpu_info->PCIeDPM = fdopen(pcieDPMFD, "r");
-  }
-
-  // Open the PCIe bandwidth file for dynamic info gathering
-  gpu_info->PCIeBW = NULL;
-  int pcieBWFD = openat(gpu_info->sysfsFD, "pcie_bw", O_RDONLY);
-  if (pcieBWFD) {
-    gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
-  }
-
-  // Open the power cap file for dynamic info gathering
-  gpu_info->powerCap = NULL;
-  int powerCapFD = openat(gpu_info->hwmonFD, "power1_cap", O_RDONLY);
-  if (powerCapFD) {
-    gpu_info->powerCap = fdopen(powerCapFD, "r");
+  nvtop_pcie_link max_link_characteristics;
+  int ret = nvtop_device_maximum_pcie_link(gpu_info->amdgpuDevice, &max_link_characteristics);
+  if (ret >= 0) {
+    SET_GPUINFO_STATIC(static_info, max_pcie_link_width, max_link_characteristics.width);
+    unsigned pcieGen = nvtop_pcie_gen_from_link_speed(max_link_characteristics.speed);
+    SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
   }
 }
 
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
-  struct gpu_info_amdgpu *gpu_info =
-    container_of(_gpu_info, struct gpu_info_amdgpu, base);
+  struct gpu_info_amdgpu *gpu_info = container_of(_gpu_info, struct gpu_info_amdgpu, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   bool info_query_success = false;
   struct amdgpu_gpu_info info;
@@ -800,12 +701,10 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 
   // Fan speed
-  if (gpu_info->fanSpeedFILE) {
-    unsigned currentFanSpeed;
-    int patternsMatched = rewindAndReadPattern(gpu_info->fanSpeedFILE, "%u", &currentFanSpeed);
-    if (patternsMatched == 1) {
-      SET_GPUINFO_DYNAMIC(dynamic_info, fan_speed, currentFanSpeed * 100 / gpu_info->maxFanValue);
-    }
+  unsigned currentFanSpeed;
+  int patternsMatched = rewindAndReadPattern(gpu_info->fanSpeedFILE, "%u", &currentFanSpeed);
+  if (patternsMatched == 1) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, fan_speed, currentFanSpeed * 100 / gpu_info->maxFanValue);
   }
 
   // Device power usage
@@ -818,18 +717,14 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, out32 * 1000);
   }
 
-  // Current PCIe link used
-  if (gpu_info->PCIeDPM) {
-    unsigned currentLinkSpeed = 0;
-    unsigned currentLinkWidth = 0;
-    if (getGenAndWidthFromPP_DPM_PCIE(gpu_info->PCIeDPM, &currentLinkSpeed, &currentLinkWidth)) {
-      SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, currentLinkWidth);
-      unsigned pcieGen = pcieGenFromLinkSpeedAndWidth(currentLinkSpeed);
-      if (pcieGen) {
-        SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, pcieGen);
-      }
-    }
+  nvtop_pcie_link curr_link_characteristics;
+  int ret = nvtop_device_current_pcie_link(gpu_info->amdgpuDevice, &curr_link_characteristics);
+  if (ret >= 0) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
+    unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, pcieGen);
   }
+
   // PCIe bandwidth
   if (gpu_info->PCIeBW) {
     // According to https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/amd/pm/amdgpu_pm.c, under the pcie_bw
@@ -837,7 +732,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     // size during the last second. This is untested but should work when the file is populated by the driver.
     uint64_t received, transmitted;
     int maxPayloadSize;
-    int NreadPatterns = rewindAndReadPattern(gpu_info->PCIeBW, "%" SCNu64 " %" SCNu64 " %i", &received, &transmitted, &maxPayloadSize);
+    int NreadPatterns =
+        rewindAndReadPattern(gpu_info->PCIeBW, "%" SCNu64 " %" SCNu64 " %i", &received, &transmitted, &maxPayloadSize);
     if (NreadPatterns == 3) {
       received *= maxPayloadSize;
       transmitted *= maxPayloadSize;

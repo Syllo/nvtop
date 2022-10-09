@@ -210,4 +210,6 @@ inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64
          time_between_measurement;
 }
 
+unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed);
+
 #endif // EXTRACT_GPUINFO_COMMON_H__

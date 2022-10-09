@@ -273,3 +273,28 @@ bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val) {
 
 extern inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
                                                         uint64_t time_between_measurement);
+
+unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed) {
+  unsigned pcieGen = 0;
+  switch (linkSpeed) {
+  case 2:
+    pcieGen = 1;
+    break;
+  case 5:
+    pcieGen = 2;
+    break;
+  case 8:
+    pcieGen = 3;
+    break;
+  case 16:
+    pcieGen = 4;
+    break;
+  case 32:
+    pcieGen = 5;
+    break;
+  case 64:
+    pcieGen = 6;
+    break;
+  }
+  return pcieGen;
+}
