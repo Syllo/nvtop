@@ -19,12 +19,12 @@
  *
  */
 
+#include "nvtop/device_discovery.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/time.h"
 
 #include <assert.h>
-#include <libudev.h>
 #include <stdio.h>
 #include <string.h>
 #include <uthash.h>
@@ -63,8 +63,8 @@ struct intel_process_info_cache {
 struct gpu_info_intel {
   struct gpu_info base;
 
-  struct udev_device *card_device;
-  struct udev_device *card_parent;
+  struct nvtop_device *card_device;
+  struct nvtop_device *driver_device;
   char pdev[PDEV_LEN];
   struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
 };
@@ -105,8 +105,8 @@ bool gpuinfo_intel_init(void) { return true; }
 void gpuinfo_intel_shutdown(void) {
   for (unsigned i = 0; i < intel_gpu_count; ++i) {
     struct gpu_info_intel *current = &gpu_infos[i];
-    udev_device_unref(current->card_device);
-    udev_device_unref(current->card_parent);
+    nvtop_device_unref(current->card_device);
+    nvtop_device_unref(current->driver_device);
   }
 }
 
@@ -241,82 +241,77 @@ parse_fdinfo_exit:
   return true;
 }
 
-static void add_intel_cards(struct udev_device *dev, struct list_head *devices, unsigned *count, ssize_t *mask) {
-  struct udev_device *parent = udev_device_get_parent(dev);
+static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices, unsigned *count, ssize_t *mask) {
+  struct nvtop_device *parent;
+  if (nvtop_device_get_parent(dev, &parent) < 0)
+    return;
   // Consider enabled Intel cards using the i915 driver
-  if (!strcmp(udev_device_get_sysattr_value(parent, "vendor"), VENDOR_INTEL_STR) &&
-      !strcmp(udev_device_get_driver(parent), "i915") &&
-      !strcmp(udev_device_get_sysattr_value(parent, "enable"), "1")) {
-    struct gpu_info_intel *thisGPU = &gpu_infos[intel_gpu_count++];
-    thisGPU->base.vendor = &gpu_vendor_intel;
-    thisGPU->card_device = udev_device_ref(dev);
-    thisGPU->card_parent = udev_device_ref(parent);
-    const char *pdev_val = udev_device_get_property_value(thisGPU->card_parent, "PCI_SLOT_NAME");
-    assert(pdev_val != NULL && "Could not retrieve device PCI slot name");
-    strncpy(thisGPU->pdev, pdev_val, PDEV_LEN);
-    list_add_tail(&thisGPU->base.list, devices);
-    // Register a fdinfo callback for this GPU
-    processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base);
-    (*count)++;
-  }
+  const char *vendor, *driver, *enabled;
+  if (nvtop_device_get_sysattr_value(parent, "vendor", &vendor) < 0 || !strcmp(vendor, VENDOR_INTEL_STR))
+    return;
+  if (nvtop_device_get_driver(parent, &driver) < 0 || !strcmp(driver, "i915"))
+    return;
+  if (nvtop_device_get_sysattr_value(parent, "enable", &enabled) < 0 || !strcmp(enabled, "1"))
+    return;
+
+  struct gpu_info_intel *thisGPU = &gpu_infos[intel_gpu_count++];
+  thisGPU->base.vendor = &gpu_vendor_intel;
+  thisGPU->card_device = nvtop_device_ref(dev);
+  thisGPU->driver_device = nvtop_device_ref(parent);
+  const char *pdev_val;
+  int retval = nvtop_device_get_property_value(thisGPU->driver_device, "PCI_SLOT_NAME", &pdev_val);
+  assert(retval >= 0 && pdev_val != NULL && "Could not retrieve device PCI slot name");
+  strncpy(thisGPU->pdev, pdev_val, PDEV_LEN);
+  list_add_tail(&thisGPU->base.list, devices);
+  // Register a fdinfo callback for this GPU
+  processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base);
+  (*count)++;
   // TODO mask support
   (void)mask;
 }
 
 bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *count, ssize_t *mask) {
-  struct udev *udev;
-  struct udev_enumerate *enumerate;
-  struct udev_list_entry *devices, *dev_list_entry;
-  int ret;
   *count = 0;
+  nvtop_device_enumerator *enumerator;
+  if (nvtop_enumerator_new(&enumerator) < 0)
+    return false;
 
-  udev = udev_new();
-  assert(udev);
+  if (nvtop_device_enumerator_add_match_subsystem(enumerator, "drm", true) < 0)
+    return false;
 
-  enumerate = udev_enumerate_new(udev);
-  assert(enumerate);
-
-  ret = udev_enumerate_add_match_subsystem(enumerate, "drm");
-  assert(!ret);
-
-  ret = udev_enumerate_add_match_property(enumerate, "DEVNAME", "/dev/dri/*");
-  assert(!ret);
-
-  ret = udev_enumerate_scan_devices(enumerate);
-  assert(!ret);
-
-  devices = udev_enumerate_get_list_entry(enumerate);
-  if (!devices)
+  if (nvtop_device_enumerator_add_match_property(enumerator, "DEVNAME", "/dev/dri/*") < 0)
     return false;
 
   unsigned num_devices = 0;
-  udev_list_entry_foreach(dev_list_entry, devices) { num_devices++; }
+  for (nvtop_device *device = nvtop_enumerator_get_device_first(enumerator); device;
+       device = nvtop_enumerator_get_device_next(enumerator)) {
+    num_devices++;
+  }
+
   gpu_infos = calloc(num_devices, sizeof(*gpu_infos));
   if (!gpu_infos)
     return false;
 
-  udev_list_entry_foreach(dev_list_entry, devices) {
-    const char *path;
-    struct udev_device *udev_dev;
-
-    path = udev_list_entry_get_name(dev_list_entry);
-    udev_dev = udev_device_new_from_syspath(udev, path);
-    if (strstr(udev_device_get_devnode(udev_dev), "/dev/dri/card")) {
-      add_intel_cards(udev_dev, devices_list, count, mask);
+  for (nvtop_device *device = nvtop_enumerator_get_device_first(enumerator); device;
+       device = nvtop_enumerator_get_device_next(enumerator)) {
+    num_devices++;
+    const char *devname;
+    if (nvtop_device_get_devname(device, &devname) < 0)
+      continue;
+    if (strstr(devname, "/dev/dri/card")) {
+      add_intel_cards(device, devices_list, count, mask);
     }
-
-    udev_device_unref(udev_dev);
   }
-  udev_enumerate_unref(enumerate);
-  udev_unref(udev);
+
+  nvtop_enumerator_unref(enumerator);
   return true;
 }
 
 void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
-  const char *dev_name = udev_device_get_property_value(gpu_info->card_parent, "ID_MODEL_FROM_DATABASE");
-  if (dev_name) {
+  const char *dev_name;
+  if (nvtop_device_get_property_value(gpu_info->driver_device, "ID_MODEL_FROM_DATABASE", &dev_name) >= 0) {
     snprintf(static_info->device_name, sizeof(static_info->device_name), "%s", dev_name);
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
   }
@@ -328,27 +323,32 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   RESET_ALL(dynamic_info->valid);
 
+  nvtop_device *card_dev_copy;
+  const char *syspath;
+  nvtop_device_get_syspath(gpu_info->card_device, &syspath);
+  nvtop_device_new_from_syspath(&card_dev_copy, syspath);
+
   // GPU clock
-  const char *gt_cur_freq = udev_device_get_sysattr_value(gpu_info->card_device, "gt_cur_freq_mhz");
-  if (gt_cur_freq) {
+  const char *gt_cur_freq;
+  if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_cur_freq_mhz", &gt_cur_freq) >= 0) {
     unsigned val = strtoul(gt_cur_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
   }
-  const char *gt_max_freq = udev_device_get_sysattr_value(gpu_info->card_device, "gt_max_freq_mhz");
-  if (gt_max_freq) {
+  const char *gt_max_freq;
+  if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_max_freq_mhz", &gt_max_freq) >= 0) {
     unsigned val = strtoul(gt_max_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
   }
 
   // Mem clock
   // TODO: the attribute mem_cur_freq_mhz and mem_max_freq_mhz are speculative (not present on integrated graphics)
-  const char *mem_cur_freq = udev_device_get_sysattr_value(gpu_info->card_device, "mem_cur_freq_mhz");
-  if (mem_cur_freq) {
+  const char *mem_cur_freq;
+  if (nvtop_device_get_sysattr_value(card_dev_copy, "mem_cur_freq_mhz", &mem_cur_freq) >= 0) {
     unsigned val = strtoul(mem_cur_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
   }
-  const char *mem_max_freq = udev_device_get_sysattr_value(gpu_info->card_device, "mem_max_freq_mhz");
-  if (mem_max_freq) {
+  const char *mem_max_freq;
+  if (nvtop_device_get_sysattr_value(card_dev_copy, "mem_max_freq_mhz", &mem_max_freq) >= 0) {
     unsigned val = strtoul(mem_max_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
   }
@@ -357,6 +357,8 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // gpu util will be computed as the sum of all the processes utilization for now
 
   // TODO: Unknown attribute names to retrieve memory, pcie, fan, temperature, power info for discrete cards
+
+  nvtop_device_unref(card_dev_copy);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_intel *gpu_info) {
