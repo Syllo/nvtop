@@ -598,7 +598,7 @@ static bool cleaned_dec_window(struct device_window *dev, double encode_decode_h
 
 static void encode_decode_show_select(struct device_window *dev, bool encode_valid, bool decode_valid,
                                       unsigned encode_rate, unsigned decode_rate, double encode_decode_hiding_timer,
-                                      bool *display_encode, bool *display_decode) {
+                                      bool encode_decode_shared, bool *display_encode, bool *display_decode) {
   nvtop_time tnow;
   nvtop_get_current_time(&tnow);
   if (encode_valid && encode_rate > 0) {
@@ -617,6 +617,8 @@ static void encode_decode_show_select(struct device_window *dev, bool encode_val
   } else {
     *display_encode = !cleaned_enc_window(dev, encode_decode_hiding_timer, tnow);
   }
+  // If shared, rely on decode
+  *display_encode = *display_encode && !encode_decode_shared;
   if (decode_valid && decode_rate > 0) {
     *display_decode = true;
     dev->last_decode_seen = tnow;
@@ -657,7 +659,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     encode_decode_show_select(dev, GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate),
                               GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate),
                               device->dynamic_info.encoder_rate, device->dynamic_info.decoder_rate,
-                              interface->options.encode_decode_hiding_timer, &display_encode, &display_decode);
+                              interface->options.encode_decode_hiding_timer, device->dynamic_info.encode_decode_shared,
+                              &display_encode, &display_decode);
 
     WINDOW *gpu_util_win;
     WINDOW *mem_util_win;
@@ -688,7 +691,10 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       unsigned rate =
           GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate) ? device->dynamic_info.decoder_rate : 0;
       snprintf(buff, 1024, "%u%%", rate);
-      draw_percentage_meter(decode_win, "DEC", rate, buff);
+      if (device->dynamic_info.encode_decode_shared)
+        draw_percentage_meter(decode_win, "ENC/DEC", rate, buff);
+      else
+        draw_percentage_meter(decode_win, "DEC", rate, buff);
     }
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate)) {
       snprintf(buff, 1024, "%u%%", device->dynamic_info.gpu_util_rate);

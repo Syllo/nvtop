@@ -638,6 +638,7 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   uint32_t out32;
 
   RESET_ALL(dynamic_info->valid);
+  dynamic_info->encode_decode_shared = false;
 
   if (libdrm_amdgpu_handle && _amdgpu_query_gpu_info)
     info_query_success = !_amdgpu_query_gpu_info(gpu_info->amdgpu_device, &info);

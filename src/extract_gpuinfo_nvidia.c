@@ -491,6 +491,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   nvmlClockType_t getMaxClockFrom = NVML_CLOCK_GRAPHICS;
 
   RESET_ALL(dynamic_info->valid);
+  dynamic_info->encode_decode_shared = false;
 
   // GPU current speed
   // Maximum between SM and Graphical

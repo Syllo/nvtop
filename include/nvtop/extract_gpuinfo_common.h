@@ -116,6 +116,7 @@ struct gpuinfo_dynamic_info {
   unsigned int gpu_temp;             // GPU temperature °celsius
   unsigned int power_draw;           // Power usage in milliwatts
   unsigned int power_draw_max;       // Max power usage in milliwatts
+  bool encode_decode_shared;         // True if encode and decode is shared (Intel)
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 

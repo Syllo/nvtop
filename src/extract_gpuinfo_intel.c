@@ -167,7 +167,7 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
           (void)time_spent;
         }
         if (is_video) {
-          // Video is either encode or decode, hence set both
+          // Video represents encode and decode
           SET_GPUINFO_PROCESS(process_info, dec_engine_used, time_spent);
           SET_GPUINFO_PROCESS(process_info, enc_engine_used, time_spent);
         }
@@ -346,6 +346,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
   RESET_ALL(dynamic_info->valid);
+  dynamic_info->encode_decode_shared = true;
 
   nvtop_device *card_dev_copy;
   const char *syspath;
