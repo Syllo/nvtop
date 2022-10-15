@@ -484,6 +484,8 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
 }
 
 static int rewindAndReadPattern(FILE *file, const char *format, ...) {
+  if (!file)
+    return 0;
   va_list args;
   va_start(args, format);
   rewind(file);
