@@ -623,6 +623,11 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
     unsigned pcieGen = nvtop_pcie_gen_from_link_speed(max_link_characteristics.speed);
     SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
   }
+
+  // Mark integrated graphics
+  if (info_query_success && (info.ids_flags & AMDGPU_IDS_FLAGS_FUSION)) {
+    static_info->integrated_graphics = true;
+  }
 }
 
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
