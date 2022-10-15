@@ -732,14 +732,17 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         waddch(dev->temperature, 'F');
       else
         waddch(dev->temperature, 'C');
+      mvwchgat(dev->temperature, 0, 0, 4, 0, cyan_color, NULL);
       wnoutrefresh(dev->temperature);
     }
 
     // FAN
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed))
-      mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%",
-                device->dynamic_info.fan_speed);
-    else
+      mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%", device->dynamic_info.fan_speed);
+    else if (device->static_info.integrated_graphics) {
+      mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN ");
+      mvwchgat(dev->fan_speed, 0, 3, 5, 0, cyan_color, NULL);
+    } else
       mvwprintw(dev->fan_speed, 0, 0, "FAN N/A%%");
     mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->fan_speed);
@@ -787,18 +790,21 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // PICe throughput
     werase(dev->pcie_info);
-    wcolor_set(dev->pcie_info, cyan_color, NULL);
-    mvwprintw(dev->pcie_info, 0, 0, "PCIe ");
-    wcolor_set(dev->pcie_info, magenta_color, NULL);
-    wprintw(dev->pcie_info, "GEN ");
-    wstandend(dev->pcie_info);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen) &&
-        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_width))
-      wprintw(dev->pcie_info, "%u@%2ux",
-              device->dynamic_info.pcie_link_gen,
-              device->dynamic_info.pcie_link_width);
-    else
-      wprintw(dev->pcie_info, "N/A");
+    if (device->static_info.integrated_graphics) {
+      wcolor_set(dev->pcie_info, cyan_color, NULL);
+      mvwprintw(dev->pcie_info, 0, 0, "Integrated GPU");
+    } else {
+      wcolor_set(dev->pcie_info, cyan_color, NULL);
+      mvwprintw(dev->pcie_info, 0, 0, "PCIe ");
+      wcolor_set(dev->pcie_info, magenta_color, NULL);
+      wprintw(dev->pcie_info, "GEN ");
+      wstandend(dev->pcie_info);
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen) &&
+          GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_width))
+        wprintw(dev->pcie_info, "%u@%2ux", device->dynamic_info.pcie_link_gen, device->dynamic_info.pcie_link_width);
+      else
+        wprintw(dev->pcie_info, "N/A");
+    }
 
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " RX: ");

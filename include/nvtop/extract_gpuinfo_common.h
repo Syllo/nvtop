@@ -66,6 +66,7 @@ struct gpuinfo_static_info {
   unsigned max_pcie_link_width;
   unsigned temperature_shutdown_threshold;
   unsigned temperature_slowdown_threshold;
+  bool integrated_graphics;
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 

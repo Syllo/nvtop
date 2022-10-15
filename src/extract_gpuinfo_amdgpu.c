@@ -513,6 +513,7 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   struct amdgpu_gpu_info info;
   const char *name = NULL;
 
+  static_info->integrated_graphics = false;
   RESET_ALL(static_info->valid);
 
   if (libdrm_amdgpu_handle && _amdgpu_get_marketing_name)

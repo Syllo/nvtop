@@ -247,11 +247,11 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
     return;
   // Consider enabled Intel cards using the i915 driver
   const char *vendor, *driver, *enabled;
-  if (nvtop_device_get_sysattr_value(parent, "vendor", &vendor) < 0 || !strcmp(vendor, VENDOR_INTEL_STR))
+  if (nvtop_device_get_sysattr_value(parent, "vendor", &vendor) < 0 || strcmp(vendor, VENDOR_INTEL_STR))
     return;
-  if (nvtop_device_get_driver(parent, &driver) < 0 || !strcmp(driver, "i915"))
+  if (nvtop_device_get_driver(parent, &driver) < 0 || strcmp(driver, "i915"))
     return;
-  if (nvtop_device_get_sysattr_value(parent, "enable", &enabled) < 0 || !strcmp(enabled, "1"))
+  if (nvtop_device_get_sysattr_value(parent, "enable", &enabled) < 0 || strcmp(enabled, "1"))
     return;
 
   struct gpu_info_intel *thisGPU = &gpu_infos[intel_gpu_count++];
@@ -311,14 +311,38 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   const char *dev_name;
+
+  static_info->integrated_graphics = false;
+  RESET_ALL(static_info->valid);
+
   if (nvtop_device_get_property_value(gpu_info->driver_device, "ID_MODEL_FROM_DATABASE", &dev_name) >= 0) {
     snprintf(static_info->device_name, sizeof(static_info->device_name), "%s", dev_name);
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
+    for (size_t idx = 0; idx < sizeof(static_info->device_name) && static_info->device_name[idx] != '\0'; ++idx) {
+      if (static_info->device_name[idx] == '[')
+        static_info->device_name[idx] = '(';
+      if (static_info->device_name[idx] == ']')
+        static_info->device_name[idx] = ')';
+    }
+  }
+
+  nvtop_pcie_link max_link_characteristics;
+  int ret = nvtop_device_maximum_pcie_link(gpu_info->driver_device, &max_link_characteristics);
+  if (ret >= 0) {
+    SET_GPUINFO_STATIC(static_info, max_pcie_link_width, max_link_characteristics.width);
+    unsigned pcieGen = nvtop_pcie_gen_from_link_speed(max_link_characteristics.speed);
+    SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
+  }
+
+  // Mark integrated GPUs
+  if (strcmp(gpu_info->pdev, INTEGRATED_I915_GPU_PCI_ID) == 0) {
+    static_info->integrated_graphics = true;
   }
 }
 
 void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
+  struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
   RESET_ALL(dynamic_info->valid);
@@ -356,7 +380,17 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // TODO: find how to extract global utilization
   // gpu util will be computed as the sum of all the processes utilization for now
 
-  // TODO: Unknown attribute names to retrieve memory, pcie, fan, temperature, power info for discrete cards
+  if (!static_info->integrated_graphics) {
+    nvtop_pcie_link curr_link_characteristics;
+    int ret = nvtop_device_current_pcie_link(card_dev_copy, &curr_link_characteristics);
+    if (ret >= 0) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
+      unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
+      SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, pcieGen);
+    }
+  }
+
+  // TODO: Attributes such as memory, fan, temperature, power info should be available once the hwmon patch lands
 
   nvtop_device_unref(card_dev_copy);
 }

@@ -447,6 +447,7 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   nvmlDevice_t device = gpu_info->gpuhandle;
 
+  static_info->integrated_graphics = false;
   RESET_ALL(static_info->valid);
 
   last_nvml_return_status =
