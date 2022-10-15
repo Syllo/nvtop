@@ -45,7 +45,7 @@ if(UDEV_FOUND)
     message(STATUS "Libudev stable: ${UDEV_STABLE}")
 
     add_library(udev INTERFACE IMPORTED GLOBAL)
-    target_include_directories(udev INTERFACE ${UDEV_INCLUDE_DIRS})
+    set_target_properties(udev PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${UDEV_INCLUDE_DIRS})
     target_link_libraries(udev INTERFACE ${UDEV_LIBRARIES})
 else()
     set(UDEV_LIBRARIES)

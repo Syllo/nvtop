@@ -33,6 +33,7 @@ if(SYSTEMD_FOUND)
 
     add_library(systemd INTERFACE IMPORTED GLOBAL)
     target_include_directories(systemd INTERFACE ${SYSTEMD_INCLUDE_DIRS})
+    set_target_properties(systemd PROPERTIES INTERFACE_INCLUDE_DIRECTORIES ${SYSTEMD_INCLUDE_DIRS})
     target_link_libraries(systemd INTERFACE ${SYSTEMD_LIBRARIES})
 else()
     set(SYSTEMD_LIBRARIES)
