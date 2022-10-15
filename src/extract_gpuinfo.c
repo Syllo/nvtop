@@ -114,7 +114,13 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
 
     struct gpuinfo_dynamic_info *dynamic_info = &device->dynamic_info;
     // If the global GPU usage is not available, try computing it from the processes info
-    bool needGpuRate = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate);
+    // Some integrated AMDGPU report 100% usage while process usage is actually low
+
+    bool needGpuRate = true;
+    bool validReportedGpuRate = GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate);
+    unsigned reportedGpuRate = dynamic_info->gpu_util_rate;
+    RESET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate);
+
     // AMDGPU does not provide encode and decode utilization through the DRM sensor info.
     // Update them here since per-process sysfs exposes this information.
     bool needGpuEncode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate);
@@ -143,6 +149,15 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
             SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, MYMIN(100, process_info->decode_usage));
           }
         }
+      }
+    }
+    if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
+    } else if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
+      // Reinstate the driver reported usage if within reasonable margin of processes usage
+      if (!(/*more than 10% lower*/ reportedGpuRate < dynamic_info->gpu_util_rate - 10 ||
+            /*more than 10% greater*/ reportedGpuRate > dynamic_info->gpu_util_rate + 10)) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
       }
     }
   }
