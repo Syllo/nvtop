@@ -17,8 +17,7 @@ add_executable(nvtop
   extract_processinfo_fdinfo.c
   time.c
   plot.c
-  ini.c
-  device_discovery_linux.c)
+  ini.c)
 
 check_c_source_compiles(
   "
@@ -54,6 +53,8 @@ if(AMDGPU_SUPPORT OR INTEL_SUPPORT)
   else()
     message(FATAL_ERROR "Neither libsystemd nor libudev were found; These are required for AMDGPU and INTEL support")
   endif()
+
+  target_sources(nvtop PRIVATE device_discovery_linux.c)
 endif()
 
 if(AMDGPU_SUPPORT)
