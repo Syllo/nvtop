@@ -47,7 +47,7 @@
 #define VALUE_IS_VALID(structPtr, field, prefix) IS_VALID(prefix##field##_valid, (structPtr)->valid)
 
 #define SET_GPUINFO_STATIC(structPtr, field, value) SET_VALUE(structPtr, field, value, gpuinfo_)
-#define RESET_GPUINFO_STATIC(structPtr, field) INVALIDATE_VALUE(structPtr, field, value, gpuinfo_)
+#define RESET_GPUINFO_STATIC(structPtr, field) INVALIDATE_VALUE(structPtr, field, gpuinfo_)
 #define GPUINFO_STATIC_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_)
 enum gpuinfo_static_info_valid {
   gpuinfo_device_name_valid = 0,
@@ -71,7 +71,7 @@ struct gpuinfo_static_info {
 };
 
 #define SET_GPUINFO_DYNAMIC(structPtr, field, value) SET_VALUE(structPtr, field, value, gpuinfo_)
-#define RESET_GPUINFO_DYNAMIC(structPtr, field) INVALIDATE_VALUE(structPtr, field, value, gpuinfo_)
+#define RESET_GPUINFO_DYNAMIC(structPtr, field) INVALIDATE_VALUE(structPtr, field, gpuinfo_)
 #define GPUINFO_DYNAMIC_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_)
 enum gpuinfo_dynamic_info_valid {
   gpuinfo_gpu_clock_speed_valid = 0,
@@ -126,7 +126,7 @@ enum gpu_process_type {
 };
 
 #define SET_GPUINFO_PROCESS(structPtr, field, value) SET_VALUE(structPtr, field, value, gpuinfo_process_)
-#define RESET_GPUINFO_PROCESS(structPtr, field) INVALIDATE_VALUE(structPtr, field, value, gpuinfo_process_)
+#define RESET_GPUINFO_PROCESS(structPtr, field) INVALIDATE_VALUE(structPtr, field, gpuinfo_process_)
 #define GPUINFO_PROCESS_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_process_)
 enum gpuinfo_process_info_valid {
   gpuinfo_process_cmdline_valid,
