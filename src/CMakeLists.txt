@@ -5,7 +5,7 @@ configure_file(
   "${PROJECT_BINARY_DIR}/include/nvtop/version.h"
   IMMEDIATE @ONLY)
 
-add_executable (nvtop
+add_executable(nvtop
   nvtop.c
   interface.c
   interface_layout_selection.c
@@ -29,25 +29,49 @@ check_c_source_compiles(
   }
   "
   HAS_REALLOCARRAY
-  )
-if (HAS_REALLOCARRAY)
+)
+
+if(HAS_REALLOCARRAY)
   target_compile_definitions(nvtop PRIVATE HAS_REALLOCARRAY)
 endif()
 
-if (NVIDIA_SUPPORT)
+find_package(UDev)
+find_package(Systemd)
+option(USE_LIBUDEV_OVER_LIBSYSTEMD "Use libudev, even if libsystemd is present" OFF)
+
+if(NVIDIA_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
 endif()
 
-if (AMDGPU_SUPPORT)
+if(AMDGPU_SUPPORT OR INTEL_SUPPORT)
+  if((SYSTEMD_FOUND AND UDEV_FOUND AND USE_LIBUDEV_OVER_LIBSYSTEMD) OR(NOT SYSTEMD_FOUND AND UDEV_FOUND))
+    target_compile_definitions(nvtop PRIVATE USING_LIBUDEV)
+    target_link_libraries(nvtop PRIVATE udev)
+  elseif(SYSTEMD_FOUND)
+    target_compile_definitions(nvtop PRIVATE USING_LIBSYSTEMD)
+    target_link_libraries(nvtop PRIVATE systemd)
+  else()
+    message(FATAL_ERROR "Neither libsystemd nor libudev were found; These are required for AMDGPU and INTEL support")
+  endif()
+
+  target_sources(nvtop PRIVATE device_discovery_linux.c)
+endif()
+
+if(AMDGPU_SUPPORT)
   # Search for libdrm for AMDGPU support
   find_package(Libdrm)
-  if (Libdrm_FOUND)
+
+  if(Libdrm_FOUND)
     message(STATUS "Found libdrm; Enabling AMDGPU support")
     target_include_directories(nvtop PRIVATE ${Libdrm_INCLUDE_DIRS})
     target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu.c)
   else()
-    message(STATUS "libdrm not found; Disabling AMDGPU support")
+    message(FATAL_ERROR "libdrm not found; This library is required for AMDGPU support")
   endif()
+endif()
+
+if(INTEL_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_intel.c)
 endif()
 
 target_include_directories(nvtop PRIVATE
@@ -65,7 +89,7 @@ target_compile_definitions(nvtop PRIVATE _GNU_SOURCE)
 target_link_libraries(nvtop
   PRIVATE ncurses m ${CMAKE_DL_LIBS})
 
-install (TARGETS nvtop
+install(TARGETS nvtop
   RUNTIME DESTINATION bin)
 
 include(compile-flags-helpers)

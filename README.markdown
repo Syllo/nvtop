@@ -4,8 +4,9 @@ NVTOP
 What is NVTOP?
 --------------
 
-Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD and NVIDIA GPUs. It can
-handle multiple GPUs and print information about them in a htop familiar way.
+Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD, Intel
+and NVIDIA GPUs. It can handle multiple GPUs and print information about them in
+a htop familiar way.
 
 Because a picture is worth a thousand words:
 
@@ -20,6 +21,7 @@ Table of Contents
   - [NVTOP Manual and Command line Options](#nvtop-manual-and-command-line-options)
 - [GPU Support](#gpu-support)
   - [AMD](#amd)
+  - [Intel](#intel)
   - [NVIDIA](#nvidia)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
@@ -66,10 +68,32 @@ GPU Support
 
 ### AMD
 
-NVTOP supports AMD GPUs using the amdgpu driver through the exposed DRM and sysfs interfaces.
+NVTOP supports AMD GPUs using the `amdgpu` driver through the exposed DRM and
+sysfs interface.
+
+AMD introduced the fdinfo interface in kernel 5.14 ([browse kernel
+source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/gpu/drm/amd/amdgpu/amdgpu_fdinfo.c?h=linux-5.14.y)).
+Hence, you will need a kernel with a version greater or equal to 5.14 to see the
+processes using AMD GPUs.
 
 Support for recent GPUs are regularly mainlined into the linux kernel, so please
 use a recent-enough kernel for your GPU.
+
+### Intel
+
+NVTOP supports Intel GPUs using the `i915` linux driver.
+
+Intel introduced the fdinfo interface in kernel 5.19 ([browse kernel
+source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/gpu/drm/i915/i915_drm_client.c?h=linux-5.19.y)).
+Hence, you will need a kernel with a version greater or equal to 5.19 to see the
+processes using Intel GPUs.
+
+**INTEL SUPPORT STATUS**
+- Intel is working on exposing more hardware information through an `HWMON`
+interface. The patches are still a work in progress: [see patch
+series](https://patchwork.freedesktop.org/series/104278/).
+- The fdinfo interface does not expose the memory allocated by the process. The
+field in the process list is therefore empty.
 
 ### NVIDIA
 
@@ -105,9 +129,11 @@ A standalone application is available as [AppImage](#appimage).
 
 #### Older
 
-- AMD Dependecy
+- AMD and Intel Dependencies
   ```bash
-  sudo apt install libdrm-dev
+  sudo apt install libdrm-dev libsystemd-dev
+  # Ubuntu 18.04
+  sudo apt install libudev-dev
   ```
 
 - NVIDIA Depenency
@@ -129,9 +155,9 @@ A standalone application is available as [AppImage](#appimage).
 
 #### Build process for Fedora / RedHat / CentOS:
 
-- AMD Dependecy
+- AMD and Intel Dependencies
   ```bash
-  sudo dnf install libdrm-devel
+  sudo dnf install libdrm-devel systemd-devel
   ```
 
 - NVIDIA Depenency
@@ -231,7 +257,7 @@ Notice: The connect commands allow
 ```bash
 git clone https://github.com/Syllo/nvtop.git
 mkdir -p nvtop/build && cd nvtop/build
-cmake .. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON
+cmake .. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON
 make
 
 # Install globally on the system

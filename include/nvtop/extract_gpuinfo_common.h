@@ -47,7 +47,7 @@
 #define VALUE_IS_VALID(structPtr, field, prefix) IS_VALID(prefix##field##_valid, (structPtr)->valid)
 
 #define SET_GPUINFO_STATIC(structPtr, field, value) SET_VALUE(structPtr, field, value, gpuinfo_)
-#define RESET_GPUINFO_STATIC(structPtr, field) INVALIDATE_VALUE(structPtr, field, value, gpuinfo_)
+#define RESET_GPUINFO_STATIC(structPtr, field) INVALIDATE_VALUE(structPtr, field, gpuinfo_)
 #define GPUINFO_STATIC_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_)
 enum gpuinfo_static_info_valid {
   gpuinfo_device_name_valid = 0,
@@ -66,11 +66,12 @@ struct gpuinfo_static_info {
   unsigned max_pcie_link_width;
   unsigned temperature_shutdown_threshold;
   unsigned temperature_slowdown_threshold;
+  bool integrated_graphics;
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
 #define SET_GPUINFO_DYNAMIC(structPtr, field, value) SET_VALUE(structPtr, field, value, gpuinfo_)
-#define RESET_GPUINFO_DYNAMIC(structPtr, field) INVALIDATE_VALUE(structPtr, field, value, gpuinfo_)
+#define RESET_GPUINFO_DYNAMIC(structPtr, field) INVALIDATE_VALUE(structPtr, field, gpuinfo_)
 #define GPUINFO_DYNAMIC_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_)
 enum gpuinfo_dynamic_info_valid {
   gpuinfo_gpu_clock_speed_valid = 0,
@@ -115,6 +116,7 @@ struct gpuinfo_dynamic_info {
   unsigned int gpu_temp;             // GPU temperature °celsius
   unsigned int power_draw;           // Power usage in milliwatts
   unsigned int power_draw_max;       // Max power usage in milliwatts
+  bool encode_decode_shared;         // True if encode and decode is shared (Intel)
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
@@ -125,7 +127,7 @@ enum gpu_process_type {
 };
 
 #define SET_GPUINFO_PROCESS(structPtr, field, value) SET_VALUE(structPtr, field, value, gpuinfo_process_)
-#define RESET_GPUINFO_PROCESS(structPtr, field) INVALIDATE_VALUE(structPtr, field, value, gpuinfo_process_)
+#define RESET_GPUINFO_PROCESS(structPtr, field) INVALIDATE_VALUE(structPtr, field, gpuinfo_process_)
 #define GPUINFO_PROCESS_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_process_)
 enum gpuinfo_process_info_valid {
   gpuinfo_process_cmdline_valid,
@@ -196,5 +198,20 @@ struct gpu_info {
 };
 
 void register_gpu_vendor(struct gpu_vendor *vendor);
+
+bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
+
+// fdinfo DRM interface names common to multiple drivers
+#define PDEV_LEN 16
+extern const char drm_pdev[];
+extern const char drm_client_id[];
+
+inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
+                                                 uint64_t time_between_measurement) {
+  return ((current_use_ns - previous_use_ns) * UINT64_C(100) + time_between_measurement / UINT64_C(2)) /
+         time_between_measurement;
+}
+
+unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed);
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

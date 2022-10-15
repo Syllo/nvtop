@@ -62,6 +62,7 @@ endif()
 
 option(NVIDIA_SUPPORT "Build support for NVIDIA GPUs through libnvml" ON)
 option(AMDGPU_SUPPORT "Build support for AMD GPUs through amdgpu driver" ON)
+option(INTEL_SUPPORT "Build support for Intel GPUs through i915 driver" ON)
 
 add_subdirectory(src)
 

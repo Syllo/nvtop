@@ -20,6 +20,7 @@
  */
 
 #include <assert.h>
+#include <ctype.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,11 +33,12 @@
 #include "nvtop/time.h"
 #include "uthash.h"
 
-#define HASH_FIND_PID(head, key_ptr, out_ptr)                                  \
-  HASH_FIND(hh, head, key_ptr, sizeof(*key_ptr), out_ptr)
+#define HASH_FIND_PID(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(*key_ptr), out_ptr)
 
-#define HASH_ADD_PID(head, in_ptr)                                             \
-  HASH_ADD(hh, head, pid, sizeof(pid_t), in_ptr)
+#define HASH_ADD_PID(head, in_ptr) HASH_ADD(hh, head, pid, sizeof(pid_t), in_ptr)
+
+const char drm_pdev[] = "drm-pdev";
+const char drm_client_id[] = "drm-client-id";
 
 struct process_info_cache {
   pid_t pid;
@@ -52,12 +54,9 @@ struct process_info_cache *updated_process_info = NULL;
 
 static LIST_HEAD(gpu_vendors);
 
-void register_gpu_vendor(struct gpu_vendor *vendor) {
-  list_add(&vendor->list, &gpu_vendors);
-}
+void register_gpu_vendor(struct gpu_vendor *vendor) { list_add(&vendor->list, &gpu_vendors); }
 
-bool gpuinfo_init_info_extraction(ssize_t mask, unsigned *devices_count,
-                                  struct list_head *devices) {
+bool gpuinfo_init_info_extraction(ssize_t mask, unsigned *devices_count, struct list_head *devices) {
   struct gpu_vendor *vendor;
 
   *devices_count = 0;
@@ -65,8 +64,7 @@ bool gpuinfo_init_info_extraction(ssize_t mask, unsigned *devices_count,
     unsigned vendor_devices_count = 0;
 
     if (vendor->init()) {
-      bool retval = vendor->get_device_handles(
-          devices, &vendor_devices_count, &mask);
+      bool retval = vendor->get_device_handles(devices, &vendor_devices_count, &mask);
       if (!retval || (retval && vendor_devices_count == 0)) {
         vendor->shutdown();
         vendor_devices_count = 0;
@@ -88,9 +86,7 @@ bool gpuinfo_shutdown_info_extraction(struct list_head *devices) {
     list_del(&device->list);
   }
 
-  list_for_each_entry(vendor, &gpu_vendors, list) {
-    vendor->shutdown();
-  }
+  list_for_each_entry(vendor, &gpu_vendors, list) { vendor->shutdown(); }
   gpuinfo_clear_cache();
   return true;
 }
@@ -98,18 +94,14 @@ bool gpuinfo_shutdown_info_extraction(struct list_head *devices) {
 bool gpuinfo_populate_static_infos(struct list_head *devices) {
   struct gpu_info *device;
 
-  list_for_each_entry(device, devices, list) {
-    device->vendor->populate_static_info(device);
-  }
+  list_for_each_entry(device, devices, list) { device->vendor->populate_static_info(device); }
   return true;
 }
 
 bool gpuinfo_refresh_dynamic_info(struct list_head *devices) {
   struct gpu_info *device;
 
-  list_for_each_entry(device, devices, list) {
-    device->vendor->refresh_dynamic_info(device);
-  }
+  list_for_each_entry(device, devices, list) { device->vendor->refresh_dynamic_info(device); }
   return true;
 }
 
@@ -122,7 +114,13 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
 
     struct gpuinfo_dynamic_info *dynamic_info = &device->dynamic_info;
     // If the global GPU usage is not available, try computing it from the processes info
-    bool needGpuRate = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate);
+    // Some integrated AMDGPU report 100% usage while process usage is actually low
+
+    bool needGpuRate = true;
+    bool validReportedGpuRate = GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate);
+    unsigned reportedGpuRate = dynamic_info->gpu_util_rate;
+    RESET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate);
+
     // AMDGPU does not provide encode and decode utilization through the DRM sensor info.
     // Update them here since per-process sysfs exposes this information.
     bool needGpuEncode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate);
@@ -151,6 +149,15 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
             SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, MYMIN(100, process_info->decode_usage));
           }
         }
+      }
+    }
+    if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
+    } else if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
+      // Reinstate the driver reported usage if within reasonable margin of processes usage
+      if (!(/*more than 10% lower*/ reportedGpuRate < dynamic_info->gpu_util_rate - 10 ||
+            /*more than 10% greater*/ reportedGpuRate > dynamic_info->gpu_util_rate + 10)) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
       }
     }
   }
@@ -258,4 +265,51 @@ void gpuinfo_clear_cache(void) {
       free(pid_cached);
     }
   }
+}
+
+bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val) {
+  char *p = buf;
+
+  p = index(buf, ':');
+  if (!p || p == buf)
+    return false;
+  *p = '\0';
+
+  while (*++p && isspace(*p))
+    ;
+  if (!*p)
+    return false;
+
+  *key = buf;
+  *val = p;
+
+  return true;
+}
+
+extern inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
+                                                        uint64_t time_between_measurement);
+
+unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed) {
+  unsigned pcieGen = 0;
+  switch (linkSpeed) {
+  case 2:
+    pcieGen = 1;
+    break;
+  case 5:
+    pcieGen = 2;
+    break;
+  case 8:
+    pcieGen = 3;
+    break;
+  case 16:
+    pcieGen = 4;
+    break;
+  case 32:
+    pcieGen = 5;
+    break;
+  case 64:
+    pcieGen = 6;
+    break;
+  }
+  return pcieGen;
 }

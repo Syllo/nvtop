@@ -2,11 +2,11 @@
 
 install_deps() {
   apt-get update
-  apt-get install -y cmake gcc g++ libncurses5-dev libncursesw5-dev libdrm-dev wget file
+  apt-get install -y cmake gcc g++ libncurses5-dev libncursesw5-dev libdrm-dev wget file libudev-dev
 }
 
 configure_nvtop() {
-  cmake ../.. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DCMAKE_INSTALL_PREFIX=/usr
+  cmake ../.. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON -DUSE_LIBUDEV_OVER_LIBSYSTEMD=ON -DCMAKE_INSTALL_PREFIX=/usr
 }
 
 build_nvtop() {
@@ -32,7 +32,7 @@ create_AppImage() {
   install_nvtop_AppDir
   cd ..
   get_linuxdeploy
-  ./squashfs-root/AppRun --appdir AppDir --output appimage
+  ./squashfs-root/AppRun --appdir AppDir --output appimage --exclude-library="*udev*"
 }
 
 create_AppImage
