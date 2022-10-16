@@ -61,13 +61,57 @@ static const char *default_config_path(void) {
   }
 }
 
-void alloc_interface_options_internals(char *config_location,
-                                       unsigned num_devices,
+unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct list_head *monitoredGpu,
+                                                struct list_head *nonMonitoredGpu, nvtop_interface_option *options) {
+  // The array in options->gpu_specifi_opts is kept in sync with the lists
+  unsigned numMonitored = 0;
+  unsigned idx = 0;
+  struct gpu_info *device, *list_tmp;
+  list_for_each_entry_safe(device, list_tmp, monitoredGpu, list) {
+    if (options->gpu_specific_opts[idx].doNotMonitor) {
+      list_move_tail(&device->list, nonMonitoredGpu);
+      nvtop_interface_gpu_opts saveInfo = options->gpu_specific_opts[idx];
+      memmove(&options->gpu_specific_opts[idx], &options->gpu_specific_opts[idx + 1],
+              (num_devices - idx - 1) * sizeof(*options->gpu_specific_opts));
+      options->gpu_specific_opts[num_devices - 1] = saveInfo;
+    } else {
+      numMonitored++;
+    }
+    idx++;
+  }
+  list_for_each_entry_safe(device, list_tmp, nonMonitoredGpu, list) {
+    if (!options->gpu_specific_opts[idx].doNotMonitor) {
+      list_move_tail(&device->list, monitoredGpu);
+      nvtop_interface_gpu_opts saveInfo = options->gpu_specific_opts[idx];
+      for (unsigned here = idx; idx > numMonitored; --idx) {
+        options->gpu_specific_opts[here] = options->gpu_specific_opts[here - 1];
+      }
+      options->gpu_specific_opts[numMonitored] = saveInfo;
+      numMonitored++;
+    }
+    idx++;
+  }
+  assert(idx == num_devices);
+  // We keep at least one monitored gpu at all times
+  if (num_devices > 0 && numMonitored == 0) {
+    assert(list_empty(monitoredGpu));
+    list_move(&list_first_entry(nonMonitoredGpu, struct gpu_info, list)->list, monitoredGpu);
+    numMonitored++;
+  }
+  return numMonitored;
+}
+
+void alloc_interface_options_internals(char *config_location, unsigned num_devices, struct list_head *devices,
                                        nvtop_interface_option *options) {
   options->gpu_specific_opts = calloc(num_devices, sizeof(*options->gpu_specific_opts));
   if (!options->gpu_specific_opts) {
     perror("Cannot allocate memory: ");
     exit(EXIT_FAILURE);
+  }
+  unsigned idx = 0;
+  struct gpu_info *device;
+  list_for_each_entry(device, devices, list) {
+    options->gpu_specific_opts[idx++].linkedGpu = device;
   }
   options->plot_left_to_right = false;
   options->use_color = true;

@@ -24,11 +24,14 @@
 
 #include "nvtop/common.h"
 #include "nvtop/interface_common.h"
+#include "nvtop/extract_gpuinfo_common.h"
 
 #include <stdbool.h>
 
 typedef struct {
-  plot_info_to_draw to_draw; // The set of metrics to draw for this gpu
+  plot_info_to_draw to_draw;  // The set of metrics to draw for this gpu
+  bool doNotMonitor;          // True if this GPU should not be monitored
+  struct gpu_info *linkedGpu; // The gpu to which this option apply
 } nvtop_interface_gpu_opts;
 
 typedef struct nvtop_interface_option_struct {
@@ -75,9 +78,11 @@ inline plot_info_to_draw plot_default_draw_info(void) {
   return (1 << plot_gpu_rate) | (1 << plot_gpu_mem_rate);
 }
 
-void alloc_interface_options_internals(char *config_file_location,
-                                       unsigned num_devices,
+void alloc_interface_options_internals(char *config_file_location, unsigned num_devices, struct list_head *devices,
                                        nvtop_interface_option *options);
+
+unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct list_head *monitoredGpus,
+                                                struct list_head *nonMonitoredGpus, nvtop_interface_option *options);
 
 bool load_interface_options_from_config_file(unsigned num_devices,
                                              nvtop_interface_option *options);
