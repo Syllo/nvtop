@@ -178,8 +178,7 @@ struct gpu_vendor {
 
   const char *(*last_error_string)(void);
 
-  bool (*get_device_handles)(struct list_head *devices, unsigned *count,
-                             ssize_t *mask);
+  bool (*get_device_handles)(struct list_head *devices, unsigned *count);
 
   void (*populate_static_info)(struct gpu_info *gpu_info);
   void (*refresh_dynamic_info)(struct gpu_info *gpu_info);

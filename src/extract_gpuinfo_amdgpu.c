@@ -135,7 +135,7 @@ static struct gpu_info_amdgpu *gpu_infos;
 static bool gpuinfo_amdgpu_init(void);
 static void gpuinfo_amdgpu_shutdown(void);
 static const char *gpuinfo_amdgpu_last_error_string(void);
-static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count, ssize_t *mask);
+static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count);
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_amdgpu_get_running_processes(struct gpu_info *_gpu_info);
@@ -376,7 +376,7 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
 
 #define VENDOR_AMD 0x1002
 
-static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count, ssize_t *mask) {
+static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count) {
   if (!libdrm_handle)
     return false;
 
@@ -431,14 +431,6 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       close(fd);
       continue;
     }
-
-    if ((*mask & 1) == 0) {
-      *mask >>= 1;
-      _drmFreeVersion(ver);
-      close(fd);
-      continue;
-    }
-    *mask >>= 1;
 
     authenticate_drm(fd);
 

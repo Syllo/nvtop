@@ -55,8 +55,6 @@ static const char helpstring[] =
     "  -v --version      : Print the version and exit\n"
     "  -c --config-file  : Provide a custom config file location to load/save "
     "preferences\n"
-    "  -s --gpu-select   : Colon separated list of GPU IDs to monitor\n"
-    "  -i --gpu-ignore   : Colon separated list of GPU IDs to ignore\n"
     "  -p --no-plot      : Disable bar plot\n"
     "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
     "older on the right\n"
@@ -80,14 +78,6 @@ static const struct option long_opts[] = {
     {.name = "no-color", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "no-colour", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "freedom-unit", .has_arg = no_argument, .flag = NULL, .val = 'f'},
-    {.name = "gpu-select",
-     .has_arg = required_argument,
-     .flag = NULL,
-     .val = 's'},
-    {.name = "gpu-ignore",
-     .has_arg = required_argument,
-     .flag = NULL,
-     .val = 'i'},
     {.name = "encode-hide",
      .has_arg = required_argument,
      .flag = NULL,
@@ -97,37 +87,7 @@ static const struct option long_opts[] = {
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:s:i:c:CfE:pr";
-
-static size_t update_mask_value(const char *str, size_t entry_mask,
-                                bool addTo) {
-  char *saveptr;
-  char *option_copy = malloc((strlen(str) + 1) * sizeof(*option_copy));
-  strcpy(option_copy, str);
-  char *gpu_num = strtok_r(option_copy, ":", &saveptr);
-  while (gpu_num != NULL) {
-    char *endptr;
-    unsigned num_used = strtoul(gpu_num, &endptr, 0);
-    if (endptr == gpu_num) {
-      fprintf(stderr, "Use GPU IDs (unsigned integer) to select GPU with "
-                      "option 's' or 'i'\n");
-      exit(EXIT_FAILURE);
-    }
-    if (num_used >= CHAR_BIT * sizeof(entry_mask)) {
-      fprintf(stderr,
-              "Select GPU X with option 's' or 'i' where 0 <= X < %zu\n",
-              CHAR_BIT * sizeof(entry_mask));
-      exit(EXIT_FAILURE);
-    }
-    if (addTo)
-      entry_mask |= 1 << num_used;
-    else
-      entry_mask &= ~(1 << num_used);
-    gpu_num = strtok_r(NULL, ":", &saveptr);
-  }
-  free(option_copy);
-  return entry_mask;
-}
+static const char opts[] = "hvd:c:CfE:pr";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -135,8 +95,6 @@ int main(int argc, char **argv) {
   opterr = 0;
   bool update_interval_option_set = false;
   int update_interval_option;
-  char *selectedGPU = NULL;
-  char *ignoredGPU = NULL;
   bool no_color_option = false;
   bool use_fahrenheit_option = false;
   bool hide_plot_option = false;
@@ -168,12 +126,6 @@ int main(int argc, char **argv) {
       if (update_interval_option < 100)
         update_interval_option = 100;
     } break;
-    case 's':
-      selectedGPU = optarg;
-      break;
-    case 'i':
-      ignoredGPU = optarg;
-      break;
     case 'v':
       printf("%s\n", versionString);
       exit(EXIT_SUCCESS);
@@ -240,20 +192,9 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  ssize_t gpu_mask;
-  if (selectedGPU != NULL) {
-    gpu_mask = 0;
-    gpu_mask = update_mask_value(selectedGPU, gpu_mask, true);
-  } else {
-    gpu_mask = UINT_MAX;
-  }
-  if (ignoredGPU != NULL) {
-    gpu_mask = update_mask_value(ignoredGPU, gpu_mask, false);
-  }
-
   unsigned devices_count = 0;
   LIST_HEAD(devices);
-  if (!gpuinfo_init_info_extraction(gpu_mask, &devices_count, &devices))
+  if (!gpuinfo_init_info_extraction(&devices_count, &devices))
     return EXIT_FAILURE;
   if (devices_count == 0) {
     fprintf(stdout, "No GPU to monitor.\n");

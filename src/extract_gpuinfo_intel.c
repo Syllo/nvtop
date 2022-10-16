@@ -71,7 +71,7 @@ struct gpu_info_intel {
 static bool gpuinfo_intel_init(void);
 static void gpuinfo_intel_shutdown(void);
 static const char *gpuinfo_intel_last_error_string(void);
-static bool gpuinfo_intel_get_device_handles(struct list_head *devices, unsigned *count, ssize_t *mask);
+static bool gpuinfo_intel_get_device_handles(struct list_head *devices, unsigned *count);
 static void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_intel_get_running_processes(struct gpu_info *_gpu_info);
@@ -240,7 +240,7 @@ parse_fdinfo_exit:
   return true;
 }
 
-static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices, unsigned *count, ssize_t *mask) {
+static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices, unsigned *count) {
   struct nvtop_device *parent;
   if (nvtop_device_get_parent(dev, &parent) < 0)
     return;
@@ -265,11 +265,9 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base);
   (*count)++;
-  // TODO mask support
-  (void)mask;
 }
 
-bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *count, ssize_t *mask) {
+bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *count) {
   *count = 0;
   nvtop_device_enumerator *enumerator;
   if (nvtop_enumerator_new(&enumerator) < 0)
@@ -298,7 +296,7 @@ bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *
     if (nvtop_device_get_devname(device, &devname) < 0)
       continue;
     if (strstr(devname, "/dev/dri/card")) {
-      add_intel_cards(device, devices_list, count, mask);
+      add_intel_cards(device, devices_list, count);
     }
   }
 

@@ -206,8 +206,7 @@ static bool gpuinfo_nvidia_init(void);
 static void gpuinfo_nvidia_shutdown(void);
 static const char *gpuinfo_nvidia_last_error_string(void);
 static bool gpuinfo_nvidia_get_device_handles(
-    struct list_head *devices, unsigned *count,
-    ssize_t *mask);
+    struct list_head *devices, unsigned *count);
 static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info);
@@ -421,9 +420,7 @@ static const char *gpuinfo_nvidia_last_error_string(void) {
   }
 }
 
-static bool gpuinfo_nvidia_get_device_handles(
-    struct list_head *devices, unsigned *count,
-    ssize_t *mask) {
+static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigned *count) {
 
   if (!libnvidia_ml_handle)
     return false;
@@ -444,12 +441,6 @@ static bool gpuinfo_nvidia_get_device_handles(
 
   *count = 0;
   for (unsigned int i = 0; i < num_devices; ++i) {
-    if ((*mask & 1) == 0) {
-      *mask >>= 1;
-      continue;
-    }
-    *mask >>= 1;
-
     last_nvml_return_status =
         nvmlDeviceGetHandleByIndex(i, &gpu_infos[*count].gpuhandle);
     if (last_nvml_return_status == NVML_SUCCESS) {

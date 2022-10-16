@@ -56,7 +56,7 @@ static LIST_HEAD(gpu_vendors);
 
 void register_gpu_vendor(struct gpu_vendor *vendor) { list_add(&vendor->list, &gpu_vendors); }
 
-bool gpuinfo_init_info_extraction(ssize_t mask, unsigned *devices_count, struct list_head *devices) {
+bool gpuinfo_init_info_extraction(unsigned *devices_count, struct list_head *devices) {
   struct gpu_vendor *vendor;
 
   *devices_count = 0;
@@ -64,7 +64,7 @@ bool gpuinfo_init_info_extraction(ssize_t mask, unsigned *devices_count, struct 
     unsigned vendor_devices_count = 0;
 
     if (vendor->init()) {
-      bool retval = vendor->get_device_handles(devices, &vendor_devices_count, &mask);
+      bool retval = vendor->get_device_handles(devices, &vendor_devices_count);
       if (!retval || (retval && vendor_devices_count == 0)) {
         vendor->shutdown();
         vendor_devices_count = 0;
