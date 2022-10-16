@@ -65,7 +65,6 @@ struct gpu_info_intel {
 
   struct nvtop_device *card_device;
   struct nvtop_device *driver_device;
-  char pdev[PDEV_LEN];
   struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
 };
 
@@ -139,7 +138,7 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
       continue;
 
     if (!strcmp(key, drm_pdev)) {
-      if (strcmp(val, gpu_info->pdev)) {
+      if (strcmp(val, gpu_info->base.pdev)) {
         return false;
       }
     } else if (!strcmp(key, drm_client_id)) {
@@ -261,7 +260,7 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   const char *pdev_val;
   int retval = nvtop_device_get_property_value(thisGPU->driver_device, "PCI_SLOT_NAME", &pdev_val);
   assert(retval >= 0 && pdev_val != NULL && "Could not retrieve device PCI slot name");
-  strncpy(thisGPU->pdev, pdev_val, PDEV_LEN);
+  strncpy(thisGPU->base.pdev, pdev_val, PDEV_LEN);
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base);
@@ -335,7 +334,7 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
   }
 
   // Mark integrated GPUs
-  if (strcmp(gpu_info->pdev, INTEGRATED_I915_GPU_PCI_ID) == 0) {
+  if (strcmp(gpu_info->base.pdev, INTEGRATED_I915_GPU_PCI_ID) == 0) {
     static_info->integrated_graphics = true;
   }
 }

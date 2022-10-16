@@ -53,6 +53,19 @@ static const char *(*nvmlErrorString)(nvmlReturn_t);
 static nvmlReturn_t (*nvmlDeviceGetName)(nvmlDevice_t device, char *name,
                                          unsigned int length);
 
+typedef struct {
+  char busIdLegacy[16];
+  unsigned int domain;
+  unsigned int bus;
+  unsigned int device;
+  unsigned int pciDeviceId;
+  // Added in NVML 2.285 API
+  unsigned int pciSubSystemId;
+  char busId[32];
+} nvmlPciInfo_t;
+
+static nvmlReturn_t (*nvmlDeviceGetPciInfo)(nvmlDevice_t device, nvmlPciInfo_t *pciInfo);
+
 static nvmlReturn_t (*nvmlDeviceGetMaxPcieLinkGeneration)(
     nvmlDevice_t device, unsigned int *maxLinkGen);
 
@@ -267,6 +280,14 @@ static bool gpuinfo_nvidia_init(void) {
   if (!nvmlDeviceGetName)
     goto init_error_clean_exit;
 
+  nvmlDeviceGetPciInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPciInfo_v3");
+  if (!nvmlDeviceGetPciInfo)
+    nvmlDeviceGetPciInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPciInfo_v2");
+  if (!nvmlDeviceGetPciInfo)
+    nvmlDeviceGetPciInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPciInfo");
+  if (!nvmlDeviceGetPciInfo)
+    goto init_error_clean_exit;
+
   nvmlDeviceGetMaxPcieLinkGeneration =
       dlsym(libnvidia_ml_handle, "nvmlDeviceGetMaxPcieLinkGeneration");
   if (!nvmlDeviceGetMaxPcieLinkGeneration)
@@ -433,8 +454,13 @@ static bool gpuinfo_nvidia_get_device_handles(
         nvmlDeviceGetHandleByIndex(i, &gpu_infos[*count].gpuhandle);
     if (last_nvml_return_status == NVML_SUCCESS) {
       gpu_infos[*count].base.vendor = &gpu_vendor_nvidia;
-      list_add_tail(&gpu_infos[*count].base.list, devices);
-      *count += 1;
+      nvmlPciInfo_t pciInfo;
+      nvmlReturn_t pciInfoRet = nvmlDeviceGetPciInfo(gpu_infos[*count].gpuhandle, &pciInfo);
+      if (pciInfoRet == NVML_SUCCESS) {
+        strncpy(gpu_infos[*count].base.pdev, pciInfo.busIdLegacy, PDEV_LEN);
+        list_add_tail(&gpu_infos[*count].base.list, devices);
+        *count += 1;
+      }
     }
   }
 
