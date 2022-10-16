@@ -115,6 +115,16 @@ cleanAllocErr:
   return -1;
 }
 
+static void nvtop_free_enumerator_devices(nvtop_device_enumerator *enumerator) {
+  if (enumerator->devices) {
+    for (unsigned i = 0; enumerator->devices && i < enumerator->num_devices; ++i) {
+      udev_device_unref(enumerator->devices[i]);
+    }
+    free(enumerator->devices);
+    enumerator->devices = NULL;
+  }
+}
+
 nvtop_device_enumerator *nvtop_enumerator_ref(nvtop_device_enumerator *enumerator) {
   enumerator->refCount++;
   udev_ref(enumerator->udev);
@@ -127,10 +137,7 @@ nvtop_device_enumerator *nvtop_enumerator_unref(nvtop_device_enumerator *enumera
   udev_enumerate_unref(enumerator->enumerate);
   udev_unref(enumerator->udev);
   if (!enumerator->refCount) {
-    for (unsigned i = 0; enumerator->devices && i < enumerator->num_devices; ++i) {
-      udev_device_unref(enumerator->devices[i]);
-    }
-    free(enumerator->devices);
+    nvtop_free_enumerator_devices(enumerator);
     free(enumerator);
     return NULL;
   } else {
@@ -140,8 +147,7 @@ nvtop_device_enumerator *nvtop_enumerator_unref(nvtop_device_enumerator *enumera
 
 int nvtop_device_enumerator_add_match_subsystem(nvtop_device_enumerator *enumerator, const char *subsystem, int match) {
   assert(enumerator->refCount && "Reference at zero");
-  free(enumerator->devices);
-  enumerator->devices = NULL;
+  nvtop_free_enumerator_devices(enumerator);
   int ret = 1;
   if (match) {
     ret = udev_enumerate_add_match_subsystem(enumerator->enumerate, subsystem);
@@ -154,20 +160,18 @@ int nvtop_device_enumerator_add_match_subsystem(nvtop_device_enumerator *enumera
 int nvtop_device_enumerator_add_match_property(nvtop_device_enumerator *enumerator, const char *property,
                                                const char *value) {
   assert(enumerator->refCount && "Reference at zero");
-  free(enumerator->devices);
-  enumerator->devices = NULL;
+  nvtop_free_enumerator_devices(enumerator);
   return udev_enumerate_add_match_property(enumerator->enumerate, property, value);
 }
 
 int nvtop_device_enumerator_add_match_parent(nvtop_device_enumerator *enumerator, nvtop_device *parent) {
   assert(enumerator->refCount && "Reference at zero");
-  free(enumerator->devices);
-  enumerator->devices = NULL;
+  nvtop_free_enumerator_devices(enumerator);
   return udev_enumerate_add_match_parent(enumerator->enumerate, (struct udev_device *)parent);
 }
 
 static nvtop_device *nvtop_enumerator_get_current(nvtop_device_enumerator *enumerator) {
-  if (!enumerator->devices || enumerator->current_device > enumerator->num_devices)
+  if (!enumerator->devices || enumerator->current_device >= enumerator->num_devices)
     return NULL;
   return (nvtop_device *)enumerator->devices[enumerator->current_device];
 }
