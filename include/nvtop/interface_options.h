@@ -27,25 +27,22 @@
 
 #include <stdbool.h>
 
+typedef struct {
+  plot_info_to_draw to_draw; // The set of metrics to draw for this gpu
+} nvtop_interface_gpu_opts;
+
 typedef struct nvtop_interface_option_struct {
-  bool plot_left_to_right;        // true to reverse the plot refresh direction
-                                  // defines inactivity (0 use rate) before
-                                  // hiding it
-  bool temperature_in_fahrenheit; // Switch from celsius to fahrenheit
-  // temperature scale
-  bool use_color;                    // Name self explanatory
-  double encode_decode_hiding_timer; // Negative to always display, positive
-  plot_info_to_draw
-      *device_information_drawn; // Stores the information to drawn for each
-                                 // GPU (see enum plot_draw_information)
-  char *config_file_location;    // Location of the config file
-  enum process_field
-      sort_processes_by;      // Specify the field used to order the processes
-  bool sort_descending_order; // Sort in descenging order
-  int update_interval; // Interval between interface update in milliseconds
-  process_field_displayed
-      process_fields_displayed; // Which columns of the
-                                // process list are displayed
+  bool plot_left_to_right;                          // true to reverse the plot refresh direction defines inactivity (0 use rate) before hiding it
+  bool temperature_in_fahrenheit;                   // Switch from celsius to fahrenheit temperature scale
+  bool use_color;                                   // Name self explanatory
+  double encode_decode_hiding_timer;                // Negative to always display, positive
+  nvtop_interface_gpu_opts *gpu_specific_opts;      // GPU specific options
+  char *config_file_location;                       // Location of the config file
+  enum process_field sort_processes_by;             // Specify the field used to order the processes
+  bool sort_descending_order;                       // Sort in descenging order
+  int update_interval;                              // Interval between interface update in milliseconds
+  process_field_displayed process_fields_displayed; // Which columns of the
+                                                    // process list are displayed
 } nvtop_interface_option;
 
 inline bool plot_isset_draw_info(enum plot_information check_info,

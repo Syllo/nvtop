@@ -131,8 +131,8 @@ bool test_with_terminal_size(unsigned device_count, unsigned header_rows, unsign
                              unsigned cols) {
   struct window_position screen = {.posX = 0, .posY = 0, .sizeX = cols, .sizeY = rows};
 
-  plot_info_to_draw to_draw_default = plot_default_draw_info();
-  std::vector<plot_info_to_draw> plot_display(device_count, to_draw_default);
+  nvtop_interface_gpu_opts to_draw_default = {.to_draw = plot_default_draw_info()};
+  std::vector<nvtop_interface_gpu_opts> plot_display(device_count, to_draw_default);
 
   process_field_displayed proc_display = process_default_displayed_field();
 
@@ -158,8 +158,8 @@ TEST(InterfaceLayout, CheckEmptyProcessWindow) {
   unsigned device_count = 3, header_rows = 3, header_cols = 55, rows = 4, cols = 120;
   struct window_position screen = {.posX = 0, .posY = 0, .sizeX = cols, .sizeY = rows};
 
-  plot_info_to_draw to_draw_default = plot_default_draw_info();
-  std::vector<plot_info_to_draw> plot_display(device_count, to_draw_default);
+  nvtop_interface_gpu_opts to_draw_default = {.to_draw = plot_default_draw_info()};
+  std::vector<nvtop_interface_gpu_opts> plot_display(device_count, to_draw_default);
 
   process_field_displayed proc_display = process_default_displayed_field();
 
@@ -181,8 +181,8 @@ TEST(InterfaceLayout, FixInfiniteLoop) {
   unsigned device_count = 3, header_rows = 3, header_cols = 55, rows = 22, cols = 25;
   struct window_position screen = {.posX = 0, .posY = 0, .sizeX = cols, .sizeY = rows};
 
-  plot_info_to_draw to_draw_default = plot_default_draw_info();
-  std::vector<plot_info_to_draw> plot_display(device_count, to_draw_default);
+  nvtop_interface_gpu_opts to_draw_default = {.to_draw = plot_default_draw_info()};
+  std::vector<nvtop_interface_gpu_opts> plot_display(device_count, to_draw_default);
 
   process_field_displayed proc_display = process_default_displayed_field();
 

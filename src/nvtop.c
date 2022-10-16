@@ -192,63 +192,61 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  unsigned devices_count = 0;
-  LIST_HEAD(devices);
-  if (!gpuinfo_init_info_extraction(&devices_count, &devices))
+  unsigned allDevCount = 0;
+  LIST_HEAD(allDevices);
+  if (!gpuinfo_init_info_extraction(&allDevCount, &allDevices))
     return EXIT_FAILURE;
-  if (devices_count == 0) {
+  if (allDevCount == 0) {
     fprintf(stdout, "No GPU to monitor.\n");
     return EXIT_SUCCESS;
   }
 
-  nvtop_interface_option interface_options;
-  alloc_interface_options_internals(custom_config_file_path, devices_count,
-                                    &interface_options);
-  load_interface_options_from_config_file(devices_count, &interface_options);
-  for (unsigned i = 0; i < devices_count; ++i) {
+  nvtop_interface_option allDevicesOptions;
+  alloc_interface_options_internals(custom_config_file_path, allDevCount,
+                                    &allDevicesOptions);
+  load_interface_options_from_config_file(allDevCount, &allDevicesOptions);
+  for (unsigned i = 0; i < allDevCount; ++i) {
     // Nothing specified in the file
-    if (!plot_isset_draw_info(plot_information_count,
-                              interface_options.device_information_drawn[i])) {
-      interface_options.device_information_drawn[i] = plot_default_draw_info();
+    if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw)) {
+      allDevicesOptions.gpu_specific_opts[i].to_draw = plot_default_draw_info();
     } else {
-      interface_options.device_information_drawn[i] =
-          plot_remove_draw_info(plot_information_count,
-                                interface_options.device_information_drawn[i]);
+      allDevicesOptions.gpu_specific_opts[i].to_draw =
+          plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw);
     }
   }
   if (!process_is_field_displayed(process_field_count,
-                                  interface_options.process_fields_displayed)) {
-    interface_options.process_fields_displayed =
+                                  allDevicesOptions.process_fields_displayed)) {
+    allDevicesOptions.process_fields_displayed =
         process_default_displayed_field();
   } else {
-    interface_options.process_fields_displayed =
+    allDevicesOptions.process_fields_displayed =
         process_remove_field_to_display(
-            process_field_count, interface_options.process_fields_displayed);
+            process_field_count, allDevicesOptions.process_fields_displayed);
   }
   if (no_color_option)
-    interface_options.use_color = false;
+    allDevicesOptions.use_color = false;
   if (hide_plot_option) {
-    for (unsigned i = 0; i < devices_count; ++i) {
-      interface_options.device_information_drawn[i] = 0;
+    for (unsigned i = 0; i < allDevCount; ++i) {
+      allDevicesOptions.gpu_specific_opts[i].to_draw = 0;
     }
   }
   if (encode_decode_timer_option_set) {
-    interface_options.encode_decode_hiding_timer = encode_decode_hide_time;
-    if (interface_options.encode_decode_hiding_timer < 0.)
-      interface_options.encode_decode_hiding_timer = 0.;
+    allDevicesOptions.encode_decode_hiding_timer = encode_decode_hide_time;
+    if (allDevicesOptions.encode_decode_hiding_timer < 0.)
+      allDevicesOptions.encode_decode_hiding_timer = 0.;
   }
   if (reverse_plot_direction_option)
-    interface_options.plot_left_to_right = true;
+    allDevicesOptions.plot_left_to_right = true;
   if (use_fahrenheit_option)
-    interface_options.temperature_in_fahrenheit = true;
+    allDevicesOptions.temperature_in_fahrenheit = true;
   if (update_interval_option_set)
-    interface_options.update_interval = update_interval_option;
+    allDevicesOptions.update_interval = update_interval_option;
 
-  gpuinfo_populate_static_infos(&devices);
+  gpuinfo_populate_static_infos(&allDevices);
 
   size_t biggest_name = 0;
   struct gpu_info *device;
-  list_for_each_entry(device, &devices, list) {
+  list_for_each_entry(device, &allDevices, list) {
     size_t device_name_size;
     if (IS_VALID(gpuinfo_device_name_valid, device->static_info.valid))
       device_name_size = strlen(device->static_info.device_name);
@@ -259,7 +257,7 @@ int main(int argc, char **argv) {
     }
   }
   struct nvtop_interface *interface =
-      initialize_curses(devices_count, biggest_name, interface_options);
+      initialize_curses(allDevCount, biggest_name, allDevicesOptions);
   timeout(interface_update_interval(interface));
 
   double time_slept = interface_update_interval(interface);
@@ -269,19 +267,19 @@ int main(int argc, char **argv) {
       update_window_size_to_terminal_size(interface);
     }
     if (time_slept >= interface_update_interval(interface)) {
-      gpuinfo_refresh_dynamic_info(&devices);
+      gpuinfo_refresh_dynamic_info(&allDevices);
       if (!interface_freeze_processes(interface)) {
-        gpuinfo_refresh_processes(&devices);
-        gpuinfo_fix_dynamic_info_from_process_info(&devices);
+        gpuinfo_refresh_processes(&allDevices);
+        gpuinfo_fix_dynamic_info_from_process_info(&allDevices);
       }
-      save_current_data_to_ring(&devices, interface);
+      save_current_data_to_ring(&allDevices, interface);
       timeout(interface_update_interval(interface));
       time_slept = 0.;
     } else {
       int next_sleep = interface_update_interval(interface) - (int)time_slept;
       timeout(next_sleep);
     }
-    draw_gpu_info_ncurses(devices_count, &devices, interface);
+    draw_gpu_info_ncurses(allDevCount, &allDevices, interface);
 
     nvtop_time time_before_sleep, time_after_sleep;
     nvtop_get_current_time(&time_before_sleep);
@@ -331,7 +329,7 @@ int main(int argc, char **argv) {
   }
 
   clean_ncurses(interface);
-  gpuinfo_shutdown_info_extraction(&devices);
+  gpuinfo_shutdown_info_extraction(&allDevices);
 
   return EXIT_SUCCESS;
 }

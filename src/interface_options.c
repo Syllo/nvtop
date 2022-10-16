@@ -64,9 +64,8 @@ static const char *default_config_path(void) {
 void alloc_interface_options_internals(char *config_location,
                                        unsigned num_devices,
                                        nvtop_interface_option *options) {
-  options->device_information_drawn =
-      calloc(num_devices, sizeof(*options->device_information_drawn));
-  if (!options->device_information_drawn) {
+  options->gpu_specific_opts = calloc(num_devices, sizeof(*options->gpu_specific_opts));
+  if (!options->gpu_specific_opts) {
     perror("Cannot allocate memory: ");
     exit(EXIT_FAILURE);
   }
@@ -227,11 +226,10 @@ static int nvtop_option_ini_handler(void *user, const char *section,
         for (enum plot_information j = plot_gpu_rate;
              j < plot_information_count + 1; ++j) {
           if (strcmp(value, device_draw_vals[j]) == 0) {
-            ini_data->options->device_information_drawn[i] = plot_add_draw_info(
-                j, ini_data->options->device_information_drawn[i]);
-            ini_data->options->device_information_drawn[i] = plot_add_draw_info(
-                plot_information_count,
-                ini_data->options->device_information_drawn[i]);
+            ini_data->options->gpu_specific_opts[i].to_draw =
+                plot_add_draw_info(j, ini_data->options->gpu_specific_opts[i].to_draw);
+            ini_data->options->gpu_specific_opts[i].to_draw =
+                plot_add_draw_info(plot_information_count, ini_data->options->gpu_specific_opts[i].to_draw);
           }
         }
       }
@@ -354,7 +352,7 @@ bool save_interface_options_to_config_file(
     bool draw_any = false;
     for (enum plot_information j = plot_gpu_rate; j < plot_information_count;
          ++j) {
-      if (plot_isset_draw_info(j, options->device_information_drawn[i])) {
+      if (plot_isset_draw_info(j, options->gpu_specific_opts[i].to_draw)) {
         fprintf(config_file, "%s = %s\n", device_shown_value,
                 device_draw_vals[j]);
         draw_any = true;
