@@ -68,6 +68,7 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
   unsigned idx = 0;
   struct gpu_info *device, *list_tmp;
   list_for_each_entry_safe(device, list_tmp, monitoredGpu, list) {
+    assert(idx <= num_devices);
     if (options->gpu_specific_opts[idx].doNotMonitor) {
       list_move_tail(&device->list, nonMonitoredGpu);
       nvtop_interface_gpu_opts saveInfo = options->gpu_specific_opts[idx];
@@ -79,7 +80,9 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
     }
     idx++;
   }
+  idx = numMonitored;
   list_for_each_entry_safe(device, list_tmp, nonMonitoredGpu, list) {
+    assert(idx <= num_devices);
     if (!options->gpu_specific_opts[idx].doNotMonitor) {
       list_move_tail(&device->list, monitoredGpu);
       nvtop_interface_gpu_opts saveInfo = options->gpu_specific_opts[idx];
@@ -96,6 +99,7 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
   if (num_devices > 0 && numMonitored == 0) {
     assert(list_empty(monitoredGpu));
     list_move(&list_first_entry(nonMonitoredGpu, struct gpu_info, list)->list, monitoredGpu);
+    options->gpu_specific_opts[0].doNotMonitor = false;
     numMonitored++;
   }
   return numMonitored;
@@ -122,6 +126,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->sort_descending_order = true;
   options->update_interval = 1000;
   options->process_fields_displayed = 0;
+  options->has_monitored_set_changed = false;
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {

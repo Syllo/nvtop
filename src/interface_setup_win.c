@@ -28,7 +28,7 @@
 #include <ncurses.h>
 
 static char *setup_window_category_names[setup_window_selection_count] = {
-    "General", "Devices", "Chart", "Processes"};
+    "General", "Devices", "Chart", "Processes", "GPU Select"};
 
 // All the windows used to display the setup
 enum setup_window_type {
@@ -592,6 +592,34 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
   }
 }
 
+static void draw_setup_window_gpu_select(struct nvtop_interface *interface, unsigned devices_count,
+                                         struct list_head *devices) {
+  if (interface->setup_win.indentation_level > 1)
+    interface->setup_win.indentation_level = 1;
+  if (interface->setup_win.indentation_level == 1 && interface->setup_win.options_selected[0] >= devices_count)
+    interface->setup_win.options_selected[0] = devices_count - 1;
+  wattr_set(interface->setup_win.single, A_STANDOUT, green_color, NULL);
+  mvwprintw(interface->setup_win.single, 0, 0, "Select Monitored GPUs");
+  wstandend(interface->setup_win.single);
+  unsigned int cur_col, maxcols, tmp;
+  (void)tmp;
+  getmaxyx(interface->setup_win.single, tmp, maxcols);
+  getyx(interface->setup_win.single, tmp, cur_col);
+  mvwchgat(interface->setup_win.single, 0, cur_col, maxcols - cur_col, A_STANDOUT, green_color, NULL);
+  struct gpu_info *device;
+  unsigned index = 0;
+  list_for_each_entry(device, devices, list) {
+    mvwprintw(interface->setup_win.single, index + 1, 0, "[%c] %s",
+              option_state_char(!interface->options.gpu_specific_opts[index].doNotMonitor),
+              device->static_info.device_name);
+    if (interface->setup_win.indentation_level == 1 && interface->setup_win.options_selected[0] == index)
+      mvwchgat(interface->setup_win.single, index + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+    index++;
+  }
+
+  wnoutrefresh(interface->setup_win.single);
+}
+
 static const char *setup_window_shortcuts[] = {"Enter", "ESC", "Arrow keys",
                                                "+/-", "F12"};
 
@@ -632,6 +660,9 @@ void draw_setup_window(unsigned devices_count, struct list_head *devices,
     break;
   case setup_process_list_selected:
     draw_setup_window_proc_list(interface);
+    break;
+  case setup_monitored_gpu_list_selected:
+    draw_setup_window_gpu_select(interface, devices_count, devices);
     break;
   default:
     break;
@@ -861,6 +892,13 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
                       interface->options.process_fields_displayed);
             }
           }
+        }
+      }
+      if (interface->setup_win.selected_section == setup_monitored_gpu_list_selected) {
+        if (interface->setup_win.indentation_level == 1) {
+          interface->options.gpu_specific_opts[interface->setup_win.options_selected[0]].doNotMonitor =
+              !interface->options.gpu_specific_opts[interface->setup_win.options_selected[0]].doNotMonitor;
+          interface->options.has_monitored_set_changed = true;
         }
       }
       break;

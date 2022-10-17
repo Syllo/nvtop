@@ -247,20 +247,8 @@ int main(int argc, char **argv) {
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 
-  size_t biggest_name = 0;
-  struct gpu_info *device;
-  list_for_each_entry(device, &monitoredGpus, list) {
-    size_t device_name_size;
-    if (IS_VALID(gpuinfo_device_name_valid, device->static_info.valid))
-      device_name_size = strlen(device->static_info.device_name);
-    else
-      device_name_size = 4;
-    if (device_name_size > biggest_name) {
-      biggest_name = device_name_size;
-    }
-  }
   struct nvtop_interface *interface =
-      initialize_curses(numMonitoredGpus, biggest_name, allDevicesOptions);
+      initialize_curses(numMonitoredGpus, interface_largest_gpu_name(&monitoredGpus), allDevicesOptions);
   timeout(interface_update_interval(interface));
 
   double time_slept = interface_update_interval(interface);
@@ -269,6 +257,7 @@ int main(int argc, char **argv) {
       signal_resize_win = 0;
       update_window_size_to_terminal_size(interface);
     }
+    interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
       if (!interface_freeze_processes(interface)) {

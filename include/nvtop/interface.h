@@ -34,6 +34,12 @@ struct nvtop_interface *initialize_curses(unsigned num_devices,
 
 void clean_ncurses(struct nvtop_interface *interface);
 
+void interface_check_monitored_gpu_change(struct nvtop_interface **interface, unsigned allDevCount,
+                                          unsigned *num_monitored_gpus, struct list_head *monitoredGpus,
+                                          struct list_head *nonMonitoredGpus);
+
+unsigned interface_largest_gpu_name(struct list_head *devices);
+
 void draw_gpu_info_ncurses(unsigned devices_count, struct list_head *devices,
                            struct nvtop_interface *interface);
 

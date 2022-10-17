@@ -2004,3 +2004,30 @@ extern inline void set_attribute_between(WINDOW *win, int startY, int startX,
 int interface_update_interval(const struct nvtop_interface *interface) {
   return interface->options.update_interval;
 }
+
+unsigned interface_largest_gpu_name(struct list_head *devices) {
+  struct gpu_info *gpuinfo;
+  unsigned max_size = 4;
+  list_for_each_entry(gpuinfo, devices, list) {
+    if (GPUINFO_STATIC_FIELD_VALID(&gpuinfo->static_info, device_name)) {
+      unsigned name_len = strlen(gpuinfo->static_info.device_name);
+      max_size = name_len > max_size ? name_len : max_size;
+    }
+  }
+  return max_size;
+}
+
+void interface_check_monitored_gpu_change(struct nvtop_interface **interface, unsigned allDevCount,
+                                          unsigned *num_monitored_gpus, struct list_head *monitoredGpus,
+                                          struct list_head *nonMonitoredGpus) {
+  if (!(*interface)->setup_win.visible && (*interface)->options.has_monitored_set_changed) {
+    nvtop_interface_option options_copy = (*interface)->options;
+    options_copy.has_monitored_set_changed = false;
+    memset(&(*interface)->options, 0, sizeof(options_copy));
+    *num_monitored_gpus =
+        interface_check_and_fix_monitored_gpus(allDevCount, monitoredGpus, nonMonitoredGpus, &options_copy);
+    clean_ncurses(*interface);
+    *interface = initialize_curses(*num_monitored_gpus, interface_largest_gpu_name(monitoredGpus), options_copy);
+    timeout(interface_update_interval(*interface));
+  }
+}

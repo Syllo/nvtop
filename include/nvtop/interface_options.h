@@ -46,6 +46,7 @@ typedef struct nvtop_interface_option_struct {
   int update_interval;                              // Interval between interface update in milliseconds
   process_field_displayed process_fields_displayed; // Which columns of the
                                                     // process list are displayed
+  bool has_monitored_set_changed;                  // True if the set of monitored gpu was modified through the interface
 } nvtop_interface_option;
 
 inline bool plot_isset_draw_info(enum plot_information check_info,
