@@ -147,6 +147,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
 
 struct nvtop_option_ini_data {
   unsigned num_devices;
+  unsigned selectedGpu;
   nvtop_interface_option *options;
 };
 
@@ -179,7 +180,9 @@ static const char process_value_sort_order[] = "SortOrder";
 static const char process_sort_descending[] = "descending";
 static const char process_sort_ascending[] = "ascending";
 
-static const char device_section[] = "DeviceDrawOption";
+static const char device_section[] = "Device";
+static const char device_pdev[] = "Pdev";
+static const char device_monitor[] = "Monitor";
 static const char device_shown_value[] = "ShownInfo";
 static const char *device_draw_vals[plot_information_count + 1] = {
     "gpuRate",         "gpuMemRate",    "encodeRate", "decodeRate",
@@ -265,22 +268,32 @@ static int nvtop_option_ini_handler(void *user, const char *section,
     }
   }
   // Per-Device Sections
-  assert(ini_data->num_devices < 1000 && "Not enough room for 1000 devices");
-  for (unsigned i = 0; i < ini_data->num_devices && i < 1000; ++i) {
-    char gpu_section_name[sizeof(device_section) + 4];
-    snprintf(gpu_section_name, sizeof(device_section) + 4, "%s%u",
-             device_section, i);
-    if (strcmp(section, gpu_section_name) == 0) {
+  if (strcmp(section, device_section) == 0) {
+    if (strcmp(name, device_pdev) == 0) {
+      ini_data->selectedGpu = ini_data->num_devices;
+      for (unsigned i = 0; i < ini_data->num_devices; ++i) {
+        if (strcmp(ini_data->options->gpu_specific_opts[i].linkedGpu->pdev, value) == 0) {
+          ini_data->selectedGpu = i;
+          break;
+        }
+      }
+    }
+    if (ini_data->selectedGpu < ini_data->num_devices) {
       if (strcmp(name, device_shown_value) == 0) {
-        for (enum plot_information j = plot_gpu_rate;
-             j < plot_information_count + 1; ++j) {
+        for (enum plot_information j = plot_gpu_rate; j < plot_information_count + 1; ++j) {
           if (strcmp(value, device_draw_vals[j]) == 0) {
-            ini_data->options->gpu_specific_opts[i].to_draw =
-                plot_add_draw_info(j, ini_data->options->gpu_specific_opts[i].to_draw);
-            ini_data->options->gpu_specific_opts[i].to_draw =
-                plot_add_draw_info(plot_information_count, ini_data->options->gpu_specific_opts[i].to_draw);
+            ini_data->options->gpu_specific_opts[ini_data->selectedGpu].to_draw =
+                plot_add_draw_info(j, ini_data->options->gpu_specific_opts[ini_data->selectedGpu].to_draw);
+            ini_data->options->gpu_specific_opts[ini_data->selectedGpu].to_draw = plot_add_draw_info(
+                plot_information_count, ini_data->options->gpu_specific_opts[ini_data->selectedGpu].to_draw);
           }
         }
+      }
+      if (strcmp(name, device_monitor) == 0) {
+        if (strcmp(value, "true") == 0)
+          ini_data->options->gpu_specific_opts[ini_data->selectedGpu].doNotMonitor = false;
+        if (strcmp(value, "false") == 0)
+          ini_data->options->gpu_specific_opts[ini_data->selectedGpu].doNotMonitor = true;
       }
     }
   }
@@ -292,7 +305,7 @@ bool load_interface_options_from_config_file(unsigned num_devices,
   FILE *option_file = fopen(options->config_file_location, "r");
   if (!option_file)
     return false;
-  struct nvtop_option_ini_data ini_data = {num_devices, options};
+  struct nvtop_option_ini_data ini_data = {num_devices, num_devices, options};
   int retval = ini_parse_file(option_file, nvtop_option_ini_handler, &ini_data);
   fclose(option_file);
   if (!process_is_field_displayed(options->sort_processes_by,
@@ -397,7 +410,9 @@ bool save_interface_options_to_config_file(
 
   // Per-Device Sections
   for (unsigned i = 0; i < num_devices; ++i) {
-    fprintf(config_file, "[%s%u]\n", device_section, i);
+    fprintf(config_file, "[%s]\n", device_section);
+    fprintf(config_file, "%s = %s\n", device_pdev, options->gpu_specific_opts[i].linkedGpu->pdev);
+    fprintf(config_file, "%s = %s\n", device_monitor, boolean_string(!options->gpu_specific_opts[i].doNotMonitor));
     bool draw_any = false;
     for (enum plot_information j = plot_gpu_rate; j < plot_information_count;
          ++j) {
