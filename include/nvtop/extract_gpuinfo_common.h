@@ -184,6 +184,7 @@ struct gpu_vendor {
   void (*refresh_dynamic_info)(struct gpu_info *gpu_info);
 
   void (*refresh_running_processes)(struct gpu_info *gpu_info);
+  char *name;
 };
 
 #define PDEV_LEN 16

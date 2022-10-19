@@ -148,6 +148,7 @@ struct gpu_vendor gpu_vendor_amdgpu = {
     .populate_static_info = gpuinfo_amdgpu_populate_static_info,
     .refresh_dynamic_info = gpuinfo_amdgpu_refresh_dynamic_info,
     .refresh_running_processes = gpuinfo_amdgpu_get_running_processes,
+    .name = "AMD",
 };
 
 static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const char *format, ...);
