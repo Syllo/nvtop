@@ -30,6 +30,7 @@
 #include <locale.h>
 
 #include "nvtop/extract_gpuinfo.h"
+#include "nvtop/info_messages.h"
 #include "nvtop/interface.h"
 #include "nvtop/interface_common.h"
 #include "nvtop/interface_options.h"
@@ -202,6 +203,13 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
   }
 
+  unsigned numWarningMessages = 0;
+  const char **warningMessages;
+  get_info_messages(&monitoredGpus, &numWarningMessages, &warningMessages);
+  for (unsigned messageId = 0; messageId < numWarningMessages; ++messageId) {
+    fprintf(stdout, "[Info]: %s\n", warningMessages[messageId]);
+  }
+
   nvtop_interface_option allDevicesOptions;
   alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus,
                                     &allDevicesOptions);
@@ -246,6 +254,8 @@ int main(int argc, char **argv) {
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
+
+  show_information_messages(numWarningMessages, warningMessages);
 
   struct nvtop_interface *interface =
       initialize_curses(numMonitoredGpus, interface_largest_gpu_name(&monitoredGpus), allDevicesOptions);

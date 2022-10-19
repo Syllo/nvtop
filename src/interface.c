@@ -2031,3 +2031,72 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
     timeout(interface_update_interval(*interface));
   }
 }
+
+static char dontShowAgain[] = "<Don't Show Again>";
+static char okay[] = "<Ok>";
+
+static unsigned message_lines(unsigned message_size, unsigned cols) { return (message_size + cols - 1) / cols; }
+
+bool show_information_messages(unsigned num_messages, const char **messages) {
+  if (!num_messages)
+    return false;
+  bool exit = false;
+  bool dontShowAgainOption = false;
+
+  while (!exit) {
+    initscr();
+    clear();
+    refresh();
+    initialize_colors();
+    cbreak();
+    noecho();
+    keypad(stdscr, TRUE);
+    curs_set(0);
+    int rows, cols;
+    getmaxyx(stdscr, rows, cols);
+    unsigned messages_lines = num_messages / 2;
+    for (unsigned i = 0; i < num_messages; ++i) {
+      messages_lines += message_lines(strlen(messages[i]), cols);
+    }
+    int row = (rows - messages_lines + 1) / 2;
+    for (unsigned i = 0; i < num_messages; ++i) {
+      int col = (cols - strlen(messages[i]) - 1) / 2;
+      col = col < 0 ? 0 : col;
+      mvprintw(row, col, "%s", messages[i]);
+      row += message_lines(strlen(messages[i]), cols) + 1;
+    }
+    size_t sizeQuitOptions = sizeof(dontShowAgain) + sizeof(okay);
+    int quitOptionsRow = (rows - messages_lines + 1) / 2 + messages_lines + 1;
+    int quitOptionsCol = (cols - sizeQuitOptions) / 2;
+    mvprintw(quitOptionsRow, quitOptionsCol, "%s %s", dontShowAgain, okay);
+    mvchgat(quitOptionsRow, quitOptionsCol + sizeof(dontShowAgain), sizeof(okay) - 1, 0, cyan_color, NULL);
+    refresh();
+    if (dontShowAgainOption) {
+      mvchgat(quitOptionsRow, quitOptionsCol, sizeof(dontShowAgain) - 1, 0, cyan_color, NULL);
+      mvchgat(quitOptionsRow, quitOptionsCol + sizeof(dontShowAgain), sizeof(okay) - 1, 0, 0, NULL);
+    } else {
+      mvchgat(quitOptionsRow, quitOptionsCol, sizeof(dontShowAgain) - 1, 0, 0, NULL);
+      mvchgat(quitOptionsRow, quitOptionsCol + sizeof(dontShowAgain), sizeof(okay) - 1, 0, cyan_color, NULL);
+    }
+
+    int input_char = getch();
+    switch (input_char) {
+    case 27: // ESC
+    case 'q':
+    case KEY_ENTER:
+    case '\n':
+      exit = true;
+      break;
+    case KEY_RIGHT:
+      dontShowAgainOption = false;
+      break;
+    case KEY_LEFT:
+      dontShowAgainOption = true;
+      break;
+    default:
+      break;
+    }
+    endwin();
+  }
+  return dontShowAgainOption;
+}
