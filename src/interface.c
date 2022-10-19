@@ -247,7 +247,7 @@ static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_posi
   unsigned column_divisor = 0;
   for (unsigned i = 0; i < plot->num_devices_to_plot; ++i) {
     unsigned dev_id = plot->devices_ids[i];
-    plot_info_to_draw to_draw = options->device_information_drawn[dev_id];
+    plot_info_to_draw to_draw = options->gpu_specific_opts[dev_id].to_draw;
     column_divisor += plot_count_draw_info(to_draw);
   }
   assert(column_divisor > 0);
@@ -369,7 +369,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position setup_position;
 
   compute_sizes_from_layout(devices_count, 3, device_length(), rows - 1, cols,
-                            dwin->options.device_information_drawn,
+                            dwin->options.gpu_specific_opts,
                             dwin->options.process_fields_displayed,
                             device_positions, &dwin->num_plots, plot_positions,
                             map_device_to_plot, &process_position,
@@ -471,7 +471,7 @@ struct nvtop_interface *initialize_curses(unsigned devices_count,
 void clean_ncurses(struct nvtop_interface *interface) {
   endwin();
   delete_all_windows(interface);
-  free(interface->options.device_information_drawn);
+  free(interface->options.gpu_specific_opts);
   free(interface->options.config_file_location);
   free(interface->devices_win);
   interface_free_ring_buffer(&interface->saved_data_ring);
@@ -1660,8 +1660,7 @@ void save_current_data_to_ring(struct list_head *devices,
     unsigned data_index = 0;
     for (enum plot_information info = plot_gpu_rate;
          info < plot_information_count; ++info) {
-      if (plot_isset_draw_info(
-              info, interface->options.device_information_drawn[dev_id])) {
+      if (plot_isset_draw_info(info, interface->options.gpu_specific_opts[dev_id].to_draw)) {
         unsigned data_val = 0;
         switch (info) {
         case plot_gpu_rate:
@@ -1737,8 +1736,7 @@ static unsigned populate_plot_data_from_ring_buffer(
   unsigned total_to_draw = 0;
   for (unsigned i = 0; i < plot_win->num_devices_to_plot; ++i) {
     unsigned dev_id = plot_win->devices_ids[i];
-    plot_info_to_draw to_draw =
-        interface->options.device_information_drawn[dev_id];
+    plot_info_to_draw to_draw = interface->options.gpu_specific_opts[dev_id].to_draw;
     total_to_draw += plot_count_draw_info(to_draw);
   }
 
@@ -1750,11 +1748,9 @@ static unsigned populate_plot_data_from_ring_buffer(
   unsigned in_processing = 0;
   for (unsigned i = 0; i < plot_win->num_devices_to_plot; ++i) {
     unsigned dev_id = plot_win->devices_ids[i];
-    plot_info_to_draw to_draw =
-        interface->options.device_information_drawn[dev_id];
+    plot_info_to_draw to_draw = interface->options.gpu_specific_opts[dev_id].to_draw;
     unsigned data_ring_index = 0;
-    for (enum plot_information info = plot_gpu_rate;
-         info < plot_information_count; ++info) {
+    for (enum plot_information info = plot_gpu_rate; info < plot_information_count; ++info) {
       if (plot_isset_draw_info(info, to_draw)) {
         // Populate the legend
         switch (info) {
@@ -2007,4 +2003,31 @@ extern inline void set_attribute_between(WINDOW *win, int startY, int startX,
 
 int interface_update_interval(const struct nvtop_interface *interface) {
   return interface->options.update_interval;
+}
+
+unsigned interface_largest_gpu_name(struct list_head *devices) {
+  struct gpu_info *gpuinfo;
+  unsigned max_size = 4;
+  list_for_each_entry(gpuinfo, devices, list) {
+    if (GPUINFO_STATIC_FIELD_VALID(&gpuinfo->static_info, device_name)) {
+      unsigned name_len = strlen(gpuinfo->static_info.device_name);
+      max_size = name_len > max_size ? name_len : max_size;
+    }
+  }
+  return max_size;
+}
+
+void interface_check_monitored_gpu_change(struct nvtop_interface **interface, unsigned allDevCount,
+                                          unsigned *num_monitored_gpus, struct list_head *monitoredGpus,
+                                          struct list_head *nonMonitoredGpus) {
+  if (!(*interface)->setup_win.visible && (*interface)->options.has_monitored_set_changed) {
+    nvtop_interface_option options_copy = (*interface)->options;
+    options_copy.has_monitored_set_changed = false;
+    memset(&(*interface)->options, 0, sizeof(options_copy));
+    *num_monitored_gpus =
+        interface_check_and_fix_monitored_gpus(allDevCount, monitoredGpus, nonMonitoredGpus, &options_copy);
+    clean_ncurses(*interface);
+    *interface = initialize_curses(*num_monitored_gpus, interface_largest_gpu_name(monitoredGpus), options_copy);
+    timeout(interface_update_interval(*interface));
+  }
 }

@@ -71,13 +71,12 @@ static bool move_plot_to_stack(unsigned stack_max_cols, unsigned plot_id,
   }
 }
 
-static unsigned info_in_plot(unsigned plot_id, unsigned devices_count,
-                             const unsigned map_device_to_plot[devices_count],
-                             const plot_info_to_draw to_draw[devices_count]) {
+static unsigned info_in_plot(unsigned plot_id, unsigned devices_count, const unsigned map_device_to_plot[devices_count],
+                             const nvtop_interface_gpu_opts gpuOpts[devices_count]) {
   unsigned sum = 0;
   for (unsigned dev_id = 0; dev_id < devices_count; ++dev_id) {
     if (map_device_to_plot[dev_id] == plot_id)
-      sum += plot_count_draw_info(to_draw[dev_id]);
+      sum += plot_count_draw_info(gpuOpts[dev_id].to_draw);
   }
   assert(sum > 0);
   return sum;
@@ -111,7 +110,7 @@ size_differences_between_stacks(unsigned plot_count, unsigned stack_count,
 }
 
 static void preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_total_cols, unsigned devices_count,
-                                         const plot_info_to_draw to_draw[devices_count],
+                                         const nvtop_interface_gpu_opts gpuOpts[devices_count],
                                          unsigned map_device_to_plot[devices_count],
                                          unsigned plot_in_stack[devices_count], unsigned *num_plots,
                                          unsigned *plot_stack_count) {
@@ -121,7 +120,7 @@ static void preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_
 
   bool plot_anything = false;
   for (unsigned i = 0; i < devices_count; ++i) {
-    num_info_per_plot[i] = plot_count_draw_info(to_draw[i]);
+    num_info_per_plot[i] = plot_count_draw_info(gpuOpts[i].to_draw);
     map_device_to_plot[i] = i;
     if (num_info_per_plot[i])
       plot_anything = true;
@@ -244,7 +243,7 @@ static void balance_info_on_stacks_preserving_plot_order(
 }
 
 void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_rows, unsigned device_header_cols,
-                               unsigned rows, unsigned cols, const plot_info_to_draw *to_draw,
+                               unsigned rows, unsigned cols, const nvtop_interface_gpu_opts *gpuOpts,
                                process_field_displayed process_displayed, struct window_position *device_positions,
                                unsigned *num_plots, struct window_position plot_positions[MAX_CHARTS],
                                unsigned *map_device_to_plot, struct window_position *process_position,
@@ -278,9 +277,8 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
 
   unsigned num_plot_stacks = 0;
   unsigned plot_in_stack[MAX_CHARTS];
-  preliminary_plot_positioning(rows_for_plots, cols, devices_count, to_draw,
-                               map_device_to_plot, plot_in_stack, num_plots,
-                               &num_plot_stacks);
+  preliminary_plot_positioning(rows_for_plots, cols, devices_count, gpuOpts, map_device_to_plot, plot_in_stack,
+                               num_plots, &num_plot_stacks);
 
   // Transfer some lines to the header to separate the devices
   unsigned transferable_lines =
@@ -304,8 +302,7 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
   // Compute the cols used in each stacks to prepare balancing
   unsigned num_info_per_plot[MAX_CHARTS];
   for (unsigned i = 0; i < *num_plots; ++i) {
-    num_info_per_plot[i] =
-        info_in_plot(i, devices_count, map_device_to_plot, to_draw);
+    num_info_per_plot[i] = info_in_plot(i, devices_count, map_device_to_plot, gpuOpts);
   }
   unsigned cols_allocated_in_stacks[MAX_CHARTS];
   for (unsigned i = 0; i < num_plot_stacks; ++i) {

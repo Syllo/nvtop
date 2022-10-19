@@ -113,6 +113,14 @@ void list_move(struct list_head *elem, struct list_head *head)
 	list_add(elem, head);
 }
 
+/* Delete from list, add to another list as tail. */
+static inline
+void list_move_tail(struct list_head *elem, struct list_head *head)
+{
+	__list_del(elem->prev, elem->next);
+	list_add_tail(elem, head);
+}
+
 /* Replace an old entry. */
 static inline
 void list_replace(struct list_head *old, struct list_head *_new)
@@ -185,6 +193,11 @@ void list_splice(struct list_head *add, struct list_head *head)
 			p = list_entry((pos)->member.next, __typeof__(*(pos)), member); \
 		&(pos)->member != (head); \
 		pos = (p), p = list_entry((pos)->member.next, __typeof__(*(pos)), member))
+
+#define list_for_each_entry_reverse_safe(pos, p, head, member)                                                         \
+  for (pos = list_entry((head)->prev, __typeof__(*(pos)), member),                                                     \
+      p = list_entry((pos)->member.prev, __typeof__(*(pos)), member);                                                  \
+       &(pos)->member != (head); pos = (p), p = list_entry((pos)->member.prev, __typeof__(*(pos)), member))
 
 /*
  * Same as list_for_each_entry_safe, but starts from "pos" which should

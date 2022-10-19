@@ -55,8 +55,6 @@ static const char helpstring[] =
     "  -v --version      : Print the version and exit\n"
     "  -c --config-file  : Provide a custom config file location to load/save "
     "preferences\n"
-    "  -s --gpu-select   : Colon separated list of GPU IDs to monitor\n"
-    "  -i --gpu-ignore   : Colon separated list of GPU IDs to ignore\n"
     "  -p --no-plot      : Disable bar plot\n"
     "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
     "older on the right\n"
@@ -80,14 +78,6 @@ static const struct option long_opts[] = {
     {.name = "no-color", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "no-colour", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "freedom-unit", .has_arg = no_argument, .flag = NULL, .val = 'f'},
-    {.name = "gpu-select",
-     .has_arg = required_argument,
-     .flag = NULL,
-     .val = 's'},
-    {.name = "gpu-ignore",
-     .has_arg = required_argument,
-     .flag = NULL,
-     .val = 'i'},
     {.name = "encode-hide",
      .has_arg = required_argument,
      .flag = NULL,
@@ -97,37 +87,7 @@ static const struct option long_opts[] = {
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:s:i:c:CfE:pr";
-
-static size_t update_mask_value(const char *str, size_t entry_mask,
-                                bool addTo) {
-  char *saveptr;
-  char *option_copy = malloc((strlen(str) + 1) * sizeof(*option_copy));
-  strcpy(option_copy, str);
-  char *gpu_num = strtok_r(option_copy, ":", &saveptr);
-  while (gpu_num != NULL) {
-    char *endptr;
-    unsigned num_used = strtoul(gpu_num, &endptr, 0);
-    if (endptr == gpu_num) {
-      fprintf(stderr, "Use GPU IDs (unsigned integer) to select GPU with "
-                      "option 's' or 'i'\n");
-      exit(EXIT_FAILURE);
-    }
-    if (num_used >= CHAR_BIT * sizeof(entry_mask)) {
-      fprintf(stderr,
-              "Select GPU X with option 's' or 'i' where 0 <= X < %zu\n",
-              CHAR_BIT * sizeof(entry_mask));
-      exit(EXIT_FAILURE);
-    }
-    if (addTo)
-      entry_mask |= 1 << num_used;
-    else
-      entry_mask &= ~(1 << num_used);
-    gpu_num = strtok_r(NULL, ":", &saveptr);
-  }
-  free(option_copy);
-  return entry_mask;
-}
+static const char opts[] = "hvd:c:CfE:pr";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -135,8 +95,6 @@ int main(int argc, char **argv) {
   opterr = 0;
   bool update_interval_option_set = false;
   int update_interval_option;
-  char *selectedGPU = NULL;
-  char *ignoredGPU = NULL;
   bool no_color_option = false;
   bool use_fahrenheit_option = false;
   bool hide_plot_option = false;
@@ -168,12 +126,6 @@ int main(int argc, char **argv) {
       if (update_interval_option < 100)
         update_interval_option = 100;
     } break;
-    case 's':
-      selectedGPU = optarg;
-      break;
-    case 'i':
-      ignoredGPU = optarg;
-      break;
     case 'v':
       printf("%s\n", versionString);
       exit(EXIT_SUCCESS);
@@ -240,85 +192,63 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
-  ssize_t gpu_mask;
-  if (selectedGPU != NULL) {
-    gpu_mask = 0;
-    gpu_mask = update_mask_value(selectedGPU, gpu_mask, true);
-  } else {
-    gpu_mask = UINT_MAX;
-  }
-  if (ignoredGPU != NULL) {
-    gpu_mask = update_mask_value(ignoredGPU, gpu_mask, false);
-  }
-
-  unsigned devices_count = 0;
-  LIST_HEAD(devices);
-  if (!gpuinfo_init_info_extraction(gpu_mask, &devices_count, &devices))
+  unsigned allDevCount = 0;
+  LIST_HEAD(monitoredGpus);
+  LIST_HEAD(nonMonitoredGpus);
+  if (!gpuinfo_init_info_extraction(&allDevCount, &monitoredGpus))
     return EXIT_FAILURE;
-  if (devices_count == 0) {
+  if (allDevCount == 0) {
     fprintf(stdout, "No GPU to monitor.\n");
     return EXIT_SUCCESS;
   }
 
-  nvtop_interface_option interface_options;
-  alloc_interface_options_internals(custom_config_file_path, devices_count,
-                                    &interface_options);
-  load_interface_options_from_config_file(devices_count, &interface_options);
-  for (unsigned i = 0; i < devices_count; ++i) {
+  nvtop_interface_option allDevicesOptions;
+  alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus,
+                                    &allDevicesOptions);
+  load_interface_options_from_config_file(allDevCount, &allDevicesOptions);
+  for (unsigned i = 0; i < allDevCount; ++i) {
     // Nothing specified in the file
-    if (!plot_isset_draw_info(plot_information_count,
-                              interface_options.device_information_drawn[i])) {
-      interface_options.device_information_drawn[i] = plot_default_draw_info();
+    if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw)) {
+      allDevicesOptions.gpu_specific_opts[i].to_draw = plot_default_draw_info();
     } else {
-      interface_options.device_information_drawn[i] =
-          plot_remove_draw_info(plot_information_count,
-                                interface_options.device_information_drawn[i]);
+      allDevicesOptions.gpu_specific_opts[i].to_draw =
+          plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw);
     }
   }
   if (!process_is_field_displayed(process_field_count,
-                                  interface_options.process_fields_displayed)) {
-    interface_options.process_fields_displayed =
+                                  allDevicesOptions.process_fields_displayed)) {
+    allDevicesOptions.process_fields_displayed =
         process_default_displayed_field();
   } else {
-    interface_options.process_fields_displayed =
+    allDevicesOptions.process_fields_displayed =
         process_remove_field_to_display(
-            process_field_count, interface_options.process_fields_displayed);
+            process_field_count, allDevicesOptions.process_fields_displayed);
   }
   if (no_color_option)
-    interface_options.use_color = false;
+    allDevicesOptions.use_color = false;
   if (hide_plot_option) {
-    for (unsigned i = 0; i < devices_count; ++i) {
-      interface_options.device_information_drawn[i] = 0;
+    for (unsigned i = 0; i < allDevCount; ++i) {
+      allDevicesOptions.gpu_specific_opts[i].to_draw = 0;
     }
   }
   if (encode_decode_timer_option_set) {
-    interface_options.encode_decode_hiding_timer = encode_decode_hide_time;
-    if (interface_options.encode_decode_hiding_timer < 0.)
-      interface_options.encode_decode_hiding_timer = 0.;
+    allDevicesOptions.encode_decode_hiding_timer = encode_decode_hide_time;
+    if (allDevicesOptions.encode_decode_hiding_timer < 0.)
+      allDevicesOptions.encode_decode_hiding_timer = 0.;
   }
   if (reverse_plot_direction_option)
-    interface_options.plot_left_to_right = true;
+    allDevicesOptions.plot_left_to_right = true;
   if (use_fahrenheit_option)
-    interface_options.temperature_in_fahrenheit = true;
+    allDevicesOptions.temperature_in_fahrenheit = true;
   if (update_interval_option_set)
-    interface_options.update_interval = update_interval_option;
+    allDevicesOptions.update_interval = update_interval_option;
 
-  gpuinfo_populate_static_infos(&devices);
+  gpuinfo_populate_static_infos(&monitoredGpus);
+  unsigned numMonitoredGpus =
+      interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 
-  size_t biggest_name = 0;
-  struct gpu_info *device;
-  list_for_each_entry(device, &devices, list) {
-    size_t device_name_size;
-    if (IS_VALID(gpuinfo_device_name_valid, device->static_info.valid))
-      device_name_size = strlen(device->static_info.device_name);
-    else
-      device_name_size = 4;
-    if (device_name_size > biggest_name) {
-      biggest_name = device_name_size;
-    }
-  }
   struct nvtop_interface *interface =
-      initialize_curses(devices_count, biggest_name, interface_options);
+      initialize_curses(numMonitoredGpus, interface_largest_gpu_name(&monitoredGpus), allDevicesOptions);
   timeout(interface_update_interval(interface));
 
   double time_slept = interface_update_interval(interface);
@@ -327,20 +257,21 @@ int main(int argc, char **argv) {
       signal_resize_win = 0;
       update_window_size_to_terminal_size(interface);
     }
+    interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
-      gpuinfo_refresh_dynamic_info(&devices);
+      gpuinfo_refresh_dynamic_info(&monitoredGpus);
       if (!interface_freeze_processes(interface)) {
-        gpuinfo_refresh_processes(&devices);
-        gpuinfo_fix_dynamic_info_from_process_info(&devices);
+        gpuinfo_refresh_processes(&monitoredGpus);
+        gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
       }
-      save_current_data_to_ring(&devices, interface);
+      save_current_data_to_ring(&monitoredGpus, interface);
       timeout(interface_update_interval(interface));
       time_slept = 0.;
     } else {
       int next_sleep = interface_update_interval(interface) - (int)time_slept;
       timeout(next_sleep);
     }
-    draw_gpu_info_ncurses(devices_count, &devices, interface);
+    draw_gpu_info_ncurses(numMonitoredGpus, &monitoredGpus, interface);
 
     nvtop_time time_before_sleep, time_after_sleep;
     nvtop_get_current_time(&time_before_sleep);
@@ -390,7 +321,7 @@ int main(int argc, char **argv) {
   }
 
   clean_ncurses(interface);
-  gpuinfo_shutdown_info_extraction(&devices);
+  gpuinfo_shutdown_info_extraction(&monitoredGpus);
 
   return EXIT_SUCCESS;
 }

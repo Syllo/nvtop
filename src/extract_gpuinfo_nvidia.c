@@ -53,6 +53,19 @@ static const char *(*nvmlErrorString)(nvmlReturn_t);
 static nvmlReturn_t (*nvmlDeviceGetName)(nvmlDevice_t device, char *name,
                                          unsigned int length);
 
+typedef struct {
+  char busIdLegacy[16];
+  unsigned int domain;
+  unsigned int bus;
+  unsigned int device;
+  unsigned int pciDeviceId;
+  // Added in NVML 2.285 API
+  unsigned int pciSubSystemId;
+  char busId[32];
+} nvmlPciInfo_t;
+
+static nvmlReturn_t (*nvmlDeviceGetPciInfo)(nvmlDevice_t device, nvmlPciInfo_t *pciInfo);
+
 static nvmlReturn_t (*nvmlDeviceGetMaxPcieLinkGeneration)(
     nvmlDevice_t device, unsigned int *maxLinkGen);
 
@@ -193,8 +206,7 @@ static bool gpuinfo_nvidia_init(void);
 static void gpuinfo_nvidia_shutdown(void);
 static const char *gpuinfo_nvidia_last_error_string(void);
 static bool gpuinfo_nvidia_get_device_handles(
-    struct list_head *devices, unsigned *count,
-    ssize_t *mask);
+    struct list_head *devices, unsigned *count);
 static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info);
@@ -265,6 +277,14 @@ static bool gpuinfo_nvidia_init(void) {
 
   nvmlDeviceGetName = dlsym(libnvidia_ml_handle, "nvmlDeviceGetName");
   if (!nvmlDeviceGetName)
+    goto init_error_clean_exit;
+
+  nvmlDeviceGetPciInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPciInfo_v3");
+  if (!nvmlDeviceGetPciInfo)
+    nvmlDeviceGetPciInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPciInfo_v2");
+  if (!nvmlDeviceGetPciInfo)
+    nvmlDeviceGetPciInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPciInfo");
+  if (!nvmlDeviceGetPciInfo)
     goto init_error_clean_exit;
 
   nvmlDeviceGetMaxPcieLinkGeneration =
@@ -400,9 +420,7 @@ static const char *gpuinfo_nvidia_last_error_string(void) {
   }
 }
 
-static bool gpuinfo_nvidia_get_device_handles(
-    struct list_head *devices, unsigned *count,
-    ssize_t *mask) {
+static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigned *count) {
 
   if (!libnvidia_ml_handle)
     return false;
@@ -423,18 +441,17 @@ static bool gpuinfo_nvidia_get_device_handles(
 
   *count = 0;
   for (unsigned int i = 0; i < num_devices; ++i) {
-    if ((*mask & 1) == 0) {
-      *mask >>= 1;
-      continue;
-    }
-    *mask >>= 1;
-
     last_nvml_return_status =
         nvmlDeviceGetHandleByIndex(i, &gpu_infos[*count].gpuhandle);
     if (last_nvml_return_status == NVML_SUCCESS) {
       gpu_infos[*count].base.vendor = &gpu_vendor_nvidia;
-      list_add_tail(&gpu_infos[*count].base.list, devices);
-      *count += 1;
+      nvmlPciInfo_t pciInfo;
+      nvmlReturn_t pciInfoRet = nvmlDeviceGetPciInfo(gpu_infos[*count].gpuhandle, &pciInfo);
+      if (pciInfoRet == NVML_SUCCESS) {
+        strncpy(gpu_infos[*count].base.pdev, pciInfo.busIdLegacy, PDEV_LEN);
+        list_add_tail(&gpu_infos[*count].base.list, devices);
+        *count += 1;
+      }
     }
   }
 

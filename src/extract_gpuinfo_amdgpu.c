@@ -115,7 +115,6 @@ struct gpu_info_amdgpu {
   int fd;
   amdgpu_device_handle amdgpu_device;
 
-  char pdev[PDEV_LEN];
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
   FILE *fanSpeedFILE; // FILE* for this device current fan speed
   FILE *PCIeBW;       // FILE* for this device PCIe bandwidth over one second
@@ -136,7 +135,7 @@ static struct gpu_info_amdgpu *gpu_infos;
 static bool gpuinfo_amdgpu_init(void);
 static void gpuinfo_amdgpu_shutdown(void);
 static const char *gpuinfo_amdgpu_last_error_string(void);
-static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count, ssize_t *mask);
+static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count);
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_amdgpu_get_running_processes(struct gpu_info *_gpu_info);
@@ -315,7 +314,7 @@ static void authenticate_drm(int fd) {
 static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
   // Open the device sys folder to gather information not available through the DRM driver
   char devicePath[22 + PDEV_LEN];
-  snprintf(devicePath, sizeof(devicePath), "/sys/bus/pci/devices/%s", gpu_info->pdev);
+  snprintf(devicePath, sizeof(devicePath), "/sys/bus/pci/devices/%s", gpu_info->base.pdev);
   nvtop_device_new_from_syspath(&gpu_info->amdgpuDevice, devicePath);
   assert(gpu_info->amdgpuDevice != NULL);
 
@@ -377,7 +376,7 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
 
 #define VENDOR_AMD 0x1002
 
-static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count, ssize_t *mask) {
+static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigned *count) {
   if (!libdrm_handle)
     return false;
 
@@ -433,14 +432,6 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       continue;
     }
 
-    if ((*mask & 1) == 0) {
-      *mask >>= 1;
-      _drmFreeVersion(ver);
-      close(fd);
-      continue;
-    }
-    *mask >>= 1;
-
     authenticate_drm(fd);
 
     if (is_amdgpu) {
@@ -463,7 +454,7 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       gpu_infos[amdgpu_count].fd = fd;
       gpu_infos[amdgpu_count].base.vendor = &gpu_vendor_amdgpu;
 
-      snprintf(gpu_infos[*count].pdev, PDEV_LEN - 1, "%04x:%02x:%02x.%d", devs[i]->businfo.pci->domain,
+      snprintf(gpu_infos[*count].base.pdev, PDEV_LEN - 1, "%04x:%02x:%02x.%d", devs[i]->businfo.pci->domain,
                devs[i]->businfo.pci->bus, devs[i]->businfo.pci->dev, devs[i]->businfo.pci->func);
       initDeviceSysfsPaths(&gpu_infos[amdgpu_count]);
       list_add_tail(&gpu_infos[amdgpu_count].base.list, devices);
@@ -796,7 +787,7 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
 
     // see drivers/gpu/drm/amd/amdgpu/amdgpu_fdinfo.c amdgpu_show_fdinfo()
     if (!strcmp(key, drm_amdgpu_pdev_old) || !strcmp(key, drm_pdev)) {
-      if (strcmp(val, gpu_info->pdev)) {
+      if (strcmp(val, gpu_info->base.pdev)) {
         return false;
       }
     } else if (!strcmp(key, drm_client_id)) {

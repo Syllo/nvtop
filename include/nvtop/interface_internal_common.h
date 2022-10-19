@@ -104,6 +104,7 @@ enum setup_window_section {
   setup_header_selected,
   setup_chart_selected,
   setup_process_list_selected,
+  setup_monitored_gpu_list_selected,
   setup_window_selection_count
 };
 

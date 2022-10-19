@@ -28,7 +28,7 @@
 #include <ncurses.h>
 
 static char *setup_window_category_names[setup_window_selection_count] = {
-    "General", "Devices", "Chart", "Processes"};
+    "General", "Devices", "Chart", "Processes", "GPU Select"};
 
 // All the windows used to display the setup
 enum setup_window_type {
@@ -426,9 +426,8 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
       if (interface->setup_win.options_selected[0] == setup_chart_all_gpu) {
         plot_info_to_draw draw_union = 0, draw_intersection = 0xffff;
         for (unsigned j = 0; j < devices_count; ++j) {
-          draw_union |= interface->options.device_information_drawn[j];
-          draw_intersection = draw_intersection &
-                              interface->options.device_information_drawn[j];
+          draw_union |= interface->options.gpu_specific_opts[j].to_draw;
+          draw_intersection = draw_intersection & interface->options.gpu_specific_opts[j].to_draw;
         }
         if (plot_isset_draw_info(i, draw_intersection)) {
           option_state = option_on;
@@ -439,8 +438,7 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
             option_state = option_off;
         }
       } else {
-        option_state = plot_isset_draw_info(
-            i, interface->options.device_information_drawn[selected_gpu]);
+        option_state = plot_isset_draw_info(i, interface->options.gpu_specific_opts[selected_gpu].to_draw);
       }
       mvwprintw(value_list_win, i + 2, 0, "[%c] %s",
                 option_state_char(option_state),
@@ -594,6 +592,34 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
   }
 }
 
+static void draw_setup_window_gpu_select(struct nvtop_interface *interface, unsigned devices_count,
+                                         struct list_head *devices) {
+  if (interface->setup_win.indentation_level > 1)
+    interface->setup_win.indentation_level = 1;
+  if (interface->setup_win.indentation_level == 1 && interface->setup_win.options_selected[0] >= devices_count)
+    interface->setup_win.options_selected[0] = devices_count - 1;
+  wattr_set(interface->setup_win.single, A_STANDOUT, green_color, NULL);
+  mvwprintw(interface->setup_win.single, 0, 0, "Select Monitored GPUs");
+  wstandend(interface->setup_win.single);
+  unsigned int cur_col, maxcols, tmp;
+  (void)tmp;
+  getmaxyx(interface->setup_win.single, tmp, maxcols);
+  getyx(interface->setup_win.single, tmp, cur_col);
+  mvwchgat(interface->setup_win.single, 0, cur_col, maxcols - cur_col, A_STANDOUT, green_color, NULL);
+  struct gpu_info *device;
+  unsigned index = 0;
+  list_for_each_entry(device, devices, list) {
+    mvwprintw(interface->setup_win.single, index + 1, 0, "[%c] %s",
+              option_state_char(!interface->options.gpu_specific_opts[index].doNotMonitor),
+              device->static_info.device_name);
+    if (interface->setup_win.indentation_level == 1 && interface->setup_win.options_selected[0] == index)
+      mvwchgat(interface->setup_win.single, index + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+    index++;
+  }
+
+  wnoutrefresh(interface->setup_win.single);
+}
+
 static const char *setup_window_shortcuts[] = {"Enter", "ESC", "Arrow keys",
                                                "+/-", "F12"};
 
@@ -634,6 +660,9 @@ void draw_setup_window(unsigned devices_count, struct list_head *devices,
     break;
   case setup_process_list_selected:
     draw_setup_window_proc_list(interface);
+    break;
+  case setup_monitored_gpu_list_selected:
+    draw_setup_window_gpu_select(interface, devices_count, devices);
     break;
   default:
     break;
@@ -785,47 +814,32 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
           if (interface->setup_win.options_selected[0] == setup_chart_all_gpu) {
             plot_info_to_draw draw_intersection = 0xffff;
             for (unsigned j = 0; j < interface->devices_count; ++j) {
-              draw_intersection =
-                  draw_intersection &
-                  interface->options.device_information_drawn[j];
+              draw_intersection = draw_intersection & interface->options.gpu_specific_opts[j].to_draw;
             }
-            if (plot_isset_draw_info(interface->setup_win.options_selected[1],
-                                     draw_intersection)) {
+            if (plot_isset_draw_info(interface->setup_win.options_selected[1], draw_intersection)) {
               for (unsigned i = 0; i < interface->devices_count; ++i) {
-                interface->options.device_information_drawn[i] =
-                    plot_remove_draw_info(
-                        interface->setup_win.options_selected[1],
-                        interface->options.device_information_drawn[i]);
+                interface->options.gpu_specific_opts[i].to_draw = plot_remove_draw_info(
+                    interface->setup_win.options_selected[1], interface->options.gpu_specific_opts[i].to_draw);
                 interface_ring_buffer_empty(&interface->saved_data_ring, i);
               }
             } else {
               for (unsigned i = 0; i < interface->devices_count; ++i) {
-                interface->options.device_information_drawn[i] =
-                    plot_add_draw_info(
-                        interface->setup_win.options_selected[1],
-                        interface->options.device_information_drawn[i]);
+                interface->options.gpu_specific_opts[i].to_draw = plot_add_draw_info(
+                    interface->setup_win.options_selected[1], interface->options.gpu_specific_opts[i].to_draw);
                 interface_ring_buffer_empty(&interface->saved_data_ring, i);
               }
             }
           }
           if (interface->setup_win.options_selected[0] > setup_chart_all_gpu) {
-            unsigned selected_gpu = interface->setup_win.options_selected[0] -
-                                    setup_chart_start_gpu_list;
-            if (plot_isset_draw_info(
-                    interface->setup_win.options_selected[1],
-                    interface->options.device_information_drawn[selected_gpu]))
-              interface->options.device_information_drawn[selected_gpu] =
-                  plot_remove_draw_info(
-                      interface->setup_win.options_selected[1],
-                      interface->options
-                          .device_information_drawn[selected_gpu]);
+            unsigned selected_gpu = interface->setup_win.options_selected[0] - setup_chart_start_gpu_list;
+            if (plot_isset_draw_info(interface->setup_win.options_selected[1],
+                                     interface->options.gpu_specific_opts[selected_gpu].to_draw))
+              interface->options.gpu_specific_opts[selected_gpu].to_draw = plot_remove_draw_info(
+                  interface->setup_win.options_selected[1], interface->options.gpu_specific_opts[selected_gpu].to_draw);
             else
-              interface->options
-                  .device_information_drawn[selected_gpu] = plot_add_draw_info(
-                  interface->setup_win.options_selected[1],
-                  interface->options.device_information_drawn[selected_gpu]);
-            interface_ring_buffer_empty(&interface->saved_data_ring,
-                                        selected_gpu);
+              interface->options.gpu_specific_opts[selected_gpu].to_draw = plot_add_draw_info(
+                  interface->setup_win.options_selected[1], interface->options.gpu_specific_opts[selected_gpu].to_draw);
+            interface_ring_buffer_empty(&interface->saved_data_ring, selected_gpu);
           }
         }
       }
@@ -878,6 +892,13 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
                       interface->options.process_fields_displayed);
             }
           }
+        }
+      }
+      if (interface->setup_win.selected_section == setup_monitored_gpu_list_selected) {
+        if (interface->setup_win.indentation_level == 1) {
+          interface->options.gpu_specific_opts[interface->setup_win.options_selected[0]].doNotMonitor =
+              !interface->options.gpu_specific_opts[interface->setup_win.options_selected[0]].doNotMonitor;
+          interface->options.has_monitored_set_changed = true;
         }
       }
       break;

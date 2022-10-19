@@ -178,8 +178,7 @@ struct gpu_vendor {
 
   const char *(*last_error_string)(void);
 
-  bool (*get_device_handles)(struct list_head *devices, unsigned *count,
-                             ssize_t *mask);
+  bool (*get_device_handles)(struct list_head *devices, unsigned *count);
 
   void (*populate_static_info)(struct gpu_info *gpu_info);
   void (*refresh_dynamic_info)(struct gpu_info *gpu_info);
@@ -187,6 +186,7 @@ struct gpu_vendor {
   void (*refresh_running_processes)(struct gpu_info *gpu_info);
 };
 
+#define PDEV_LEN 16
 struct gpu_info {
   struct list_head list;
   struct gpu_vendor *vendor;
@@ -195,6 +195,7 @@ struct gpu_info {
   unsigned processes_count;
   struct gpu_process *processes;
   unsigned processes_array_size;
+  char pdev[PDEV_LEN];
 };
 
 void register_gpu_vendor(struct gpu_vendor *vendor);
@@ -202,7 +203,6 @@ void register_gpu_vendor(struct gpu_vendor *vendor);
 bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
 
 // fdinfo DRM interface names common to multiple drivers
-#define PDEV_LEN 16
 extern const char drm_pdev[];
 extern const char drm_client_id[];
 

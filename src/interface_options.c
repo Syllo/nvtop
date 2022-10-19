@@ -61,14 +61,61 @@ static const char *default_config_path(void) {
   }
 }
 
-void alloc_interface_options_internals(char *config_location,
-                                       unsigned num_devices,
+unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct list_head *monitoredGpu,
+                                                struct list_head *nonMonitoredGpu, nvtop_interface_option *options) {
+  // The array in options->gpu_specifi_opts is kept in sync with the lists
+  unsigned numMonitored = 0;
+  unsigned idx = 0;
+  struct gpu_info *device, *list_tmp;
+  list_for_each_entry_safe(device, list_tmp, monitoredGpu, list) {
+    assert(idx <= num_devices);
+    if (options->gpu_specific_opts[idx].doNotMonitor) {
+      list_move_tail(&device->list, nonMonitoredGpu);
+      nvtop_interface_gpu_opts saveInfo = options->gpu_specific_opts[idx];
+      memmove(&options->gpu_specific_opts[idx], &options->gpu_specific_opts[idx + 1],
+              (num_devices - idx - 1) * sizeof(*options->gpu_specific_opts));
+      options->gpu_specific_opts[num_devices - 1] = saveInfo;
+    } else {
+      numMonitored++;
+    }
+    idx++;
+  }
+  idx = numMonitored;
+  list_for_each_entry_safe(device, list_tmp, nonMonitoredGpu, list) {
+    assert(idx <= num_devices);
+    if (!options->gpu_specific_opts[idx].doNotMonitor) {
+      list_move_tail(&device->list, monitoredGpu);
+      nvtop_interface_gpu_opts saveInfo = options->gpu_specific_opts[idx];
+      for (unsigned here = idx; idx > numMonitored; --idx) {
+        options->gpu_specific_opts[here] = options->gpu_specific_opts[here - 1];
+      }
+      options->gpu_specific_opts[numMonitored] = saveInfo;
+      numMonitored++;
+    }
+    idx++;
+  }
+  assert(idx == num_devices);
+  // We keep at least one monitored gpu at all times
+  if (num_devices > 0 && numMonitored == 0) {
+    assert(list_empty(monitoredGpu));
+    list_move(&list_first_entry(nonMonitoredGpu, struct gpu_info, list)->list, monitoredGpu);
+    options->gpu_specific_opts[0].doNotMonitor = false;
+    numMonitored++;
+  }
+  return numMonitored;
+}
+
+void alloc_interface_options_internals(char *config_location, unsigned num_devices, struct list_head *devices,
                                        nvtop_interface_option *options) {
-  options->device_information_drawn =
-      calloc(num_devices, sizeof(*options->device_information_drawn));
-  if (!options->device_information_drawn) {
+  options->gpu_specific_opts = calloc(num_devices, sizeof(*options->gpu_specific_opts));
+  if (!options->gpu_specific_opts) {
     perror("Cannot allocate memory: ");
     exit(EXIT_FAILURE);
+  }
+  unsigned idx = 0;
+  struct gpu_info *device;
+  list_for_each_entry(device, devices, list) {
+    options->gpu_specific_opts[idx++].linkedGpu = device;
   }
   options->plot_left_to_right = false;
   options->use_color = true;
@@ -79,6 +126,7 @@ void alloc_interface_options_internals(char *config_location,
   options->sort_descending_order = true;
   options->update_interval = 1000;
   options->process_fields_displayed = 0;
+  options->has_monitored_set_changed = false;
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {
@@ -99,6 +147,7 @@ void alloc_interface_options_internals(char *config_location,
 
 struct nvtop_option_ini_data {
   unsigned num_devices;
+  unsigned selectedGpu;
   nvtop_interface_option *options;
 };
 
@@ -131,7 +180,9 @@ static const char process_value_sort_order[] = "SortOrder";
 static const char process_sort_descending[] = "descending";
 static const char process_sort_ascending[] = "ascending";
 
-static const char device_section[] = "DeviceDrawOption";
+static const char device_section[] = "Device";
+static const char device_pdev[] = "Pdev";
+static const char device_monitor[] = "Monitor";
 static const char device_shown_value[] = "ShownInfo";
 static const char *device_draw_vals[plot_information_count + 1] = {
     "gpuRate",         "gpuMemRate",    "encodeRate", "decodeRate",
@@ -217,23 +268,32 @@ static int nvtop_option_ini_handler(void *user, const char *section,
     }
   }
   // Per-Device Sections
-  assert(ini_data->num_devices < 1000 && "Not enough room for 1000 devices");
-  for (unsigned i = 0; i < ini_data->num_devices && i < 1000; ++i) {
-    char gpu_section_name[sizeof(device_section) + 4];
-    snprintf(gpu_section_name, sizeof(device_section) + 4, "%s%u",
-             device_section, i);
-    if (strcmp(section, gpu_section_name) == 0) {
+  if (strcmp(section, device_section) == 0) {
+    if (strcmp(name, device_pdev) == 0) {
+      ini_data->selectedGpu = ini_data->num_devices;
+      for (unsigned i = 0; i < ini_data->num_devices; ++i) {
+        if (strcmp(ini_data->options->gpu_specific_opts[i].linkedGpu->pdev, value) == 0) {
+          ini_data->selectedGpu = i;
+          break;
+        }
+      }
+    }
+    if (ini_data->selectedGpu < ini_data->num_devices) {
       if (strcmp(name, device_shown_value) == 0) {
-        for (enum plot_information j = plot_gpu_rate;
-             j < plot_information_count + 1; ++j) {
+        for (enum plot_information j = plot_gpu_rate; j < plot_information_count + 1; ++j) {
           if (strcmp(value, device_draw_vals[j]) == 0) {
-            ini_data->options->device_information_drawn[i] = plot_add_draw_info(
-                j, ini_data->options->device_information_drawn[i]);
-            ini_data->options->device_information_drawn[i] = plot_add_draw_info(
-                plot_information_count,
-                ini_data->options->device_information_drawn[i]);
+            ini_data->options->gpu_specific_opts[ini_data->selectedGpu].to_draw =
+                plot_add_draw_info(j, ini_data->options->gpu_specific_opts[ini_data->selectedGpu].to_draw);
+            ini_data->options->gpu_specific_opts[ini_data->selectedGpu].to_draw = plot_add_draw_info(
+                plot_information_count, ini_data->options->gpu_specific_opts[ini_data->selectedGpu].to_draw);
           }
         }
+      }
+      if (strcmp(name, device_monitor) == 0) {
+        if (strcmp(value, "true") == 0)
+          ini_data->options->gpu_specific_opts[ini_data->selectedGpu].doNotMonitor = false;
+        if (strcmp(value, "false") == 0)
+          ini_data->options->gpu_specific_opts[ini_data->selectedGpu].doNotMonitor = true;
       }
     }
   }
@@ -245,7 +305,7 @@ bool load_interface_options_from_config_file(unsigned num_devices,
   FILE *option_file = fopen(options->config_file_location, "r");
   if (!option_file)
     return false;
-  struct nvtop_option_ini_data ini_data = {num_devices, options};
+  struct nvtop_option_ini_data ini_data = {num_devices, num_devices, options};
   int retval = ini_parse_file(option_file, nvtop_option_ini_handler, &ini_data);
   fclose(option_file);
   if (!process_is_field_displayed(options->sort_processes_by,
@@ -350,11 +410,13 @@ bool save_interface_options_to_config_file(
 
   // Per-Device Sections
   for (unsigned i = 0; i < num_devices; ++i) {
-    fprintf(config_file, "[%s%u]\n", device_section, i);
+    fprintf(config_file, "[%s]\n", device_section);
+    fprintf(config_file, "%s = %s\n", device_pdev, options->gpu_specific_opts[i].linkedGpu->pdev);
+    fprintf(config_file, "%s = %s\n", device_monitor, boolean_string(!options->gpu_specific_opts[i].doNotMonitor));
     bool draw_any = false;
     for (enum plot_information j = plot_gpu_rate; j < plot_information_count;
          ++j) {
-      if (plot_isset_draw_info(j, options->device_information_drawn[i])) {
+      if (plot_isset_draw_info(j, options->gpu_specific_opts[i].to_draw)) {
         fprintf(config_file, "%s = %s\n", device_shown_value,
                 device_draw_vals[j]);
         draw_any = true;
