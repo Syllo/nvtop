@@ -252,10 +252,10 @@ int main(int argc, char **argv) {
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 
-  if (allDevicesOptions.show_starting_messages) {
+  if (allDevicesOptions.show_startup_messages) {
     bool dont_show_again = show_information_messages(numWarningMessages, warningMessages);
     if (dont_show_again) {
-      allDevicesOptions.show_starting_messages = false;
+      allDevicesOptions.show_startup_messages = false;
       save_interface_options_to_config_file(allDevCount, &allDevicesOptions);
     }
   }

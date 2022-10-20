@@ -46,7 +46,7 @@ typedef struct nvtop_interface_option_struct {
   int update_interval;                              // Interval between interface update in milliseconds
   process_field_displayed process_fields_displayed; // Which columns of the
                                                     // process list are displayed
-  bool show_starting_messages;                      // True to show the starting messages
+  bool show_startup_messages;                       // True to show the startup messages
   bool has_monitored_set_changed;                   // True if the set of monitored gpu was modified through the interface
 } nvtop_interface_option;
 

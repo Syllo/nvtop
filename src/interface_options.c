@@ -127,7 +127,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->update_interval = 1000;
   options->process_fields_displayed = 0;
   options->has_monitored_set_changed = false;
-  options->show_starting_messages = true;
+  options->show_startup_messages = true;
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {
@@ -211,10 +211,10 @@ static int nvtop_option_ini_handler(void *user, const char *section,
     }
     if (strcmp(name, general_show_messages) == 0) {
       if (strcmp(value, "true") == 0) {
-        ini_data->options->show_starting_messages = true;
+        ini_data->options->show_startup_messages = true;
       }
       if (strcmp(value, "false") == 0) {
-        ini_data->options->show_starting_messages = false;
+        ini_data->options->show_startup_messages = false;
       }
     }
   }
@@ -378,7 +378,7 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   fprintf(config_file, "[%s]\n", general_section);
   fprintf(config_file, "%s = %s\n", general_value_use_color, boolean_string(options->use_color));
   fprintf(config_file, "%s = %d\n", general_value_update_interval, options->update_interval);
-  fprintf(config_file, "%s = %s\n", general_show_messages, boolean_string(options->show_starting_messages));
+  fprintf(config_file, "%s = %s\n", general_show_messages, boolean_string(options->show_startup_messages));
 
   // Header Options
   fprintf(config_file, "\n[%s]\n", header_section);
