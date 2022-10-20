@@ -1887,7 +1887,7 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
     getmaxyx(stdscr, rows, cols);
     unsigned messages_lines = num_messages / 2;
     for (unsigned i = 0; i < num_messages; ++i) {
-      messages_lines += message_lines(strlen(messages[i]), cols);
+      messages_lines += message_lines(strlen(messages[i]), cols) + 1;
     }
     int row = (rows - messages_lines + 1) / 2;
     for (unsigned i = 0; i < num_messages; ++i) {
@@ -1897,7 +1897,7 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
       row += message_lines(strlen(messages[i]), cols) + 1;
     }
     size_t sizeQuitOptions = sizeof(dontShowAgain) + sizeof(okay);
-    int quitOptionsRow = (rows - messages_lines + 1) / 2 + messages_lines + 1;
+    int quitOptionsRow = row;
     int quitOptionsCol = (cols - sizeQuitOptions) / 2;
     quitOptionsCol = quitOptionsCol < 0 ? 0 : quitOptionsCol;
     mvprintw(quitOptionsRow, quitOptionsCol, "%s %s", dontShowAgain, okay);
