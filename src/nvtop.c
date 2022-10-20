@@ -206,9 +206,6 @@ int main(int argc, char **argv) {
   unsigned numWarningMessages = 0;
   const char **warningMessages;
   get_info_messages(&monitoredGpus, &numWarningMessages, &warningMessages);
-  for (unsigned messageId = 0; messageId < numWarningMessages; ++messageId) {
-    fprintf(stdout, "[Info]: %s\n", warningMessages[messageId]);
-  }
 
   nvtop_interface_option allDevicesOptions;
   alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus,
