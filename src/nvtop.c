@@ -255,10 +255,16 @@ int main(int argc, char **argv) {
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 
-  show_information_messages(numWarningMessages, warningMessages);
+  if (allDevicesOptions.show_starting_messages) {
+    bool dont_show_again = show_information_messages(numWarningMessages, warningMessages);
+    if (dont_show_again) {
+      allDevicesOptions.show_starting_messages = false;
+      save_interface_options_to_config_file(allDevCount, &allDevicesOptions);
+    }
+  }
 
   struct nvtop_interface *interface =
-      initialize_curses(numMonitoredGpus, interface_largest_gpu_name(&monitoredGpus), allDevicesOptions);
+      initialize_curses(allDevCount, numMonitoredGpus, interface_largest_gpu_name(&monitoredGpus), allDevicesOptions);
   timeout(interface_update_interval(interface));
 
   double time_slept = interface_update_interval(interface);

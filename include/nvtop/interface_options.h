@@ -46,7 +46,8 @@ typedef struct nvtop_interface_option_struct {
   int update_interval;                              // Interval between interface update in milliseconds
   process_field_displayed process_fields_displayed; // Which columns of the
                                                     // process list are displayed
-  bool has_monitored_set_changed;                  // True if the set of monitored gpu was modified through the interface
+  bool show_starting_messages;                      // True to show the starting messages
+  bool has_monitored_set_changed;                   // True if the set of monitored gpu was modified through the interface
 } nvtop_interface_option;
 
 inline bool plot_isset_draw_info(enum plot_information check_info,
@@ -88,8 +89,7 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
 bool load_interface_options_from_config_file(unsigned num_devices,
                                              nvtop_interface_option *options);
 
-bool save_interface_options_to_config_file(
-    unsigned num_devices, const nvtop_interface_option *options);
+bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop_interface_option *options);
 
 inline bool
 process_is_field_displayed(enum process_field field,

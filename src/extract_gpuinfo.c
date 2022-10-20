@@ -56,10 +56,10 @@ static LIST_HEAD(gpu_vendors);
 
 void register_gpu_vendor(struct gpu_vendor *vendor) { list_add(&vendor->list, &gpu_vendors); }
 
-bool gpuinfo_init_info_extraction(unsigned *devices_count, struct list_head *devices) {
+bool gpuinfo_init_info_extraction(unsigned *monitored_dev_count, struct list_head *devices) {
   struct gpu_vendor *vendor;
 
-  *devices_count = 0;
+  *monitored_dev_count = 0;
   list_for_each_entry(vendor, &gpu_vendors, list) {
     unsigned vendor_devices_count = 0;
 
@@ -71,7 +71,7 @@ bool gpuinfo_init_info_extraction(unsigned *devices_count, struct list_head *dev
       }
     }
 
-    *devices_count += vendor_devices_count;
+    *monitored_dev_count += vendor_devices_count;
   }
 
   return true;

@@ -28,8 +28,7 @@
 
 struct nvtop_interface;
 
-struct nvtop_interface *initialize_curses(unsigned num_devices,
-                                          unsigned largest_device_name,
+struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned num_devices, unsigned largest_device_name,
                                           nvtop_interface_option options);
 
 void clean_ncurses(struct nvtop_interface *interface);
@@ -40,7 +39,7 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
 
 unsigned interface_largest_gpu_name(struct list_head *devices);
 
-void draw_gpu_info_ncurses(unsigned devices_count, struct list_head *devices,
+void draw_gpu_info_ncurses(unsigned monitored_dev_count, struct list_head *devices,
                            struct nvtop_interface *interface);
 
 void save_current_data_to_ring(struct list_head *devices,

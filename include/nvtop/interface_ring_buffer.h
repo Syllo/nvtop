@@ -25,7 +25,7 @@
 #include <assert.h>
 
 typedef struct interface_ring_buffer_st {
-  unsigned devices_count;
+  unsigned monitored_dev_count;
   unsigned per_device_data_saved;
   unsigned buffer_size;
   void *ring_buffer[2];
@@ -43,7 +43,7 @@ typedef struct interface_ring_buffer_st {
       (unsigned(*)[ring_buffer_ptr->per_device_data_saved][2])                 \
           ring_buffer_ptr->ring_buffer[0];
 
-void interface_alloc_ring_buffer(unsigned devices_count,
+void interface_alloc_ring_buffer(unsigned monitored_dev_count,
                                  unsigned per_device_data, unsigned buffer_size,
                                  interface_ring_buffer *ring_buffer);
 
