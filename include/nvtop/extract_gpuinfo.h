@@ -26,7 +26,7 @@
 
 #include <stdbool.h>
 
-bool gpuinfo_init_info_extraction(unsigned *devices_count, struct list_head *devices);
+bool gpuinfo_init_info_extraction(unsigned *total_dev_count, struct list_head *devices);
 
 bool gpuinfo_shutdown_info_extraction(struct list_head *devices);
 

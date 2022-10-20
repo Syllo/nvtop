@@ -127,6 +127,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->update_interval = 1000;
   options->process_fields_displayed = 0;
   options->has_monitored_set_changed = false;
+  options->show_starting_messages = true;
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {
@@ -162,6 +163,7 @@ static const char do_not_modify_notice[] =
 static const char general_section[] = "GeneralOption";
 static const char general_value_use_color[] = "UseColor";
 static const char general_value_update_interval[] = "UpdateInterval";
+static const char general_show_messages[] = "ShowInfoMessages";
 
 static const char header_section[] = "HeaderOption";
 static const char header_value_use_fahrenheit[] = "UseFahrenheit";
@@ -206,6 +208,14 @@ static int nvtop_option_ini_handler(void *user, const char *section,
       int update_interval;
       if (sscanf(value, "%d", &update_interval) == 1)
         ini_data->options->update_interval = update_interval;
+    }
+    if (strcmp(name, general_show_messages) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->show_starting_messages = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->show_starting_messages = false;
+      }
     }
   }
   // Header Options
@@ -348,8 +358,7 @@ static const char *boolean_string(bool value) {
   return value ? "true" : "false";
 }
 
-bool save_interface_options_to_config_file(
-    unsigned num_devices, const nvtop_interface_option *options) {
+bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop_interface_option *options) {
 
   char folder_path[PATH_MAX];
   strcpy(folder_path, options->config_file_location);
@@ -360,71 +369,55 @@ bool save_interface_options_to_config_file(
   FILE *config_file = fopen(options->config_file_location, "w");
   if (!config_file) {
     char *error_str = strerror(errno);
-    fprintf(stderr, "Could not create config file \"%s\": %s\n",
-            options->config_file_location, error_str);
+    fprintf(stderr, "Could not create config file \"%s\": %s\n", options->config_file_location, error_str);
     return false;
   }
 
   fprintf(config_file, "%s", do_not_modify_notice);
   // General Options
   fprintf(config_file, "[%s]\n", general_section);
-  fprintf(config_file, "%s = %s\n", general_value_use_color,
-          boolean_string(options->use_color));
-  fprintf(config_file, "%s = %d\n", general_value_update_interval,
-          options->update_interval);
+  fprintf(config_file, "%s = %s\n", general_value_use_color, boolean_string(options->use_color));
+  fprintf(config_file, "%s = %d\n", general_value_update_interval, options->update_interval);
+  fprintf(config_file, "%s = %s\n", general_show_messages, boolean_string(options->show_starting_messages));
 
   // Header Options
-  fprintf(config_file, "[%s]\n", header_section);
-  fprintf(config_file, "%s = %s\n", header_value_use_fahrenheit,
-          boolean_string(options->temperature_in_fahrenheit));
-  fprintf(config_file, "%s = %e\n", header_value_encode_decode_timer,
-          options->encode_decode_hiding_timer);
-  fprintf(config_file, "\n");
+  fprintf(config_file, "\n[%s]\n", header_section);
+  fprintf(config_file, "%s = %s\n", header_value_use_fahrenheit, boolean_string(options->temperature_in_fahrenheit));
+  fprintf(config_file, "%s = %e\n", header_value_encode_decode_timer, options->encode_decode_hiding_timer);
 
   // Chart Options
-  fprintf(config_file, "[%s]\n", chart_section);
-  fprintf(config_file, "%s = %s\n", chart_value_reverse,
-          boolean_string(options->plot_left_to_right));
-  fprintf(config_file, "\n");
+  fprintf(config_file, "\n[%s]\n", chart_section);
+  fprintf(config_file, "%s = %s\n", chart_value_reverse, boolean_string(options->plot_left_to_right));
 
   // Process Options
-  fprintf(config_file, "[%s]\n", process_list_section);
+  fprintf(config_file, "\n[%s]\n", process_list_section);
   fprintf(config_file, "%s = %s\n", process_value_sort_order,
-          options->sort_descending_order ? process_sort_descending
-                                         : process_sort_ascending);
-  fprintf(config_file, "%s = %s\n", process_value_sortby,
-          process_sortby_vals[options->sort_processes_by]);
+          options->sort_descending_order ? process_sort_descending : process_sort_ascending);
+  fprintf(config_file, "%s = %s\n", process_value_sortby, process_sortby_vals[options->sort_processes_by]);
   bool display_any_field = false;
-  for (enum process_field field = process_pid; field < process_field_count;
-       ++field) {
+  for (enum process_field field = process_pid; field < process_field_count; ++field) {
     if (process_is_field_displayed(field, options->process_fields_displayed)) {
-      fprintf(config_file, "%s = %s\n", process_value_display_field,
-              process_sortby_vals[field]);
+      fprintf(config_file, "%s = %s\n", process_value_display_field, process_sortby_vals[field]);
       display_any_field = true;
     }
   }
   if (!display_any_field)
-    fprintf(config_file, "%s = %s\n", process_value_display_field,
-            process_sortby_vals[process_field_count]);
-  fprintf(config_file, "\n");
+    fprintf(config_file, "%s = %s\n", process_value_display_field, process_sortby_vals[process_field_count]);
 
   // Per-Device Sections
-  for (unsigned i = 0; i < num_devices; ++i) {
-    fprintf(config_file, "[%s]\n", device_section);
+  for (unsigned i = 0; i < total_dev_count; ++i) {
+    fprintf(config_file, "\n[%s]\n", device_section);
     fprintf(config_file, "%s = %s\n", device_pdev, options->gpu_specific_opts[i].linkedGpu->pdev);
     fprintf(config_file, "%s = %s\n", device_monitor, boolean_string(!options->gpu_specific_opts[i].doNotMonitor));
     bool draw_any = false;
-    for (enum plot_information j = plot_gpu_rate; j < plot_information_count;
-         ++j) {
+    for (enum plot_information j = plot_gpu_rate; j < plot_information_count; ++j) {
       if (plot_isset_draw_info(j, options->gpu_specific_opts[i].to_draw)) {
-        fprintf(config_file, "%s = %s\n", device_shown_value,
-                device_draw_vals[j]);
+        fprintf(config_file, "%s = %s\n", device_shown_value, device_draw_vals[j]);
         draw_any = true;
       }
     }
     if (!draw_any)
-      fprintf(config_file, "%s = %s\n", device_shown_value,
-              device_draw_vals[plot_information_count]);
+      fprintf(config_file, "%s = %s\n", device_shown_value, device_draw_vals[plot_information_count]);
     fprintf(config_file, "\n");
   }
 

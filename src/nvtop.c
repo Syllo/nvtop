@@ -30,6 +30,7 @@
 #include <locale.h>
 
 #include "nvtop/extract_gpuinfo.h"
+#include "nvtop/info_messages.h"
 #include "nvtop/interface.h"
 #include "nvtop/interface_common.h"
 #include "nvtop/interface_options.h"
@@ -202,6 +203,10 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
   }
 
+  unsigned numWarningMessages = 0;
+  const char **warningMessages;
+  get_info_messages(&monitoredGpus, &numWarningMessages, &warningMessages);
+
   nvtop_interface_option allDevicesOptions;
   alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus,
                                     &allDevicesOptions);
@@ -247,8 +252,16 @@ int main(int argc, char **argv) {
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 
+  if (allDevicesOptions.show_starting_messages) {
+    bool dont_show_again = show_information_messages(numWarningMessages, warningMessages);
+    if (dont_show_again) {
+      allDevicesOptions.show_starting_messages = false;
+      save_interface_options_to_config_file(allDevCount, &allDevicesOptions);
+    }
+  }
+
   struct nvtop_interface *interface =
-      initialize_curses(numMonitoredGpus, interface_largest_gpu_name(&monitoredGpus), allDevicesOptions);
+      initialize_curses(allDevCount, numMonitoredGpus, interface_largest_gpu_name(&monitoredGpus), allDevicesOptions);
   timeout(interface_update_interval(interface));
 
   double time_slept = interface_update_interval(interface);

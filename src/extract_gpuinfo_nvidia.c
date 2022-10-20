@@ -219,6 +219,7 @@ struct gpu_vendor gpu_vendor_nvidia = {
   .populate_static_info = gpuinfo_nvidia_populate_static_info,
   .refresh_dynamic_info = gpuinfo_nvidia_refresh_dynamic_info,
   .refresh_running_processes = gpuinfo_nvidia_get_running_processes,
+  .name = "NVIDIA",
 };
 
 __attribute__((constructor))

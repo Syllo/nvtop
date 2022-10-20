@@ -22,7 +22,7 @@ void interface_alloc_ring_buffer(unsigned devices_count,
   }
   ring_buffer->buffer_size = buffer_size;
   ring_buffer->per_device_data_saved = per_device_data_saved;
-  ring_buffer->devices_count = devices_count;
+  ring_buffer->monitored_dev_count = devices_count;
 }
 
 void interface_free_ring_buffer(interface_ring_buffer *buffer) {

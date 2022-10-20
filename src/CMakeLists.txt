@@ -17,7 +17,8 @@ add_executable(nvtop
   extract_processinfo_fdinfo.c
   time.c
   plot.c
-  ini.c)
+  ini.c
+  info_messages_linux.c)
 
 check_c_source_compiles(
   "

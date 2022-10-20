@@ -84,6 +84,7 @@ struct gpu_vendor gpu_vendor_intel = {
     .populate_static_info = gpuinfo_intel_populate_static_info,
     .refresh_dynamic_info = gpuinfo_intel_refresh_dynamic_info,
     .refresh_running_processes = gpuinfo_intel_get_running_processes,
+    .name = "Intel",
 };
 
 unsigned intel_gpu_count;

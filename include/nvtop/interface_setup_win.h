@@ -35,7 +35,7 @@ void show_setup_window(struct nvtop_interface *interface);
 
 void hide_setup_window(struct nvtop_interface *interface);
 
-void draw_setup_window(unsigned devices_count, struct list_head *devices,
+void draw_setup_window(unsigned monitored_dev_count, struct list_head *devices,
                        struct nvtop_interface *interface);
 
 void draw_setup_window_shortcuts(struct nvtop_interface *interface);

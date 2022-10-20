@@ -122,7 +122,8 @@ struct setup_window {
 // Keep gpu information every 1 second for 10 minutes
 struct nvtop_interface {
   nvtop_interface_option options;
-  unsigned devices_count;
+  unsigned total_dev_count;
+  unsigned monitored_dev_count;
   struct device_window *devices_win;
   struct process_window process;
   WINDOW *shortcut_window;
