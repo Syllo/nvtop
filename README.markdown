@@ -127,6 +127,17 @@ A standalone application is available as [AppImage](#appimage).
   sudo apt install nvtop
   ```
 
+#### Ubuntu PPA
+
+A PPA supporting Ubuntu 20.04, 22.04 and newer is provided by
+[Martin Wimpress](https://github.com/flexiondotorg) that offers an up-to-date
+version of `nvtop`, enabled for NVIDIA, AMD and Intel.
+
+```bash
+sudo add-apt-repository ppa:flexiondotorg/nvtop
+sudo apt install nvtop
+```
+
 #### Older
 
 - AMD and Intel Dependencies
