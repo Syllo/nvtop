@@ -124,6 +124,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->process_fields_displayed = 0;
   options->has_monitored_set_changed = false;
   options->show_startup_messages = true;
+  options->filter_nvtop_pid = true;
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {
@@ -168,6 +169,7 @@ static const char chart_section[] = "ChartOption";
 static const char chart_value_reverse[] = "ReverseChart";
 
 static const char process_list_section[] = "ProcessListOption";
+static const char process_hide_nvtop_process[] = "HideNvtopProcess";
 static const char process_value_sortby[] = "SortBy";
 static const char process_value_display_field[] = "DisplayField";
 static const char *process_sortby_vals[process_field_count + 1] = {
@@ -239,6 +241,14 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
   }
   // Process List Options
   if (strcmp(section, process_list_section) == 0) {
+    if (strcmp(name, process_hide_nvtop_process) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->filter_nvtop_pid = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->filter_nvtop_pid = false;
+      }
+    }
     if (strcmp(name, process_value_sortby) == 0) {
       for (enum process_field i = process_pid; i < process_field_count; ++i) {
         if (strcmp(value, process_sortby_vals[i]) == 0) {
@@ -370,6 +380,7 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
 
   // Process Options
   fprintf(config_file, "\n[%s]\n", process_list_section);
+  fprintf(config_file, "%s = %s\n", process_hide_nvtop_process, boolean_string(options->filter_nvtop_pid));
   fprintf(config_file, "%s = %s\n", process_value_sort_order,
           options->sort_descending_order ? process_sort_descending : process_sort_ascending);
   fprintf(config_file, "%s = %s\n", process_value_sortby, process_sortby_vals[options->sort_processes_by]);
