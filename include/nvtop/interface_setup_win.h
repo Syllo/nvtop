@@ -26,8 +26,7 @@
 #include "nvtop/interface_internal_common.h"
 #include "nvtop/interface_layout_selection.h"
 
-void alloc_setup_window(struct window_position *position,
-                        struct setup_window *setup_win);
+void alloc_setup_window(struct window_position *position, struct setup_window *setup_win);
 
 void free_setup_window(struct setup_window *setup_win);
 
@@ -35,8 +34,7 @@ void show_setup_window(struct nvtop_interface *interface);
 
 void hide_setup_window(struct nvtop_interface *interface);
 
-void draw_setup_window(unsigned monitored_dev_count, struct list_head *devices,
-                       struct nvtop_interface *interface);
+void draw_setup_window(unsigned monitored_dev_count, struct list_head *devices, struct nvtop_interface *interface);
 
 void draw_setup_window_shortcuts(struct nvtop_interface *interface);
 

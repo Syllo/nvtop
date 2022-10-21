@@ -39,11 +39,9 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
 
 unsigned interface_largest_gpu_name(struct list_head *devices);
 
-void draw_gpu_info_ncurses(unsigned monitored_dev_count, struct list_head *devices,
-                           struct nvtop_interface *interface);
+void draw_gpu_info_ncurses(unsigned monitored_dev_count, struct list_head *devices, struct nvtop_interface *interface);
 
-void save_current_data_to_ring(struct list_head *devices,
-                               struct nvtop_interface *interface);
+void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface *interface);
 
 void update_window_size_to_terminal_size(struct nvtop_interface *inter);
 
