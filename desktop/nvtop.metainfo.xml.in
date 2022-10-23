@@ -3,14 +3,14 @@
     <id>io.github.syllo.nvtop</id>
 
     <name>nvtop</name>
-    <summary>AMD and NVIDIA GPU process monitoring</summary>
+    <summary>GPU process monitor for AMD, Intel and NVIDIA</summary>
 
     <metadata_license>CC0-1.0</metadata_license>
     <project_license>GPL-3.0-or-later</project_license>
     <developer_name>Maxime Schmitt</developer_name>
 
     <description>
-        <p>Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD and NVIDIA GPUs. It can handle multiple GPUs and print information about them in a htop familiar way.</p>
+        <p>Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD, Intel and NVIDIA GPUs. It can handle multiple GPUs and print information about them in a htop familiar way.</p>
     </description>
 
     <launchable type="desktop-id">nvtop.desktop</launchable>

@@ -12,7 +12,7 @@ nvtop \- interactive GPU process viewer
 \fR[\fB\-d\fR \fIdelay\fR]
 
 .SH DESCRIPTION
-nvtop is a ncurses\-based GPU status viewer for AMD and NVIDIA GPUs.
+nvtop is a ncurses\-based GPU status viewer for AMD, Intel and NVIDIA GPUs.
 
 .SH COMMAND\-LINE OPTIONS
 .TP

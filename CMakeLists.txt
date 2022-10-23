@@ -116,39 +116,3 @@ if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 include(CTest)
 add_subdirectory(tests)
-
-#///////////////////////////////////////////////////////////////////#
-#                            PACKAGING                              #
-#///////////////////////////////////////////////////////////////////#
-
-#set(CPACK_PACKAGE_NAME "nvtop")
-#set(CPACK_PACKAGE_VENDOR "Maxime Schmitt")
-#set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "NVIDIA GPU monitoring tool")
-#set(CPACK_PACKAGE_DESCRIPTION
-  #"Nvtop is a htop-like monitoring tool for NVIDIA GPUs. It can print GPUs information such as GPU and memory usage, temperature and active processes.")
-#set(CPACK_PACKAGE_DESCRIPTION_FILE "${PROJECT_SOURCE_DIR}/README.markdown")
-#set(CPACK_PACKAGE_EXECUTABLES "nvtop")
-#set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
-#set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
-#set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
-
-#set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "x86-64")
-#set(CPACK_DEBIAN_PACKAGE_DEPENDS "")
-#set(CPACK_DEBIAN_PACKAGE_MAINTAINER "Maxime Schmitt <maxime.schmitt@gmail.com>")
-#set(CPACK_DEBIAN_PACKAGE_SECTION "Utilities")
-#set(CPACK_DEBIAN_PACKAGE_PRIORITY "optional")
-
-#set(CPACK_RPM_PACKAGE_ARCHITECTURE "amd64")
-#set(CPACK_RPM_PACKAGE_RELEASE 1)
-#set(CPACK_RPM_PACKAGE_LICENSE "GPL3+")
-#set(CPACK_RPM_PACKAGE_REQUIRES "")
-
-#set(CPACK_GENERATOR "TGZ;TBZ2")
-#list(APPEND CPACK_GENERATOR "DEB") # .deb package build
-#list(APPEND CPACK_GENERATOR "RPM") # .rpm package build
-#set(CPACK_SOURCE_GENERATOR "TGZ;TBZ2;ZIP")
-#set(CPACK_SOURCE_IGNORE_FILES
-  #.git*
-  #/.*build.*
-  #)
-#include(CPack)
