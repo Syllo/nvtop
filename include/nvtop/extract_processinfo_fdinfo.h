@@ -32,8 +32,7 @@
  * the information gathered while parsing the fdinfo file \p fdinfo_file. Return true if the data in process_info is
  * valid, false otherwise.
  */
-typedef bool (*processinfo_fdinfo_callback)(struct gpu_info *info, FILE *fdinfo_file,
-                                            struct gpu_process *process_info);
+typedef bool (*processinfo_fdinfo_callback)(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info);
 
 /**
  * @brief Register a callback function to parse a fdinfo file opened to a DRM driver

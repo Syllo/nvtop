@@ -23,8 +23,8 @@
 #define INTERFACE_OPTIONS_H__
 
 #include "nvtop/common.h"
-#include "nvtop/interface_common.h"
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/interface_common.h"
 
 #include <stdbool.h>
 
@@ -35,7 +35,8 @@ typedef struct {
 } nvtop_interface_gpu_opts;
 
 typedef struct nvtop_interface_option_struct {
-  bool plot_left_to_right;                          // true to reverse the plot refresh direction defines inactivity (0 use rate) before hiding it
+  bool
+      plot_left_to_right; // true to reverse the plot refresh direction defines inactivity (0 use rate) before hiding it
   bool temperature_in_fahrenheit;                   // Switch from celsius to fahrenheit temperature scale
   bool use_color;                                   // Name self explanatory
   double encode_decode_hiding_timer;                // Negative to always display, positive
@@ -47,11 +48,11 @@ typedef struct nvtop_interface_option_struct {
   process_field_displayed process_fields_displayed; // Which columns of the
                                                     // process list are displayed
   bool show_startup_messages;                       // True to show the startup messages
-  bool has_monitored_set_changed;                   // True if the set of monitored gpu was modified through the interface
+  bool filter_nvtop_pid;                            // Do not show nvtop pid in the processes list
+  bool has_monitored_set_changed; // True if the set of monitored gpu was modified through the interface
 } nvtop_interface_option;
 
-inline bool plot_isset_draw_info(enum plot_information check_info,
-                                 plot_info_to_draw to_draw) {
+inline bool plot_isset_draw_info(enum plot_information check_info, plot_info_to_draw to_draw) {
   return (to_draw & (1 << check_info)) > 0;
 }
 
@@ -63,22 +64,18 @@ inline unsigned plot_count_draw_info(plot_info_to_draw to_draw) {
   return count;
 }
 
-inline plot_info_to_draw plot_add_draw_info(enum plot_information set_info,
-                                            plot_info_to_draw to_draw) {
+inline plot_info_to_draw plot_add_draw_info(enum plot_information set_info, plot_info_to_draw to_draw) {
   if (plot_count_draw_info(to_draw) < MAX_LINES_PER_PLOT)
     return to_draw | (1 << set_info);
   else
     return to_draw;
 }
 
-inline plot_info_to_draw plot_remove_draw_info(enum plot_information reset_info,
-                                               plot_info_to_draw to_draw) {
+inline plot_info_to_draw plot_remove_draw_info(enum plot_information reset_info, plot_info_to_draw to_draw) {
   return to_draw & (~(1 << reset_info));
 }
 
-inline plot_info_to_draw plot_default_draw_info(void) {
-  return (1 << plot_gpu_rate) | (1 << plot_gpu_mem_rate);
-}
+inline plot_info_to_draw plot_default_draw_info(void) { return (1 << plot_gpu_rate) | (1 << plot_gpu_mem_rate); }
 
 void alloc_interface_options_internals(char *config_file_location, unsigned num_devices, struct list_head *devices,
                                        nvtop_interface_option *options);
@@ -86,26 +83,21 @@ void alloc_interface_options_internals(char *config_file_location, unsigned num_
 unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct list_head *monitoredGpus,
                                                 struct list_head *nonMonitoredGpus, nvtop_interface_option *options);
 
-bool load_interface_options_from_config_file(unsigned num_devices,
-                                             nvtop_interface_option *options);
+bool load_interface_options_from_config_file(unsigned num_devices, nvtop_interface_option *options);
 
 bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop_interface_option *options);
 
-inline bool
-process_is_field_displayed(enum process_field field,
-                           process_field_displayed fields_displayed) {
+inline bool process_is_field_displayed(enum process_field field, process_field_displayed fields_displayed) {
   return (fields_displayed & (1 << field)) > 0;
 }
 
-inline process_field_displayed
-process_remove_field_to_display(enum process_field field,
-                                process_field_displayed fields_displayed) {
+inline process_field_displayed process_remove_field_to_display(enum process_field field,
+                                                               process_field_displayed fields_displayed) {
   return fields_displayed & (~(1 << field));
 }
 
-inline process_field_displayed
-process_add_field_to_display(enum process_field field,
-                             process_field_displayed fields_displayed) {
+inline process_field_displayed process_add_field_to_display(enum process_field field,
+                                                            process_field_displayed fields_displayed) {
   return fields_displayed | (1 << field);
 }
 
@@ -119,8 +111,7 @@ inline process_field_displayed process_default_displayed_field(void) {
   return to_display;
 }
 
-inline unsigned
-process_field_displayed_count(process_field_displayed fields_displayed) {
+inline unsigned process_field_displayed_count(process_field_displayed fields_displayed) {
   unsigned displayed_count = 0;
   for (int field = process_pid; field < process_field_count; ++field) {
     if (process_is_field_displayed((enum process_field)field, fields_displayed))
@@ -129,7 +120,6 @@ process_field_displayed_count(process_field_displayed fields_displayed) {
   return displayed_count;
 }
 
-enum process_field
-process_default_sort_by_from(process_field_displayed fields_displayed);
+enum process_field process_default_sort_by_from(process_field_displayed fields_displayed);
 
 #endif // INTERFACE_OPTIONS_H__

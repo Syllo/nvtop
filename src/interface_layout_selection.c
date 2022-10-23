@@ -50,17 +50,13 @@ static bool who_to_merge(unsigned max_merge_size, unsigned plot_count, unsigned 
   return smallest_merge != UINT_MAX;
 }
 
-static bool move_plot_to_stack(unsigned stack_max_cols, unsigned plot_id,
-                               unsigned destination_stack, unsigned plot_count,
-                               unsigned stack_count,
-                               const unsigned num_info_per_plot[plot_count],
-                               unsigned cols_allocated_in_stacks[stack_count],
-                               unsigned plot_in_stack[plot_count]) {
+static bool move_plot_to_stack(unsigned stack_max_cols, unsigned plot_id, unsigned destination_stack,
+                               unsigned plot_count, unsigned stack_count, const unsigned num_info_per_plot[plot_count],
+                               unsigned cols_allocated_in_stacks[stack_count], unsigned plot_in_stack[plot_count]) {
   if (plot_in_stack[plot_id] == destination_stack)
     return false;
   unsigned cols_used_by_plot_id = min_plot_cols(num_info_per_plot[plot_id]);
-  unsigned cols_after_merge =
-      cols_allocated_in_stacks[destination_stack] + cols_used_by_plot_id;
+  unsigned cols_after_merge = cols_allocated_in_stacks[destination_stack] + cols_used_by_plot_id;
   if (cols_after_merge > stack_max_cols) {
     return false;
   } else {
@@ -82,8 +78,7 @@ static unsigned info_in_plot(unsigned plot_id, unsigned devices_count, const uns
   return sum;
 }
 
-static unsigned cols_used_by_stack(unsigned stack_id, unsigned plot_count,
-                                   const unsigned num_info_per_plot[plot_count],
+static unsigned cols_used_by_stack(unsigned stack_id, unsigned plot_count, const unsigned num_info_per_plot[plot_count],
                                    const unsigned plot_in_stack[plot_count]) {
   unsigned sum = 0;
   for (unsigned plot_id = 0; plot_id < plot_count; ++plot_id) {
@@ -93,9 +88,8 @@ static unsigned cols_used_by_stack(unsigned stack_id, unsigned plot_count,
   return sum;
 }
 
-static unsigned
-size_differences_between_stacks(unsigned plot_count, unsigned stack_count,
-                                unsigned cols_allocated_in_stacks[plot_count]) {
+static unsigned size_differences_between_stacks(unsigned plot_count, unsigned stack_count,
+                                                unsigned cols_allocated_in_stacks[plot_count]) {
   unsigned sum = 0;
   for (unsigned i = 0; i < stack_count; ++i) {
     for (unsigned j = i + 1; j < stack_count; ++j) {
@@ -208,11 +202,10 @@ static void preliminary_plot_positioning(unsigned rows_for_plots, unsigned plot_
   }
 }
 
-static void balance_info_on_stacks_preserving_plot_order(
-    unsigned stack_max_cols, unsigned stack_count, unsigned plot_count,
-    unsigned num_info_per_plot[plot_count],
-    unsigned cols_allocated_in_stacks[stack_count],
-    unsigned plot_in_stack[plot_count]) {
+static void balance_info_on_stacks_preserving_plot_order(unsigned stack_max_cols, unsigned stack_count,
+                                                         unsigned plot_count, unsigned num_info_per_plot[plot_count],
+                                                         unsigned cols_allocated_in_stacks[stack_count],
+                                                         unsigned plot_in_stack[plot_count]) {
   if (stack_count > plot_count) {
     stack_count = plot_count;
   }
@@ -220,20 +213,16 @@ static void balance_info_on_stacks_preserving_plot_order(
   while (moving_plot_id < plot_count) {
     unsigned to_stack = plot_in_stack[moving_plot_id] + 1;
     if (to_stack < stack_count) {
-      unsigned diff_sum_before = size_differences_between_stacks(
-          plot_count, stack_count, cols_allocated_in_stacks);
+      unsigned diff_sum_before = size_differences_between_stacks(plot_count, stack_count, cols_allocated_in_stacks);
       unsigned stack_before = plot_in_stack[moving_plot_id];
-      if (move_plot_to_stack(stack_max_cols, moving_plot_id, to_stack,
-                             plot_count, stack_count, num_info_per_plot,
+      if (move_plot_to_stack(stack_max_cols, moving_plot_id, to_stack, plot_count, stack_count, num_info_per_plot,
                              cols_allocated_in_stacks, plot_in_stack)) {
-        unsigned diff_sum_after = size_differences_between_stacks(
-            plot_count, stack_count, cols_allocated_in_stacks);
+        unsigned diff_sum_after = size_differences_between_stacks(plot_count, stack_count, cols_allocated_in_stacks);
         if (diff_sum_after <= diff_sum_before) {
           moving_plot_id = plot_count;
         } else {
           // Move back
-          move_plot_to_stack(stack_max_cols, moving_plot_id, stack_before,
-                             plot_count, stack_count, num_info_per_plot,
+          move_plot_to_stack(stack_max_cols, moving_plot_id, stack_before, plot_count, stack_count, num_info_per_plot,
                              cols_allocated_in_stacks, plot_in_stack);
         }
       }
@@ -257,14 +246,11 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
   min_rows_for_header = header_stacks * device_header_rows;
 
   unsigned min_rows_for_process =
-      process_field_displayed_count(process_displayed)
-          ? min_rows_taken_by_process(rows, devices_count)
-          : 0;
+      process_field_displayed_count(process_displayed) ? min_rows_taken_by_process(rows, devices_count) : 0;
 
   // Not enough room for the header and process
   if (rows < min_rows_for_header + min_rows_for_process) {
-    if (rows >= min_rows_for_header + 2 &&
-        process_field_displayed_count(process_displayed)) { // Shrink process
+    if (rows >= min_rows_for_header + 2 && process_field_displayed_count(process_displayed)) { // Shrink process
       min_rows_for_process = rows - min_rows_for_header;
     } else { // Only header if possible
       min_rows_for_header = rows;
@@ -281,8 +267,7 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
                                num_plots, &num_plot_stacks);
 
   // Transfer some lines to the header to separate the devices
-  unsigned transferable_lines =
-      rows_for_plots - num_plot_stacks * min_plot_rows;
+  unsigned transferable_lines = rows_for_plots - num_plot_stacks * min_plot_rows;
   unsigned space_for_header = header_stacks == 0 ? 0 : header_stacks - 1;
   bool space_between_header_stack = false;
   if (transferable_lines >= space_for_header) {
@@ -293,8 +278,7 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
 
   // Allocate additional plot stacks if there is enough vertical room
   if (num_plot_stacks > 0) {
-    while (num_plot_stacks < *num_plots &&
-           rows_for_plots / (num_plot_stacks + 1) >= 11 &&
+    while (num_plot_stacks < *num_plots && rows_for_plots / (num_plot_stacks + 1) >= 11 &&
            (num_plot_stacks + 1) * min_plot_rows <= rows_for_plots)
       num_plot_stacks++;
   }
@@ -306,14 +290,12 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
   }
   unsigned cols_allocated_in_stacks[MAX_CHARTS];
   for (unsigned i = 0; i < num_plot_stacks; ++i) {
-    cols_allocated_in_stacks[i] =
-        cols_used_by_stack(i, *num_plots, num_info_per_plot, plot_in_stack);
+    cols_allocated_in_stacks[i] = cols_used_by_stack(i, *num_plots, num_info_per_plot, plot_in_stack);
   }
 
   // Keep the plot order of apparition, but spread the plot on different stacks
-  balance_info_on_stacks_preserving_plot_order(
-      cols, num_plot_stacks, *num_plots, num_info_per_plot,
-      cols_allocated_in_stacks, plot_in_stack);
+  balance_info_on_stacks_preserving_plot_order(cols, num_plot_stacks, *num_plots, num_info_per_plot,
+                                               cols_allocated_in_stacks, plot_in_stack);
 
   // Device Information Header
   unsigned cols_header_left = cols - num_device_per_row * device_header_cols;
@@ -360,16 +342,12 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
           lines_to_draw += num_info_per_plot[j];
         }
       }
-      unsigned cols_for_line_drawing =
-          cols - plot_in_this_stack * cols_needed_box_drawing;
+      unsigned cols_for_line_drawing = cols - plot_in_this_stack * cols_needed_box_drawing;
       for (unsigned j = 0; j < *num_plots; ++j) {
         if (plot_in_stack[j] == stack_id) {
           unsigned max_plot_cols =
-              cols_needed_box_drawing +
-              cols_for_line_drawing * num_info_per_plot[j] / lines_to_draw;
-          unsigned plot_cols =
-              max_plot_cols -
-              (max_plot_cols - cols_needed_box_drawing) % num_info_per_plot[j];
+              cols_needed_box_drawing + cols_for_line_drawing * num_info_per_plot[j] / lines_to_draw;
+          unsigned plot_cols = max_plot_cols - (max_plot_cols - cols_needed_box_drawing) % num_info_per_plot[j];
           plot_positions[num_plot_done].posX = currentPosX;
           plot_positions[num_plot_done].posY = currentPosY;
           plot_positions[num_plot_done].sizeX = plot_cols;

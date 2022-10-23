@@ -24,8 +24,8 @@
 
 #include <limits.h>
 #include <stdbool.h>
-#include <stdlib.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <sys/types.h>
 
 #include "list.h"
@@ -97,26 +97,26 @@ enum gpuinfo_dynamic_info_valid {
 };
 
 struct gpuinfo_dynamic_info {
-  unsigned int gpu_clock_speed;      // Device clock speed in MHz
-  unsigned int gpu_clock_speed_max;  // Maximum clock speed in MHz
-  unsigned int mem_clock_speed;      // Device clock speed in MHz
-  unsigned int mem_clock_speed_max;  // Maximum clock speed in MHz
-  unsigned int gpu_util_rate;        // GPU utilization rate in %
-  unsigned int mem_util_rate;        // MEM utilization rate in %
-  unsigned int encoder_rate;         // Encoder utilization rate in %
-  unsigned int decoder_rate;         // Decoder utilization rate in %
-  unsigned long long total_memory;   // Total memory (bytes)
-  unsigned long long free_memory;    // Unallocated memory (bytes)
-  unsigned long long used_memory;    // Allocated memory (bytes)
-  unsigned int pcie_link_gen;        // PCIe link generation used
-  unsigned int pcie_link_width;      // PCIe line width used
-  unsigned int pcie_rx;              // PCIe throughput in KB/s
-  unsigned int pcie_tx;              // PCIe throughput in KB/s
-  unsigned int fan_speed;            // Fan speed percentage
-  unsigned int gpu_temp;             // GPU temperature °celsius
-  unsigned int power_draw;           // Power usage in milliwatts
-  unsigned int power_draw_max;       // Max power usage in milliwatts
-  bool encode_decode_shared;         // True if encode and decode is shared (Intel)
+  unsigned int gpu_clock_speed;     // Device clock speed in MHz
+  unsigned int gpu_clock_speed_max; // Maximum clock speed in MHz
+  unsigned int mem_clock_speed;     // Device clock speed in MHz
+  unsigned int mem_clock_speed_max; // Maximum clock speed in MHz
+  unsigned int gpu_util_rate;       // GPU utilization rate in %
+  unsigned int mem_util_rate;       // MEM utilization rate in %
+  unsigned int encoder_rate;        // Encoder utilization rate in %
+  unsigned int decoder_rate;        // Decoder utilization rate in %
+  unsigned long long total_memory;  // Total memory (bytes)
+  unsigned long long free_memory;   // Unallocated memory (bytes)
+  unsigned long long used_memory;   // Allocated memory (bytes)
+  unsigned int pcie_link_gen;       // PCIe link generation used
+  unsigned int pcie_link_width;     // PCIe line width used
+  unsigned int pcie_rx;             // PCIe throughput in KB/s
+  unsigned int pcie_tx;             // PCIe throughput in KB/s
+  unsigned int fan_speed;           // Fan speed percentage
+  unsigned int gpu_temp;            // GPU temperature °celsius
+  unsigned int power_draw;          // Power usage in milliwatts
+  unsigned int power_draw_max;      // Max power usage in milliwatts
+  bool encode_decode_shared;        // True if encode and decode is shared (Intel)
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 

@@ -326,6 +326,8 @@ static unsigned device_length(void) {
                  sizeof_device_field[device_fan_speed] + sizeof_device_field[device_power] + 4);
 }
 
+static pid_t nvtop_pid;
+
 static void initialize_all_windows(struct nvtop_interface *dwin) {
   int rows, cols;
   getmaxyx(stdscr, rows, cols);
@@ -355,6 +357,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   dwin->shortcut_window = newwin(1, cols, rows - 1, 0);
 
   alloc_setup_window(&setup_position, &dwin->setup_win);
+  nvtop_pid = getpid();
 }
 
 static void delete_all_windows(struct nvtop_interface *dwin) {
@@ -1043,6 +1046,19 @@ static void sort_process(all_processes all_procs, enum process_field criterion, 
   qsort(all_procs.processes, all_procs.processes_count, sizeof(*all_procs.processes), sort_fun);
 }
 
+static void filter_out_nvtop_pid(all_processes *all_procs, struct nvtop_interface *interface) {
+  if (interface->options.filter_nvtop_pid) {
+    for (unsigned procId = 0; procId < all_procs->processes_count; ++procId) {
+      if (all_procs->processes[procId].process->pid == nvtop_pid) {
+        memmove(&all_procs->processes[procId], &all_procs->processes[procId + 1],
+                all_procs->processes_count - procId - 1);
+        all_procs->processes_count = all_procs->processes_count - 1;
+        break;
+      }
+    }
+  }
+}
+
 static const char *columnName[process_field_count] = {
     "PID", "USER", "DEV", "TYPE", "GPU", "ENC", "DEC", "GPU MEM", "CPU", "HOST MEM", "Command",
 };
@@ -1280,6 +1296,7 @@ static void draw_processes(struct list_head *devices, struct nvtop_interface *in
     update_process_option_win(interface);
 
   all_processes all_procs = all_processes_array(devices);
+  filter_out_nvtop_pid(&all_procs, interface);
   sort_process(all_procs, interface->options.sort_processes_by, !interface->options.sort_descending_order);
 
   if (all_procs.processes_count > 0) {

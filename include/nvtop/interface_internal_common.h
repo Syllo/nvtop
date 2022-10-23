@@ -143,8 +143,7 @@ enum device_field {
   device_field_count,
 };
 
-inline void set_attribute_between(WINDOW *win, int startY, int startX, int endX,
-                                  attr_t attr, short pair) {
+inline void set_attribute_between(WINDOW *win, int startY, int startX, int endX, attr_t attr, short pair) {
   int rows, cols;
   getmaxyx(win, rows, cols);
   (void)rows;

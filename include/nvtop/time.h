@@ -23,8 +23,8 @@
 #define NVTOP_TIME_H_
 
 #include <stdbool.h>
-#include <time.h>
 #include <stdint.h>
+#include <time.h>
 
 #ifdef CLOCK_MONOTONIC_RAW
 #define NVTOP_CLOCK CLOCK_MONOTONIC_RAW
@@ -34,9 +34,7 @@
 
 typedef struct timespec nvtop_time;
 
-inline void nvtop_get_current_time(nvtop_time *time) {
-  clock_gettime(NVTOP_CLOCK, time);
-}
+inline void nvtop_get_current_time(nvtop_time *time) { clock_gettime(NVTOP_CLOCK, time); }
 
 inline double nvtop_difftime(nvtop_time t0, nvtop_time t1) {
   double secdiff = difftime(t1.tv_sec, t0.tv_sec);
@@ -56,28 +54,22 @@ inline uint64_t nvtop_difftime_u64(nvtop_time t0, nvtop_time t1) {
   return (uint64_t)(t1.tv_sec - t0.tv_sec) * UINT64_C(1000000000) + (uint64_t)t1.tv_nsec - (uint64_t)t0.tv_nsec;
 }
 
-inline nvtop_time nvtop_hmns_to_time(unsigned hour, unsigned minutes,
-                                     unsigned long nanosec) {
-  nvtop_time t = {hour * 60 * 60 + 60 * minutes + nanosec / 1000000,
-                  nanosec % 1000000};
+inline nvtop_time nvtop_hmns_to_time(unsigned hour, unsigned minutes, unsigned long nanosec) {
+  nvtop_time t = {hour * 60 * 60 + 60 * minutes + nanosec / 1000000, nanosec % 1000000};
   return t;
 }
 
 inline nvtop_time nvtop_substract_time(nvtop_time t0, nvtop_time t1) {
-  nvtop_time t =
-      t0.tv_nsec - t1.tv_nsec < 0
-          ? (nvtop_time){t0.tv_sec - t1.tv_sec - 1,
-                         t0.tv_nsec - t1.tv_nsec + 1000000}
-          : (nvtop_time){t0.tv_sec - t1.tv_sec, t0.tv_nsec - t1.tv_nsec};
+  nvtop_time t = t0.tv_nsec - t1.tv_nsec < 0
+                     ? (nvtop_time){t0.tv_sec - t1.tv_sec - 1, t0.tv_nsec - t1.tv_nsec + 1000000}
+                     : (nvtop_time){t0.tv_sec - t1.tv_sec, t0.tv_nsec - t1.tv_nsec};
   return t;
 }
 
 inline nvtop_time nvtop_add_time(nvtop_time t0, nvtop_time t1) {
-  nvtop_time t =
-      t0.tv_nsec + t1.tv_nsec > 1000000
-          ? (nvtop_time){t0.tv_sec + t1.tv_sec + 1,
-                         t0.tv_nsec + t1.tv_nsec - 1000000}
-          : (nvtop_time){t0.tv_sec + t1.tv_sec, t0.tv_nsec + t1.tv_nsec};
+  nvtop_time t = t0.tv_nsec + t1.tv_nsec > 1000000
+                     ? (nvtop_time){t0.tv_sec + t1.tv_sec + 1, t0.tv_nsec + t1.tv_nsec - 1000000}
+                     : (nvtop_time){t0.tv_sec + t1.tv_sec, t0.tv_nsec + t1.tv_nsec};
   return t;
 }
 

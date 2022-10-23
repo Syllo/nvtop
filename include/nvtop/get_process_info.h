@@ -22,8 +22,8 @@
 #ifndef GET_PROCESS_INFO_H_
 #define GET_PROCESS_INFO_H_
 
-#include <stdlib.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <sys/types.h>
 
 #include "nvtop/time.h"

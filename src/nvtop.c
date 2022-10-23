@@ -50,21 +50,20 @@ static void resize_handler(int signum) {
   signal_resize_win = 1;
 }
 
-static const char helpstring[] =
-    "Available options:\n"
-    "  -d --delay        : Select the refresh rate (1 == 0.1s)\n"
-    "  -v --version      : Print the version and exit\n"
-    "  -c --config-file  : Provide a custom config file location to load/save "
-    "preferences\n"
-    "  -p --no-plot      : Disable bar plot\n"
-    "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
-    "older on the right\n"
-    "  -C --no-color     : No colors\n"
-    "line information\n"
-    "  -f --freedom-unit : Use fahrenheit\n"
-    "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
-    "(default 30s, negative = always on screen)\n"
-    "  -h --help         : Print help and exit\n";
+static const char helpstring[] = "Available options:\n"
+                                 "  -d --delay        : Select the refresh rate (1 == 0.1s)\n"
+                                 "  -v --version      : Print the version and exit\n"
+                                 "  -c --config-file  : Provide a custom config file location to load/save "
+                                 "preferences\n"
+                                 "  -p --no-plot      : Disable bar plot\n"
+                                 "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
+                                 "older on the right\n"
+                                 "  -C --no-color     : No colors\n"
+                                 "line information\n"
+                                 "  -f --freedom-unit : Use fahrenheit\n"
+                                 "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
+                                 "(default 30s, negative = always on screen)\n"
+                                 "  -h --help         : Print help and exit\n";
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
@@ -72,17 +71,11 @@ static const struct option long_opts[] = {
     {.name = "delay", .has_arg = required_argument, .flag = NULL, .val = 'd'},
     {.name = "version", .has_arg = no_argument, .flag = NULL, .val = 'v'},
     {.name = "help", .has_arg = no_argument, .flag = NULL, .val = 'h'},
-    {.name = "config-file",
-     .has_arg = required_argument,
-     .flag = NULL,
-     .val = 'c'},
+    {.name = "config-file", .has_arg = required_argument, .flag = NULL, .val = 'c'},
     {.name = "no-color", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "no-colour", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "freedom-unit", .has_arg = no_argument, .flag = NULL, .val = 'f'},
-    {.name = "encode-hide",
-     .has_arg = required_argument,
-     .flag = NULL,
-     .val = 'E'},
+    {.name = "encode-hide", .has_arg = required_argument, .flag = NULL, .val = 'E'},
     {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {0, 0, 0, 0},
@@ -144,8 +137,7 @@ int main(int argc, char **argv) {
       break;
     case 'E': {
       if (sscanf(optarg, "%lf", &encode_decode_hide_time) == EOF) {
-        fprintf(stderr, "Invalid format for encode/decode hide time: %s\n",
-                optarg);
+        fprintf(stderr, "Invalid format for encode/decode hide time: %s\n", optarg);
         exit(EXIT_FAILURE);
       }
       encode_decode_timer_option_set = true;
@@ -208,8 +200,7 @@ int main(int argc, char **argv) {
   get_info_messages(&monitoredGpus, &numWarningMessages, &warningMessages);
 
   nvtop_interface_option allDevicesOptions;
-  alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus,
-                                    &allDevicesOptions);
+  alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus, &allDevicesOptions);
   load_interface_options_from_config_file(allDevCount, &allDevicesOptions);
   for (unsigned i = 0; i < allDevCount; ++i) {
     // Nothing specified in the file
@@ -220,14 +211,11 @@ int main(int argc, char **argv) {
           plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw);
     }
   }
-  if (!process_is_field_displayed(process_field_count,
-                                  allDevicesOptions.process_fields_displayed)) {
-    allDevicesOptions.process_fields_displayed =
-        process_default_displayed_field();
+  if (!process_is_field_displayed(process_field_count, allDevicesOptions.process_fields_displayed)) {
+    allDevicesOptions.process_fields_displayed = process_default_displayed_field();
   } else {
     allDevicesOptions.process_fields_displayed =
-        process_remove_field_to_display(
-            process_field_count, allDevicesOptions.process_fields_displayed);
+        process_remove_field_to_display(process_field_count, allDevicesOptions.process_fields_displayed);
   }
   if (no_color_option)
     allDevicesOptions.use_color = false;

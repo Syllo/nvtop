@@ -34,8 +34,7 @@
 static char pid_path[pid_path_size];
 
 void get_username_from_pid(pid_t pid, char **buffer) {
-  int written =
-      snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX, (intmax_t)pid);
+  int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX, (intmax_t)pid);
   if (written == pid_path_size) {
     *buffer = NULL;
     return;
@@ -61,8 +60,7 @@ void get_username_from_pid(pid_t pid, char **buffer) {
 #define command_line_increment 32
 
 void get_command_from_pid(pid_t pid, char **buffer) {
-  int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX "/cmdline",
-                         (intmax_t)pid);
+  int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX "/cmdline", (intmax_t)pid);
   if (written == pid_path_size) {
     *buffer = NULL;
     return;
@@ -80,8 +78,7 @@ void get_command_from_pid(pid_t pid, char **buffer) {
 
   size_t total_read = 0;
   do {
-    size_t num_read =
-        fread(current_buffer, 1, command_line_increment, pid_file);
+    size_t num_read = fread(current_buffer, 1, command_line_increment, pid_file);
     total_read += num_read;
     if (num_read == command_line_increment) {
       size_buffer += command_line_increment;
@@ -182,8 +179,7 @@ void get_command_from_pid(pid_t pid, char **buffer) {
 bool get_process_info(pid_t pid, struct process_cpu_usage *usage) {
   double clock_ticks_per_second = sysconf(_SC_CLK_TCK);
   size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
-  int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX "/stat",
-                         (intmax_t)pid);
+  int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX "/stat", (intmax_t)pid);
   if (written == pid_path_size) {
     return false;
   }
@@ -200,8 +196,7 @@ bool get_process_info(pid_t pid, struct process_cpu_usage *usage) {
   int retval = fscanf(stat_file,
                       "%*d %*[^)]) %*c %*d %*d %*d %*d %*d %*u %*u %*u %*u "
                       "%*u %lu %lu %*d %*d %*d %*d %*d %*d %*u %lu %ld",
-                      &total_user_time, &total_kernel_time, &virtual_memory,
-                      &resident_memory);
+                      &total_user_time, &total_kernel_time, &virtual_memory, &resident_memory);
   fclose(stat_file);
   if (retval != 4)
     return false;

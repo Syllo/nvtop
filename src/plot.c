@@ -31,8 +31,7 @@ static inline int data_level(double rows, double data, double increment) {
   return (int)(rows - round(data / increment));
 }
 
-void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
-                     unsigned num_lines, bool legend_left,
+void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned num_lines, bool legend_left,
                      char legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE]) {
   if (num_data == 0)
     return;
@@ -60,8 +59,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
         unsigned top = drawing_down ? lvl_now_k : lvl_before[k];
 
         // Draw the vertical line corners
-        mvwaddch(win, bottom, i + k,
-                 drawing_down ? ACS_URCORNER : ACS_ULCORNER);
+        mvwaddch(win, bottom, i + k, drawing_down ? ACS_URCORNER : ACS_ULCORNER);
         mvwaddch(win, top, i + k, drawing_down ? ACS_LLCORNER : ACS_LRCORNER);
         // Draw the vertical line between the corners
         if (top - bottom > 1) {
@@ -123,8 +121,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data,
   }
 }
 
-void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY,
-                    unsigned sizeX, unsigned sizeY) {
+void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY, unsigned sizeX, unsigned sizeY) {
   mvwhline(win, startY, startX + 1, 0, sizeX - 2);
   mvwhline(win, startY + sizeY - 1, startX + 1, 0, sizeX - 2);
 

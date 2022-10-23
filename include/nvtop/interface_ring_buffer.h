@@ -31,27 +31,22 @@ typedef struct interface_ring_buffer_st {
   void *ring_buffer[2];
 } interface_ring_buffer;
 
-#define INTERFACE_RING_BUFFER_DATA(ring_buffer_ptr, name)                      \
-  unsigned(*name)[ring_buffer_ptr->per_device_data_saved]                      \
-                 [ring_buffer_ptr->buffer_size] =                              \
-                     (unsigned(*)[ring_buffer_ptr->per_device_data_saved]      \
-                                 [ring_buffer_ptr->buffer_size])               \
-                         ring_buffer_ptr->ring_buffer[1];
+#define INTERFACE_RING_BUFFER_DATA(ring_buffer_ptr, name)                                                              \
+  unsigned(*name)[ring_buffer_ptr->per_device_data_saved][ring_buffer_ptr->buffer_size] =                              \
+      (unsigned(*)[ring_buffer_ptr->per_device_data_saved][ring_buffer_ptr->buffer_size])                              \
+          ring_buffer_ptr->ring_buffer[1];
 
-#define INTERFACE_RING_BUFFER_INDICES(ring_buffer_ptr, name)                   \
-  unsigned(*name)[ring_buffer_ptr->per_device_data_saved][2] =                 \
-      (unsigned(*)[ring_buffer_ptr->per_device_data_saved][2])                 \
-          ring_buffer_ptr->ring_buffer[0];
+#define INTERFACE_RING_BUFFER_INDICES(ring_buffer_ptr, name)                                                           \
+  unsigned(*name)[ring_buffer_ptr->per_device_data_saved][2] =                                                         \
+      (unsigned(*)[ring_buffer_ptr->per_device_data_saved][2])ring_buffer_ptr->ring_buffer[0];
 
-void interface_alloc_ring_buffer(unsigned monitored_dev_count,
-                                 unsigned per_device_data, unsigned buffer_size,
+void interface_alloc_ring_buffer(unsigned monitored_dev_count, unsigned per_device_data, unsigned buffer_size,
                                  interface_ring_buffer *ring_buffer);
 
 void interface_free_ring_buffer(interface_ring_buffer *buffer);
 
-inline unsigned
-interface_ring_buffer_data_stored(const interface_ring_buffer *buff,
-                                  unsigned device, unsigned which_data) {
+inline unsigned interface_ring_buffer_data_stored(const interface_ring_buffer *buff, unsigned device,
+                                                  unsigned which_data) {
   INTERFACE_RING_BUFFER_INDICES(buff, indices);
   unsigned start = indices[device][which_data][0];
   unsigned end = indices[device][which_data][1];
@@ -62,8 +57,7 @@ interface_ring_buffer_data_stored(const interface_ring_buffer *buff,
   return length;
 }
 
-inline unsigned interface_index_in_ring(const interface_ring_buffer *buff,
-                                        unsigned device, unsigned which_data,
+inline unsigned interface_index_in_ring(const interface_ring_buffer *buff, unsigned device, unsigned which_data,
                                         unsigned index) {
   assert(interface_ring_buffer_data_stored(buff, device, which_data) > index);
   INTERFACE_RING_BUFFER_INDICES(buff, indices);
@@ -74,17 +68,14 @@ inline unsigned interface_index_in_ring(const interface_ring_buffer *buff,
   return location;
 }
 
-inline unsigned interface_ring_buffer_get(const interface_ring_buffer *buff,
-                                          unsigned device, unsigned which_data,
+inline unsigned interface_ring_buffer_get(const interface_ring_buffer *buff, unsigned device, unsigned which_data,
                                           unsigned index) {
   INTERFACE_RING_BUFFER_DATA(buff, data);
-  unsigned index_in_ring =
-      interface_index_in_ring(buff, device, which_data, index);
+  unsigned index_in_ring = interface_index_in_ring(buff, device, which_data, index);
   return data[device][which_data][index_in_ring];
 }
 
-inline void interface_ring_buffer_push(interface_ring_buffer *buff,
-                                       unsigned device, unsigned which_data,
+inline void interface_ring_buffer_push(interface_ring_buffer *buff, unsigned device, unsigned which_data,
                                        unsigned value) {
   INTERFACE_RING_BUFFER_INDICES(buff, indices);
   INTERFACE_RING_BUFFER_DATA(buff, data);
@@ -104,8 +95,7 @@ inline void interface_ring_buffer_push(interface_ring_buffer *buff,
   indices[device][which_data][1] = end;
 }
 
-inline void interface_ring_buffer_pop(interface_ring_buffer *buff,
-                                      unsigned device, unsigned which_data) {
+inline void interface_ring_buffer_pop(interface_ring_buffer *buff, unsigned device, unsigned which_data) {
   INTERFACE_RING_BUFFER_INDICES(buff, indices);
   unsigned start = indices[device][which_data][0];
   unsigned end = indices[device][which_data][1];
@@ -117,16 +107,13 @@ inline void interface_ring_buffer_pop(interface_ring_buffer *buff,
   }
 }
 
-inline void interface_ring_buffer_empty_select(interface_ring_buffer *buff,
-                                               unsigned device,
-                                               unsigned which_data) {
+inline void interface_ring_buffer_empty_select(interface_ring_buffer *buff, unsigned device, unsigned which_data) {
   INTERFACE_RING_BUFFER_INDICES(buff, indices);
   indices[device][which_data][0] = 0;
   indices[device][which_data][1] = 0;
 }
 
-inline void interface_ring_buffer_empty(interface_ring_buffer *buff,
-                                        unsigned device) {
+inline void interface_ring_buffer_empty(interface_ring_buffer *buff, unsigned device) {
   for (unsigned i = 0; i < buff->per_device_data_saved; ++i) {
     interface_ring_buffer_empty_select(buff, device, i);
   }
