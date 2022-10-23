@@ -1,9 +1,9 @@
 name: nvtop
 base: core22
 adopt-info: nvtop
-summary: 'AMD and NVIDIA GPUs htop like monitoring tool'
+summary: 'GPUs monitoring tool for AMD, Intel and NVIDIA'
 description: |
-  Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD and NVIDIA GPUs. It can handle multiple GPUs and print information about them in a htop familiar way.
+  Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD, Intel and NVIDIA GPUs. It can handle multiple GPUs and print information about them in a htop familiar way.
 license: GPL-3.0-or-later
 issues: https://github.com/Syllo/nvtop/issues
 icon: desktop/nvtop.svg
@@ -71,8 +71,10 @@ parts:
     build-packages:
     - gcc
     - libncurses-dev
+    - libsystemd-dev
     stage-packages:
     - libncurses6
     - libncursesw6
+    - libsystemd0
     prime:
     - -usr/share/doc
