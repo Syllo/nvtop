@@ -4,7 +4,7 @@
 # or nvidia/driver:418.87.01-ubuntu18.04, nvcr.io/nvidia/cudagl:11.4.2-base-ubuntu20.04
 # USE: docker run --rm -it --gpus all --pid host nvtop
 
-ARG IMAGE=nvidia/opengl:1.2-glvnd-runtime-ubuntu16.04
+ARG IMAGE=nvidia/opengl:1.2-glvnd-runtime-ubuntu18.04
 
 FROM ${IMAGE} as builder
 
@@ -12,7 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
   apt-get install -yq build-essential cmake libncurses5-dev libncursesw5-dev \
-  pkg-config libdrm-dev libgtest-dev
+  pkg-config libdrm-dev libgtest-dev libudev-dev
 
 COPY . /nvtop
 WORKDIR /nvtop

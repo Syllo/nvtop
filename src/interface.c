@@ -40,6 +40,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tgmath.h>
+#include <unistd.h>
 
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,  [device_fan_speed] = 8, [device_temperature] = 10,
