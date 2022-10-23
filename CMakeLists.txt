@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.10)
 #                              PROJECT                              #
 #///////////////////////////////////////////////////////////////////#
 
-project(nvtop VERSION 2.0.4
+project(nvtop VERSION 3.0.0
   LANGUAGES C CXX)
 
 set(default_build_type "Release")
