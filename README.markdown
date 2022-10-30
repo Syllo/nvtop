@@ -129,7 +129,7 @@ A standalone application is available as [AppImage](#appimage).
 
 #### Ubuntu PPA
 
-A PPA supporting Ubuntu 20.04, 22.04 and newer is provided by
+A [PPA supporting Ubuntu 20.04, 22.04 and newer](https://launchpad.net/~flexiondotorg/+archive/ubuntu/nvtop) is provided by
 [Martin Wimpress](https://github.com/flexiondotorg) that offers an up-to-date
 version of `nvtop`, enabled for NVIDIA, AMD and Intel.
 
