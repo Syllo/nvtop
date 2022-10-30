@@ -220,8 +220,8 @@ static void gpuinfo_populate_process_info(struct gpu_info *device) {
         GPUINFO_PROCESS_FIELD_VALID(&device->processes[j], gpu_memory_usage)) {
       float percentage =
           roundf(100.f * (float)device->processes[j].gpu_memory_usage / (float)device->dynamic_info.total_memory);
-      assert(device->processes[j].gpu_memory_percentage <= 100);
       SET_GPUINFO_PROCESS(&device->processes[j], gpu_memory_percentage, (unsigned)percentage);
+      assert(device->processes[j].gpu_memory_percentage <= 100);
     }
   }
 }
