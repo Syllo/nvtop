@@ -1052,7 +1052,7 @@ static void filter_out_nvtop_pid(all_processes *all_procs, struct nvtop_interfac
     for (unsigned procId = 0; procId < all_procs->processes_count; ++procId) {
       if (all_procs->processes[procId].process->pid == nvtop_pid) {
         memmove(&all_procs->processes[procId], &all_procs->processes[procId + 1],
-                all_procs->processes_count - procId - 1);
+                (all_procs->processes_count - procId - 1) * sizeof(*all_procs->processes));
         all_procs->processes_count = all_procs->processes_count - 1;
         break;
       }
