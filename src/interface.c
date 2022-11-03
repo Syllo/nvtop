@@ -48,7 +48,7 @@ static unsigned int sizeof_device_field[device_field_count] = {
 };
 
 static unsigned int sizeof_process_field[process_field_count] = {
-    [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,   [process_type] = 7,
+    [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,   [process_type] = 8,
     [process_gpu_rate] = 4,  [process_enc_rate] = 4,      [process_dec_rate] = 4,
     [process_memory] = 14, // 9 for mem 5 for %
     [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9, [process_command] = 0,
@@ -1052,7 +1052,7 @@ static void filter_out_nvtop_pid(all_processes *all_procs, struct nvtop_interfac
     for (unsigned procId = 0; procId < all_procs->processes_count; ++procId) {
       if (all_procs->processes[procId].process->pid == nvtop_pid) {
         memmove(&all_procs->processes[procId], &all_procs->processes[procId + 1],
-                all_procs->processes_count - procId - 1);
+                (all_procs->processes_count - procId - 1) * sizeof(*all_procs->processes));
         all_procs->processes_count = all_procs->processes_count - 1;
         break;
       }
@@ -1174,7 +1174,10 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
     }
 
     if (process_is_field_displayed(process_type, fields_to_display)) {
-      if (processes[i].process->type == gpu_process_graphical) {
+      if (processes[i].process->type == gpu_process_graphical_compute) {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_type], "Both G+C");
+      } else if (processes[i].process->type == gpu_process_graphical) {
         printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
                             sizeof_process_field[process_type], "Graphic");
       } else {
@@ -1261,7 +1264,14 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
       mvwchgat(win, write_at, 0, -1, A_STANDOUT, cyan_color, NULL);
     } else {
       if (process_is_field_displayed(process_type, fields_to_display)) {
-        if (processes[i].process->type == gpu_process_graphical) {
+        if (processes[i].process->type == gpu_process_graphical_compute) {
+          set_attribute_between(win, write_at, start_col_process_type - (int)process->offset_column,
+                                start_col_process_type - (int)process->offset_column + 4, 0, cyan_color);
+          set_attribute_between(win, write_at, end_col_process_type - (int)process->offset_column - 3,
+                                end_col_process_type - (int)process->offset_column - 2, 0, yellow_color);
+          set_attribute_between(win, write_at, end_col_process_type - (int)process->offset_column - 1,
+                                end_col_process_type - (int)process->offset_column, 0, magenta_color);
+        } else if (processes[i].process->type == gpu_process_graphical) {
           set_attribute_between(win, write_at, start_col_process_type - (int)process->offset_column,
                                 end_col_process_type - (int)process->offset_column, 0, yellow_color);
         } else {

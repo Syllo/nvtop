@@ -169,17 +169,20 @@ void processinfo_sweep_fdinfos(void) {
       bool callback_success = false;
       struct callback_entry *current_callback = NULL;
       processes_info_local.pid = client_pid;
-      processes_info_local.type = gpu_process_graphical;
       for (unsigned callback_idx = 0; !callback_success && callback_idx < registered_callback_entries; ++callback_idx) {
         rewind(fdinfo_file);
         fflush(fdinfo_file);
         RESET_ALL(processes_info_local.valid);
+        processes_info_local.type = gpu_process_unknown;
         current_callback = &callback_entries[callback_idx];
         callback_success = current_callback->callback(current_callback->gpu_info, fdinfo_file, &processes_info_local);
       }
       fclose(fdinfo_file);
       if (!callback_success)
         continue;
+      // Default to graphical type
+      if (processes_info_local.type == gpu_process_unknown)
+        processes_info_local.type = gpu_process_graphical;
 
       unsigned process_index =
           current_callback->gpu_info->processes_count ? current_callback->gpu_info->processes_count - 1 : 0;
@@ -208,7 +211,7 @@ void processinfo_sweep_fdinfos(void) {
       }
       struct gpu_process *process_info = &current_callback->gpu_info->processes[process_index];
 
-      process_info->type = processes_info_local.type;
+      process_info->type |= processes_info_local.type;
 
       if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_memory_usage)) {
         SET_GPUINFO_PROCESS(process_info, gpu_memory_usage,

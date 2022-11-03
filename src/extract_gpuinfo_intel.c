@@ -179,6 +179,8 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
   }
   if (!client_id_set)
     return false;
+  // The intel driver does not expose compute engine metrics as of yet
+  process_info->type |= gpu_process_graphical;
 
   struct intel_process_info_cache *cache_entry;
   struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid};
