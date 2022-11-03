@@ -121,8 +121,10 @@ struct gpuinfo_dynamic_info {
 };
 
 enum gpu_process_type {
-  gpu_process_graphical,
-  gpu_process_compute,
+  gpu_process_unknown = 0,
+  gpu_process_graphical = 1,
+  gpu_process_compute = 2,
+  gpu_process_graphical_compute = 3,
   gpu_process_type_count,
 };
 
