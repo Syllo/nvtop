@@ -909,9 +909,11 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
           AMDGPU_CACHE_FIELD_VALID(cache_entry, compute_engine_used) &&
           process_info->compute_engine_used >= cache_entry->compute_engine_used &&
           process_info->compute_engine_used - cache_entry->compute_engine_used <= time_elapsed) {
+        unsigned gfx_usage = GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage) ? process_info->gpu_usage : 0;
         SET_GPUINFO_PROCESS(process_info, gpu_usage,
-                            busy_usage_from_time_usage_round(process_info->compute_engine_used,
-                                                             cache_entry->compute_engine_used, time_elapsed));
+                            gfx_usage + busy_usage_from_time_usage_round(process_info->compute_engine_used,
+                                                                         cache_entry->compute_engine_used,
+                                                                         time_elapsed));
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used) &&
           AMDGPU_CACHE_FIELD_VALID(cache_entry, dec_engine_used) &&
