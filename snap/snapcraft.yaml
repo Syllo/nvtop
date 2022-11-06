@@ -49,6 +49,8 @@ parts:
     - pkg-config
     - libudev-dev
     - libpciaccess-dev
+    stage-packages:
+    - libpciaccess0
     prime:
     - -usr/include
     - -usr/lib/$CRAFT_ARCH_TRIPLET/pkgconfig
