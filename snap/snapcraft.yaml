@@ -27,9 +27,9 @@ apps:
     - process-control
     - system-observe
     # - kubernetes-support # Temporarily required for nvtop to display AMD GPU processes. Once apparmor rule to allow access to @{PROC}/[0-9]*/fdinfo/ is added to system-observe, this can be removed.
-layout:
-  /usr/share/libdrm:
-    symlink: $SNAP/usr/share/libdrm
+# layout:
+#   /usr/share/libdrm:
+#     symlink: $SNAP/usr/share/libdrm
 parts:
   libdrm:
     source: https://gitlab.freedesktop.org/mesa/drm.git
@@ -60,6 +60,7 @@ parts:
     - -DCMAKE_INSTALL_PREFIX=/usr
     - -DNVIDIA_SUPPORT=ON
     - -DAMDGPU_SUPPORT=ON
+    - -DINTEL_SUPPORT=ON
     override-pull: |
       set -eux
       craftctl default
