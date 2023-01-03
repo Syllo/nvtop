@@ -1788,14 +1788,17 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
       interface->process.option_window.selected_row = 0;
     }
     break;
+  case 'l':
   case KEY_RIGHT:
     if (interface->process.option_window.state == nvtop_option_state_hidden)
       interface->process.offset_column += 4;
     break;
+  case 'h':
   case KEY_LEFT:
     if (interface->process.option_window.state == nvtop_option_state_hidden && interface->process.offset_column >= 4)
       interface->process.offset_column -= 4;
     break;
+  case 'k':
   case KEY_UP:
     switch (interface->process.option_window.state) {
     case nvtop_option_state_kill:
@@ -1811,6 +1814,7 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
       break;
     }
     break;
+  case 'j':
   case KEY_DOWN:
     switch (interface->process.option_window.state) {
     case nvtop_option_state_kill:

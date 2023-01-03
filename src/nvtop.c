@@ -307,9 +307,13 @@ int main(int argc, char **argv) {
     case '-':
       interface_key(input_char, interface);
       break;
+    case 'k':
     case KEY_UP:
+    case 'j':
     case KEY_DOWN:
+    case 'h':
     case KEY_LEFT:
+    case 'l':
     case KEY_RIGHT:
     case KEY_ENTER:
     case '\n':

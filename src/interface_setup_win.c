@@ -608,16 +608,19 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
   if (interface->setup_win.visible) {
     switch (keyId) {
 
+    case 'l':
     case KEY_RIGHT:
       if (interface->setup_win.indentation_level < 2)
         interface->setup_win.indentation_level++;
       break;
 
+    case 'h':
     case KEY_LEFT:
       if (interface->setup_win.indentation_level > 0)
         interface->setup_win.indentation_level--;
       break;
 
+    case 'k':
     case KEY_UP:
       if (interface->setup_win.indentation_level == 0) {
         if (interface->setup_win.selected_section != setup_general_selected) {
@@ -637,6 +640,7 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
       }
       break;
 
+    case 'j':
     case KEY_DOWN:
       if (interface->setup_win.indentation_level == 0) {
         if (interface->setup_win.selected_section + 1 != setup_window_selection_count) {
