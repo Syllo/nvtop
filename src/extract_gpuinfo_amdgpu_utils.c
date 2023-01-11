@@ -1,10 +1,6 @@
 /*
- * Copyright (C) 2012 Lauri Kasanen
- * Copyright (C) 2018 Genesis Cloud Ltd.
- * Copyright (C) 2022 YiFei Zhu <zhuyifei1999@gmail.com>
- * Copyright (C) 2022 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
- * This file is part of Nvtop and adapted from radeontop.
+ * This file is part of Nvtop and adapted from libdrm.
  *
  * Nvtop is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
