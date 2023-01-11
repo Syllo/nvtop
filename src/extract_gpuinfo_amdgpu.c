@@ -51,6 +51,9 @@
 #include <uthash.h>
 #include <xf86drm.h>
 
+// extern
+const char * amdgpu_parse_marketing_name(struct amdgpu_gpu_info *info);
+
 // Local function pointers to DRM interface
 static typeof(drmGetDevices) *_drmGetDevices;
 static typeof(drmGetDevices2) *_drmGetDevices2;
@@ -515,6 +518,11 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
 
   if (libdrm_amdgpu_handle && _amdgpu_query_gpu_info)
     info_query_success = !_amdgpu_query_gpu_info(gpu_info->amdgpu_device, &info);
+
+  /* check name again */
+  if (!name) {
+      name = amdgpu_parse_marketing_name(&info);
+  }
 
   static_info->device_name[MAX_DEVICE_NAME - 1] = '\0';
   if (name && strlen(name)) {
