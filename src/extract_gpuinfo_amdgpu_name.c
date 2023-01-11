@@ -21,12 +21,6 @@
  *
  */
 
-#include "nvtop/common.h"
-#include "nvtop/device_discovery.h"
-#include "nvtop/extract_gpuinfo_common.h"
-#include "nvtop/extract_processinfo_fdinfo.h"
-#include "nvtop/time.h"
-
 #include <assert.h>
 #include <ctype.h>
 #include <dirent.h>
@@ -40,11 +34,9 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-
-#include <unistd.h>
-#include <uthash.h>
 
 #include "amdgpu_ids.h"
 
