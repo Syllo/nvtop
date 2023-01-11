@@ -519,7 +519,13 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   if (libdrm_amdgpu_handle && _amdgpu_query_gpu_info)
     info_query_success = !_amdgpu_query_gpu_info(gpu_info->amdgpu_device, &info);
 
-  /* check name again */
+  /* check name again.
+   * the previous name is from libdrm, which may not be the latest version.
+   * it may not contain latest AMD GPU types/names
+   *
+   * the libdrm is from vendor, Linux and a Linux distribution.
+   * It may take long time for a Linux distribution to get latest GPU info.
+   * here a GPU IDS is maintained, which allows to support GPU info faster. */
   if (!name) {
       name = amdgpu_parse_marketing_name(&info);
   }
