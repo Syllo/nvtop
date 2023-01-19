@@ -36,7 +36,7 @@ static const char * parse_one_line(uint32_t asic_id, uint32_t pci_rev_id, const 
     const char *rtn = NULL;
 
     /* ignore empty line and commented line */
-    if (strlen(line) == 0 || line[0] == '#')
+    if (!line || strlen(line) == 0)
         return rtn;
 
     buf = strdup(line);
@@ -46,42 +46,42 @@ static const char * parse_one_line(uint32_t asic_id, uint32_t pci_rev_id, const 
     /* device id */
     s_did = strtok_r(buf, ",", &saveptr);
     if (!s_did)
-        goto out;
+        goto end;
 
     did = strtol(s_did, &endptr, 16);
     if (*endptr)
-        goto out;
+        goto end;
 
     if (did != asic_id) {
-        goto out;
+        goto end;
     }
 
     /* revision id */
     s_rid = strtok_r(NULL, ",", &saveptr);
     if (!s_rid)
-        goto out;
+        goto end;
 
     rid = strtol(s_rid, &endptr, 16);
     if (*endptr)
-        goto out;
+        goto end;
 
     if (rid != pci_rev_id) {
-        goto out;
+        goto end;
     }
 
     /* marketing name */
     s_name = strtok_r(NULL, ",", &saveptr);
     if (!s_name)
-        goto out;
+        goto end;
 
     /* trim leading whitespaces or tabs */
     while (isblank(*s_name)) s_name++;
 
-    if (strlen(s_name) == 0) goto out;
+    if (strlen(s_name) == 0) goto end;
 
     rtn = line + (s_name - buf);
 
-out:
+end:
     free(buf);
 
     return rtn;
