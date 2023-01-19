@@ -1,6 +1,9 @@
 
 /*
  * Copyright © [2023] Advanced Micro Devices, Inc. All rights reserved.
+ *
+ * This file is modified from libdrm. MIT License.
+ *
  */
 
 #ifndef AMDGPU_IDS_H
