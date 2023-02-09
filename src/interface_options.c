@@ -62,7 +62,6 @@ static const char *default_config_path(void) {
 unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct list_head *monitoredGpu,
                                                 struct list_head *nonMonitoredGpu, nvtop_interface_option *options) {
   // The array in options->gpu_specifi_opts is kept in sync with the lists
-  unsigned numMonitored = 0;
   unsigned idx = 0;
   struct gpu_info *device, *list_tmp;
   list_for_each_entry_safe(device, list_tmp, monitoredGpu, list) {
@@ -74,18 +73,17 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
               (num_devices - idx - 1) * sizeof(*options->gpu_specific_opts));
       options->gpu_specific_opts[num_devices - 1] = saveInfo;
     } else {
-      numMonitored++;
       idx++;
     }
   }
-  idx = numMonitored;
+  unsigned numMonitored = idx;
   list_for_each_entry_safe(device, list_tmp, nonMonitoredGpu, list) {
     assert(idx <= num_devices);
     if (!options->gpu_specific_opts[idx].doNotMonitor) {
       list_move_tail(&device->list, monitoredGpu);
       nvtop_interface_gpu_opts saveInfo = options->gpu_specific_opts[idx];
-      for (unsigned here = idx; idx > numMonitored; --idx) {
-        options->gpu_specific_opts[here] = options->gpu_specific_opts[here - 1];
+      for (unsigned nonMonPred = idx; nonMonPred > numMonitored; --nonMonPred) {
+        options->gpu_specific_opts[nonMonPred] = options->gpu_specific_opts[nonMonPred - 1];
       }
       options->gpu_specific_opts[numMonitored] = saveInfo;
       numMonitored++;
