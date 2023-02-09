@@ -75,8 +75,8 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
       options->gpu_specific_opts[num_devices - 1] = saveInfo;
     } else {
       numMonitored++;
+      idx++;
     }
-    idx++;
   }
   idx = numMonitored;
   list_for_each_entry_safe(device, list_tmp, nonMonitoredGpu, list) {
