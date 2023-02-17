@@ -3,6 +3,7 @@
  * Copyright (C) 2018 Genesis Cloud Ltd.
  * Copyright (C) 2022 YiFei Zhu <zhuyifei1999@gmail.com>
  * Copyright (C) 2022 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2023 Advanced Micro Devices, Inc. All rights reserved.
  *
  * This file is part of Nvtop and adapted from radeontop.
  *
