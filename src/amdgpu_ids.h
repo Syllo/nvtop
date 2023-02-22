@@ -499,7 +499,7 @@ static struct amdgpu_id_struct amdgpu_ids[] = {
     {0x98E4, 0xE9, "AMD Radeon R4 Graphics"},
     {0x98E4, 0xEA, "AMD Radeon R4 Graphics"},
     {0x98E4, 0xEB, "AMD Radeon R3 Graphics"},
-    {0x98E4, 0xEB, "AMD Radeon R4 Graphics"},
+    {0x98E4, 0xEC, "AMD Radeon R4 Graphics"},
 };
 
 #endif
