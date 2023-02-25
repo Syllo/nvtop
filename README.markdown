@@ -26,8 +26,8 @@ Table of Contents
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
-    - [Ubuntu disco (19.04) / Debian buster (stable)](#ubuntu-disco-1904--debian-buster-stable)
-  - [Fedora / RedHat / CentOS](#fedora--redhat--centos)
+    - [Ubuntu Impish (21.10) / Debian buster (stable) and more recent (stable)](#ubuntu-impish-2110-debian-buster-stable-and-more-recent)
+  - [Fedora / Red Hat / CentOS](#fedora--red-hat--centos)
   - [OpenSUSE](#opensuse)
   - [Arch Linux](#arch-linux)
   - [AppImage](#appimage)
@@ -160,11 +160,31 @@ sudo apt install nvtop
   - Follow the [NVTOP Build](#nvtop-build)
 
 
-### Fedora / RedHat / CentOS
+### Fedora / Red Hat / CentOS
 
 A standalone application is available as [AppImage](#appimage).
 
-#### Build process for Fedora / RedHat / CentOS:
+#### Fedora 36 and newer
+
+- ```bash
+  sudo dnf install nvtop
+  ```
+  
+#### Red Hat Enterprise Linux 8 and 9
+
+- ```bash
+  sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E %{rhel}).noarch.rpm
+  sudo dnf install nvtop
+  ```
+  
+#### CentOS Stream, Rocky Linux, AlmaLinux
+
+- ```bash
+  sudo dnf install -y epel-release
+  sudo dnf install nvtop
+  ```  
+
+#### Build process for Fedora / Red Hat / CentOS:
 
 - AMD and Intel Dependencies
   ```bash
