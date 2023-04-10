@@ -23,6 +23,7 @@ Table of Contents
   - [AMD](#amd)
   - [Intel](#intel)
   - [NVIDIA](#nvidia)
+  - [Adreno](#adreno)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
@@ -101,6 +102,15 @@ The *NVML library* does not support some of the queries for GPUs coming before t
 Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
+
+### Adreno
+
+NVTOP supports Adreno GPUs using the `msm` linux driver.
+
+msm introduced the fdinfo interface in kernel 6.0 ([browse kernel
+source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/gpu/drm/msm/msm_drv.c?h=linux-6.0.y)).
+Hence, you will need a kernel with a version greater or equal to 6.0 to see the
+processes using Adreno GPUs.
 
 Build
 -----
