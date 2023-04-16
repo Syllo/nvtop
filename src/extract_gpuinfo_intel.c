@@ -47,6 +47,7 @@ enum intel_process_info_cache_valid {
 struct __attribute__((__packed__)) unique_cache_id {
   unsigned client_id;
   pid_t pid;
+  char *pdev;
 };
 
 struct intel_process_info_cache {
@@ -183,7 +184,7 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
   process_info->type |= gpu_process_graphical;
 
   struct intel_process_info_cache *cache_entry;
-  struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid};
+  struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid, .pdev = gpu_info->base.pdev};
   HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &ucid, cache_entry);
   if (cache_entry) {
     uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
@@ -219,6 +220,7 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
       goto parse_fdinfo_exit;
     cache_entry->client_id.client_id = cid;
     cache_entry->client_id.pid = process_info->pid;
+    cache_entry->client_id.pdev = gpu_info->base.pdev;
   }
 
 #ifndef NDEBUG
