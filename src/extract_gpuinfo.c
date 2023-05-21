@@ -154,11 +154,9 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
     if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
-      // Reinstate the driver reported usage if within reasonable margin of processes usage
-      if (!(/*more than 10% lower*/ reportedGpuRate < dynamic_info->gpu_util_rate - 10 ||
-            /*more than 10% greater*/ reportedGpuRate > dynamic_info->gpu_util_rate + 10)) {
-        SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
-      }
+      SET_GPUINFO_DYNAMIC(
+          dynamic_info, gpu_util_rate,
+          (dynamic_info->gpu_util_rate > reportedGpuRate ? dynamic_info->gpu_util_rate : reportedGpuRate));
     }
   }
   return true;
