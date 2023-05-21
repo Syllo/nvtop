@@ -53,7 +53,7 @@
 #include <xf86drm.h>
 
 // extern
-const char * amdgpu_parse_marketing_name(struct amdgpu_gpu_info *info);
+const char *amdgpu_parse_marketing_name(struct amdgpu_gpu_info *info);
 
 // Local function pointers to DRM interface
 static typeof(drmGetDevices) *_drmGetDevices;
@@ -99,6 +99,7 @@ enum amdgpu_process_info_cache_valid {
 struct __attribute__((__packed__)) unique_cache_id {
   unsigned client_id;
   pid_t pid;
+  char *pdev;
 };
 
 struct amdgpu_process_info_cache {
@@ -528,7 +529,7 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
    * It may take long time for a Linux distribution to get latest GPU info.
    * here a GPU IDS is maintained, which allows to support GPU info faster. */
   if (!name) {
-      name = amdgpu_parse_marketing_name(&info);
+    name = amdgpu_parse_marketing_name(&info);
   }
 
   static_info->device_name[MAX_DEVICE_NAME - 1] = '\0';
@@ -906,7 +907,7 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
   // busy percentage since the last measurement.
   if (client_id_set) {
     struct amdgpu_process_info_cache *cache_entry;
-    struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid};
+    struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid, .pdev = gpu_info->base.pdev};
     HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &ucid, cache_entry);
     if (cache_entry) {
       uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
@@ -952,6 +953,7 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
         goto parse_fdinfo_exit;
       cache_entry->client_id.client_id = cid;
       cache_entry->client_id.pid = process_info->pid;
+      cache_entry->client_id.pdev = gpu_info->base.pdev;
     }
 
 #ifndef NDEBUG
