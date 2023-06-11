@@ -460,7 +460,7 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       gpu_infos[amdgpu_count].fd = fd;
       gpu_infos[amdgpu_count].base.vendor = &gpu_vendor_amdgpu;
 
-      snprintf(gpu_infos[*count].base.pdev, PDEV_LEN - 1, "%04x:%02x:%02x.%d", devs[i]->businfo.pci->domain,
+      snprintf(gpu_infos[amdgpu_count].base.pdev, PDEV_LEN - 1, "%04x:%02x:%02x.%d", devs[i]->businfo.pci->domain,
                devs[i]->businfo.pci->bus, devs[i]->businfo.pci->dev, devs[i]->businfo.pci->func);
       initDeviceSysfsPaths(&gpu_infos[amdgpu_count]);
       list_add_tail(&gpu_infos[amdgpu_count].base.list, devices);
