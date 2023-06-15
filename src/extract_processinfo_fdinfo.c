@@ -25,12 +25,15 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
-#include <linux/kcmp.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/sysmacros.h>
 #include <unistd.h>
+
+#ifndef KCMP_FILE
+#define KCMP_FILE 0
+#endif
 
 struct callback_entry {
   struct gpu_info *gpu_info;
