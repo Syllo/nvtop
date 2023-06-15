@@ -752,9 +752,11 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     int NreadPatterns =
         rewindAndReadPattern(gpu_info->PCIeBW, "%" SCNu64 " %" SCNu64 " %i", &received, &transmitted, &maxPayloadSize);
     if (NreadPatterns == 3) {
-      // Compute received/transmitter in KiB
-      received *= maxPayloadSize / 1024;
-      transmitted *= maxPayloadSize / 1024;
+      received *= maxPayloadSize;
+      transmitted *= maxPayloadSize;
+      // Set in KiB
+      received /= 1024;
+      transmitted /= 1024;
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_rx, received);
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_tx, transmitted);
     }
