@@ -95,6 +95,7 @@ unsigned msm_gpu_count;
 static struct gpu_info_msm *gpu_infos;
 
 static void *libdrm_handle;
+static FILE* meminfo_file = NULL;
 
 static int last_libdrm_return_status = 0;
 static char didnt_call_gpuinfo_init[] = "uninitialized";
@@ -194,6 +195,8 @@ bool gpuinfo_msm_init(void) {
     goto init_error_clean_exit;
 
   local_error_string = NULL;
+
+  meminfo_file = fopen("/proc/meminfo", "r");
   return true;
 
 init_error_clean_exit:
@@ -216,6 +219,11 @@ void gpuinfo_msm_shutdown(void) {
     dlclose(libdrm_handle);
     libdrm_handle = NULL;
     local_error_string = didnt_call_gpuinfo_init;
+  }
+
+  if (meminfo_file) {
+    fclose(meminfo_file);
+    meminfo_file = NULL;
   }
 }
 
@@ -241,6 +249,23 @@ static const char *gpuinfo_msm_last_error_string(void) {
     return "An unanticipated error occurred while accessing AMDGPU "
            "information\n";
   }
+}
+
+static uint64_t parse_memory_multiplier(const char *str) {
+  if (strcmp(str, " B") == 0) {
+    return 1;
+  }
+  else if (strcmp(str, " KiB") == 0 || strcmp(str, " kB") == 0) {
+    return 1024;
+  }
+  else if (strcmp(str, " MiB") == 0) {
+    return 1024 * 1024;
+  }
+  else if (strcmp(str, " GiB") == 0) {
+    return 1024 * 1024 * 1024;
+  }
+
+  return 1;
 }
 
 static const char drm_msm_engine_gpu[] = "drm-engine-gpu";
@@ -298,20 +323,7 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
         if (endptr == val)
           continue;
 
-        uint64_t multiplier = 1;
-        if (strcmp(endptr, " B") == 0) {
-          multiplier = 1;
-        }
-        else if (strcmp(endptr, " KiB") == 0) {
-          multiplier = 1024;
-        }
-        else if (strcmp(endptr, " MiB") == 0) {
-          multiplier = 1024 * 1024;
-        }
-        else if (strcmp(endptr, " GiB") == 0) {
-          multiplier = 1024 * 1024 * 1024;
-        }
-
+        uint64_t multiplier = parse_memory_multiplier(endptr);
         SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
       }
     }
@@ -470,6 +482,10 @@ void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
   }
 }
 
+
+static const char meminfo_total[] = "MemTotal";
+static const char meminfo_available[] = "MemAvailable";
+
 void gpuinfo_msm_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_msm *gpu_info = container_of(_gpu_info, struct gpu_info_msm, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
@@ -492,14 +508,51 @@ void gpuinfo_msm_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // TODO: find how to extract global utilization
   // gpu util will be computed as the sum of all the processes utilization for now
 
-  struct sysinfo info;
-  if (sysinfo(&info) == 0) {
-    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, info.totalram);
-    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, info.totalram - info.freeram);
-    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, info.freeram);
-    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
-                        (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
+  rewind(meminfo_file);
+  fflush(meminfo_file);
+  static char *line = NULL;
+  static size_t line_buf_size = 0;
+  ssize_t count = 0;
+  uint64_t mem_total = 0;
+  uint64_t mem_available = 0;
+  size_t keys_acquired = 0;
+  while (keys_acquired != 2 && (count = getline(&line, &line_buf_size, meminfo_file)) != -1) {
+    char *key, *val;
+    // Get rid of the newline if present
+    if (line[count - 1] == '\n') {
+      line[--count] = '\0';
+    }
+
+    if (!extract_drm_fdinfo_key_value(line, &key, &val))
+      continue;
+
+    bool is_total = !strcmp(key, meminfo_total);
+    bool is_available = !strcmp(key, meminfo_available);
+
+    if (is_total || is_available) {
+      uint64_t mem_int;
+      char *endptr;
+
+      mem_int = strtoull(val, &endptr, 10);
+      if (endptr == val)
+        continue;
+
+      mem_int *= parse_memory_multiplier(endptr);
+      if (is_total) {
+        mem_total = mem_int;
+      }
+      else if (is_available) {
+        mem_available = mem_int;
+      }
+      ++keys_acquired;
+    }
   }
+
+  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mem_total);
+  SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mem_total - mem_available);
+  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mem_available);
+  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
+                      (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_msm *gpu_info) {
