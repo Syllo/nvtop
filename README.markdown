@@ -4,8 +4,8 @@ NVTOP
 What is NVTOP?
 --------------
 
-Nvtop stands for Neat Videocard TOP, a (h)top like task monitor for AMD, Intel
-and NVIDIA GPUs. It can handle multiple GPUs and print information about them in
+NVTOP stands for Neat Videocard TOP, a (h)top like task monitor for AMD, Intel
+and NVIDIA GPUs. It can handle multiple GPUs and print info about them in
 a htop familiar way.
 
 Because a picture is worth a thousand words:
@@ -90,7 +90,7 @@ Hence, you will need a kernel with a version greater or equal to 5.19 to see the
 processes using Intel GPUs.
 
 **INTEL SUPPORT STATUS**
-- Intel is working on exposing more hardware information through an `HWMON`
+- Intel is working on exposing more hardware info through an `HWMON`
 interface. The patches are still a work in progress: [see patch
 series](https://patchwork.freedesktop.org/series/104278/).
 - The fdinfo interface does not expose the memory allocated by the process. The
@@ -100,7 +100,7 @@ field in the process list is therefore empty.
 
 The *NVML library* does not support some of the queries for GPUs coming before the
 Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
-successor should work fine. For more information about supported GPUs please
+successor should work fine. For more info about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
 ### Adreno
@@ -115,19 +115,19 @@ processes using Adreno GPUs.
 Build
 -----
 
-Several libraries are required in order for NVTOP to display GPU information:
+Several libraries are required in order for NVTOP to display GPU info:
 
 * The *ncurses* library driving the user interface.
   * This makes the screen look beautiful.
 * For NVIDIA: the *NVIDIA Management Library* (*NVML*) which comes with the GPU driver.
-  * This queries the GPU for information.
+  * This queries the GPU for info.
 * For AMD: the libdrm library used to query AMD GPUs through the kernel driver.
 
 ## Distribution Specific Installation Process
 
 ### Ubuntu / Debian
 
-If your distribution provides the snap utility, follow the [snap installation process](#snap) to obtain an up-to-date version of nvtop.
+If your distribution provides the snap utility, follow the [snap installation process](#snap) to obtain an up-to-date version of `nvtop`.
 
 A standalone application is available as [AppImage](#appimage).
 
@@ -161,7 +161,7 @@ sudo apt install nvtop
   - NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
 
 - NVTOP Dependencies
- - CMake, ncurses and git
+ - CMake, ncurses and Git
   ```bash
   sudo apt install cmake libncurses5-dev libncursesw5-dev git
   ```
@@ -205,7 +205,7 @@ A standalone application is available as [AppImage](#appimage).
   - NVIDIA drivers, **CUDA required for nvml libraries** (see [RPM Fusion](https://rpmfusion.org/Howto/NVIDIA))
 
 - NVTOP Dependencies
- - CMake, ncurses, c++ and git
+ - CMake, ncurses, C++ and Git
   ```bash
   sudo dnf install cmake ncurses-devel git gcc-c++
   ```
@@ -215,7 +215,7 @@ A standalone application is available as [AppImage](#appimage).
 
 ### OpenSUSE
 
-A standalone application is available as [AppImage](#appimage).
+A standalone application is available as an [AppImage](#appimage).
 
 Build process for OpenSUSE:
 
@@ -228,7 +228,7 @@ Build process for OpenSUSE:
   - NVIDIA drivers (see [SUSE Support Database](https://en.opensuse.org/SDB:NVIDIA_drivers))
 
 - NVTOP Dependencies
-  - CMake, ncurses and git
+  - CMake, ncurses and Git
     ```bash
     sudo zypper install cmake ncurses-devel git
     ```
@@ -285,7 +285,7 @@ Notice: The connect commands allow
 
 - NVIDIA drivers (same as above)
 
-- [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) (See  [Container Toolkit Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker))
+- [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) (See [Container Toolkit Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker))
 
 - ```bash
   git clone https://github.com/Syllo/nvtop.git && cd nvtop
@@ -308,26 +308,25 @@ sudo make install
 # make DESTDIR="/your/install/path" install
 ```
 
-If you use **conda** as environment manager and encounter an error while building nvtop, try `conda deactivate` before invoking `cmake`.
+If you use **conda** as environment manager and encounter an error while building NVTOP, try `conda deactivate` before invoking `cmake`.
 
-The build system supports multiple build type (e.g. -DCMAKE_BUILD_TYPE=RelWithDebInfo):
+The build system supports multiple build types (e.g. -DCMAKE_BUILD_TYPE=RelWithDebInfo):
 
-* Release: Binary without debug information
-* RelWithDebInfo: Binary with debug information
+* Release: Binary without debug info
+* RelWithDebInfo: Binary with debug info
 * Debug: Compile with warning flags and address/undefined sanitizers enabled (for development purposes)
 
 Troubleshoot
 ------------
 
 - The plot looks bad:
-  - Verify that you installed the wide character version of the NCurses library (libncurses**w**5-dev for Debian / Ubuntu), clean the build directory
-    and restart the build process.
+  - Verify that you installed the wide character version of the ncurses library (libncurses**w**5-dev for Debian / Ubuntu), clean the build directory and restart the build process.
 - **Putty**: Tell putty not to lie about its capabilities (`$TERM`) by setting the field ``Terminal-type string`` to ``putty`` in the menu
   ``Connection > Data > Terminal Details``.
 
 License
 -------
 
-Nvtop is licensed under the GPLV3 license or any later version.
+NVTOP is licensed under the GPLv3 license or any later version.
 You will find a copy of the license inside the COPYING file of the repository or
-at the gnu website <[www.gnu.org/licenses/](http://www.gnu.org/licenses/)>.
+at the GNU website <[www.gnu.org/licenses/](http://www.gnu.org/licenses/)>.
