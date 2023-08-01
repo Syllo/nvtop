@@ -5,8 +5,8 @@ What is NVTOP?
 --------------
 
 NVTOP stands for Neat Videocard TOP, a (h)top like task monitor for AMD, Intel
-and NVIDIA GPUs. It can handle multiple GPUs and print info about them in
-a htop familiar way.
+and NVIDIA GPUs. It can handle multiple GPUs and print information
+about them in a htop-familiar way.
 
 Because a picture is worth a thousand words:
 
@@ -90,7 +90,7 @@ Hence, you will need a kernel with a version greater or equal to 5.19 to see the
 processes using Intel GPUs.
 
 **INTEL SUPPORT STATUS**
-- Intel is working on exposing more hardware info through an `HWMON`
+- Intel is working on exposing more hardware information through an `HWMON`
 interface. The patches are still a work in progress: [see patch
 series](https://patchwork.freedesktop.org/series/104278/).
 - The fdinfo interface does not expose the memory allocated by the process. The
@@ -100,7 +100,7 @@ field in the process list is therefore empty.
 
 The *NVML library* does not support some of the queries for GPUs coming before the
 Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
-successor should work fine. For more info about supported GPUs please
+successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
 ### Adreno
@@ -271,7 +271,7 @@ If you are curious how that works, please visit the [AppImage website](https://a
   snap install nvtop
   # Add the capability to kill processes inside nvtop
   snap connect nvtop:process-control
-  # Add the capability to inspect GPU info (Fan, PCIe, Power, etc)
+  # Add the capability to inspect GPU information (fan, PCIe, power, etc)
   snap connect nvtop:hardware-observe
   # AMDGPU process list support (read /proc/<pid>)
   snap connect nvtop:system-observe
