@@ -30,8 +30,23 @@
 #include <stdio.h>
 
 void get_username_from_pid(pid_t pid, char **buffer) {
-  (void) pid;
-  (void) buffer;
+  struct proc_bsdshortinfo proc;
+  const int st = proc_pidinfo(pid, PROC_PIDT_SHORTBSDINFO, 0, &proc, PROC_PIDT_SHORTBSDINFO_SIZE);
+  if (st != PROC_PIDT_SHORTBSDINFO_SIZE) {
+    goto error;
+  }
+
+  struct passwd *user_info = getpwuid(proc.pbsi_uid);
+  if (user_info == NULL) {
+    goto error;
+  }
+
+  const size_t namelen = strlen(user_info->pw_name) + 1;
+  *buffer = malloc(namelen * sizeof(**buffer));
+  strncpy(*buffer, user_info->pw_name, namelen);
+  return;
+error:
+  *buffer = NULL;
 }
 
 void get_command_from_pid(pid_t pid, char **buffer) {
