@@ -1341,8 +1341,8 @@ static const char *signalNames[] = {
     "SIGXFSZ", "SIGVTALRM", "SIGPROF", "SIGWINCH", "SIGIO",   "SIGPWR",  "SIGSYS",
 };
 
-// SIGPWR does not exist on FreeBSD, while it is a synonym for SIGINFO on Linux
-#ifdef __FreeBSD__
+// SIGPWR does not exist on FreeBSD or Apple, while it is a synonym for SIGINFO on Linux
+#if defined(__FreeBSD__) || defined(__APPLE__)
 #define SIGPWR SIGINFO
 #endif
 
