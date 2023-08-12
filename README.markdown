@@ -24,6 +24,7 @@ Table of Contents
   - [Intel](#intel)
   - [NVIDIA](#nvidia)
   - [Adreno](#adreno)
+  - [Apple](#apple)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
@@ -112,6 +113,13 @@ source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/dr
 Hence, you will need a kernel with a version greater or equal to 6.0 to see the
 processes using Adreno GPUs.
 
+### Apple
+
+NVTOP includes some initial support for Apple using Metal. This is only supported when building for Apple, and when building for Apple only this vendor is supported.
+
+**APPLE SUPPORT STATUS**
+- Apple support is still being worked on. Some bugs and limitations may apply.
+
 Build
 -----
 
@@ -179,20 +187,20 @@ A standalone application is available as [AppImage](#appimage).
 - ```bash
   sudo dnf install nvtop
   ```
-  
+
 #### Red Hat Enterprise Linux 8 and 9
 
 - ```bash
   sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E %{rhel}).noarch.rpm
   sudo dnf install nvtop
   ```
-  
+
 #### CentOS Stream, Rocky Linux, AlmaLinux
 
 - ```bash
   sudo dnf install -y epel-release
   sudo dnf install nvtop
-  ```  
+  ```
 
 #### Build process for Fedora / Red Hat / CentOS:
 
@@ -279,7 +287,7 @@ If you are curious how that works, please visit the [AppImage website](https://a
   snap connect nvtop:kubernetes-support
   ```
 
-Notice: The connect commands allow 
+Notice: The connect commands allow
 
 ### Docker
 
