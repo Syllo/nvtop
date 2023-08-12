@@ -50,8 +50,68 @@ error:
 }
 
 void get_command_from_pid(pid_t pid, char **buffer) {
-  (void) pid;
-  (void) buffer;
+  // See https://chromium.googlesource.com/crashpad/crashpad/+/360e441c53ab4191a6fd2472cc57c3343a2f6944/util/posix/process_util_mac.cc
+  size_t argmax;
+  size_t argmax_estimate;
+  char *procargs = NULL;
+  int tries = 3;
+  do {
+    int mib[] = {CTL_KERN, KERN_PROCARGS2, pid};
+    if (sysctl(mib, 3, NULL, &argmax_estimate, NULL, 0) != 0) {
+      goto error_free_procargs;
+    }
+
+    argmax = argmax_estimate + 1;
+    procargs = realloc(procargs, argmax);
+    if (sysctl(mib, 3, procargs, &argmax, NULL, 0) != 0) {
+      goto error_free_procargs;
+    }
+  } while (argmax == argmax_estimate + 1 && --tries != 0);
+
+  unsigned argc;
+  memcpy(&argc, procargs, sizeof(argc));
+
+  size_t i = sizeof(argc);
+  // Skip executable path.
+  while (i < argmax && procargs[i] != 0) {
+    ++i;
+  }
+  // Find the first string
+  while (i < argmax && procargs[i] == 0) {
+    ++i;
+  }
+
+  const size_t argv0 = i;
+  // Count the total size of the args by finding the end.
+  for (unsigned int arg = 0; arg < argc && i < argmax; ++arg) {
+    while (i < argmax && procargs[i] != 0) {
+      ++i;
+    }
+    ++i; // We are going to replace this null character with a space (or a null in the case of the last).
+  }
+  const size_t args_size = i - argv0;
+  if (args_size == 0) {
+    goto error_free_procargs;
+  }
+  char* args = malloc(args_size);
+  *buffer = args;
+
+  i = argv0;
+  for (unsigned int arg = 0; arg < argc && i < argmax; ++arg) {
+    while (i < argmax && procargs[i] != 0) {
+      *args++ = procargs[i++];
+    }
+    *args++ = ' ';
+    ++i;
+  }
+  args[-1] = 0;
+
+  free(procargs);
+  return;
+error_free_procargs:
+  free(procargs);
+  *buffer = NULL;
+  return;
 }
 
 bool get_process_info(pid_t pid, struct process_cpu_usage *usage) {
