@@ -55,7 +55,23 @@ void get_command_from_pid(pid_t pid, char **buffer) {
 }
 
 bool get_process_info(pid_t pid, struct process_cpu_usage *usage) {
-  (void) pid;
-  (void) usage;
-  return false;
+  struct proc_taskinfo proc;
+  const int st = proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &proc, PROC_PIDTASKINFO_SIZE);
+  if (st != PROC_PIDTASKINFO_SIZE) {
+    return false;
+  }
+
+  nvtop_get_current_time(&usage->timestamp);
+
+  // TODO: Should we implement this workaround?
+  // https://github.com/htop-dev/htop/blob/main/darwin/PlatformHelpers.c#L98
+  mach_timebase_info_data_t info;
+  mach_timebase_info(&info);
+  const double nanoseconds_per_tick = (double)info.numer / (double)info.denom;
+
+  usage->total_user_time = (proc.pti_total_user * nanoseconds_per_tick) / 1000000000.0;
+  usage->total_kernel_time = (proc.pti_total_system * nanoseconds_per_tick) / 1000000000.0;
+  usage->virtual_memory = proc.pti_virtual_size;
+  usage->resident_memory = proc.pti_resident_size;
+  return true;
 }
