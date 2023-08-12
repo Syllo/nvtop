@@ -138,7 +138,39 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, gpu_util_rate);
   }
 
+  if ([gpu_info->device hasUnifiedMemory]) {
+    // [gpu_info->device currentAllocatedSize] returns the amount of memory allocated by this process, not
+    // as allocated on the GPU globally. The performance statistics dictionary has the real value that we
+    // are interested in, the amount of system memory allocated by the GPU.
+    id system_memory_info = [performance_statistics objectForKey:@"Alloc system memory"];
+    if (system_memory_info != nil) {
+      const uint64_t mem_used = [system_memory_info integerValue];
+      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mem_used);
+    }
+
+    // Memory is unified, so query the amount of system memory instead.
+    mach_msg_type_number_t host_size = HOST_BASIC_INFO_COUNT;
+    host_basic_info_data_t info;
+    if (host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t) &info, &host_size) == KERN_SUCCESS) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, info.max_mem);
+    }
+  } else {
+    // TODO: Figure out how to get used memory for this case.
+
+    // It does not really seem to be possible to get the amount of memory of a particular GPU.
+    // In this case, just get the recommended working set size. This is what MoltenVK also does.
+    const uint64_t mem_total = [gpu_info->device recommendedMaxWorkingSetSize];
+    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mem_total);
+  }
+
   CFRelease(props);
+
+  if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) && GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory)) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, dynamic_info->total_memory - dynamic_info->used_memory);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
+                        (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
+
+  }
 }
 
 static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
