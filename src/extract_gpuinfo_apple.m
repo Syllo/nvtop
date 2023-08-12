@@ -121,6 +121,24 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_apple *gpu_info = container_of(_gpu_info, struct gpu_info_apple, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   RESET_ALL(dynamic_info->valid);
+
+  CFMutableDictionaryRef cf_props;
+  if (IORegistryEntryCreateCFProperties(gpu_info->gpu_service, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
+    return;
+  }
+  NSDictionary *props = (__bridge NSDictionary*) cf_props;
+  NSDictionary *performance_statistics = [props objectForKey:@"PerformanceStatistics"];
+  if (!performance_statistics) {
+    return;
+  }
+
+  id device_utilization_info = [performance_statistics objectForKey:@"Device Utilization %"];
+  if (device_utilization_info != nil) {
+    const uint64_t gpu_util_rate = [device_utilization_info integerValue];
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, gpu_util_rate);
+  }
+
+  CFRelease(props);
 }
 
 static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
