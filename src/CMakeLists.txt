@@ -42,6 +42,11 @@ if(UNIX AND NOT APPLE)
     get_process_info_linux.c
     extract_processinfo_fdinfo.c
     info_messages_linux.c)
+elseif(APPLE)
+  target_sources(nvtop PRIVATE
+    get_process_info_mac.c
+    extract_processinfo_mac.c
+    info_messages_mac.c)
 endif()
 
 if(NVIDIA_SUPPORT)
