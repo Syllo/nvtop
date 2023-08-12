@@ -109,6 +109,12 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_apple *gpu_info = container_of(_gpu_info, struct gpu_info_apple, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   RESET_ALL(static_info->valid);
+
+  const char *name = [[gpu_info->device name] UTF8String];
+  strncpy(static_info->device_name, name, sizeof(static_info->device_name));
+  SET_VALID(gpuinfo_device_name_valid, static_info->valid);
+
+  static_info->integrated_graphics = [gpu_info->device location] == MTLDeviceLocationBuiltIn;
 }
 
 static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
