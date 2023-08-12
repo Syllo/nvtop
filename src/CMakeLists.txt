@@ -92,6 +92,16 @@ if(INTEL_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_intel.c)
 endif()
 
+if(APPLE_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_apple.m)
+  target_link_libraries(nvtop PRIVATE
+    "-framework Metal"
+    "-framework AppKit"
+    "-framework Foundation"
+    "-framework QuartzCore"
+    "-framework IOKit")
+endif()
+
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
