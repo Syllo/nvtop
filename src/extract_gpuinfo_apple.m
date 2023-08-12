@@ -173,6 +173,69 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 }
 
+static bool gpuinfo_apple_get_process_info(struct gpu_process* process, io_object_t user_client) {
+  RESET_ALL(process->valid);
+  process->type = gpu_process_graphical_compute;
+
+  CFMutableDictionaryRef cf_props;
+  if (IORegistryEntryCreateCFProperties(user_client, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
+    return false;
+  }
+  NSDictionary* user_client_info = (__bridge NSDictionary*) cf_props;
+
+  id client_creator_info = [user_client_info objectForKey:@"IOUserClientCreator"];
+  if (client_creator_info == nil) {
+    return false;
+  }
+
+  const char* client_creator = [client_creator_info UTF8String];
+  // Client creator is in form: pid <pid>, <name>
+  if (sscanf(client_creator, "pid %u,", &process->pid) < 1) {
+    return false;
+  }
+
+  CFRelease(cf_props);
+
+  return true;
+}
+
 static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
+  struct gpu_info_apple *gpu_info = container_of(_gpu_info, struct gpu_info_apple, base);
   _gpu_info->processes_count = 0;
+
+  // We can find out which processes are running on a particular GPU using the IO Registry. The
+  // IOService associated to the MTLDevice has "AGXDeviceUserClient" child nodes, which hold some
+  // basic information about processes that are running on the GPU.
+
+  io_iterator_t iterator;
+  if (IORegistryEntryGetChildIterator(gpu_info->gpu_service, kIOServicePlane, &iterator) != kIOReturnSuccess) {
+    return;
+  }
+
+  unsigned int count = 0;
+  for (io_object_t child = IOIteratorNext(iterator); child; child = IOIteratorNext(iterator)) {
+    io_name_t class_name;
+    if (IOObjectGetClass(child, class_name) != kIOReturnSuccess) {
+      continue;
+    } else if (strncmp(class_name, "AGXDeviceUserClient", sizeof(class_name)) != 0) {
+      continue;
+    }
+
+    if (_gpu_info->processes_array_size < count + 1) {
+      _gpu_info->processes_array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
+      _gpu_info->processes = reallocarray(_gpu_info->processes, _gpu_info->processes_array_size, sizeof(*_gpu_info->processes));
+      if (!_gpu_info->processes) {
+        perror("Could not allocate memory: ");
+        exit(EXIT_FAILURE);
+      }
+    }
+
+    if (gpuinfo_apple_get_process_info(&_gpu_info->processes[count], child)) {
+      ++count;
+    }
+
+    IOObjectRelease(child);
+  }
+
+  _gpu_info->processes_count = count;
 }
