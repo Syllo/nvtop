@@ -23,9 +23,16 @@
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/time.h"
 
+#include <assert.h>
 #include <Metal/Metal.h>
 #include <IOKit/IOKitLib.h>
 #include <QuartzCore/QuartzCore.h>
+
+struct gpu_info_apple {
+  struct gpu_info base;
+  id<MTLDevice> device;
+  io_service_t gpu_service;
+};
 
 static bool gpuinfo_apple_init(void);
 static void gpuinfo_apple_shutdown(void);
@@ -46,14 +53,27 @@ static struct gpu_vendor gpu_vendor_apple = {
   .name = "apple",
 };
 
+static unsigned apple_gpu_count;
+static struct gpu_info_apple *gpu_infos;
+
 __attribute__((constructor)) static void init_extract_gpuinfo_apple(void) { register_gpu_vendor(&gpu_vendor_apple); }
 
 static bool gpuinfo_apple_init(void) {
+  apple_gpu_count = 0;
+  gpu_infos = NULL;
   return true;
 }
 
 static void gpuinfo_apple_shutdown(void) {
+  for (unsigned i = 0; i < apple_gpu_count; ++i) {
+    struct gpu_info_apple *gpu_info = &gpu_infos[i];
+    [gpu_info->device release];
+    IOObjectRelease(gpu_info->gpu_service);
+  }
 
+  free(gpu_infos);
+  gpu_infos = NULL;
+  apple_gpu_count = 0;
 }
 
 static const char *gpuinfo_apple_last_error_string(void) {
@@ -62,9 +82,27 @@ static const char *gpuinfo_apple_last_error_string(void) {
 }
 
 static bool gpuinfo_apple_get_device_handles(struct list_head *devices, unsigned *count) {
-  (void) devices;
-  *count = 0;
-  return false;
+  NSArray<id<MTLDevice>> *mtl_devices = MTLCopyAllDevices();
+
+  const unsigned mtl_count = [mtl_devices count];
+  gpu_infos = calloc(mtl_count, sizeof(*gpu_infos));
+  for (unsigned int i = 0; i < mtl_count; ++i) {
+    id<MTLDevice> dev = mtl_devices[i];
+    const uint64_t registry_id = [dev registryID];
+    const io_service_t gpu_service = IOServiceGetMatchingService(kIOMainPortDefault, IORegistryEntryIDMatching(registry_id));
+    assert(MACH_PORT_VALID(gpu_service));
+
+    gpu_infos[apple_gpu_count].base.vendor = &gpu_vendor_apple;
+    gpu_infos[apple_gpu_count].device = dev;
+    gpu_infos[i].gpu_service = gpu_service;
+    list_add_tail(&gpu_infos[apple_gpu_count].base.list, devices);
+    ++apple_gpu_count;
+  }
+
+  *count = apple_gpu_count;
+
+  [mtl_devices release];
+  return true;
 }
 
 static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
