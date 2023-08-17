@@ -271,6 +271,14 @@ void processinfo_sweep_fdinfos(void) {
         SET_GPUINFO_PROCESS(process_info, dec_engine_used,
                             process_info->dec_engine_used + processes_info_local.dec_engine_used);
       }
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_cycles)) {
+        SET_GPUINFO_PROCESS(process_info, gpu_cycles,
+                            process_info->gpu_cycles + processes_info_local.gpu_cycles);
+      }
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, sample_delta)) {
+        SET_GPUINFO_PROCESS(process_info, sample_delta,
+                            process_info->sample_delta + processes_info_local.sample_delta);
+      }
     }
 
   next:
