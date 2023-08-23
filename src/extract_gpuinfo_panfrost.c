@@ -36,9 +36,7 @@
 #include "nvtop/time.h"
 
 #include "panfrost_drm.h"
-
-// extern
-const char * panfrost_parse_marketing_name(uint64_t gpu_id);
+#include "panfrost_utils.h"
 
 #define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(unsigned), out_ptr)
 #define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(unsigned), in_ptr)
@@ -559,7 +557,6 @@ static int gpuinfo_panfrost_query_param(int gpu, uint32_t param, uint64_t *value
 void gpuinfo_panfrost_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_panfrost *gpu_info = container_of(_gpu_info, struct gpu_info_panfrost, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
-  const char *dev_name;
 
   static_info->integrated_graphics = true;
   RESET_ALL(static_info->valid);
@@ -575,8 +572,27 @@ void gpuinfo_panfrost_populate_static_info(struct gpu_info *_gpu_info) {
     }
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
   }
-}
 
+  uint64_t shader;
+  if (gpuinfo_panfrost_query_param(gpu_info->fd, DRM_PANFROST_PARAM_SHADER_PRESENT, &shader) == 0)
+    SET_GPUINFO_STATIC(static_info, n_shared_cores, util_last_bit(shader));
+
+  uint64_t l2_cache_features;
+  if (gpuinfo_panfrost_query_param(gpu_info->fd, DRM_PANFROST_PARAM_L2_FEATURES, &l2_cache_features) == 0)
+    SET_GPUINFO_STATIC(static_info, l2cache_size, l2_cache_features & (0xFF << 16));
+
+  if (GPUINFO_STATIC_FIELD_VALID(static_info, n_shared_cores)) {
+    uint64_t core_features, thread_features;
+    if (gpuinfo_panfrost_query_param(gpu_info->fd, DRM_PANFROST_PARAM_CORE_FEATURES, &core_features) != 0)
+      return;
+    if (gpuinfo_panfrost_query_param(gpu_info->fd, DRM_PANFROST_PARAM_THREAD_FEATURES, &thread_features) != 0)
+      return;
+
+    SET_GPUINFO_STATIC(static_info, n_exec_engines,
+                       get_number_engines(gpuid, static_info->n_shared_cores,
+					  core_features, thread_features));
+  }
+}
 
 static const char meminfo_total[] = "MemTotal";
 static const char meminfo_available[] = "MemAvailable";
