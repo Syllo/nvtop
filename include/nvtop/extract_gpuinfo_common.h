@@ -55,6 +55,9 @@ enum gpuinfo_static_info_valid {
   gpuinfo_max_pcie_link_width_valid,
   gpuinfo_temperature_shutdown_threshold_valid,
   gpuinfo_temperature_slowdown_threshold_valid,
+  gpuinfo_n_shared_cores_valid,
+  gpuinfo_l2cache_size_valid,
+  gpuinfo_n_exec_engines_valid,
   gpuinfo_static_info_count,
 };
 
@@ -66,6 +69,9 @@ struct gpuinfo_static_info {
   unsigned max_pcie_link_width;
   unsigned temperature_shutdown_threshold;
   unsigned temperature_slowdown_threshold;
+  unsigned n_shared_cores;
+  unsigned l2cache_size;
+  unsigned n_exec_engines;
   bool integrated_graphics;
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
@@ -146,6 +152,8 @@ enum gpuinfo_process_info_valid {
   gpuinfo_process_cpu_usage_valid,
   gpuinfo_process_cpu_memory_virt_valid,
   gpuinfo_process_cpu_memory_res_valid,
+  gpuinfo_process_gpu_cycles_valid,
+  gpuinfo_process_sample_delta_valid,
   gpuinfo_process_info_count
 };
 
@@ -154,10 +162,12 @@ struct gpu_process {
   pid_t pid;                           // Process ID
   char *cmdline;                       // Process User Name
   char *user_name;                     // Process User Name
+  uint64_t sample_delta;               // Time spent between two successive samples
   uint64_t gfx_engine_used;            // Time in nanoseconds this process spent using the GPU gfx
   uint64_t compute_engine_used;        // Time in nanoseconds this process spent using the GPU compute
   uint64_t enc_engine_used;            // Time in nanoseconds this process spent using the GPU encoder
   uint64_t dec_engine_used;            // Time in nanoseconds this process spent using the GPU decoder
+  uint64_t gpu_cycles;                 // Number of GPU cycles spent in the GPU gfx engine
   unsigned gpu_usage;                  // Percentage of GPU used by the process
   unsigned encode_usage;               // Percentage of GPU encoder used by the process
   unsigned decode_usage;               // Percentage of GPU decoder used by the process
@@ -184,6 +194,7 @@ struct gpu_vendor {
 
   void (*populate_static_info)(struct gpu_info *gpu_info);
   void (*refresh_dynamic_info)(struct gpu_info *gpu_info);
+  void (*refresh_utilisation_rate)(struct gpu_info *gpu_info);
 
   void (*refresh_running_processes)(struct gpu_info *gpu_info);
   char *name;
