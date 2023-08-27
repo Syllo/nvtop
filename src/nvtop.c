@@ -270,6 +270,7 @@ int main(int argc, char **argv) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
       if (!interface_freeze_processes(interface)) {
         gpuinfo_refresh_processes(&monitoredGpus);
+        gpuinfo_utilisation_rate(&monitoredGpus);
         gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
       }
       save_current_data_to_ring(&monitoredGpus, interface);

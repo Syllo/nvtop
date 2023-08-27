@@ -253,6 +253,17 @@ bool gpuinfo_refresh_processes(struct list_head *devices) {
   return true;
 }
 
+bool gpuinfo_utilisation_rate(struct list_head *devices) {
+  struct gpu_info *device;
+
+  list_for_each_entry(device, devices, list) {
+    if (device->vendor->refresh_utilisation_rate)
+      device->vendor->refresh_utilisation_rate(device);
+  }
+
+  return true;
+}
+
 void gpuinfo_clear_cache(void) {
   if (cached_process_info) {
     struct process_info_cache *pid_cached, *tmp;
