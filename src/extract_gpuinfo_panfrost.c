@@ -79,6 +79,7 @@ static bool gpuinfo_panfrost_get_device_handles(struct list_head *devices, unsig
 static void gpuinfo_panfrost_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_panfrost_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_panfrost_get_running_processes(struct gpu_info *_gpu_info);
+static void gpuinfo_panfrost_refresh_utilisation_rate(struct gpu_info *_gpu_info);
 
 struct gpu_vendor gpu_vendor_panfrost = {
     .init = gpuinfo_panfrost_init,
@@ -88,6 +89,7 @@ struct gpu_vendor gpu_vendor_panfrost = {
     .populate_static_info = gpuinfo_panfrost_populate_static_info,
     .refresh_dynamic_info = gpuinfo_panfrost_refresh_dynamic_info,
     .refresh_running_processes = gpuinfo_panfrost_get_running_processes,
+    .refresh_utilisation_rate = gpuinfo_panfrost_refresh_utilisation_rate,
     .name = "panfrost",
 };
 
@@ -652,6 +654,43 @@ void gpuinfo_panfrost_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mem_available);
   SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
                       (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
+}
+
+static void gpuinfo_panfrost_refresh_utilisation_rate(struct gpu_info *gpu_info) {
+  /*
+   * kernel Documentation/gpu/drm-usage-stats.rst:
+   *  - drm-maxfreq-<keystr>: <uint> [Hz|MHz|KHz]
+   *  Engine identifier string must be the same as the one specified in the
+   *  drm-engine-<keystr> tag and shall contain the maximum frequency for the given
+   *  engine. Taken together with drm-cycles-<keystr>, this can be used to calculate
+   *  percentage utilization of the engine, whereas drm-engine-<keystr> only reflects
+   *  time active without considering what frequency the engine is operating as a
+   *  percentage of it's maximum frequency.
+   *
+   */
+
+  uint64_t gfx_total_process_cycles = 0;
+  uint64_t total_delta = 0;
+  unsigned int utilisation_rate;
+  uint64_t max_freq_hz;
+  double avg_delta_secs;
+
+  for (unsigned processIdx = 0; processIdx < gpu_info->processes_count; ++processIdx) {
+    struct gpu_process *process_info = &gpu_info->processes[processIdx];
+
+    gfx_total_process_cycles += process_info->gpu_cycles;
+    total_delta += process_info->sample_delta;
+  }
+
+  if (!gfx_total_process_cycles)
+    return;
+
+  avg_delta_secs = ((double)total_delta / gpu_info->processes_count) / 1000000000.0;
+  max_freq_hz = gpu_info->dynamic_info.gpu_clock_speed_max * 1000000;
+  utilisation_rate = (unsigned int)((((double)gfx_total_process_cycles) / (((double)max_freq_hz) * avg_delta_secs * 2)) * 100);
+  utilisation_rate = utilisation_rate > 100 ? 100 : utilisation_rate;
+
+  SET_GPUINFO_DYNAMIC(&gpu_info->dynamic_info, gpu_util_rate, utilisation_rate);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_panfrost *gpu_info) {
