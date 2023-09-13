@@ -40,8 +40,8 @@ static int get_linux_kernel_release(unsigned *major, unsigned *minor, unsigned *
 static char *allMessages[] = {
     "Nvtop won't be able to show AMD GPU processes on your kernel version (requires Linux >= 5.14)",
     "Nvtop won't be able to show Intel GPU utilization and processes on your kernel version (requires Linux >= 5.19)",
-    "This version of Nvtop is missing support for reporting Intel GPU memory, power, fan and temperature",
-    "This version of Nvtop is missing support for reporting MSM power, fan and temperature",
+    "This version of Nvtop does not yet support reporting all data for Intel GPUs, such as memory, power, fan and temperature information",
+    "This version of Nvtop does not yet support reporting all data for MSM GPUs, such as power, fan and temperature information",
 };
 static const char *message_array[sizeof(allMessages) / sizeof(*allMessages)];
 
