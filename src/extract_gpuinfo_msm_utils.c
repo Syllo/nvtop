@@ -63,17 +63,21 @@ static const struct msm_id_struct msm_ids[] = {
   {CHIPID(540),   "Adreno 540"},
 
   // Adreno 6xx
-  {CHIPID(615),   "Adreno 615"},
-  {CHIPID(616),   "Adreno 616"},
-  {CHIPID(618),   "Adreno 618"},
-  {CHIPID(619),   "Adreno 619"},
-  {CHIPID(620),   "Adreno 620"},
-  {CHIPID(630),   "Adreno 630"},
-  {CHIPID(640),   "Adreno 640"},
-  {CHIPID(650),   "Adreno 650"},
-  {CHIPID(660),   "Adreno 660"},
-  {CHIPID(680),   "Adreno 680"},
-  {CHIPID(690),   "Adreno 690"},
+  {CHIPID(615),    "Adreno 615"},
+  {CHIPID(616),    "Adreno 616"},
+  {CHIPID(618),    "Adreno 618"},
+  {CHIPID(619),    "Adreno 619"},
+  {CHIPID(620),    "Adreno 620"},
+  {CHIPID(630),    "Adreno 630"},
+  {CHIPID(640),    "Adreno 640"},
+  // QCM6490
+  {0x00ac06030500, "Adreno 643"},
+  {CHIPID(650),    "Adreno 650"},
+  {CHIPID(660),    "Adreno 660"},
+  {CHIPID(680),    "Adreno 680"},
+  {CHIPID(690),    "Adreno 690"},
+  // no-speedbin Adreno 690
+  {0xffff06090000, "Adreno 690"},
 
   // Adreno 7xx
   {CHIPID(730),   "Adreno 730"},
