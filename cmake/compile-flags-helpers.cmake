@@ -1,3 +1,5 @@
+include(CheckLinkerFlag)
+
 function(add_compiler_option_to_target_type TARGET BUILDTYPE VISIBILITY OPTIONS)
   include(CheckCCompilerFlag)
   list(APPEND OPTIONS ${ARGN})
@@ -29,7 +31,7 @@ function(add_linker_option_to_target_type TARGET BUILDTYPE VISIBILITY OPTIONS)
   list(APPEND OPTIONS ${ARGN})
   foreach(LINK_OPTION IN LISTS OPTIONS)
     string(REPLACE "," "_" LINK_OPTION_NAME "${LINK_OPTION}")
-    check_c_compiler_flag(${LINK_OPTION} "linker_has${LINK_OPTION_NAME}")
+    check_linker_flag(C "${LINK_OPTION}" "linker_has${LINK_OPTION_NAME}")
     if (${linker_has${LINK_OPTION_NAME}})
       target_link_libraries(${TARGET} ${VISIBILITY}
         $<$<CONFIG:${BUILDTYPE}>:${LINK_OPTION}>)
@@ -42,7 +44,7 @@ function(add_linker_option_to_all_but_target_type TARGET BUILDTYPE VISIBILITY OP
   list(APPEND OPTIONS ${ARGN})
   foreach(LINK_OPTION IN LISTS OPTIONS)
     string(REPLACE "," "_" LINK_OPTION_NAME "${LINK_OPTION}")
-    check_c_compiler_flag(${LINK_OPTION} "linker_has${LINK_OPTION_NAME}")
+    check_linker_flag(C "${LINK_OPTION}" "linker_has${LINK_OPTION_NAME}")
     if (${linker_has${LINK_OPTION_NAME}})
       target_link_libraries(${TARGET} ${VISIBILITY}
         $<$<NOT:$<CONFIG:${BUILDTYPE}>>:${LINK_OPTION}>)

@@ -12,13 +12,10 @@ add_executable(nvtop
   interface_options.c
   interface_setup_win.c
   interface_ring_buffer.c
-  get_process_info_linux.c
   extract_gpuinfo.c
-  extract_processinfo_fdinfo.c
   time.c
   plot.c
-  ini.c
-  info_messages_linux.c)
+  ini.c)
 
 check_c_source_compiles(
   "
@@ -39,6 +36,18 @@ endif()
 find_package(UDev)
 find_package(Systemd)
 option(USE_LIBUDEV_OVER_LIBSYSTEMD "Use libudev, even if libsystemd is present" OFF)
+
+if(UNIX AND NOT APPLE)
+  target_sources(nvtop PRIVATE
+    get_process_info_linux.c
+    extract_processinfo_fdinfo.c
+    info_messages_linux.c)
+elseif(APPLE)
+  target_sources(nvtop PRIVATE
+    get_process_info_mac.c
+    extract_processinfo_mac.c
+    info_messages_mac.c)
+endif()
 
 if(NVIDIA_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
@@ -81,6 +90,16 @@ endif()
 
 if(INTEL_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_intel.c)
+endif()
+
+if(APPLE_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_apple.m)
+  target_link_libraries(nvtop PRIVATE
+    "-framework Metal"
+    "-framework AppKit"
+    "-framework Foundation"
+    "-framework QuartzCore"
+    "-framework IOKit")
 endif()
 
 target_include_directories(nvtop PRIVATE

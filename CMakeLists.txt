@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 
 #///////////////////////////////////////////////////////////////////#
 #                              PROJECT                              #
@@ -60,10 +60,25 @@ else()
   set(CMAKE_INSTALL_RPATH "")
 endif()
 
-option(NVIDIA_SUPPORT "Build support for NVIDIA GPUs through libnvml" ON)
-option(AMDGPU_SUPPORT "Build support for AMD GPUs through amdgpu driver" ON)
-option(INTEL_SUPPORT "Build support for Intel GPUs through i915 driver" ON)
-option(MSM_SUPPORT "Build support for Adreno GPUs through msm driver" ON)
+if(APPLE)
+  set(APPLE_SUPPORT_DEFAULT ON)
+  set(NVIDIA_SUPPORT_DEFAULT OFF)
+  set(AMDGPU_SUPPORT_DEFAULT OFF)
+  set(INTEL_SUPPORT_DEFAULT OFF)
+  set(MSM_SUPPORT_DEFAULT OFF)
+else()
+  set(APPLE_SUPPORT_DEFAULT OFF)
+  set(NVIDIA_SUPPORT_DEFAULT ON)
+  set(AMDGPU_SUPPORT_DEFAULT ON)
+  set(INTEL_SUPPORT_DEFAULT ON)
+  set(MSM_SUPPORT_DEFAULT ON)
+endif()
+
+option(NVIDIA_SUPPORT "Build support for NVIDIA GPUs through libnvml" ${NVIDIA_SUPPORT_DEFAULT})
+option(AMDGPU_SUPPORT "Build support for AMD GPUs through amdgpu driver" ${AMDGPU_SUPPORT_DEFAULT})
+option(INTEL_SUPPORT "Build support for Intel GPUs through i915 driver" ${INTEL_SUPPORT_DEFAULT})
+option(MSM_SUPPORT "Build support for Adreno GPUs through msm driver" ${MSM_SUPPORT_DEFAULT})
+option(APPLE_SUPPORT "Build support for Apple GPUs through Metal" ${APPLE_SUPPORT_DEFAULT})
 
 add_subdirectory(src)
 
