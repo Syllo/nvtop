@@ -108,6 +108,11 @@ if (PANFROST_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_panfrost_utils.c)
 endif()
 
+if (PANTHOR_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_panthor.c)
+  target_sources(nvtop PRIVATE extract_gpuinfo_panthor_utils.c)
+endif()
+
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)

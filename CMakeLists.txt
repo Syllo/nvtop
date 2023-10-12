@@ -67,6 +67,7 @@ if(APPLE)
   set(INTEL_SUPPORT_DEFAULT OFF)
   set(MSM_SUPPORT_DEFAULT OFF)
   set(PANFROST_SUPPORT_DEFAULT OFF)
+  set(PANTHOR_SUPPORT_DEFAULT OFF)
 else()
   set(APPLE_SUPPORT_DEFAULT OFF)
   set(NVIDIA_SUPPORT_DEFAULT ON)
@@ -74,6 +75,7 @@ else()
   set(INTEL_SUPPORT_DEFAULT ON)
   set(MSM_SUPPORT_DEFAULT ON)
   set(PANFROST_SUPPORT_DEFAULT ON)
+  set(PANTHOR_SUPPORT_DEFAULT ON)
 endif()
 
 option(NVIDIA_SUPPORT "Build support for NVIDIA GPUs through libnvml" ${NVIDIA_SUPPORT_DEFAULT})
@@ -82,6 +84,7 @@ option(INTEL_SUPPORT "Build support for Intel GPUs through i915 driver" ${INTEL_
 option(MSM_SUPPORT "Build support for Adreno GPUs through msm driver" ${MSM_SUPPORT_DEFAULT})
 option(APPLE_SUPPORT "Build support for Apple GPUs through Metal" ${APPLE_SUPPORT_DEFAULT})
 option(PANFROST_SUPPORT "Build support for Mali GPUs through panfrost driver" ${PANFROST_SUPPORT_DEFAULT})
+option(PANTHOR_SUPPORT "Build support for Mali GPUs through panthor driver" ${PANTHOR_SUPPORT_DEFAULT})
 
 add_subdirectory(src)
 
