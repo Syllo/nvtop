@@ -30,6 +30,9 @@
 
 #include "list.h"
 
+#define STRINGIFY(x) STRINGIFY_HELPER_(x)
+#define STRINGIFY_HELPER_(x) #x
+
 #define IS_VALID(x, y) ((y)[(x) / CHAR_BIT] & (1 << ((x) % CHAR_BIT)))
 #define SET_VALID(x, y) ((y)[(x) / CHAR_BIT] |= (1 << ((x) % CHAR_BIT)))
 #define RESET_VALID(x, y) ((y)[(x) / CHAR_BIT] &= ~(1 << ((x) % CHAR_BIT)))
@@ -215,6 +218,8 @@ struct gpu_info {
 void register_gpu_vendor(struct gpu_vendor *vendor);
 
 bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
+
+void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info);
 
 // fdinfo DRM interface names common to multiple drivers
 extern const char drm_pdev[];
