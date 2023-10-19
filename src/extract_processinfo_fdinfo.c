@@ -21,6 +21,7 @@
 
 #include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/common.h"
+#include "nvtop/extract_gpuinfo_common.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -38,6 +39,7 @@
 struct callback_entry {
   struct gpu_info *gpu_info;
   processinfo_fdinfo_callback callback;
+  bool active;
 };
 
 static unsigned registered_callback_entries;
@@ -66,7 +68,16 @@ void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, 
   }
   callback_entries[registered_callback_entries].gpu_info = info;
   callback_entries[registered_callback_entries].callback = callback;
+  callback_entries[registered_callback_entries].active = true;
   registered_callback_entries++;
+}
+
+void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool enable) {
+  for (unsigned index = 0; index < registered_callback_entries; ++index) {
+    if (callback_entries[index].gpu_info == info) {
+      callback_entries[index].active = enable;
+    }
+  }
 }
 
 static bool is_drm_fd(int fd_dir_fd, const char *name) {
@@ -83,7 +94,12 @@ static bool is_drm_fd(int fd_dir_fd, const char *name) {
 #define DRM_FD_LINEAR_REALLOC_INC 8
 
 void processinfo_sweep_fdinfos(void) {
-  if (registered_callback_entries == 0)
+  bool anyActiveCallback = false;
+  for (unsigned callback_idx = 0; !anyActiveCallback && callback_idx < registered_callback_entries; ++callback_idx) {
+    struct callback_entry *current_callback = &callback_entries[callback_idx];
+    anyActiveCallback = anyActiveCallback || current_callback->active;
+  }
+  if (!anyActiveCallback)
     return;
 
   DIR *proc_dir = opendir("/proc");
@@ -178,7 +194,10 @@ void processinfo_sweep_fdinfos(void) {
         RESET_ALL(processes_info_local.valid);
         processes_info_local.type = gpu_process_unknown;
         current_callback = &callback_entries[callback_idx];
-        callback_success = current_callback->callback(current_callback->gpu_info, fdinfo_file, &processes_info_local);
+        if (current_callback->active)
+          callback_success = current_callback->callback(current_callback->gpu_info, fdinfo_file, &processes_info_local);
+        else
+          callback_success = false;
       }
       fclose(fdinfo_file);
       if (!callback_success)

@@ -50,6 +50,14 @@ void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, 
 void processinfo_drop_callback(const struct gpu_info *info);
 
 /**
+ * @brief Enables or disables a fdinfo processing callback
+ *
+ * @param info Enabling/Disabling the callback to this gpu_info
+ * @param enable True to enable the callback, false to disable
+ */
+void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool enable);
+
+/**
  * @brief Scann all the processes in /proc. Call the registered callbacks on
  * each file descriptor to the DRM driver that can successfully be oppened. If a
  * callback succeeds, the gpu_info structure processes array will be updated

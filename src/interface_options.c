@@ -21,6 +21,7 @@
 
 #include "nvtop/interface_options.h"
 #include "ini.h"
+#include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/interface_common.h"
 
 #include <assert.h>
@@ -98,6 +99,8 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
     options->gpu_specific_opts[0].doNotMonitor = false;
     numMonitored++;
   }
+  list_for_each_entry(device, monitoredGpu, list) { processinfo_enable_disable_callback_for(device, true); }
+  list_for_each_entry(device, nonMonitoredGpu, list) { processinfo_enable_disable_callback_for(device, false); }
   return numMonitored;
 }
 
