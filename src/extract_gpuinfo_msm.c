@@ -464,7 +464,6 @@ static int gpuinfo_msm_query_param(int gpu, uint32_t param, uint64_t *value) {
 void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_msm *gpu_info = container_of(_gpu_info, struct gpu_info_msm, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
-  const char *dev_name;
 
   static_info->integrated_graphics = true;
   RESET_ALL(static_info->valid);
@@ -488,18 +487,18 @@ static const char meminfo_available[] = "MemAvailable";
 
 void gpuinfo_msm_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_msm *gpu_info = container_of(_gpu_info, struct gpu_info_msm, base);
-  struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
+  // struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
   RESET_ALL(dynamic_info->valid);
   dynamic_info->encode_decode_shared = true;
 
   // GPU clock
-  uint64_t val;
-  if (gpuinfo_msm_query_param(gpu_info->fd, MSM_PARAM_MAX_FREQ, &val) == 0) {
+  uint64_t clock_val;
+  if (gpuinfo_msm_query_param(gpu_info->fd, MSM_PARAM_MAX_FREQ, &clock_val) == 0) {
     // TODO: No way to query current clock speed.
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val / 1000000);
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val / 1000000);
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, clock_val / 1000000);
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, clock_val / 1000000);
   }
 
   // Mem clock

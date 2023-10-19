@@ -89,6 +89,8 @@ static const struct msm_id_struct msm_ids[] = {
   {0x006006030500, "Adreno 7c+ Gen 3 Lite"},
 };
 
+const char * msm_parse_marketing_name(uint64_t gpu_id);
+
 const char * msm_parse_marketing_name(uint64_t gpu_id) {
   for (unsigned i = 0; i < ARRAY_SIZE(msm_ids); i++) {
     if (gpu_id == msm_ids[i].id) {
