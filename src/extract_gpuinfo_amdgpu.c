@@ -80,9 +80,9 @@ static int last_libdrm_return_status = 0;
 static char didnt_call_gpuinfo_init[] = "uninitialized";
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
-#define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(unsigned), out_ptr)
+#define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct unique_cache_id), out_ptr)
 
-#define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(unsigned), in_ptr)
+#define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(struct unique_cache_id), in_ptr)
 
 #define SET_AMDGPU_CACHE(cachePtr, field, value) SET_VALUE(cachePtr, field, value, amdgpu_cache_)
 #define RESET_AMDGPU_CACHE(cachePtr, field) INVALIDATE_VALUE(cachePtr, field, amdgpu_cache_)
@@ -962,7 +962,7 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
 #ifndef NDEBUG
     // We should only process one fdinfo entry per client id per update
     struct amdgpu_process_info_cache *cache_entry_check;
-    HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cid, cache_entry_check);
+    HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cache_entry->client_id, cache_entry_check);
     assert(!cache_entry_check && "We should not be processing a client id twice per update");
 #endif
 
