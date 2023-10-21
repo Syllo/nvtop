@@ -241,7 +241,7 @@ int main(int argc, char **argv) {
     allDevicesOptions.temperature_in_fahrenheit = true;
   if (update_interval_option_set)
     allDevicesOptions.update_interval = update_interval_option;
-  allDevicesOptions.has_gpu_info_bar = show_gpu_info_bar;
+  allDevicesOptions.has_gpu_info_bar = allDevicesOptions.has_gpu_info_bar || show_gpu_info_bar;
 
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
