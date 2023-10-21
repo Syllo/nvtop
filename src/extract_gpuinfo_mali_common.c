@@ -424,7 +424,7 @@ void mali_common_parse_fdinfo_handle_cache(struct gpu_info_mali *gpu_info,
 #ifndef NDEBUG
   // We should only process one fdinfo entry per client id per update
   struct mali_process_info_cache *cache_entry_check;
-  HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cid, cache_entry_check);
+  HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cache_entry->client_id, cache_entry_check);
   assert(!cache_entry_check && "We should not be processing a client id twice per update");
 #endif
 

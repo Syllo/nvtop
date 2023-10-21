@@ -101,8 +101,8 @@ struct fdinfo_data {
   unsigned cid;
 };
 
-#define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(unsigned), out_ptr)
-#define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(unsigned), in_ptr)
+#define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct unique_cache_id), out_ptr)
+#define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(struct unique_cache_id), in_ptr)
 
 #define SET_MALI_CACHE(cachePtr, field, value) SET_VALUE(cachePtr, field, value, mali_cache_)
 #define RESET_PANFROST_CACHE(cachePtr, field) INVALIDATE_VALUE(cachePtr, field, mali_cache_)
