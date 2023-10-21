@@ -23,6 +23,8 @@
 
 #include "amdgpu_ids.h"
 
+const char *amdgpu_parse_marketing_name(struct amdgpu_gpu_info *info);
+
 const char * amdgpu_parse_marketing_name(struct amdgpu_gpu_info *info)
 {
     int i;
