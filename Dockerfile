@@ -11,8 +11,12 @@ FROM ${IMAGE} as builder
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-  apt-get install -yq build-essential cmake libncurses5-dev libncursesw5-dev \
+  apt-get install -yq build-essential wget libncurses5-dev libncursesw5-dev libssl-dev \
   pkg-config libdrm-dev libgtest-dev libudev-dev
+
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.18.0/cmake-3.18.0.tar.gz
+RUN tar zxf cmake-3.18.0.tar.gz
+RUN ./cmake-3.18.0/bootstrap --prefix=/usr && make && make install
 
 COPY . /nvtop
 WORKDIR /nvtop
