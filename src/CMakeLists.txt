@@ -15,7 +15,8 @@ add_executable(nvtop
   extract_gpuinfo.c
   time.c
   plot.c
-  ini.c)
+  ini.c
+)
 
 check_c_source_compiles(
   "
