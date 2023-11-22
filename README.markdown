@@ -25,6 +25,7 @@ Table of Contents
   - [NVIDIA](#nvidia)
   - [Adreno](#adreno)
   - [Apple](#apple)
+  - [Ascend](#ascend) (only tested on 910B)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
@@ -119,6 +120,12 @@ NVTOP includes some initial support for Apple using Metal. This is only supporte
 
 **APPLE SUPPORT STATUS**
 - Apple support is still being worked on. Some bugs and limitations may apply.
+
+### Ascend
+
+NVTOP supports Ascend (testing on Altas 800 (910B)) by DCMI API (version 6.0.0).
+
+Currently, the DCMI only supports limited APIs, missing PCIe generation, tx/rx throughput info, max power draw etc.
 
 Build
 -----
@@ -306,7 +313,7 @@ Notice: The connect commands allow
 ```bash
 git clone https://github.com/Syllo/nvtop.git
 mkdir -p nvtop/build && cd nvtop/build
-cmake .. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON
+cmake .. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON -DASCEND_SUPPORT=ON
 make
 
 # Install globally on the system

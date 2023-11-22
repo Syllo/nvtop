@@ -879,7 +879,8 @@ struct dcmi_event {
 };
 
 typedef void (*dcmi_fault_event_callback)(struct dcmi_event *event);
-typedef void (*fault_event_callback)(struct dsmi_event *event);
+// deprecated api
+// typedef void (*fault_event_callback)(struct dsmi_event *event);
 
 #define DCMI_VDEV_RES_NAME_LEN      16
 #define DCMI_VDEV_FOR_RESERVE       32
