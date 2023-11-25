@@ -19,6 +19,8 @@
  *
  */
 
+#include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <xf86drm.h>
 
 #include "nvtop/device_discovery.h"
@@ -56,79 +58,31 @@ static struct mali_gpu_state mali_state;
 __attribute__((constructor)) static void init_extract_gpuinfo_panfrost(void) { register_gpu_vendor(&gpu_vendor_panfrost); }
 
 bool gpuinfo_panfrost_init(void) {
-  struct panfrost_driver_data *prof_info;
-  FILE *debugfs_profiling;
-  bool ret;
-
-  ret = mali_init_drm_funcs(&drmFuncs, &mali_state);
-  if (!ret)
-    return false;
-
-  prof_info = &mali_state.model.panfrost;
-
-  /* So far Panfrost is only present in SoCs where it's the only single GPU
-    Otherwise, device file name would have to be changed */
-  prof_info->debugfs_profile_file = "/sys/kernel/debug/dri/128/profile";
-
-  debugfs_profiling = fopen(prof_info->debugfs_profile_file, "r");
-  if (debugfs_profiling == NULL) {
-      fprintf(stderr, "profile parameter not implemented in Panfrost\n");
-      goto init_error_clean_exit;
-  }
-
-  char buf = 0;
-  size_t size = fread(&buf, sizeof(char), 1, debugfs_profiling);
-  if (!size) {
-    fprintf(stderr, "Error reading profiling state\n");
-    goto init_error_close_file;
-  }
-
-  prof_info->original_profiling_state = (buf == '1') ? true : false;
-
-  fclose(debugfs_profiling);
-  debugfs_profiling = fopen(prof_info->debugfs_profile_file, "w");
-  if (debugfs_profiling == NULL) {
-      fprintf(stderr, "profile parameter not implemented in Panfrost\n");
-      goto init_error_clean_exit;
-  }
-
-  buf = '1';
-  size = fwrite(&buf, sizeof(char), 1, debugfs_profiling);
-  if (!size) {
-    fprintf(stderr, "Error writing profiling state\n");
-    goto init_error_close_file;
-  }
-
-  fclose(debugfs_profiling);
-
-  return true;
-
-init_error_close_file:
-  fclose(debugfs_profiling);
-init_error_clean_exit:
-  mali_deinit_drm(&mali_state);
-  return false;
+  return mali_init_drm_funcs(&drmFuncs, &mali_state);
 }
 
 void gpuinfo_panfrost_shutdown(void) {
-  struct panfrost_driver_data *prof_info;
-  FILE *debugfs_profiling;
+  for (unsigned i = 0; i < mali_state.mali_gpu_count; ++i) {
+    struct panfrost_driver_data *prof_info = &mali_state.gpu_infos[i].model.panfrost;
+    char debugfs_profile_file[256] = {0};
+    FILE *debugfs_profiling;
 
-  mali_shutdown_common(&mali_state, &drmFuncs);
+    snprintf(debugfs_profile_file, sizeof(debugfs_profile_file),
+             "/sys/kernel/debug/dri/%d/profile", prof_info->minor);
+    debugfs_profiling = fopen(debugfs_profile_file, "w");
+    if (debugfs_profiling == NULL) {
+            fprintf(stderr, "Panfrost's profile parameter sysfs hook seems gone\n");
+            continue;
+    }
 
-  prof_info = &mali_state.model.panfrost;
-
-  debugfs_profiling = fopen(prof_info->debugfs_profile_file, "w");
-  if (debugfs_profiling == NULL) {
-    fprintf(stderr, "profile parameter not implemented in Panfrost\n");
-    return;
+    char buf = prof_info->original_profiling_state ? '1' : '0';
+    size_t size = fwrite(&buf, sizeof(char), 1, debugfs_profiling);
+    if (!size)
+            fprintf(stderr, "restoring debugfs state didn't work\n");
+    fclose(debugfs_profiling);
   }
 
-  char buf = prof_info->original_profiling_state ? '1' : '0';
-  size_t size = fwrite(&buf, sizeof(char), 1, debugfs_profiling);
-  if (!size)
-    fprintf(stderr, "restoring debugfs state didn't work\n");
-  fclose(debugfs_profiling);
+  mali_shutdown_common(&mali_state, &drmFuncs);
 }
 
 static const char *gpuinfo_panfrost_last_error_string(void) {
@@ -179,10 +133,60 @@ static bool parse_drm_fdinfo_panfrost(struct gpu_info *info, FILE *fdinfo_file, 
   return true;
 }
 
+static bool panfrost_open_sysfs_profile(struct gpu_info_mali *gpu_info) {
+  struct panfrost_driver_data *prof_info = &gpu_info->model.panfrost;
+  char debugfs_profile_file[256] = {0};
+  FILE *debugfs_profiling;
+  struct stat filebuf;
+  bool ret = true;
+
+  if (!gpu_info->fd || gpu_info->version != MALI_PANFROST)
+    return false;
+
+  fstat(gpu_info->fd, &filebuf);
+  prof_info->minor = minor(filebuf.st_rdev);
+  snprintf(debugfs_profile_file, sizeof(debugfs_profile_file),
+           "/sys/kernel/debug/dri/%d/profile", prof_info->minor);
+
+  debugfs_profiling = fopen(debugfs_profile_file, "r");
+  if (debugfs_profiling == NULL) {
+    fprintf(stderr, "profile parameter not implemented in Panfrost\n");
+    return false;
+  }
+
+  char buf = 0;
+  size_t size = fread(&buf, sizeof(char), 1, debugfs_profiling);
+  if (!size) {
+    fprintf(stderr, "Error reading profiling state\n");
+    ret = false;
+    goto file_error;
+  }
+
+  prof_info->original_profiling_state = (buf == '1') ? true : false;
+
+  fclose(debugfs_profiling);
+  debugfs_profiling = fopen(debugfs_profile_file, "w");
+  if (debugfs_profiling == NULL) {
+    fprintf(stderr, "profile parameter not implemented in Panfrost\n");
+    return false;
+  }
+
+  buf = '1';
+  size = fwrite(&buf, sizeof(char), 1, debugfs_profiling);
+  if (!size) {
+    fprintf(stderr, "Error writing profiling state\n");
+    ret = false;
+  }
+
+file_error:
+  fclose(debugfs_profiling);
+  return ret;
+}
+
 static bool gpuinfo_panfrost_get_device_handles(struct list_head *devices, unsigned *count) {
         return mali_common_get_device_handles(&mali_state, &drmFuncs, &gpu_vendor_panfrost,
-                                              parse_drm_fdinfo_panfrost,
-                                              devices, count, MALI_PANFROST);
+                                              parse_drm_fdinfo_panfrost, devices, count,
+                                              panfrost_open_sysfs_profile, MALI_PANFROST);
 }
 
 static int gpuinfo_panfrost_query_param(int gpu, uint32_t param, uint64_t *value) {

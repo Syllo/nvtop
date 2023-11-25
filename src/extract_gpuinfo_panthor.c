@@ -108,8 +108,8 @@ static bool parse_drm_fdinfo_panthor(struct gpu_info *info, FILE *fdinfo_file, s
 
 static bool gpuinfo_panthor_get_device_handles(struct list_head *devices, unsigned *count) {
         return mali_common_get_device_handles(&mali_state, &drmFuncs, &gpu_vendor_panthor,
-                                              parse_drm_fdinfo_panthor,
-                                              devices, count, MALI_PANTHOR);
+                                              parse_drm_fdinfo_panthor, devices, count,
+                                              NULL, MALI_PANTHOR);
 }
 
 void gpuinfo_panthor_populate_static_info(struct gpu_info *_gpu_info) {

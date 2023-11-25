@@ -213,6 +213,7 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
 				    struct gpu_vendor *vendor,
 				    processinfo_fdinfo_callback callback,
 				    struct list_head *devices, unsigned *count,
+				    bool (*handle_model) (struct gpu_info_mali *),
 				    enum mali_version version)
 {
   if (!state->libdrm_handle || version >= MALI_VERSIONS)
@@ -235,6 +236,7 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
   }
 
   state->gpu_infos->version = version;
+  state->mali_gpu_count = 0;
 
   for (unsigned int i = 0; i < libdrm_count; i++) {
     int fd = -1;
@@ -275,6 +277,15 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
     list_add_tail(&state->gpu_infos[state->mali_gpu_count].base.list, devices);
     // Register a fdinfo callback for this GPU
     processinfo_register_fdinfo_callback(callback, &state->gpu_infos[state->mali_gpu_count].base);
+
+    if (handle_model) {
+      if (!handle_model(&state->gpu_infos[state->mali_gpu_count])) {
+              funcs->drmFreeVersion(ver);
+              close(fd);
+              continue;
+      }
+    }
+
     state->mali_gpu_count++;
   }
 

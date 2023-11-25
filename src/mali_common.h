@@ -49,6 +49,15 @@ enum mali_version {
 
 struct mali_process_info_cache;
 
+struct panfrost_driver_data {
+  bool original_profiling_state;
+  bool profiler_enabled;
+  unsigned int minor;
+};
+struct panthor_driver_data {
+  uint32_t unused;
+};
+
 struct gpu_info_mali {
   drmVersionPtr drmVersion;
   enum mali_version version;
@@ -58,15 +67,11 @@ struct gpu_info_mali {
    // Cached processes info
   struct mali_process_info_cache *last_update_process_cache;
   struct mali_process_info_cache *current_update_process_cache;
-};
 
-struct panfrost_driver_data {
-  bool original_profiling_state;
-  char *debugfs_profile_file;
-};
-
-struct panthor_driver_data {
-  uint32_t unused;
+  union {
+    struct panfrost_driver_data panfrost;
+    struct panthor_driver_data panthor;
+  } model;
 };
 
 struct mali_gpu_state {
@@ -76,18 +81,9 @@ struct mali_gpu_state {
   void *libdrm_handle;
   FILE *meminfo_file;
 
-  FILE *debugfs_profiling;
-  bool original_profiling_state;
-  char *debugfs_profile_file;
-
   int last_libdrm_return_status;
   char *didnt_call_gpuinfo_init;
   char *local_error_string;
-
-  union {
-    struct panfrost_driver_data panfrost;
-    struct panthor_driver_data panthor;
-  } model;
 };
 
 typedef void (*check_fdinfo_keys)(bool *is_engine, bool *is_cycles,
@@ -121,6 +117,7 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
 				    struct gpu_vendor *vendor,
 				    processinfo_fdinfo_callback callback,
 				    struct list_head *devices, unsigned *count,
+				    bool (*handle_model) (struct gpu_info_mali *),
 				    enum mali_version version);
 void mali_common_refresh_dynamic_info(struct gpuinfo_dynamic_info *dynamic_info,
 				      struct mali_gpu_state *state,
