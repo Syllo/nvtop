@@ -200,15 +200,14 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
   }
 
-  struct dsmi_hbm_info_stru *hbm_info = malloc(sizeof(struct dsmi_hbm_info_stru));
-  last_dcmi_return_status = dcmi_get_hbm_info(card_id, device_id, hbm_info);
+  struct dsmi_hbm_info_stru hbm_info;
+  last_dcmi_return_status = dcmi_get_hbm_info(card_id, device_id, &hbm_info);
   if (last_dcmi_return_status == DCMI_SUCCESS) {
-    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, hbm_info->memory_size * KB_TO_GB);
-    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, hbm_info->memory_usage * KB_TO_GB);
-    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, (hbm_info->memory_size - hbm_info->memory_usage) * KB_TO_GB);
-    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, hbm_info->memory_usage * 100 / hbm_info->memory_size);
+    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, hbm_info.memory_size * KB_TO_GB);
+    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, hbm_info.memory_usage * KB_TO_GB);
+    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, (hbm_info.memory_size - hbm_info.memory_usage) * KB_TO_GB);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, hbm_info.memory_usage * 100 / hbm_info.memory_size);
   }
-  free(hbm_info);
 
   int device_temperature;
   last_dcmi_return_status = dcmi_get_device_temperature(card_id, device_id, &device_temperature);
