@@ -156,7 +156,8 @@ static void gpuinfo_ascend_populate_static_info(struct gpu_info *_gpu_info) {
   last_dcmi_return_status = dcmi_get_device_chip_info(card_id, device_id, chip_info);
   if (last_dcmi_return_status == DCMI_SUCCESS) {
     // assume Ascend only use ASCII code for chip name
-    strcpy(static_info->device_name, (char *) chip_info->chip_name);
+    static_info->device_name[MAX_DEVICE_NAME - 1] = '\0';
+    strncpy(static_info->device_name, (char*) chip_info->chip_name, MAX_DEVICE_NAME - 1);
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
   }
   free(chip_info);
