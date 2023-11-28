@@ -83,6 +83,7 @@ if(AMDGPU_SUPPORT OR MSM_SUPPORT)
       target_sources(nvtop PRIVATE extract_gpuinfo_msm.c)
       target_sources(nvtop PRIVATE extract_gpuinfo_msm_utils.c)
     endif()
+
   else()
     message(FATAL_ERROR "libdrm not found; This library is required for AMDGPU and MSM support")
   endif()
@@ -100,6 +101,20 @@ if(APPLE_SUPPORT)
     "-framework Foundation"
     "-framework QuartzCore"
     "-framework IOKit")
+endif()
+
+if (PANFROST_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_panfrost.c)
+  target_sources(nvtop PRIVATE extract_gpuinfo_panfrost_utils.c)
+endif()
+
+if (PANTHOR_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_panthor.c)
+  target_sources(nvtop PRIVATE extract_gpuinfo_panthor_utils.c)
+endif()
+
+if ((PANFROST_SUPPORT) OR (PANTHOR_SUPPORT))
+  target_sources(nvtop PRIVATE extract_gpuinfo_mali_common.c)
 endif()
 
 target_include_directories(nvtop PRIVATE

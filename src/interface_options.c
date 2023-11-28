@@ -128,6 +128,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->has_monitored_set_changed = false;
   options->show_startup_messages = true;
   options->filter_nvtop_pid = true;
+  options->has_gpu_info_bar = false;
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {
@@ -169,6 +170,7 @@ static const char general_show_messages[] = "ShowInfoMessages";
 static const char header_section[] = "HeaderOption";
 static const char header_value_use_fahrenheit[] = "UseFahrenheit";
 static const char header_value_encode_decode_timer[] = "EncodeHideTimer";
+static const char header_value_gpu_info_bar[] = "GPUInfoBar";
 
 static const char chart_section[] = "ChartOption";
 static const char chart_value_reverse[] = "ReverseChart";
@@ -231,6 +233,14 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
       double value_double;
       if (sscanf(value, "%le", &value_double) == 1)
         ini_data->options->encode_decode_hiding_timer = value_double;
+    }
+    if (strcmp(name, header_value_gpu_info_bar) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->has_gpu_info_bar = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->has_gpu_info_bar = false;
+      }
     }
   }
   // Chart Options
@@ -380,6 +390,7 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   fprintf(config_file, "\n[%s]\n", header_section);
   fprintf(config_file, "%s = %s\n", header_value_use_fahrenheit, boolean_string(options->temperature_in_fahrenheit));
   fprintf(config_file, "%s = %e\n", header_value_encode_decode_timer, options->encode_decode_hiding_timer);
+  fprintf(config_file, "%s = %s\n", header_value_gpu_info_bar, boolean_string(options->has_gpu_info_bar));
 
   // Chart Options
   fprintf(config_file, "\n[%s]\n", chart_section);

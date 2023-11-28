@@ -45,6 +45,7 @@
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,  [device_fan_speed] = 8, [device_temperature] = 10,
     [device_power] = 15, [device_clock] = 11,    [device_pcie] = 46,
+    [device_shadercores] = 7, [device_l2features] = 11, [device_execengines] = 11,
 };
 
 static unsigned int sizeof_process_field[process_field_count] = {
@@ -157,6 +158,22 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
     goto alloc_error;
   dwin->enc_was_visible = false;
   dwin->dec_was_visible = false;
+
+  // Line 4 = Number of shading cores | L2 Features
+  dwin->shader_cores =
+    newwin(1, sizeof_device_field[device_shadercores], start_row + 3, start_col);
+  if (dwin->shader_cores == NULL)
+    goto alloc_error;
+  dwin->l2_cache_size =
+    newwin(1, sizeof_device_field[device_l2features], start_row + 3, start_col + spacer +
+           sizeof_device_field[device_shadercores]);
+  if (dwin->l2_cache_size == NULL)
+    goto alloc_error;
+  dwin->exec_engines =
+    newwin(1, sizeof_device_field[device_execengines], start_row + 3, start_col + spacer * 2 +
+           sizeof_device_field[device_shadercores] + sizeof_device_field[device_l2features]);
+  if (dwin->exec_engines == NULL)
+    goto alloc_error;
 
   return;
 alloc_error:
@@ -341,8 +358,9 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position plot_positions[MAX_CHARTS];
   struct window_position setup_position;
 
-  compute_sizes_from_layout(devices_count, 3, device_length(), rows - 1, cols, dwin->options.gpu_specific_opts,
-                            dwin->options.process_fields_displayed, device_positions, &dwin->num_plots, plot_positions,
+  compute_sizes_from_layout(devices_count, dwin->options.has_gpu_info_bar ? 4 : 3, device_length(), rows - 1, cols,
+                            dwin->options.gpu_specific_opts, dwin->options.process_fields_displayed,
+                            device_positions, &dwin->num_plots, plot_positions,
                             map_device_to_plot, &process_position, &setup_position);
 
   alloc_plot_window(devices_count, plot_positions, map_device_to_plot, dwin);
@@ -783,6 +801,44 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       wprintw(dev->pcie_info, "N/A");
 
     wnoutrefresh(dev->pcie_info);
+
+    if (interface->options.has_gpu_info_bar) {
+      // Number of shader cores
+      werase(dev->shader_cores);
+      wcolor_set(dev->shader_cores, cyan_color, NULL);
+      mvwprintw(dev->shader_cores, 0, 0, "NSHC ");
+      wstandend(dev->shader_cores);
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, n_shared_cores))
+        wprintw(dev->shader_cores, "%u", device->static_info.n_shared_cores);
+      else
+        wprintw(dev->shader_cores, "N/A");
+
+      wnoutrefresh(dev->shader_cores);
+
+      // L2 cache information
+      werase(dev->l2_cache_size);
+      wcolor_set(dev->l2_cache_size, cyan_color, NULL);
+      mvwprintw(dev->l2_cache_size, 0, 0, "L2CF ");
+      wstandend(dev->l2_cache_size);
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, l2cache_size))
+        wprintw(dev->l2_cache_size, "%u", device->static_info.l2cache_size);
+      else
+        wprintw(dev->l2_cache_size, "N/A");
+
+      wnoutrefresh(dev->l2_cache_size);
+
+      // Number of execution engines
+      werase(dev->exec_engines);
+      wcolor_set(dev->exec_engines, cyan_color, NULL);
+      mvwprintw(dev->exec_engines, 0, 0, "NEXC ");
+      wstandend(dev->exec_engines);
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, n_exec_engines))
+        wprintw(dev->exec_engines, "%u", device->static_info.n_exec_engines);
+      else
+        wprintw(dev->exec_engines, "N/A");
+
+      wnoutrefresh(dev->exec_engines);
+    }
 
     dev_id++;
   }
