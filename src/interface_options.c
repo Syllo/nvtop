@@ -353,6 +353,8 @@ static bool create_config_directory_rec(char *config_directory) {
 static const char *boolean_string(bool value) { return value ? "true" : "false"; }
 
 bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop_interface_option *options) {
+  if (!options->config_file_location)
+    return false;
 
   char folder_path[PATH_MAX];
   strcpy(folder_path, options->config_file_location);
