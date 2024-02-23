@@ -471,6 +471,11 @@ void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
   uint64_t gpuid;
   if (gpuinfo_msm_query_param(gpu_info->fd, MSM_PARAM_CHIP_ID, &gpuid) == 0) {
     const char* name = msm_parse_marketing_name(gpuid);
+    if (!name) {
+      // Try again ignoring speed-bin in the upper bits.
+      name = msm_parse_marketing_name(gpuid & 0x0000ffffffff);
+    }
+
     if (name) {
       strncpy(static_info->device_name, name, sizeof(static_info->device_name));
     }
