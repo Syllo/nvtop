@@ -43,7 +43,7 @@ typedef struct nvtop_interface_option_struct {
   nvtop_interface_gpu_opts *gpu_specific_opts;      // GPU specific options
   char *config_file_location;                       // Location of the config file
   enum process_field sort_processes_by;             // Specify the field used to order the processes
-  bool sort_descending_order;                       // Sort in descenging order
+  bool sort_descending_order;                       // Sort in descending order
   int update_interval;                              // Interval between interface update in milliseconds
   process_field_displayed process_fields_displayed; // Which columns of the
                                                     // process list are displayed

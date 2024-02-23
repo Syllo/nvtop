@@ -15,7 +15,8 @@ add_executable(nvtop
   extract_gpuinfo.c
   time.c
   plot.c
-  ini.c)
+  ini.c
+)
 
 check_c_source_compiles(
   "
@@ -51,6 +52,12 @@ endif()
 
 if(NVIDIA_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
+endif()
+
+if(ASCEND_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_ascend.c)
+  set(DCMI_LIBRARY_PATH /usr/local/Ascend/driver/lib64/driver)
+  target_link_libraries(nvtop PRIVATE "${DCMI_LIBRARY_PATH}/libdcmi.so")
 endif()
 
 if(AMDGPU_SUPPORT OR INTEL_SUPPORT)
