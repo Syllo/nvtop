@@ -82,11 +82,14 @@ static const struct msm_id_struct msm_ids[] = {
   // Adreno 7xx
   {CHIPID(730),   "Adreno 730"},
   {CHIPID(740),   "Adreno 740"},
+  {CHIPID(750),   "Adreno 750"},
+  {CHIPID(790),   "Adreno 750"},
 
   // Misc
   {0x00be06030500, "Adreno 8c Gen 3"},
   {0x007506030500, "Adreno 7c+ Gen 3"},
   {0x006006030500, "Adreno 7c+ Gen 3 Lite"},
+  {0x000043051401, "Adreno 750"},
 };
 
 const char * msm_parse_marketing_name(uint64_t gpu_id);

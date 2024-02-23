@@ -61,6 +61,7 @@ static const char helpstring[] = "Available options:\n"
                                  "  -C --no-color     : No colors\n"
                                  "line information\n"
                                  "  -f --freedom-unit : Use fahrenheit\n"
+                                 "  -i --gpu-info     : Show bar with additional GPU parametres\n"
                                  "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
                                  "(default 30s, negative = always on screen)\n"
                                  "  -h --help         : Print help and exit\n";
@@ -75,13 +76,14 @@ static const struct option long_opts[] = {
     {.name = "no-color", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "no-colour", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "freedom-unit", .has_arg = no_argument, .flag = NULL, .val = 'f'},
+    {.name = "gpu-info", .has_arg = no_argument, .flag = NULL, .val = 'i'},
     {.name = "encode-hide", .has_arg = required_argument, .flag = NULL, .val = 'E'},
     {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pr";
+static const char opts[] = "hvd:c:CfE:pri";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -94,6 +96,7 @@ int main(int argc, char **argv) {
   bool hide_plot_option = false;
   bool reverse_plot_direction_option = false;
   bool encode_decode_timer_option_set = false;
+  bool show_gpu_info_bar = false;
   double encode_decode_hide_time = -1.;
   char *custom_config_file_path = NULL;
   while (true) {
@@ -134,6 +137,9 @@ int main(int argc, char **argv) {
       break;
     case 'f':
       use_fahrenheit_option = true;
+      break;
+    case 'i':
+      show_gpu_info_bar = true;
       break;
     case 'E': {
       if (sscanf(optarg, "%lf", &encode_decode_hide_time) == EOF) {
@@ -235,6 +241,7 @@ int main(int argc, char **argv) {
     allDevicesOptions.temperature_in_fahrenheit = true;
   if (update_interval_option_set)
     allDevicesOptions.update_interval = update_interval_option;
+  allDevicesOptions.has_gpu_info_bar = allDevicesOptions.has_gpu_info_bar || show_gpu_info_bar;
 
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
@@ -263,6 +270,7 @@ int main(int argc, char **argv) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
       if (!interface_freeze_processes(interface)) {
         gpuinfo_refresh_processes(&monitoredGpus);
+        gpuinfo_utilisation_rate(&monitoredGpus);
         gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
       }
       save_current_data_to_ring(&monitoredGpus, interface);

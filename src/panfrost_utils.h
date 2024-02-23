@@ -1,7 +1,6 @@
 /*
- * Copyright (C) 2023 Robin Voetter <robin@voetter.nl>
  *
- * This file is part of Nvtop.
+ * Copyright (C) 2023 Adrian Larumbe <adrian.larumbe@collabora.com>
  *
  * Nvtop is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,21 +17,8 @@
  *
  */
 
-#include "nvtop/extract_processinfo_fdinfo.h"
+#include <stdint.h>
 
-void processinfo_drop_callback(const struct gpu_info *info) {
-  (void) info;
-}
-
-void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info) {
-  (void) callback;
-  (void) info;
-}
-
-void processinfo_sweep_fdinfos(void) {
-}
-
-void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool enable) {
-  (void)info;
-  (void)enable;
-}
+const char * panfrost_parse_marketing_name(uint64_t gpu_id);
+unsigned int util_last_bit(unsigned int u);
+unsigned int get_number_engines(uint32_t gpu_id, int core_count, uint32_t core_features, uint32_t thread_features);

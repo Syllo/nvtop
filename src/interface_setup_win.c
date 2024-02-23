@@ -53,10 +53,16 @@ static const char *setup_general_option_description[setup_general_options_count]
 
 // Header Options
 
-enum setup_header_options { setup_header_toggle_fahrenheit, setup_header_enc_dec_timer, setup_header_options_count };
+enum setup_header_options {
+  setup_header_toggle_fahrenheit,
+  setup_header_enc_dec_timer,
+  setup_header_gpu_info_bar,
+  setup_header_options_count
+};
 
 static const char *setup_header_option_descriptions[setup_header_options_count] = {
-    "Temperature in fahrenheit", "Keep displaying Encoder/Decoder rate (after reaching an idle state)"};
+    "Temperature in fahrenheit", "Keep displaying Encoder/Decoder rate (after reaching an idle state)",
+    "Display extra GPU info bar"};
 
 // Chart Options
 
@@ -235,8 +241,8 @@ static void draw_setup_window_general(struct nvtop_interface *interface) {
 static void draw_setup_window_header(struct nvtop_interface *interface) {
   if (interface->setup_win.indentation_level > 1)
     interface->setup_win.indentation_level = 1;
-  if (interface->setup_win.options_selected[0] > setup_header_enc_dec_timer)
-    interface->setup_win.options_selected[0] = setup_header_enc_dec_timer;
+  if (interface->setup_win.options_selected[0] >= setup_header_options_count)
+    interface->setup_win.options_selected[0] = setup_header_options_count - 1;
 
   WINDOW *options_win = interface->setup_win.single;
 
@@ -273,6 +279,15 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
   if (interface->setup_win.indentation_level == 1 &&
       interface->setup_win.options_selected[0] == setup_header_enc_dec_timer) {
     mvwchgat(options_win, setup_header_enc_dec_timer + 1, 0, 8, A_STANDOUT, cyan_color, NULL);
+  }
+
+  // Extra GPU info bar
+  option_state = interface->options.has_gpu_info_bar;
+  mvwprintw(options_win, setup_header_gpu_info_bar + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_header_option_descriptions[setup_header_gpu_info_bar]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_header_gpu_info_bar) {
+    mvwchgat(options_win, setup_header_gpu_info_bar + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
   wnoutrefresh(options_win);
 }
@@ -726,6 +741,9 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
             } else {
               interface->options.encode_decode_hiding_timer = 30.;
             }
+          }
+          if (interface->setup_win.options_selected[0] == setup_header_gpu_info_bar) {
+            interface->options.has_gpu_info_bar = !interface->options.has_gpu_info_bar;
           }
         }
       }
