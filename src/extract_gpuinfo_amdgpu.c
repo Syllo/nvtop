@@ -37,7 +37,6 @@
 #include <inttypes.h>
 #include <libdrm/amdgpu.h>
 #include <libdrm/amdgpu_drm.h>
-#include <linux/kcmp.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -814,9 +813,6 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       // Client id is a unique identifier. From the DRM documentation "Unique value relating to the open DRM
       // file descriptor used to distinguish duplicated and shared file descriptors. Conceptually the value should map
       // 1:1 to the in kernel representation of struct drm_file instances."
-      // This information is available for the AMDGPU driver shipping with
-      // the kernel >= 5.19. We still have to use the kcmp syscall to
-      // distinguish duplicated file descriptors for older kernels.
       char *endptr;
       cid = strtoul(val, &endptr, 10);
       if (*endptr)
