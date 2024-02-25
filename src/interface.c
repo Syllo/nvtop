@@ -641,7 +641,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     encode_decode_show_select(dev, GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate),
                               GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate),
                               device->dynamic_info.encoder_rate, device->dynamic_info.decoder_rate,
-                              interface->options.encode_decode_hiding_timer, device->dynamic_info.encode_decode_shared,
+                              interface->options.encode_decode_hiding_timer, device->static_info.encode_decode_shared,
                               &display_encode, &display_decode);
 
     WINDOW *gpu_util_win;
@@ -673,7 +673,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       unsigned rate =
           GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate) ? device->dynamic_info.decoder_rate : 0;
       snprintf(buff, 1024, "%u%%", rate);
-      if (device->dynamic_info.encode_decode_shared)
+      if (device->static_info.encode_decode_shared)
         draw_percentage_meter(decode_win, "ENC/DEC", rate, buff);
       else
         draw_percentage_meter(decode_win, "DEC", rate, buff);
@@ -727,7 +727,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN ");
       mvwchgat(dev->fan_speed, 0, 3, 5, 0, cyan_color, NULL);
     } else
-      mvwprintw(dev->fan_speed, 0, 0, "FAN N/A%%");
+      mvwprintw(dev->fan_speed, 0, 0, "FAN N/A ");
     mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->fan_speed);
 
@@ -1246,24 +1246,30 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
       unsigned gpu_usage = 0;
       if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_usage)) {
         gpu_usage = processes[i].process->gpu_usage;
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", gpu_usage);
+      } else {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "N/A  ");
       }
-      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", gpu_usage);
     }
 
     if (process_is_field_displayed(process_enc_rate, fields_to_display)) {
       unsigned encoder_rate = 0;
       if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, encode_usage)) {
         encoder_rate = processes[i].process->encode_usage;
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", encoder_rate);
+      } else {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "N/A  ");
       }
-      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", encoder_rate);
     }
 
     if (process_is_field_displayed(process_dec_rate, fields_to_display)) {
       unsigned decode_rate = 0;
       if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, decode_usage)) {
         decode_rate = processes[i].process->decode_usage;
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", decode_rate);
+      } else {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "N/A  ");
       }
-      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", decode_rate);
     }
 
     if (process_is_field_displayed(process_memory, fields_to_display)) {
@@ -1277,7 +1283,7 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
                    (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
         }
       } else {
-        memory[0] = '\0';
+        snprintf(memory, sizeof_process_field[process_memory], "%s", "N/A");
       }
       printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
                           sizeof_process_field[process_memory], memory);

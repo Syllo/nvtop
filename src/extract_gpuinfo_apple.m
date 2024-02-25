@@ -115,6 +115,7 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
   SET_VALID(gpuinfo_device_name_valid, static_info->valid);
 
   static_info->integrated_graphics = [gpu_info->device location] == MTLDeviceLocationBuiltIn;
+  static_info->encode_decode_shared = true;
 }
 
 static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {

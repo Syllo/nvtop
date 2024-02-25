@@ -147,6 +147,7 @@ static void gpuinfo_ascend_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_ascend *gpu_info = container_of(_gpu_info, struct gpu_info_ascend, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   static_info->integrated_graphics = false;
+  static_info->encode_decode_shared = true;
   RESET_ALL(static_info->valid);
 
   int card_id, device_id;
@@ -168,7 +169,6 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_ascend *gpu_info = container_of(_gpu_info, struct gpu_info_ascend, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   RESET_ALL(dynamic_info->valid);
-  dynamic_info->encode_decode_shared = false;
 
   int card_id, device_id;
   _decode_card_device_id_from_pdev(_gpu_info->pdev, &card_id, &device_id);

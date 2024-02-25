@@ -76,6 +76,7 @@ struct gpuinfo_static_info {
   unsigned l2cache_size;
   unsigned n_exec_engines;
   bool integrated_graphics;
+  bool encode_decode_shared;
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
@@ -102,6 +103,7 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_gpu_temp_valid,
   gpuinfo_power_draw_valid,
   gpuinfo_power_draw_max_valid,
+  gpuinfo_multi_instance_mode_valid,
   gpuinfo_dynamic_info_count,
 };
 
@@ -125,7 +127,7 @@ struct gpuinfo_dynamic_info {
   unsigned int gpu_temp;            // GPU temperature °celsius
   unsigned int power_draw;          // Power usage in milliwatts
   unsigned int power_draw_max;      // Max power usage in milliwatts
-  bool encode_decode_shared;        // True if encode and decode is shared (Intel)
+  bool multi_instance_mode;          // True if the GPU is in multi-instance mode
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 

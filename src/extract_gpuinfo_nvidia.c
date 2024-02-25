@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2021 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2021-2024 Maxime Schmitt <maxime.schmitt91@gmail.com>
  *
  * This file is part of Nvtop.
  *
@@ -420,6 +420,7 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   nvmlDevice_t device = gpu_info->gpuhandle;
 
   static_info->integrated_graphics = false;
+  static_info->encode_decode_shared = false;
   RESET_ALL(static_info->valid);
 
   last_nvml_return_status = nvmlDeviceGetName(device, static_info->device_name, MAX_DEVICE_NAME);
@@ -457,7 +458,6 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   nvmlClockType_t getMaxClockFrom = NVML_CLOCK_GRAPHICS;
 
   RESET_ALL(dynamic_info->valid);
-  dynamic_info->encode_decode_shared = false;
 
   // GPU current speed
   // Maximum between SM and Graphical

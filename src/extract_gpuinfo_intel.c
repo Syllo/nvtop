@@ -315,6 +315,7 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
   const char *dev_name;
 
   static_info->integrated_graphics = false;
+  static_info->encode_decode_shared = true;
   RESET_ALL(static_info->valid);
 
   if (nvtop_device_get_property_value(gpu_info->driver_device, "ID_MODEL_FROM_DATABASE", &dev_name) >= 0) {
@@ -348,7 +349,6 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
   RESET_ALL(dynamic_info->valid);
-  dynamic_info->encode_decode_shared = true;
 
   nvtop_device *card_dev_copy;
   const char *syspath;

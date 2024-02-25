@@ -210,6 +210,7 @@ void gpuinfo_panfrost_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
 
   static_info->integrated_graphics = true;
+  static_info->encode_decode_shared = true;
   RESET_ALL(static_info->valid);
 
   uint64_t gpuid;

@@ -513,6 +513,7 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   const char *name = NULL;
 
   static_info->integrated_graphics = false;
+  static_info->encode_decode_shared = false;
   RESET_ALL(static_info->valid);
 
   if (libdrm_amdgpu_handle && _amdgpu_get_marketing_name)
@@ -585,6 +586,7 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
 #ifdef AMDGPU_FAMILY_NV
       case AMDGPU_FAMILY_NV:
         strncpy(dst, " (Navi10)", remaining_len);
+        static_info->encode_decode_shared = true;
         break;
 #endif
 #ifdef AMDGPU_FAMILY_VGH
@@ -646,7 +648,6 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   uint32_t out32;
 
   RESET_ALL(dynamic_info->valid);
-  dynamic_info->encode_decode_shared = false;
 
   if (libdrm_amdgpu_handle && _amdgpu_query_gpu_info)
     info_query_success = !_amdgpu_query_gpu_info(gpu_info->amdgpu_device, &info);

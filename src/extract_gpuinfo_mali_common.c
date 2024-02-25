@@ -318,7 +318,6 @@ void mali_common_refresh_dynamic_info(struct gpuinfo_dynamic_info *dynamic_info,
 				      const char *meminfo_available)
 {
   RESET_ALL(dynamic_info->valid);
-  dynamic_info->encode_decode_shared = true;
 
   rewind(state->meminfo_file);
   fflush(state->meminfo_file);

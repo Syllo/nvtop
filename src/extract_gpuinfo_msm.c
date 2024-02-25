@@ -466,6 +466,7 @@ void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
 
   static_info->integrated_graphics = true;
+  static_info->encode_decode_shared = true;
   RESET_ALL(static_info->valid);
 
   uint64_t gpuid;
@@ -496,7 +497,6 @@ void gpuinfo_msm_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
   RESET_ALL(dynamic_info->valid);
-  dynamic_info->encode_decode_shared = true;
 
   // GPU clock
   uint64_t clock_val;
