@@ -2,19 +2,19 @@
 
 install_deps() {
   apt-get update
-  apt-get install -y gcc g++ libncurses5-dev libncursesw5-dev libdrm-dev wget file libudev-dev
+  apt-get install -y gcc g++ libncurses5-dev libncursesw5-dev libdrm-dev wget file libudev-dev ninja-build make python3-venv
 }
 
 configure_nvtop() {
-  cmake ../.. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON -DUSE_LIBUDEV_OVER_LIBSYSTEMD=ON -DCMAKE_INSTALL_PREFIX=/usr
+  cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DUSE_LIBUDEV_OVER_LIBSYSTEMD=ON -DCMAKE_INSTALL_PREFIX=/usr
 }
 
 build_nvtop() {
-  cmake --build .
+  cmake --build build
 }
 
 install_nvtop_AppDir() {
-  DESTDIR=../AppDir cmake --build . --target install
+  DESTDIR=$PWD/AppDir cmake --build build --target install
 }
 
 get_linuxdeploy() {
@@ -24,22 +24,20 @@ get_linuxdeploy() {
 }
 
 get_cmake() {
-  wget -nc https://github.com/Kitware/CMake/releases/download/v3.18.0/cmake-3.18.0.tar.gz
-  tar zxf cmake-3.18.0.tar.gz
-  ./cmake-3.18.0/bootstrap --prefix=/usr && make && make install
+  python3 -m venv .venv
+  source .venv/bin/activate
+  pip install --upgrade pip
+  pip install cmake
 }
 
 create_AppImage() {
   install_deps
   get_cmake
-  mkdir nvtop_build
-  cd nvtop_build
   configure_nvtop
   build_nvtop
   install_nvtop_AppDir
-  cd ..
   get_linuxdeploy
-  ./squashfs-root/AppRun --appdir AppDir --output appimage --exclude-library="*udev*"
+  ./squashfs-root/AppRun --appdir AppDir --output appimage --exclude-library="*udev*" --desktop-file AppDir/usr/share/applications/nvtop.desktop --icon-file AppDir/usr/share/icons/nvtop.svg
 }
 
 create_AppImage
