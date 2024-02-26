@@ -4,7 +4,7 @@
 # or nvidia/driver:418.87.01-ubuntu18.04, nvcr.io/nvidia/cudagl:11.4.2-base-ubuntu20.04
 # USE: docker run --rm -it --gpus all --pid host nvtop
 
-ARG IMAGE=nvidia/opengl:1.2-glvnd-runtime-ubuntu18.04
+ARG IMAGE=nvidia/opengl:1.2-glvnd-runtime-ubuntu20.04
 
 FROM ${IMAGE} as builder
 
@@ -12,16 +12,19 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
   apt-get install -yq build-essential wget libncurses5-dev libncursesw5-dev libssl-dev \
-  pkg-config libdrm-dev libgtest-dev libudev-dev
+  pkg-config libdrm-dev libgtest-dev libudev-dev python3-venv
 
-RUN wget https://github.com/Kitware/CMake/releases/download/v3.18.0/cmake-3.18.0.tar.gz
-RUN tar zxf cmake-3.18.0.tar.gz
-RUN ./cmake-3.18.0/bootstrap --prefix=/usr && make && make install
+# Get a recent-enough CMake
+RUN python3 -m venv /.venv && \
+    . /.venv/bin/activate && \
+    pip install --upgrade pip \
+    pip install cmake
 
 COPY . /nvtop
 WORKDIR /nvtop
 RUN mkdir -p /nvtop/build && \
   cd /nvtop/build && \
+  . /.venv/bin/activate && \
   cmake .. && \
   make -j && \
   make install
