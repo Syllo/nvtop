@@ -69,6 +69,7 @@ static typeof(drmDropMaster) *_drmDropMaster;
 static typeof(amdgpu_device_initialize) *_amdgpu_device_initialize;
 static typeof(amdgpu_device_deinitialize) *_amdgpu_device_deinitialize;
 static typeof(amdgpu_get_marketing_name) *_amdgpu_get_marketing_name;
+static typeof(amdgpu_query_hw_ip_info) *_amdgpu_query_hw_ip_info;
 static typeof(amdgpu_query_gpu_info) *_amdgpu_query_gpu_info;
 static typeof(amdgpu_query_info) *_amdgpu_query_info;
 static typeof(amdgpu_query_sensor_info) *_amdgpu_query_sensor_info;
@@ -219,6 +220,7 @@ static bool gpuinfo_amdgpu_init(void) {
     _amdgpu_device_initialize = dlsym(libdrm_amdgpu_handle, "amdgpu_device_initialize");
     _amdgpu_device_deinitialize = dlsym(libdrm_amdgpu_handle, "amdgpu_device_deinitialize");
     _amdgpu_get_marketing_name = dlsym(libdrm_amdgpu_handle, "amdgpu_get_marketing_name");
+    _amdgpu_query_hw_ip_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_hw_ip_info");
     _amdgpu_query_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_info");
     _amdgpu_query_gpu_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_gpu_info");
     _amdgpu_query_sensor_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_sensor_info");
@@ -586,7 +588,6 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
 #ifdef AMDGPU_FAMILY_NV
       case AMDGPU_FAMILY_NV:
         strncpy(dst, " (Navi10)", remaining_len);
-        static_info->encode_decode_shared = true;
         break;
 #endif
 #ifdef AMDGPU_FAMILY_VGH
@@ -637,6 +638,14 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   // Mark integrated graphics
   if (info_query_success && (info.ids_flags & AMDGPU_IDS_FLAGS_FUSION)) {
     static_info->integrated_graphics = true;
+  }
+
+  // Checking if Encode and Decode are unified:AMDGPU_INFO_HW_IP_INFO
+  if (_amdgpu_query_hw_ip_info) {
+    struct drm_amdgpu_info_hw_ip vcn_ip_info;
+    if (_amdgpu_query_hw_ip_info(gpu_info->amdgpu_device, AMDGPU_HW_IP_VCN_ENC, 0, &vcn_ip_info) == 0) {
+      static_info->encode_decode_shared = vcn_ip_info.hw_ip_version_major >= 4;
+    }
   }
 }
 
