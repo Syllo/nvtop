@@ -15,7 +15,7 @@
 
     <launchable type="desktop-id">nvtop.desktop</launchable>
 
-    <icon type="stock">nvtop</icon>
+    <icon type="cached">nvtop.svg</icon>
 
     <categories>
         <category>System</category>
