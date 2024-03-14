@@ -64,22 +64,21 @@ bool gpuinfo_panfrost_init(void) {
 void gpuinfo_panfrost_shutdown(void) {
   for (unsigned i = 0; i < mali_state.mali_gpu_count; ++i) {
     struct panfrost_driver_data *prof_info = &mali_state.gpu_infos[i].model.panfrost;
-    char debugfs_profile_file[256] = {0};
-    FILE *debugfs_profiling;
+    FILE *fprofiling;
 
-    snprintf(debugfs_profile_file, sizeof(debugfs_profile_file),
-             "/sys/kernel/debug/dri/%d/profile", prof_info->minor);
-    debugfs_profiling = fopen(debugfs_profile_file, "w");
-    if (debugfs_profiling == NULL) {
+    fprofiling = fopen(prof_info->sysfs_filename, "w");
+    if (fprofiling == NULL) {
             fprintf(stderr, "Panfrost's profile parameter sysfs hook seems gone\n");
+            free(prof_info->sysfs_filename);
             continue;
     }
 
     char buf = prof_info->original_profiling_state ? '1' : '0';
-    size_t size = fwrite(&buf, sizeof(char), 1, debugfs_profiling);
+    size_t size = fwrite(&buf, sizeof(char), 1, fprofiling);
     if (!size)
-            fprintf(stderr, "restoring debugfs state didn't work\n");
-    fclose(debugfs_profiling);
+            fprintf(stderr, "restoring profiling state didn't work\n");
+    fclose(fprofiling);
+    free(prof_info->sysfs_filename);
   }
 
   mali_shutdown_common(&mali_state, &drmFuncs);
@@ -133,53 +132,110 @@ static bool parse_drm_fdinfo_panfrost(struct gpu_info *info, FILE *fdinfo_file, 
   return true;
 }
 
+static char *get_sysfs_filename(struct gpu_info_mali *gpu_info) {
+  char sysfs_file[PATH_MAX + 1] = {0};
+  char *fullname, *of_name, *node;
+  const char *bus_name = NULL;
+  drmDevicePtr device;
+  struct stat filebuf;
+  unsigned int i;
+  int ret;
+
+  static struct {
+    const char *name;
+    int bus_type;
+  } bus_types[] = {
+    { "/pci", DRM_BUS_PCI },
+    { "/usb", DRM_BUS_USB },
+    { "/platform", DRM_BUS_PLATFORM },
+    { "/host1x", DRM_BUS_HOST1X },
+  };
+
+  fstat(gpu_info->fd, &filebuf);
+
+  ret = drmFuncs.drmGetDeviceFromDevId(filebuf.st_rdev, 0, &device);
+  if (ret) {
+    fprintf(stderr, "drmGetDeviceFromDevId failed with %d\n", ret);
+    goto sysfs_end;
+  }
+
+  fullname = device->businfo.platform->fullname;
+
+  node = strrchr(fullname, '@');
+  of_name = strrchr(fullname, '/');
+  if (node == NULL || of_name == NULL)
+    goto sysfs_end;
+  *node = '\0'; node++;;
+  *of_name = '\0'; of_name++;
+
+  for (i = 0; i < (sizeof(bus_types) / sizeof(typeof(bus_types[0]))); i++) {
+    if (bus_types[i].bus_type == device->bustype) {
+      bus_name = bus_types[i].name;
+      break;
+    }
+  }
+
+  if (bus_name == NULL) {
+    fprintf(stderr, "Unknown bus type = %d\n", device->bustype);
+    goto sysfs_end;
+  }
+
+  snprintf(sysfs_file, PATH_MAX + 1, "/sys/devices%s%s/%s.%s/profiling", bus_name, fullname, node, of_name);
+
+sysfs_end:
+  free(device);
+  return (!sysfs_file[0]) ? NULL : strdup(sysfs_file);
+}
+
 static bool panfrost_open_sysfs_profile(struct gpu_info_mali *gpu_info) {
   struct panfrost_driver_data *prof_info = &gpu_info->model.panfrost;
-  char debugfs_profile_file[256] = {0};
-  FILE *debugfs_profiling;
-  struct stat filebuf;
+  FILE *fprofiling;
   bool ret = true;
 
   if (!gpu_info->fd || gpu_info->version != MALI_PANFROST)
     return false;
 
-  fstat(gpu_info->fd, &filebuf);
-  prof_info->minor = minor(filebuf.st_rdev);
-  snprintf(debugfs_profile_file, sizeof(debugfs_profile_file),
-           "/sys/kernel/debug/dri/%d/profile", prof_info->minor);
-
-  debugfs_profiling = fopen(debugfs_profile_file, "r");
-  if (debugfs_profiling == NULL) {
-    fprintf(stderr, "profile parameter not implemented in Panfrost\n");
+  prof_info->sysfs_filename = get_sysfs_filename(gpu_info);
+  if (prof_info->sysfs_filename == NULL)
     return false;
+
+  fprofiling = fopen(prof_info->sysfs_filename, "r");
+  if (fprofiling == NULL) {
+    fprintf(stderr, "Profiling state not available in Panfrost\n");
+    goto file_error;
   }
 
   char buf = 0;
-  size_t size = fread(&buf, sizeof(char), 1, debugfs_profiling);
+  size_t size = fread(&buf, sizeof(char), 1, fprofiling);
   if (!size) {
     fprintf(stderr, "Error reading profiling state\n");
-    ret = false;
-    goto file_error;
+    goto format_error;
   }
 
   prof_info->original_profiling_state = (buf == '1') ? true : false;
 
-  fclose(debugfs_profiling);
-  debugfs_profiling = fopen(debugfs_profile_file, "w");
-  if (debugfs_profiling == NULL) {
-    fprintf(stderr, "profile parameter not implemented in Panfrost\n");
-    return false;
+  fclose(fprofiling);
+  fprofiling = fopen(prof_info->sysfs_filename, "w");
+  if (fprofiling == NULL) {
+    fprintf(stderr, "Profiling state not available in Panfrost\n");
+    goto file_error;
   }
 
   buf = '1';
-  size = fwrite(&buf, sizeof(char), 1, debugfs_profiling);
+  size = fwrite(&buf, sizeof(char), 1, fprofiling);
   if (!size) {
     fprintf(stderr, "Error writing profiling state\n");
-    ret = false;
   }
 
+format_error:
+  fclose(fprofiling);
+  if (!size)
+    ret = false;
 file_error:
-  fclose(debugfs_profiling);
+  if (fprofiling == NULL)
+    ret = false;
+  if (ret)
+    free(prof_info->sysfs_filename);
   return ret;
 }
 
