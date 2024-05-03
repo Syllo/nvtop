@@ -404,6 +404,8 @@ static struct amdgpu_id_struct amdgpu_ids[] = {
     {0x743F, 0xC3, "AMD Radeon RX 6500M"},
     {0x743F, 0xC7, "AMD Radeon RX 6400"},
     {0x743F, 0xCF, "AMD Radeon RX 6300M"},
+    {0x471E, 0xC8, "AMD Radeon RX 7900 XTX"},
+    {0x471E, 0xCC, "AMD Radeon RX 7900 XT"},
     {0x9830, 0x00, "AMD Radeon HD 8400 / R3 Series"},
     {0x9831, 0x00, "AMD Radeon HD 8400E"},
     {0x9832, 0x00, "AMD Radeon HD 8330"},
