@@ -1562,7 +1562,7 @@ static void draw_process_shortcuts(struct nvtop_interface *interface) {
   switch (current_state) {
   case nvtop_option_state_hidden:
     for (size_t i = 0; i < ARRAY_SIZE(option_selection_hidden); ++i) {
-      if (interface->options.hide_processes_list && (option_selection_hidden_num[i] == "6" || option_selection_hidden_num[i] == "9"))
+      if (interface->options.hide_processes_list && (strcmp(option_selection_hidden_num[i], "6") == 0 || strcmp(option_selection_hidden_num[i], "9") == 0))
         continue;
 
       if (process_field_displayed_count(interface->options.process_fields_displayed) > 0 || (i != 1 && i != 2)) {
