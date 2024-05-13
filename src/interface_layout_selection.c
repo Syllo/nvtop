@@ -230,13 +230,12 @@ static void balance_info_on_stacks_preserving_plot_order(unsigned stack_max_cols
     moving_plot_id--;
   }
 }
-
 void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_rows, unsigned device_header_cols,
                                unsigned rows, unsigned cols, const nvtop_interface_gpu_opts *gpuOpts,
                                process_field_displayed process_displayed, struct window_position *device_positions,
                                unsigned *num_plots, struct window_position plot_positions[MAX_CHARTS],
                                unsigned *map_device_to_plot, struct window_position *process_position,
-                               struct window_position *setup_position) {
+                               struct window_position *setup_position, bool process_win_hide) {
 
   unsigned min_rows_for_header = 0, header_stacks = 0, num_device_per_row = 0;
   num_device_per_row = max(1, cols / device_header_cols);
@@ -257,6 +256,10 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
       min_rows_for_process = 0;
     }
   }
+
+  if (process_win_hide)
+    min_rows_for_process = 0;
+
   unsigned rows_for_header = min_rows_for_header;
   unsigned rows_for_process = min_rows_for_process;
   unsigned rows_for_plots = rows - min_rows_for_header - min_rows_for_process;
@@ -329,7 +332,7 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
   unsigned rows_left_for_process = 0;
   if (*num_plots > 0) {
     unsigned rows_per_stack = rows_for_plots / num_plot_stacks;
-    if (rows_per_stack > 23)
+    if (!process_win_hide && rows_per_stack > 23)
       rows_per_stack = 23;
     unsigned num_plot_done = 0;
     unsigned currentPosX = 0, currentPosY = rows_for_header;

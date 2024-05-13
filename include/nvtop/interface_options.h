@@ -51,6 +51,7 @@ typedef struct nvtop_interface_option_struct {
   bool filter_nvtop_pid;                            // Do not show nvtop pid in the processes list
   bool has_monitored_set_changed;                   // True if the set of monitored gpu was modified through the interface
   bool has_gpu_info_bar;                            // Show info bar with additional GPU parametres
+  bool hide_processes_list;                         // Hide processes list
 } nvtop_interface_option;
 
 inline bool plot_isset_draw_info(enum plot_information check_info, plot_info_to_draw to_draw) {

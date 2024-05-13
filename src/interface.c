@@ -361,7 +361,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   compute_sizes_from_layout(devices_count, dwin->options.has_gpu_info_bar ? 4 : 3, device_length(), rows - 1, cols,
                             dwin->options.gpu_specific_opts, dwin->options.process_fields_displayed,
                             device_positions, &dwin->num_plots, plot_positions,
-                            map_device_to_plot, &process_position, &setup_position);
+                            map_device_to_plot, &process_position, &setup_position, dwin->options.hide_processes_list);
 
   alloc_plot_window(devices_count, plot_positions, map_device_to_plot, dwin);
 
@@ -1356,6 +1356,9 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
 static void update_process_option_win(struct nvtop_interface *interface);
 
 static void draw_processes(struct list_head *devices, struct nvtop_interface *interface) {
+  if (interface->options.hide_processes_list)
+    return;
+
   if (interface->process.process_win == NULL)
     return;
 
