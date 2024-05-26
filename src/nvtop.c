@@ -56,7 +56,7 @@ static const char helpstring[] = "Available options:\n"
                                  "  -c --config-file  : Provide a custom config file location to load/save "
                                  "preferences\n"
                                  "  -p --no-plot      : Disable bar plot\n"
-                                 "  -p --no-processes : Disable process list\n"
+                                 "  -P --no-processes : Disable process list\n"
                                  "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
                                  "older on the right\n"
                                  "  -C --no-color     : No colors\n"
@@ -85,7 +85,7 @@ static const struct option long_opts[] = {
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pri";
+static const char opts[] = "hvd:c:CfE:pPri";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
