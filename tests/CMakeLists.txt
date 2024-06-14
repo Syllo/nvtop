@@ -5,6 +5,7 @@ if (BUILD_TESTING AND GTest_FOUND)
 
   # Create a library for testing
   add_library(testLib
+    ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c
     ${PROJECT_SOURCE_DIR}/src/interface_layout_selection.c
     ${PROJECT_SOURCE_DIR}/src/interface_options.c
     ${PROJECT_SOURCE_DIR}/src/ini.c
