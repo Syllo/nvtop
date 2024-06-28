@@ -354,16 +354,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   RESET_ALL(dynamic_info->valid);
 
-  nvtop_device *card_dev_copy;
-  const char *syspath;
-  nvtop_device_get_syspath(gpu_info->card_device, &syspath);
-  nvtop_device_new_from_syspath(&card_dev_copy, syspath);
-
   nvtop_device *intel_dev_auto = gpu_info->driver == DRIVER_XE ? gpu_info->driver_device : gpu_info->card_device;
-
-  nvtop_device *hwmon_dev_copy;
-  nvtop_device_get_syspath(gpu_info->hwmon_device, &syspath);
-  nvtop_device_new_from_syspath(&hwmon_dev_copy, syspath);
 
   // GPU clock
   const char *gt_cur_freq;
@@ -382,14 +373,14 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // Mem clock
   // TODO: the attribute mem_cur_freq_mhz and mem_max_freq_mhz are speculative (not present on integrated graphics)
   const char *mem_cur_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "mem_cur_freq_mhz", &mem_cur_freq) >= 0) {
+  if (nvtop_device_get_sysattr_value(gpu_info->card_device, "mem_cur_freq_mhz", &mem_cur_freq) >= 0) {
     unsigned val = strtoul(mem_cur_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed, val);
   }
   const char *mem_max_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "mem_max_freq_mhz", &mem_max_freq) >= 0) {
+  if (nvtop_device_get_sysattr_value(gpu_info->card_device, "mem_max_freq_mhz", &mem_max_freq) >= 0) {
     unsigned val = strtoul(mem_max_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed_max, val);
   }
 
   // TODO: find how to extract global utilization
@@ -397,7 +388,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   if (!static_info->integrated_graphics) {
     nvtop_pcie_link curr_link_characteristics;
-    int ret = nvtop_device_current_pcie_link(card_dev_copy, &curr_link_characteristics);
+    int ret = nvtop_device_current_pcie_link(gpu_info->driver_device, &curr_link_characteristics);
     if (ret >= 0) {
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
       unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
@@ -408,17 +399,15 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // TODO: Attributes such as memory, fan, temperature, power info should be available once the hwmon patch lands
 
   const char *hwmon_power;
-  if (nvtop_device_get_sysattr_value(hwmon_dev_copy, "power1", &hwmon_power) >= 0) {
+  if (nvtop_device_get_sysattr_value(gpu_info->hwmon_device, "power1", &hwmon_power) >= 0) {
     unsigned val = strtoul(hwmon_power, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, val/1000);
   }
   const char *hwmon_power_max;
-  if (nvtop_device_get_sysattr_value(hwmon_dev_copy, "power1_max", &hwmon_power_max) >= 0) {
+  if (nvtop_device_get_sysattr_value(gpu_info->hwmon_device, "power1_max", &hwmon_power_max) >= 0) {
     unsigned val = strtoul(hwmon_power_max, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, val/1000);
   }
-
-  nvtop_device_unref(card_dev_copy);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_intel *gpu_info) {
