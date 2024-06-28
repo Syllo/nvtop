@@ -66,6 +66,7 @@ struct gpu_info_intel {
 
   struct nvtop_device *card_device;
   struct nvtop_device *driver_device;
+  struct nvtop_device *hwmon_device;
   struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
 };
 
@@ -262,6 +263,7 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   thisGPU->base.vendor = &gpu_vendor_intel;
   thisGPU->card_device = nvtop_device_ref(dev);
   thisGPU->driver_device = nvtop_device_ref(parent);
+  thisGPU->hwmon_device = nvtop_device_get_hwmon(thisGPU->driver_device);
   const char *pdev_val;
   int retval = nvtop_device_get_property_value(thisGPU->driver_device, "PCI_SLOT_NAME", &pdev_val);
   assert(retval >= 0 && pdev_val != NULL && "Could not retrieve device PCI slot name");
@@ -355,6 +357,10 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   nvtop_device_get_syspath(gpu_info->card_device, &syspath);
   nvtop_device_new_from_syspath(&card_dev_copy, syspath);
 
+  nvtop_device *hwmon_dev_copy;
+  nvtop_device_get_syspath(gpu_info->hwmon_device, &syspath);
+  nvtop_device_new_from_syspath(&hwmon_dev_copy, syspath);
+
   // GPU clock
   const char *gt_cur_freq;
   if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_cur_freq_mhz", &gt_cur_freq) >= 0) {
@@ -394,6 +400,17 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 
   // TODO: Attributes such as memory, fan, temperature, power info should be available once the hwmon patch lands
+
+  const char *hwmon_power;
+  if (nvtop_device_get_sysattr_value(hwmon_dev_copy, "power1", &hwmon_power) >= 0) {
+    unsigned val = strtoul(hwmon_power, NULL, 10);
+    SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, val/1000);
+  }
+  const char *hwmon_power_max;
+  if (nvtop_device_get_sysattr_value(hwmon_dev_copy, "power1_max", &hwmon_power_max) >= 0) {
+    unsigned val = strtoul(hwmon_power_max, NULL, 10);
+    SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, val/1000);
+  }
 
   nvtop_device_unref(card_dev_copy);
 }
