@@ -63,6 +63,7 @@ struct intel_process_info_cache {
 
 struct gpu_info_intel {
   struct gpu_info base;
+  enum { DRIVER_I915, DRIVER_XE } driver;
 
   struct nvtop_device *card_device;
   struct nvtop_device *driver_device;
@@ -250,17 +251,18 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   struct nvtop_device *parent;
   if (nvtop_device_get_parent(dev, &parent) < 0)
     return;
-  // Consider enabled Intel cards using the i915 driver
+  // Consider enabled Intel cards using the i915 or xe driver
   const char *vendor, *driver, *enabled;
   if (nvtop_device_get_sysattr_value(parent, "vendor", &vendor) < 0 || strcmp(vendor, VENDOR_INTEL_STR))
     return;
-  if (nvtop_device_get_driver(parent, &driver) < 0 || strcmp(driver, "i915"))
+  if (nvtop_device_get_driver(parent, &driver) < 0 || (strcmp(driver, "i915") && strcmp(driver, "xe")))
     return;
   if (nvtop_device_get_sysattr_value(parent, "enable", &enabled) < 0 || strcmp(enabled, "1"))
     return;
 
   struct gpu_info_intel *thisGPU = &gpu_infos[intel_gpu_count++];
   thisGPU->base.vendor = &gpu_vendor_intel;
+  thisGPU->driver = !strcmp(driver, "xe") ? DRIVER_XE : DRIVER_I915;
   thisGPU->card_device = nvtop_device_ref(dev);
   thisGPU->driver_device = nvtop_device_ref(parent);
   thisGPU->hwmon_device = nvtop_device_get_hwmon(thisGPU->driver_device);
@@ -357,18 +359,22 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   nvtop_device_get_syspath(gpu_info->card_device, &syspath);
   nvtop_device_new_from_syspath(&card_dev_copy, syspath);
 
+  nvtop_device *intel_dev_auto = gpu_info->driver == DRIVER_XE ? gpu_info->driver_device : gpu_info->card_device;
+
   nvtop_device *hwmon_dev_copy;
   nvtop_device_get_syspath(gpu_info->hwmon_device, &syspath);
   nvtop_device_new_from_syspath(&hwmon_dev_copy, syspath);
 
   // GPU clock
   const char *gt_cur_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_cur_freq_mhz", &gt_cur_freq) >= 0) {
+  const char *gt_cur_freq_sysattr = gpu_info->driver == DRIVER_XE ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
+  if (nvtop_device_get_sysattr_value(intel_dev_auto, gt_cur_freq_sysattr, &gt_cur_freq) >= 0) {
     unsigned val = strtoul(gt_cur_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
   }
   const char *gt_max_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_max_freq_mhz", &gt_max_freq) >= 0) {
+  const char *gt_max_freq_sysattr = gpu_info->driver == DRIVER_XE ? "tile0/gt0/freq0/max_freq" : "gt_max_freq_mhz";
+  if (nvtop_device_get_sysattr_value(intel_dev_auto, gt_max_freq_sysattr, &gt_max_freq) >= 0) {
     unsigned val = strtoul(gt_max_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
   }
