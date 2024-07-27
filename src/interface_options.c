@@ -176,6 +176,7 @@ static const char chart_section[] = "ChartOption";
 static const char chart_value_reverse[] = "ReverseChart";
 
 static const char process_list_section[] = "ProcessListOption";
+static const char process_hide_nvtop_process_list[] = "HideNvtopProcessList";
 static const char process_hide_nvtop_process[] = "HideNvtopProcess";
 static const char process_value_sortby[] = "SortBy";
 static const char process_value_display_field[] = "DisplayField";
@@ -256,6 +257,14 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
   }
   // Process List Options
   if (strcmp(section, process_list_section) == 0) {
+    if (strcmp(name, process_hide_nvtop_process_list) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->hide_processes_list = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->hide_processes_list = false;
+      }
+    }
     if (strcmp(name, process_hide_nvtop_process) == 0) {
       if (strcmp(value, "true") == 0) {
         ini_data->options->filter_nvtop_pid = true;
@@ -398,6 +407,7 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
 
   // Process Options
   fprintf(config_file, "\n[%s]\n", process_list_section);
+  fprintf(config_file, "%s = %s\n", process_hide_nvtop_process_list, boolean_string(options->hide_processes_list));
   fprintf(config_file, "%s = %s\n", process_hide_nvtop_process, boolean_string(options->filter_nvtop_pid));
   fprintf(config_file, "%s = %s\n", process_value_sort_order,
           options->sort_descending_order ? process_sort_descending : process_sort_ascending);

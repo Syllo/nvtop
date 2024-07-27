@@ -56,6 +56,7 @@ static const char helpstring[] = "Available options:\n"
                                  "  -c --config-file  : Provide a custom config file location to load/save "
                                  "preferences\n"
                                  "  -p --no-plot      : Disable bar plot\n"
+                                 "  -P --no-processes : Disable process list\n"
                                  "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
                                  "older on the right\n"
                                  "  -C --no-color     : No colors\n"
@@ -79,11 +80,12 @@ static const struct option long_opts[] = {
     {.name = "gpu-info", .has_arg = no_argument, .flag = NULL, .val = 'i'},
     {.name = "encode-hide", .has_arg = required_argument, .flag = NULL, .val = 'E'},
     {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
+    {.name = "no-processes", .has_arg = no_argument, .flag = NULL, .val = 'P'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pri";
+static const char opts[] = "hvd:c:CfE:pPri";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -94,6 +96,7 @@ int main(int argc, char **argv) {
   bool no_color_option = false;
   bool use_fahrenheit_option = false;
   bool hide_plot_option = false;
+  bool hide_processes_option = false;
   bool reverse_plot_direction_option = false;
   bool encode_decode_timer_option_set = false;
   bool show_gpu_info_bar = false;
@@ -150,6 +153,9 @@ int main(int argc, char **argv) {
     } break;
     case 'p':
       hide_plot_option = true;
+      break;
+    case 'P':
+      hide_processes_option = true;
       break;
     case 'r':
       reverse_plot_direction_option = true;
@@ -230,6 +236,8 @@ int main(int argc, char **argv) {
       allDevicesOptions.gpu_specific_opts[i].to_draw = 0;
     }
   }
+  if (hide_processes_option)
+    allDevicesOptions.hide_processes_list = true;
   if (encode_decode_timer_option_set) {
     allDevicesOptions.encode_decode_hiding_timer = encode_decode_hide_time;
     if (allDevicesOptions.encode_decode_hiding_timer < 0.)
