@@ -84,6 +84,7 @@ static const char *setup_chart_gpu_value_descriptions[plot_information_count] = 
 // Process List Options
 
 enum setup_proc_list_options {
+  setup_proc_list_hide_process_list,
   setup_proc_list_hide_nvtop_process,
   setup_proc_list_sort_ascending,
   setup_proc_list_sort_by,
@@ -92,7 +93,7 @@ enum setup_proc_list_options {
 };
 
 static const char *setup_proc_list_option_description[setup_proc_list_options_count] = {
-    "Hide nvtop process", "Sort Ascending", "Sort by", "Field Displayed"};
+    "Don't display the process list", "Hide nvtop in the process list", "Sort Ascending", "Sort by", "Field Displayed"};
 
 static const char *setup_proc_list_value_descriptions[process_field_count] = {
     "Process Id",    "User name",        "Device Id", "Workload type",    "GPU usage", "Encoder usage",
@@ -460,7 +461,14 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
   mvwchgat(option_list_win, 0, cur_col, maxcols - cur_col, A_STANDOUT, green_color, NULL);
 
   // Sort Ascending
-  enum option_state option_state = interface->options.filter_nvtop_pid;
+  enum option_state option_state = interface->options.hide_processes_list;
+  mvwprintw(option_list_win, setup_proc_list_hide_process_list + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_proc_list_option_description[setup_proc_list_hide_process_list]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_proc_list_hide_process_list) {
+    mvwchgat(option_list_win, setup_proc_list_hide_process_list + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+  option_state = interface->options.filter_nvtop_pid;
   mvwprintw(option_list_win, setup_proc_list_hide_nvtop_process + 1, 0, "[%c] %s", option_state_char(option_state),
             setup_proc_list_option_description[setup_proc_list_hide_nvtop_process]);
   if (interface->setup_win.indentation_level == 1 &&
@@ -796,6 +804,8 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
             interface->options.sort_descending_order = !interface->options.sort_descending_order;
           } else if (interface->setup_win.options_selected[0] == setup_proc_list_hide_nvtop_process) {
             interface->options.filter_nvtop_pid = !interface->options.filter_nvtop_pid;
+          } else if (interface->setup_win.options_selected[0] == setup_proc_list_hide_process_list) {
+            interface->options.hide_processes_list = !interface->options.hide_processes_list;
           } else if (interface->setup_win.options_selected[0] == setup_proc_list_sort_by) {
             handle_setup_win_keypress(KEY_RIGHT, interface);
           }
