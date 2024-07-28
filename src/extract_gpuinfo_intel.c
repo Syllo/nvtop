@@ -354,33 +354,33 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   RESET_ALL(dynamic_info->valid);
 
-  nvtop_device *intel_dev_auto = gpu_info->driver == DRIVER_XE ? gpu_info->driver_device : gpu_info->card_device;
+  // We are creating new devices because the device_get_sysattr_value caches its querries
+  const char *syspath;
+  nvtop_device *card_dev_noncached = NULL;
+  if (nvtop_device_get_syspath(gpu_info->card_device, &syspath) >= 0)
+    nvtop_device_new_from_syspath(&card_dev_noncached, syspath);
+  nvtop_device *driver_dev_noncached = NULL;
+  if (nvtop_device_get_syspath(gpu_info->driver_device, &syspath) >= 0)
+    nvtop_device_new_from_syspath(&driver_dev_noncached, syspath);
+  nvtop_device *hwmon_dev_noncached = NULL;
+  if (gpu_info->hwmon_device) {
+    if (nvtop_device_get_syspath(gpu_info->hwmon_device, &syspath) >= 0)
+      nvtop_device_new_from_syspath(&hwmon_dev_noncached, syspath);
+  }
 
+  nvtop_device *clock_device = gpu_info->driver == DRIVER_XE ? driver_dev_noncached : card_dev_noncached;
   // GPU clock
   const char *gt_cur_freq;
   const char *gt_cur_freq_sysattr = gpu_info->driver == DRIVER_XE ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
-  if (nvtop_device_get_sysattr_value(intel_dev_auto, gt_cur_freq_sysattr, &gt_cur_freq) >= 0) {
+  if (nvtop_device_get_sysattr_value(clock_device, gt_cur_freq_sysattr, &gt_cur_freq) >= 0) {
     unsigned val = strtoul(gt_cur_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
   }
   const char *gt_max_freq;
   const char *gt_max_freq_sysattr = gpu_info->driver == DRIVER_XE ? "tile0/gt0/freq0/max_freq" : "gt_max_freq_mhz";
-  if (nvtop_device_get_sysattr_value(intel_dev_auto, gt_max_freq_sysattr, &gt_max_freq) >= 0) {
+  if (nvtop_device_get_sysattr_value(clock_device, gt_max_freq_sysattr, &gt_max_freq) >= 0) {
     unsigned val = strtoul(gt_max_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
-  }
-
-  // Mem clock
-  // TODO: the attribute mem_cur_freq_mhz and mem_max_freq_mhz are speculative (not present on integrated graphics)
-  const char *mem_cur_freq;
-  if (nvtop_device_get_sysattr_value(gpu_info->card_device, "mem_cur_freq_mhz", &mem_cur_freq) >= 0) {
-    unsigned val = strtoul(mem_cur_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed, val);
-  }
-  const char *mem_max_freq;
-  if (nvtop_device_get_sysattr_value(gpu_info->card_device, "mem_max_freq_mhz", &mem_max_freq) >= 0) {
-    unsigned val = strtoul(mem_max_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed_max, val);
   }
 
   // TODO: find how to extract global utilization
@@ -388,7 +388,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   if (!static_info->integrated_graphics) {
     nvtop_pcie_link curr_link_characteristics;
-    int ret = nvtop_device_current_pcie_link(gpu_info->driver_device, &curr_link_characteristics);
+    int ret = nvtop_device_current_pcie_link(card_dev_noncached, &curr_link_characteristics);
     if (ret >= 0) {
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
       unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
@@ -397,17 +397,24 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 
   // TODO: Attributes such as memory, fan, temperature, power info should be available once the hwmon patch lands
+  if (hwmon_dev_noncached) {
+    const char *hwmon_power;
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1", &hwmon_power) >= 0) {
+      unsigned val = strtoul(hwmon_power, NULL, 10);
+      SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, val / 1000);
+    }
+    const char *hwmon_power_max;
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1_max", &hwmon_power_max) >= 0) {
+      unsigned val = strtoul(hwmon_power_max, NULL, 10);
+      SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, val / 1000);
+    }
+  }
 
-  const char *hwmon_power;
-  if (nvtop_device_get_sysattr_value(gpu_info->hwmon_device, "power1", &hwmon_power) >= 0) {
-    unsigned val = strtoul(hwmon_power, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, val/1000);
-  }
-  const char *hwmon_power_max;
-  if (nvtop_device_get_sysattr_value(gpu_info->hwmon_device, "power1_max", &hwmon_power_max) >= 0) {
-    unsigned val = strtoul(hwmon_power_max, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, val/1000);
-  }
+  // Let the temporary devices be garbage collected
+  nvtop_device_unref(card_dev_noncached);
+  nvtop_device_unref(driver_dev_noncached);
+  if (hwmon_dev_noncached)
+    nvtop_device_unref(hwmon_dev_noncached);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_intel *gpu_info) {
