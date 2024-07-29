@@ -325,45 +325,53 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
   nvtop_device_new_from_syspath(&gpu_info->amdgpuDevice, devicePath);
   assert(gpu_info->amdgpuDevice != NULL);
 
-  int sysfsFD = open(devicePath, O_RDONLY);
   gpu_info->hwmonDevice = nvtop_device_get_hwmon(gpu_info->amdgpuDevice);
-  assert(gpu_info->hwmonDevice != NULL);
-  // Open the device hwmon folder (Fan speed are available there)
-  const char *hwmonPath;
-  nvtop_device_get_syspath(gpu_info->hwmonDevice, &hwmonPath);
-  int hwmonFD = open(hwmonPath, O_RDONLY);
+  if (gpu_info->hwmonDevice) {
+    // Open the device hwmon folder (Fan speed are available there)
+    const char *hwmonPath;
+    nvtop_device_get_syspath(gpu_info->hwmonDevice, &hwmonPath);
+    int hwmonFD = open(hwmonPath, O_RDONLY);
 
-  // Look for which fan to use (PWM or RPM)
-  gpu_info->fanSpeedFILE = NULL;
-  unsigned pwmIsEnabled;
-  int NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "pwm1_enable", "%u", &pwmIsEnabled);
-  bool usePWMSensor = NreadPatterns == 1 && pwmIsEnabled > 0;
+    // Look for which fan to use (PWM or RPM)
+    gpu_info->fanSpeedFILE = NULL;
+    unsigned pwmIsEnabled;
+    int NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "pwm1_enable", "%u", &pwmIsEnabled);
+    bool usePWMSensor = NreadPatterns == 1 && pwmIsEnabled > 0;
 
-  bool useRPMSensor = false;
-  if (!usePWMSensor) {
-    unsigned rpmIsEnabled;
-    NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "fan1_enable", "%u", &rpmIsEnabled);
-    useRPMSensor = NreadPatterns && rpmIsEnabled > 0;
-  }
-  // Either RPM or PWM or neither
-  assert((useRPMSensor ^ usePWMSensor) || (!useRPMSensor && !usePWMSensor));
-  if (usePWMSensor || useRPMSensor) {
-    char *maxFanSpeedFile = usePWMSensor ? "pwm1_max" : "fan1_max";
-    char *fanSensorFile = usePWMSensor ? "pwm1" : "fan1_input";
-    unsigned maxSpeedVal;
-    NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, maxFanSpeedFile, "%u", &maxSpeedVal);
-    if (NreadPatterns == 1) {
-      gpu_info->maxFanValue = maxSpeedVal;
-      // Open the fan file for dynamic info gathering
-      int fanSpeedFD = openat(hwmonFD, fanSensorFile, O_RDONLY);
-      if (fanSpeedFD >= 0) {
-        gpu_info->fanSpeedFILE = fdopen(fanSpeedFD, "r");
-        if (!gpu_info->fanSpeedFILE)
-          close(fanSpeedFD);
+    bool useRPMSensor = false;
+    if (!usePWMSensor) {
+      unsigned rpmIsEnabled;
+      NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "fan1_enable", "%u", &rpmIsEnabled);
+      useRPMSensor = NreadPatterns && rpmIsEnabled > 0;
+    }
+    // Either RPM or PWM or neither
+    assert((useRPMSensor ^ usePWMSensor) || (!useRPMSensor && !usePWMSensor));
+    if (usePWMSensor || useRPMSensor) {
+      char *maxFanSpeedFile = usePWMSensor ? "pwm1_max" : "fan1_max";
+      char *fanSensorFile = usePWMSensor ? "pwm1" : "fan1_input";
+      unsigned maxSpeedVal;
+      NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, maxFanSpeedFile, "%u", &maxSpeedVal);
+      if (NreadPatterns == 1) {
+        gpu_info->maxFanValue = maxSpeedVal;
+        // Open the fan file for dynamic info gathering
+        int fanSpeedFD = openat(hwmonFD, fanSensorFile, O_RDONLY);
+        if (fanSpeedFD >= 0) {
+          gpu_info->fanSpeedFILE = fdopen(fanSpeedFD, "r");
+          if (!gpu_info->fanSpeedFILE)
+            close(fanSpeedFD);
+        }
       }
     }
+    // Open the power cap file for dynamic info gathering
+    gpu_info->powerCap = NULL;
+    int powerCapFD = openat(hwmonFD, "power1_cap", O_RDONLY);
+    if (powerCapFD) {
+      gpu_info->powerCap = fdopen(powerCapFD, "r");
+    }
+    close(hwmonFD);
   }
 
+  int sysfsFD = open(devicePath, O_RDONLY);
   // Open the PCIe bandwidth file for dynamic info gathering
   gpu_info->PCIeBW = NULL;
   int pcieBWFD = openat(sysfsFD, "pcie_bw", O_RDONLY);
@@ -371,13 +379,6 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
     gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
   }
 
-  // Open the power cap file for dynamic info gathering
-  gpu_info->powerCap = NULL;
-  int powerCapFD = openat(hwmonFD, "power1_cap", O_RDONLY);
-  if (powerCapFD) {
-    gpu_info->powerCap = fdopen(powerCapFD, "r");
-  }
-  close(hwmonFD);
   close(sysfsFD);
 }
 
@@ -613,17 +614,19 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
 
   // Critical temparature
   // temp1_* files should always be the GPU die in millidegrees Celsius
-  unsigned criticalTemp;
-  int NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_crit", "%u", &criticalTemp);
-  if (NreadPatterns == 1) {
-    SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, criticalTemp);
-  }
+  if (gpu_info->hwmonDevice) {
+    unsigned criticalTemp;
+    int NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_crit", "%u", &criticalTemp);
+    if (NreadPatterns == 1) {
+      SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, criticalTemp);
+    }
 
-  // Emergency/shutdown temparature
-  unsigned emergemcyTemp;
-  NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_emergency", "%u", &emergemcyTemp);
-  if (NreadPatterns == 1) {
-    SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergemcyTemp);
+    // Emergency/shutdown temparature
+    unsigned emergemcyTemp;
+    NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_emergency", "%u", &emergemcyTemp);
+    if (NreadPatterns == 1) {
+      SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergemcyTemp);
+    }
   }
 
   nvtop_pcie_link max_link_characteristics;
