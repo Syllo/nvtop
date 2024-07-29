@@ -344,6 +344,8 @@ nvtop_device *nvtop_device_get_hwmon(nvtop_device *dev) {
   if (ret < 0)
     return NULL;
   nvtop_device *hwmon = nvtop_enumerator_get_device_first(enumerator);
+  if (!hwmon)
+    return NULL;
   nvtop_device_ref(hwmon);
   nvtop_enumerator_unref(enumerator);
   return hwmon;
