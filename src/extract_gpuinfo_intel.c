@@ -115,10 +115,12 @@ void gpuinfo_intel_shutdown(void) {
 
 const char *gpuinfo_intel_last_error_string(void) { return "Err"; }
 
-static const char drm_intel_render[] = "drm-engine-render";
-static const char drm_intel_copy[] = "drm-engine-copy";
-static const char drm_intel_video[] = "drm-engine-video";
-static const char drm_intel_video_enhance[] = "drm-engine-video-enhance";
+static const char i915_drm_intel_render[] = "drm-engine-render";
+static const char i915_drm_intel_copy[] = "drm-engine-copy";
+static const char i915_drm_intel_video[] = "drm-engine-video";
+static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
+
+static const char xe_drm_intel_vram[] = "drm-total-vram0";
 
 static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
@@ -152,12 +154,22 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
         continue;
       client_id_set = true;
     } else {
-      bool is_render = !strcmp(key, drm_intel_render);
-      bool is_copy = !strcmp(key, drm_intel_copy);
-      bool is_video = !strcmp(key, drm_intel_video);
-      bool is_video_enhance = !strcmp(key, drm_intel_video_enhance);
+      bool is_render = !strcmp(key, i915_drm_intel_render);
+      bool is_copy = !strcmp(key, i915_drm_intel_copy);
+      bool is_video = !strcmp(key, i915_drm_intel_video);
+      bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
+      
+      if (strcmp(key, xe_drm_intel_vram)) {
+        // TODO: do we count "gtt mem" too?
+        unsigned long mem_int;
+        char *endptr;
 
-      if (is_render || is_copy || is_video || is_video_enhance) {
+        mem_int = strtoul(val, &endptr, 10);
+        if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
+            continue;
+
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+      } else if (is_render || is_copy || is_video || is_video_enhance) {
         char *endptr;
         uint64_t time_spent = strtoull(val, &endptr, 10);
         if (endptr == val || strcmp(endptr, " ns"))
