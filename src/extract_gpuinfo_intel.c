@@ -400,7 +400,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   if (!static_info->integrated_graphics) {
     nvtop_pcie_link curr_link_characteristics;
-    int ret = nvtop_device_current_pcie_link(card_dev_noncached, &curr_link_characteristics);
+    int ret = nvtop_device_current_pcie_link(driver_dev_noncached, &curr_link_characteristics);
     if (ret >= 0) {
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
       unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
