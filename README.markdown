@@ -9,7 +9,7 @@ accelerators. It can handle multiple GPUs and print information about them in a
 htop-familiar way.
 
 Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
-M2 support), Huawei (Ascend), Intel (Linux i915 driver), NVIDIA (Linux
+M2 support), Huawei (Ascend), Intel (Linux i915 or Xe driver), NVIDIA (Linux
 proprietary divers), Qualcomm Adreno (Linux MSM driver).
 
 Because a picture is worth a thousand words:
@@ -88,7 +88,7 @@ use a recent-enough kernel for your GPU.
 
 ### Intel
 
-NVTOP supports Intel GPUs using the `i915` linux driver.
+NVTOP supports Intel GPUs using the `i915` or `xe` linux driver.
 
 Intel introduced the fdinfo interface in kernel 5.19 ([browse kernel
 source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/gpu/drm/i915/i915_drm_client.c?h=linux-5.19.y)).

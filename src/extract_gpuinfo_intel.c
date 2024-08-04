@@ -63,9 +63,11 @@ struct intel_process_info_cache {
 
 struct gpu_info_intel {
   struct gpu_info base;
+  enum { DRIVER_I915, DRIVER_XE } driver;
 
   struct nvtop_device *card_device;
   struct nvtop_device *driver_device;
+  struct nvtop_device *hwmon_device;
   struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
 };
 
@@ -113,10 +115,12 @@ void gpuinfo_intel_shutdown(void) {
 
 const char *gpuinfo_intel_last_error_string(void) { return "Err"; }
 
-static const char drm_intel_render[] = "drm-engine-render";
-static const char drm_intel_copy[] = "drm-engine-copy";
-static const char drm_intel_video[] = "drm-engine-video";
-static const char drm_intel_video_enhance[] = "drm-engine-video-enhance";
+static const char i915_drm_intel_render[] = "drm-engine-render";
+static const char i915_drm_intel_copy[] = "drm-engine-copy";
+static const char i915_drm_intel_video[] = "drm-engine-video";
+static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
+
+static const char xe_drm_intel_vram[] = "drm-total-vram0";
 
 static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
@@ -150,12 +154,22 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
         continue;
       client_id_set = true;
     } else {
-      bool is_render = !strcmp(key, drm_intel_render);
-      bool is_copy = !strcmp(key, drm_intel_copy);
-      bool is_video = !strcmp(key, drm_intel_video);
-      bool is_video_enhance = !strcmp(key, drm_intel_video_enhance);
+      bool is_render = !strcmp(key, i915_drm_intel_render);
+      bool is_copy = !strcmp(key, i915_drm_intel_copy);
+      bool is_video = !strcmp(key, i915_drm_intel_video);
+      bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
+      
+      if (strcmp(key, xe_drm_intel_vram)) {
+        // TODO: do we count "gtt mem" too?
+        unsigned long mem_int;
+        char *endptr;
 
-      if (is_render || is_copy || is_video || is_video_enhance) {
+        mem_int = strtoul(val, &endptr, 10);
+        if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
+            continue;
+
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+      } else if (is_render || is_copy || is_video || is_video_enhance) {
         char *endptr;
         uint64_t time_spent = strtoull(val, &endptr, 10);
         if (endptr == val || strcmp(endptr, " ns"))
@@ -249,19 +263,21 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   struct nvtop_device *parent;
   if (nvtop_device_get_parent(dev, &parent) < 0)
     return;
-  // Consider enabled Intel cards using the i915 driver
+  // Consider enabled Intel cards using the i915 or xe driver
   const char *vendor, *driver, *enabled;
   if (nvtop_device_get_sysattr_value(parent, "vendor", &vendor) < 0 || strcmp(vendor, VENDOR_INTEL_STR))
     return;
-  if (nvtop_device_get_driver(parent, &driver) < 0 || strcmp(driver, "i915"))
+  if (nvtop_device_get_driver(parent, &driver) < 0 || (strcmp(driver, "i915") && strcmp(driver, "xe")))
     return;
   if (nvtop_device_get_sysattr_value(parent, "enable", &enabled) < 0 || strcmp(enabled, "1"))
     return;
 
   struct gpu_info_intel *thisGPU = &gpu_infos[intel_gpu_count++];
   thisGPU->base.vendor = &gpu_vendor_intel;
+  thisGPU->driver = !strcmp(driver, "xe") ? DRIVER_XE : DRIVER_I915;
   thisGPU->card_device = nvtop_device_ref(dev);
   thisGPU->driver_device = nvtop_device_ref(parent);
+  thisGPU->hwmon_device = nvtop_device_get_hwmon(thisGPU->driver_device);
   const char *pdev_val;
   int retval = nvtop_device_get_property_value(thisGPU->driver_device, "PCI_SLOT_NAME", &pdev_val);
   assert(retval >= 0 && pdev_val != NULL && "Could not retrieve device PCI slot name");
@@ -350,34 +366,33 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   RESET_ALL(dynamic_info->valid);
 
-  nvtop_device *card_dev_copy;
+  // We are creating new devices because the device_get_sysattr_value caches its querries
   const char *syspath;
-  nvtop_device_get_syspath(gpu_info->card_device, &syspath);
-  nvtop_device_new_from_syspath(&card_dev_copy, syspath);
+  nvtop_device *card_dev_noncached = NULL;
+  if (nvtop_device_get_syspath(gpu_info->card_device, &syspath) >= 0)
+    nvtop_device_new_from_syspath(&card_dev_noncached, syspath);
+  nvtop_device *driver_dev_noncached = NULL;
+  if (nvtop_device_get_syspath(gpu_info->driver_device, &syspath) >= 0)
+    nvtop_device_new_from_syspath(&driver_dev_noncached, syspath);
+  nvtop_device *hwmon_dev_noncached = NULL;
+  if (gpu_info->hwmon_device) {
+    if (nvtop_device_get_syspath(gpu_info->hwmon_device, &syspath) >= 0)
+      nvtop_device_new_from_syspath(&hwmon_dev_noncached, syspath);
+  }
 
+  nvtop_device *clock_device = gpu_info->driver == DRIVER_XE ? driver_dev_noncached : card_dev_noncached;
   // GPU clock
   const char *gt_cur_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_cur_freq_mhz", &gt_cur_freq) >= 0) {
+  const char *gt_cur_freq_sysattr = gpu_info->driver == DRIVER_XE ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
+  if (nvtop_device_get_sysattr_value(clock_device, gt_cur_freq_sysattr, &gt_cur_freq) >= 0) {
     unsigned val = strtoul(gt_cur_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
   }
   const char *gt_max_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_max_freq_mhz", &gt_max_freq) >= 0) {
+  const char *gt_max_freq_sysattr = gpu_info->driver == DRIVER_XE ? "tile0/gt0/freq0/max_freq" : "gt_max_freq_mhz";
+  if (nvtop_device_get_sysattr_value(clock_device, gt_max_freq_sysattr, &gt_max_freq) >= 0) {
     unsigned val = strtoul(gt_max_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
-  }
-
-  // Mem clock
-  // TODO: the attribute mem_cur_freq_mhz and mem_max_freq_mhz are speculative (not present on integrated graphics)
-  const char *mem_cur_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "mem_cur_freq_mhz", &mem_cur_freq) >= 0) {
-    unsigned val = strtoul(mem_cur_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
-  }
-  const char *mem_max_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "mem_max_freq_mhz", &mem_max_freq) >= 0) {
-    unsigned val = strtoul(mem_max_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
   }
 
   // TODO: find how to extract global utilization
@@ -385,7 +400,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   if (!static_info->integrated_graphics) {
     nvtop_pcie_link curr_link_characteristics;
-    int ret = nvtop_device_current_pcie_link(card_dev_copy, &curr_link_characteristics);
+    int ret = nvtop_device_current_pcie_link(driver_dev_noncached, &curr_link_characteristics);
     if (ret >= 0) {
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
       unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
@@ -394,8 +409,24 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 
   // TODO: Attributes such as memory, fan, temperature, power info should be available once the hwmon patch lands
+  if (hwmon_dev_noncached) {
+    const char *hwmon_power;
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1", &hwmon_power) >= 0) {
+      unsigned val = strtoul(hwmon_power, NULL, 10);
+      SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, val / 1000);
+    }
+    const char *hwmon_power_max;
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1_max", &hwmon_power_max) >= 0) {
+      unsigned val = strtoul(hwmon_power_max, NULL, 10);
+      SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, val / 1000);
+    }
+  }
 
-  nvtop_device_unref(card_dev_copy);
+  // Let the temporary devices be garbage collected
+  nvtop_device_unref(card_dev_noncached);
+  nvtop_device_unref(driver_dev_noncached);
+  if (hwmon_dev_noncached)
+    nvtop_device_unref(hwmon_dev_noncached);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_intel *gpu_info) {
