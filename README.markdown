@@ -39,6 +39,7 @@ Table of Contents
   - [Arch Linux](#arch-linux)
   - [AppImage](#appimage)
   - [Snap](#snap)
+  - [Conda-forge](#conda-forge)
   - [Docker](#docker)
 - [NVTOP Build](#nvtop-build)
 - [Troubleshoot](#troubleshoot)
@@ -299,6 +300,22 @@ If you are curious how that works, please visit the [AppImage website](https://a
   ```
 
 Notice: The connect commands allow
+
+### Conda-forge
+
+A [conda-forge feedstock for `nvtop`](https://github.com/conda-forge/nvtop-feedstock) is available.
+
+#### conda / mamba / miniforge
+
+```bash
+conda install --channel conda-forge nvtop
+```
+
+#### pixi
+
+```bash
+pixi global install nvtop
+```
 
 ### Docker
 
