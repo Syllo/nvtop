@@ -83,6 +83,7 @@ else()
   set(NVIDIA_SUPPORT_DEFAULT ON)
   set(AMDGPU_SUPPORT_DEFAULT ON)
   set(INTEL_SUPPORT_DEFAULT ON)
+  set(V3D_SUPPORT_DEFAULT ON)
   set(MSM_SUPPORT_DEFAULT ON)
   set(PANFROST_SUPPORT_DEFAULT ON)
   set(PANTHOR_SUPPORT_DEFAULT ON)
@@ -97,6 +98,7 @@ option(APPLE_SUPPORT "Build support for Apple GPUs through Metal" ${APPLE_SUPPOR
 option(PANFROST_SUPPORT "Build support for Mali GPUs through panfrost driver" ${PANFROST_SUPPORT_DEFAULT})
 option(PANTHOR_SUPPORT "Build support for Mali GPUs through panthor driver" ${PANTHOR_SUPPORT_DEFAULT})
 option(ASCEND_SUPPORT "Build support for Ascend NPUs through Ascend DCMI" ${ASCEND_SUPPORT_DEFAULT})
+option(V3D_SUPPORT "Build support for Raspberrypi through v3d" ${V3D_SUPPORT_DEFAULT})
 
 add_subdirectory(src)
 

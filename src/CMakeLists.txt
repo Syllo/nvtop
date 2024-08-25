@@ -100,6 +100,10 @@ if(INTEL_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_intel.c)
 endif()
 
+if(V3D_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_v3d.c)
+endif()
+
 if(APPLE_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_apple.m)
   target_link_libraries(nvtop PRIVATE
