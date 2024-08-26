@@ -27,14 +27,15 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#include <systemd/sd-device.h>
 #include <uthash.h>
 
 #define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct unique_cache_id), out_ptr)
 #define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(struct unique_cache_id), in_ptr)
 
-#define SET_v3d_CACHE(cachePtr, field, value) SET_VALUE(cachePtr, field, value, v3d_cache_)
-#define RESET_v3d_CACHE(cachePtr, field) INVALIDATE_VALUE(cachePtr, field, v3d_cache_)
-#define v3d_CACHE_FIELD_VALID(cachePtr, field) VALUE_IS_VALID(cachePtr, field, v3d_cache_)
+#define SET_V3D_CACHE(cachePtr, field, value) SET_VALUE(cachePtr, field, value, v3d_cache_)
+#define RESET_V3D_CACHE(cachePtr, field) INVALIDATE_VALUE(cachePtr, field, v3d_cache_)
+#define V3D_CACHE_FIELD_VALID(cachePtr, field) VALUE_IS_VALID(cachePtr, field, v3d_cache_)
 
 enum v3d_process_info_cache_valid {
   v3d_cache_engine_render_valid = 0,
@@ -45,9 +46,7 @@ enum v3d_process_info_cache_valid {
 };
 
 struct __attribute__((__packed__)) unique_cache_id {
-  unsigned client_id;
   pid_t pid;
-  char *pdev;
 };
 
 struct v3d_process_info_cache {
@@ -64,7 +63,8 @@ struct v3d_process_info_cache {
 struct gpu_info_v3d {
   struct gpu_info base;
 
-  unsigned long long last_timestamp, last_val[5];
+  uint64_t last_timestamp;
+  uint64_t last_runtime;
   struct nvtop_device *card_device;
   struct nvtop_device *driver_device;
   struct v3d_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
@@ -105,63 +105,72 @@ void gpuinfo_v3d_shutdown(void) {
 
 const char *gpuinfo_v3d_last_error_string(void) { return "Err"; }
 
+static void get_pid_usage(struct gpu_process *process_info) {
+  FILE *fp = fopen("/sys/kernel/debug/dri/0/gpu_pid_usage", "rb");
+
+  char *buf = NULL;
+  size_t res = 0;
+  unsigned long jobs, active;
+  pid_t pid;
+  uint64_t runtime;
+  uint64_t timestamp;
+
+  while (getline(&buf, &res, fp) > 0) {
+    if (sscanf(buf, "timestamp;%ld;", &timestamp) == 1) {
+    } else if (sscanf(strchr(buf, ';'), ";%d;%ld;%ld;%ld;", &pid, &jobs, &runtime, &active) == 4) {
+      if (!strncmp(buf, "v3d_ren", 7) && (pid == process_info->pid || pid == process_info->pid + 10)) {
+        SET_GPUINFO_PROCESS(process_info, gfx_engine_used, runtime);
+        free(buf);
+        fclose(fp);
+        return;
+      }
+    }
+  }
+
+  SET_GPUINFO_PROCESS(process_info, gfx_engine_used, 0);
+  free(buf);
+  fclose(fp);
+  return;
+}
+
 static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_v3d *gpu_info = container_of(info, struct gpu_info_v3d, base);
+  struct unique_cache_id ucid = {.pid = process_info->pid};
 
-  unsigned cid;
+  struct v3d_process_info_cache *added_cache_entry;
+  HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &ucid, added_cache_entry);
+  if (added_cache_entry)
+    return false;
+
+  get_pid_usage(process_info);
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
 
-  //  The v3d driver does not expose compute engine metrics as of yet
   process_info->type |= gpu_process_graphical;
 
   struct v3d_process_info_cache *cache_entry;
-  struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid, .pdev = gpu_info->base.pdev};
   HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &ucid, cache_entry);
   if (cache_entry) {
     uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
     HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
-        v3d_CACHE_FIELD_VALID(cache_entry, engine_render) &&
-        // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
+        V3D_CACHE_FIELD_VALID(cache_entry, engine_render) &&
         process_info->gfx_engine_used >= cache_entry->engine_render &&
         process_info->gfx_engine_used - cache_entry->engine_render <= time_elapsed) {
       SET_GPUINFO_PROCESS(
           process_info, gpu_usage,
           busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));
     }
-    if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used) &&
-        v3d_CACHE_FIELD_VALID(cache_entry, engine_video) &&
-        process_info->dec_engine_used >= cache_entry->engine_video &&
-        process_info->dec_engine_used - cache_entry->engine_video <= time_elapsed) {
-      SET_GPUINFO_PROCESS(
-          process_info, decode_usage,
-          busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->engine_video, time_elapsed));
-    }
-    if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used) &&
-        v3d_CACHE_FIELD_VALID(cache_entry, engine_video_enhance) &&
-        process_info->enc_engine_used >= cache_entry->engine_video_enhance &&
-        process_info->enc_engine_used - cache_entry->engine_video_enhance <= time_elapsed) {
-      SET_GPUINFO_PROCESS(process_info, encode_usage,
-                          busy_usage_from_time_usage_round(process_info->enc_engine_used,
-                                                           cache_entry->engine_video_enhance, time_elapsed));
-    }
   } else {
     cache_entry = calloc(1, sizeof(*cache_entry));
     if (!cache_entry)
       goto parse_fdinfo_exit;
-    cache_entry->client_id.client_id = cid;
     cache_entry->client_id.pid = process_info->pid;
-    cache_entry->client_id.pdev = gpu_info->base.pdev;
   }
 
   RESET_ALL(cache_entry->valid);
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used))
-    SET_v3d_CACHE(cache_entry, engine_render, process_info->gfx_engine_used);
-  if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used))
-    SET_v3d_CACHE(cache_entry, engine_video, process_info->dec_engine_used);
-  if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used))
-    SET_v3d_CACHE(cache_entry, engine_video_enhance, process_info->enc_engine_used);
+    SET_V3D_CACHE(cache_entry, engine_render, process_info->gfx_engine_used);
 
   cache_entry->last_measurement_tstamp = current_time;
   HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
@@ -177,7 +186,7 @@ static void add_v3d_cards(struct nvtop_device *dev, struct list_head *devices, u
 
   const char *driver;
   nvtop_device_get_driver(parent, &driver);
-  if (!strcmp(driver, "v3d"))
+  if (strcmp(driver, "vc4-drm"))
     return;
 
   struct gpu_info_v3d *thisGPU = &gpu_infos[v3d_gpu_count++];
@@ -187,9 +196,9 @@ static void add_v3d_cards(struct nvtop_device *dev, struct list_head *devices, u
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_v3d, &thisGPU->base);
+
   thisGPU->last_timestamp = 0;
-  for (int i = 0; i < 5; i++)
-    thisGPU->last_val[i] = 0;
+  thisGPU->last_runtime = 0;
   (*count)++;
 }
 
@@ -243,60 +252,33 @@ void gpuinfo_v3d_populate_static_info(struct gpu_info *_gpu_info) {
   SET_VALID(gpuinfo_device_name_valid, static_info->valid);
 }
 
-static int get_vc_usage(struct gpu_info *_gpu_info) {
+static void set_sum_usage(struct gpu_info *_gpu_info) {
   struct gpu_info_v3d *gpu_info = container_of(_gpu_info, struct gpu_info_v3d, base);
   FILE *fp = fopen("/sys/kernel/debug/dri/0/gpu_usage", "rb");
 
   char *buf = NULL;
   size_t res = 0;
   unsigned long jobs, active;
-  unsigned long long timestamp, elapsed, runtime;
-  float max, load[5];
-  int i;
+  uint64_t timestamp, elapsed, runtime;
 
   while (getline(&buf, &res, fp) > 0) {
-    if (sscanf(buf, "timestamp;%lld;", &timestamp) == 1) {
-      // use the timestamp line to calculate time since last measurement
+    if (sscanf(buf, "timestamp;%ld;", &timestamp) == 1) {
       elapsed = timestamp - gpu_info->last_timestamp;
       gpu_info->last_timestamp = timestamp;
-    } else if (sscanf(strchr(buf, ';'), ";%ld;%lld;%ld;", &jobs, &runtime, &active) == 3) {
-      // depending on which queue is in the line, calculate the percentage of time used since last measurement
-      // store the current time value for the next calculation
-      i = -1;
-      if (!strncmp(buf, "v3d_bin", 7))
-        i = 0;
-      if (!strncmp(buf, "v3d_ren", 7))
-        i = 1;
-      if (!strncmp(buf, "v3d_tfu", 7))
-        i = 2;
-      if (!strncmp(buf, "v3d_csd", 7))
-        i = 3;
-      if (!strncmp(buf, "v3d_cac", 7))
-        i = 4;
-
-      if (i != -1) {
-        if (gpu_info->last_val[i] == 0)
-          load[i] = 0.0;
-        else {
-          load[i] = runtime;
-          load[i] -= gpu_info->last_val[i];
-          load[i] /= elapsed;
-        }
-        gpu_info->last_val[i] = runtime;
+    } else if (sscanf(strchr(buf, ';'), ";%ld;%ld;%ld;", &jobs, &runtime, &active) == 3) {
+      if (!strncmp(buf, "v3d_ren", 7)) {
+        int usage = busy_usage_from_time_usage_round(runtime, gpu_info->last_runtime, elapsed);
+        gpu_info->last_runtime = runtime;
+        SET_GPUINFO_DYNAMIC(&(gpu_info->base.dynamic_info), gpu_util_rate, usage);
+        free(buf);
+        fclose(fp);
+        return;
       }
     }
   }
 
   free(buf);
   fclose(fp);
-
-  // calculate the max of the five queue values and store in the task array
-  max = 0.0;
-  for (i = 0; i < 5; i++)
-    if (load[i] > max)
-      max = load[i];
-
-  return (int)(max * 100);
 }
 
 void gpuinfo_v3d_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -310,10 +292,6 @@ void gpuinfo_v3d_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   nvtop_device_get_syspath(gpu_info->card_device, &syspath);
   nvtop_device_new_from_syspath(&card_dev_copy, syspath);
 
-  // GPU usage
-  int gpu_usage = get_vc_usage(_gpu_info);
-  SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, gpu_usage);
-
   // GPU clock
   const char *gt_cur_freq;
   if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_cur_freq_mhz", &gt_cur_freq) >= 0) {
@@ -325,6 +303,8 @@ void gpuinfo_v3d_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     unsigned val = strtoul(gt_max_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
   }
+
+  set_sum_usage(_gpu_info);
 
   nvtop_device_unref(card_dev_copy);
 }
