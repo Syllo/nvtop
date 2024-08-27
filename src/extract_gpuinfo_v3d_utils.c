@@ -61,8 +61,14 @@ static char bo_stats_file[50];
 
 void set_debug_files(int card_id) {
   snprintf(gpu_usage_file, sizeof(gpu_usage_file), "/sys/kernel/debug/dri/%d/gpu_usage", card_id);
+  if (access(gpu_usage_file, F_OK))
+    printf("%s is not available.\n", gpu_usage_file);
   snprintf(gpu_pid_usage_file, sizeof(gpu_pid_usage_file), "/sys/kernel/debug/dri/%d/gpu_pid_usage", card_id);
+  if (access(gpu_pid_usage_file, F_OK))
+    printf("%s is not available.\n", gpu_pid_usage_file);
   snprintf(bo_stats_file, sizeof(bo_stats_file), "/sys/kernel/debug/dri/%d/bo_stats", card_id);
+  if (access(bo_stats_file, F_OK))
+    printf("%s is not available.\n", bo_stats_file);
 }
 
 static int mbox_property(int mb, void *buf) {

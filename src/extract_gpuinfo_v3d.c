@@ -227,7 +227,8 @@ void gpuinfo_v3d_populate_static_info(struct gpu_info *_gpu_info) {
 
   snprintf(static_info->device_name, sizeof(static_info->device_name), "%s", dev_name);
   SET_VALID(gpuinfo_device_name_valid, static_info->valid);
-  set_init_max_memory(gpu_info->mb);
+  if (gpu_info->mb >= 0)
+    set_init_max_memory(gpu_info->mb);
 }
 
 void gpuinfo_v3d_refresh_dynamic_info(struct gpu_info *_gpu_info) {
