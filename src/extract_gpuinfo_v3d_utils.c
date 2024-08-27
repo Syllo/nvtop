@@ -48,7 +48,7 @@ void set_init_max_memory(int mb);
 
 static uint64_t last_timestamp = 0;
 static uint64_t last_runtime = 0;
-static uint64_t max_gpu_memeory_bytes = 128 << 20;
+static uint64_t max_gpu_memory_bytes = 128 << 20;
 
 static const char measure_temp[] = "measure_temp";
 static const char measure_clock_v3d[] = "measure_clock v3d";
@@ -109,7 +109,7 @@ static unsigned gencmd(int mb, const char *command, char *result, int result_len
   p[i++] = GET_GENCMD_RESULT; // (the tag id)
   p[i++] = MAX_STRING;        // buffer_len
   p[i++] = 0;                 // request_len (set to response length)
-  p[i++] = 0;                 // error repsonse
+  p[i++] = 0;                 // error response
 
   memcpy(p + i, command, len + 1);
   i += MAX_STRING >> 2;
@@ -131,8 +131,8 @@ void set_init_max_memory(int mb) {
 
   int ret = gencmd(mb, get_mem_gpu, result, sizeof result);
   if (!ret) {
-    if (sscanf(result, "gpu=%luM", &max_gpu_memeory_bytes) == 1) {
-      max_gpu_memeory_bytes <<= 20;
+    if (sscanf(result, "gpu=%luM", &max_gpu_memory_bytes) == 1) {
+      max_gpu_memory_bytes <<= 20;
     }
   }
 }
@@ -201,11 +201,11 @@ void set_memory_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info) {
   uint64_t allocated_bo_size_bytes = allocated_bo_size_kb << 10;
 
   SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, allocated_bo_size_bytes);
-  if (allocated_bo_size_bytes >= max_gpu_memeory_bytes)
-    max_gpu_memeory_bytes = allocated_bo_size_bytes;
-  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, max_gpu_memeory_bytes);
+  if (allocated_bo_size_bytes >= max_gpu_memory_bytes)
+    max_gpu_memory_bytes = allocated_bo_size_bytes;
+  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, max_gpu_memory_bytes);
   SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
-                      cal_percentage_usage(allocated_bo_size_bytes, max_gpu_memeory_bytes));
+                      cal_percentage_usage(allocated_bo_size_bytes, max_gpu_memory_bytes));
 }
 
 void set_usage_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info) {
@@ -256,7 +256,7 @@ void set_pid_usage_gpuinfo(struct gpu_process *process_info) {
     if (sscanf(buf, "timestamp;%lu;", &timestamp) == 1) {
     } else if (sscanf(strchr(buf, ';'), ";%u;%u;%lu;%u;", &pid, &jobs, &runtime, &active) == 4) {
       if (!strncmp(buf, "v3d_render", 10)) {
-        // gpu_pid_usage_file report wrong pid, this is a workround.
+        // gpu_pid_usage_file report wrong pid, this is a workaround.
         int pid_diff = pid - process_info->pid;
         if (pid_diff >= 0 && pid_diff < min_pid_diff) {
           select_runtime = runtime;
