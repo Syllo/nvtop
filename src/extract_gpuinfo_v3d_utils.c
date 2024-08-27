@@ -42,6 +42,7 @@ void get_pid_usage(struct gpu_process *process_info);
 
 static uint64_t last_timestamp = 0;
 static uint64_t last_runtime = 0;
+static uint64_t max_gpu_mem = 0;
 
 static int mbox_property(int file_desc, void *buf) {
   int ret_val = ioctl(file_desc, IOCTL_MBOX_PROPERTY, buf);
@@ -96,6 +97,29 @@ static unsigned gencmd(int file_desc, const char *command, char *result, int res
   return p[5];
 }
 
+static void set_gpuinfo_max_mem(int mb, const char *command) {
+  char result[MAX_STRING] = {};
+
+  int ret = gencmd(mb, command, result, sizeof result);
+  if (!ret) {
+    if (sscanf(result, "gpu=%luM", &max_gpu_mem) == 1) {
+      max_gpu_mem <<= 20;
+    }
+  }
+}
+
+static void set_gpuinfo_decode(struct gpuinfo_dynamic_info *dynamic_info, int mb, const char *command) {
+  unsigned int decode_usage = 0;
+  char result[MAX_STRING] = {};
+
+  int ret = gencmd(mb, command, result, sizeof result);
+  if (!ret) {
+    if (sscanf(result, "frequency(28)=%u", &decode_usage) == 1) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, (unsigned)(100 * (decode_usage / 550006336.0)));
+    }
+  }
+}
+
 static void set_gpuinfo_temp(struct gpuinfo_dynamic_info *dynamic_info, int mb, const char *command) {
   float temperature = 0;
   char result[MAX_STRING] = {};
@@ -124,6 +148,8 @@ void set_gpuinfo_from_vcio(struct gpuinfo_dynamic_info *dynamic_info) {
   int mb = mbox_open();
   set_gpuinfo_temp(dynamic_info, mb, "measure_temp");
   set_gpuinfo_clock(dynamic_info, mb, "measure_clock v3d");
+  set_gpuinfo_decode(dynamic_info, mb, "measure_clock h264");
+  set_gpuinfo_max_mem(mb, "get_mem gpu");
   mbox_close(mb);
 }
 
@@ -135,7 +161,6 @@ void set_mem_info(struct gpuinfo_dynamic_info *dynamic_info) {
 
   char line[256];
   unsigned long allocated_bo_size_kb = 0;
-  unsigned long max_mem_size = 128 << 20;
 
   while (fgets(line, sizeof(line), file)) {
     if (sscanf(line, "allocated bo size (kb): %lu", &allocated_bo_size_kb) == 1) {
@@ -147,12 +172,14 @@ void set_mem_info(struct gpuinfo_dynamic_info *dynamic_info) {
 
   unsigned long allocated_bo_size_bytes = allocated_bo_size_kb << 10;
 
-  if (allocated_bo_size_bytes >= max_mem_size)
-    max_mem_size = allocated_bo_size_bytes;
-
   SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, allocated_bo_size_bytes);
-  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, max_mem_size);
-  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, (uint)(100.0 * allocated_bo_size_bytes / max_mem_size));
+  if (allocated_bo_size_bytes >= max_gpu_mem) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, allocated_bo_size_bytes);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, 100);
+  } else {
+    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, max_gpu_mem);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, (uint)(100.0 * allocated_bo_size_bytes / max_gpu_mem));
+  }
 }
 
 void set_sum_usage(struct gpuinfo_dynamic_info *dynamic_info) {
