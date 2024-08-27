@@ -29,10 +29,14 @@
 #include <string.h>
 #include <uthash.h>
 
-void set_gpuinfo_from_vcio(struct gpuinfo_dynamic_info *dynamic_info);
-void set_mem_info(struct gpuinfo_dynamic_info *dynamic_info);
-void set_sum_usage(struct gpuinfo_dynamic_info *dynamic_info);
-void get_pid_usage(struct gpu_process *process_info);
+int mbox_open(void);
+void mbox_close(int mb);
+void set_debug_files(int card_id);
+void set_gpuinfo_from_vcio(struct gpuinfo_dynamic_info *dynamic_info, int mb);
+void set_memory_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info);
+void set_usage_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info);
+void set_pid_usage_gpuinfo(struct gpu_process *process_info);
+void set_init_max_memory(int mb);
 
 #define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct unique_cache_id), out_ptr)
 #define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(struct unique_cache_id), in_ptr)
@@ -41,13 +45,7 @@ void get_pid_usage(struct gpu_process *process_info);
 #define RESET_V3D_CACHE(cachePtr, field) INVALIDATE_VALUE(cachePtr, field, v3d_cache_)
 #define V3D_CACHE_FIELD_VALID(cachePtr, field) VALUE_IS_VALID(cachePtr, field, v3d_cache_)
 
-enum v3d_process_info_cache_valid {
-  v3d_cache_engine_render_valid = 0,
-  v3d_cache_engine_copy_valid,
-  v3d_cache_engine_video_valid,
-  v3d_cache_engine_video_enhance_valid,
-  v3d_cache_process_info_cache_valid_count
-};
+enum v3d_process_info_cache_valid { v3d_cache_engine_render_valid = 0, v3d_cache_process_info_cache_valid_count };
 
 struct __attribute__((__packed__)) unique_cache_id {
   pid_t pid;
@@ -56,9 +54,6 @@ struct __attribute__((__packed__)) unique_cache_id {
 struct v3d_process_info_cache {
   struct unique_cache_id client_id;
   uint64_t engine_render;
-  uint64_t engine_copy;
-  uint64_t engine_video;
-  uint64_t engine_video_enhance;
   nvtop_time last_measurement_tstamp;
   unsigned char valid[(v3d_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
   UT_hash_handle hh;
@@ -66,6 +61,8 @@ struct v3d_process_info_cache {
 
 struct gpu_info_v3d {
   struct gpu_info base;
+  int mb;
+  int card_id;
 
   struct nvtop_device *card_device;
   struct nvtop_device *driver_device;
@@ -102,12 +99,16 @@ void gpuinfo_v3d_shutdown(void) {
     struct gpu_info_v3d *current = &gpu_infos[i];
     nvtop_device_unref(current->card_device);
     nvtop_device_unref(current->driver_device);
+    if (current->mb >= 0)
+      mbox_close(current->mb);
   }
 }
 
 const char *gpuinfo_v3d_last_error_string(void) { return "Err"; }
 
 static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
+  if (!fdinfo_file)
+    return false;
   struct gpu_info_v3d *gpu_info = container_of(info, struct gpu_info_v3d, base);
   struct unique_cache_id ucid = {.pid = process_info->pid};
 
@@ -116,7 +117,7 @@ static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struc
   if (added_cache_entry)
     return false;
 
-  get_pid_usage(process_info);
+  set_pid_usage_gpuinfo(process_info);
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
 
@@ -153,14 +154,14 @@ parse_fdinfo_exit:
   return true;
 }
 
-static void add_v3d_cards(struct nvtop_device *dev, struct list_head *devices, unsigned *count) {
+static void add_v3d_cards(struct nvtop_device *dev, const char *devname, struct list_head *devices, unsigned *count) {
   struct nvtop_device *parent;
   if (nvtop_device_get_parent(dev, &parent) < 0)
     return;
 
   const char *driver;
   nvtop_device_get_driver(parent, &driver);
-  if (strcmp(driver, "vc4-drm"))
+  if (strcmp(driver, "v3d"))
     return;
 
   struct gpu_info_v3d *thisGPU = &gpu_infos[v3d_gpu_count++];
@@ -170,6 +171,10 @@ static void add_v3d_cards(struct nvtop_device *dev, struct list_head *devices, u
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_v3d, &thisGPU->base);
+  thisGPU->mb = mbox_open();
+  if (sscanf(devname, "/dev/dri/card%d", &thisGPU->card_id) != 1)
+    thisGPU->card_id = 0;
+  set_debug_files(thisGPU->card_id);
 
   (*count)++;
 }
@@ -203,7 +208,7 @@ bool gpuinfo_v3d_get_device_handles(struct list_head *devices_list, unsigned *co
     if (nvtop_device_get_devname(device, &devname) < 0)
       continue;
     if (strstr(devname, "/dev/dri/card")) {
-      add_v3d_cards(device, devices_list, count);
+      add_v3d_cards(device, devname, devices_list, count);
     }
   }
 
@@ -222,6 +227,7 @@ void gpuinfo_v3d_populate_static_info(struct gpu_info *_gpu_info) {
 
   snprintf(static_info->device_name, sizeof(static_info->device_name), "%s", dev_name);
   SET_VALID(gpuinfo_device_name_valid, static_info->valid);
+  set_init_max_memory(gpu_info->mb);
 }
 
 void gpuinfo_v3d_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -235,21 +241,10 @@ void gpuinfo_v3d_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   nvtop_device_get_syspath(gpu_info->card_device, &syspath);
   nvtop_device_new_from_syspath(&card_dev_copy, syspath);
 
-  // GPU clock
-  const char *gt_cur_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_cur_freq_mhz", &gt_cur_freq) >= 0) {
-    unsigned val = strtoul(gt_cur_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
-  }
-  const char *gt_max_freq;
-  if (nvtop_device_get_sysattr_value(card_dev_copy, "gt_max_freq_mhz", &gt_max_freq) >= 0) {
-    unsigned val = strtoul(gt_max_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
-  }
-
-  set_sum_usage(dynamic_info);
-  set_mem_info(dynamic_info);
-  set_gpuinfo_from_vcio(dynamic_info);
+  set_usage_gpuinfo(dynamic_info);
+  set_memory_gpuinfo(dynamic_info);
+  if (gpu_info->mb >= 0)
+    set_gpuinfo_from_vcio(dynamic_info, gpu_info->mb);
   nvtop_device_unref(card_dev_copy);
 }
 
