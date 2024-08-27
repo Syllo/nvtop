@@ -119,7 +119,9 @@ static unsigned gencmd(int mb, const char *command, char *result, int result_len
 
   mbox_property(mb, p);
   result[0] = 0;
-  strncat(result, (const char *)(p + 6), result_len);
+
+  size_t available_space = result_len - strlen(result) - 1;
+  strncat(result, (const char *)(p + 6), available_space);
 
   return p[5];
 }
