@@ -1,8 +1,8 @@
 /*
  *
- * Copyright (C) 2022 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2022 Hoream Xiao <horeamx@gmail.com>
  *
- * This file is part of Nvtop and adapted from igt-gpu-tools from v3d Corporation.
+ * This file is part of Nvtop.
  *
  * Nvtop is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,8 +27,12 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <systemd/sd-device.h>
 #include <uthash.h>
+
+void set_gpuinfo_from_vcio(struct gpuinfo_dynamic_info *dynamic_info);
+void set_mem_info(struct gpuinfo_dynamic_info *dynamic_info);
+void set_sum_usage(struct gpuinfo_dynamic_info *dynamic_info);
+void get_pid_usage(struct gpu_process *process_info);
 
 #define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct unique_cache_id), out_ptr)
 #define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(struct unique_cache_id), in_ptr)
@@ -63,8 +67,6 @@ struct v3d_process_info_cache {
 struct gpu_info_v3d {
   struct gpu_info base;
 
-  uint64_t last_timestamp;
-  uint64_t last_runtime;
   struct nvtop_device *card_device;
   struct nvtop_device *driver_device;
   struct v3d_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
@@ -104,34 +106,6 @@ void gpuinfo_v3d_shutdown(void) {
 }
 
 const char *gpuinfo_v3d_last_error_string(void) { return "Err"; }
-
-static void get_pid_usage(struct gpu_process *process_info) {
-  FILE *fp = fopen("/sys/kernel/debug/dri/0/gpu_pid_usage", "rb");
-
-  char *buf = NULL;
-  size_t res = 0;
-  unsigned long jobs, active;
-  pid_t pid;
-  uint64_t runtime;
-  uint64_t timestamp;
-
-  while (getline(&buf, &res, fp) > 0) {
-    if (sscanf(buf, "timestamp;%ld;", &timestamp) == 1) {
-    } else if (sscanf(strchr(buf, ';'), ";%d;%ld;%ld;%ld;", &pid, &jobs, &runtime, &active) == 4) {
-      if (!strncmp(buf, "v3d_ren", 7) && (pid == process_info->pid || pid == process_info->pid + 10)) {
-        SET_GPUINFO_PROCESS(process_info, gfx_engine_used, runtime);
-        free(buf);
-        fclose(fp);
-        return;
-      }
-    }
-  }
-
-  SET_GPUINFO_PROCESS(process_info, gfx_engine_used, 0);
-  free(buf);
-  fclose(fp);
-  return;
-}
 
 static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_v3d *gpu_info = container_of(info, struct gpu_info_v3d, base);
@@ -197,8 +171,6 @@ static void add_v3d_cards(struct nvtop_device *dev, struct list_head *devices, u
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_v3d, &thisGPU->base);
 
-  thisGPU->last_timestamp = 0;
-  thisGPU->last_runtime = 0;
   (*count)++;
 }
 
@@ -252,35 +224,6 @@ void gpuinfo_v3d_populate_static_info(struct gpu_info *_gpu_info) {
   SET_VALID(gpuinfo_device_name_valid, static_info->valid);
 }
 
-static void set_sum_usage(struct gpu_info *_gpu_info) {
-  struct gpu_info_v3d *gpu_info = container_of(_gpu_info, struct gpu_info_v3d, base);
-  FILE *fp = fopen("/sys/kernel/debug/dri/0/gpu_usage", "rb");
-
-  char *buf = NULL;
-  size_t res = 0;
-  unsigned long jobs, active;
-  uint64_t timestamp, elapsed, runtime;
-
-  while (getline(&buf, &res, fp) > 0) {
-    if (sscanf(buf, "timestamp;%ld;", &timestamp) == 1) {
-      elapsed = timestamp - gpu_info->last_timestamp;
-      gpu_info->last_timestamp = timestamp;
-    } else if (sscanf(strchr(buf, ';'), ";%ld;%ld;%ld;", &jobs, &runtime, &active) == 3) {
-      if (!strncmp(buf, "v3d_ren", 7)) {
-        int usage = busy_usage_from_time_usage_round(runtime, gpu_info->last_runtime, elapsed);
-        gpu_info->last_runtime = runtime;
-        SET_GPUINFO_DYNAMIC(&(gpu_info->base.dynamic_info), gpu_util_rate, usage);
-        free(buf);
-        fclose(fp);
-        return;
-      }
-    }
-  }
-
-  free(buf);
-  fclose(fp);
-}
-
 void gpuinfo_v3d_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_v3d *gpu_info = container_of(_gpu_info, struct gpu_info_v3d, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
@@ -304,8 +247,9 @@ void gpuinfo_v3d_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
   }
 
-  set_sum_usage(_gpu_info);
-
+  set_sum_usage(dynamic_info);
+  set_mem_info(dynamic_info);
+  set_gpuinfo_from_vcio(dynamic_info);
   nvtop_device_unref(card_dev_copy);
 }
 

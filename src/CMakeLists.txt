@@ -102,6 +102,7 @@ endif()
 
 if(V3D_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_v3d.c)
+  target_sources(nvtop PRIVATE extract_gpuinfo_v3d_utils.c)
 endif()
 
 if(APPLE_SUPPORT)
