@@ -20,6 +20,7 @@
  */
 
 #include "nvtop/extract_gpuinfo_common.h"
+#include <dirent.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
@@ -204,8 +205,7 @@ void set_memory_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info) {
   if (allocated_bo_size_bytes >= max_gpu_memory_bytes)
     max_gpu_memory_bytes = allocated_bo_size_bytes;
   SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, max_gpu_memory_bytes);
-  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
-                      cal_percentage_usage(allocated_bo_size_bytes, max_gpu_memory_bytes));
+  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, cal_percentage_usage(allocated_bo_size_bytes, max_gpu_memory_bytes));
 }
 
 void set_usage_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info) {
@@ -236,6 +236,31 @@ void set_usage_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info) {
   return;
 }
 
+static pid_t get_tgid_from_tid(pid_t tid) {
+  char path[40];
+  struct dirent *entry;
+  DIR *dp;
+  pid_t min_tid = INT_MAX;
+
+  snprintf(path, sizeof(path), "/proc/%d/task/", tid);
+
+  dp = opendir(path);
+  if (dp == NULL) {
+    return -1;
+  }
+
+  while ((entry = readdir(dp)) != NULL) {
+    int current_tid = atoi(entry->d_name);
+    if (current_tid > 0 && current_tid < min_tid) {
+      min_tid = current_tid;
+    }
+  }
+
+  closedir(dp);
+
+  return min_tid;
+}
+
 void set_pid_usage_gpuinfo(struct gpu_process *process_info) {
   FILE *fp = fopen(gpu_pid_usage_file, "rb");
   if (fp == NULL) {
@@ -245,29 +270,26 @@ void set_pid_usage_gpuinfo(struct gpu_process *process_info) {
   char *buf = NULL;
   size_t res = 0;
   unsigned jobs, active;
-  pid_t pid;
+  pid_t tid;
   uint64_t runtime;
   uint64_t timestamp;
 
-  int min_pid_diff = 100;
-  uint64_t select_runtime;
-
   while (getline(&buf, &res, fp) > 0) {
     if (sscanf(buf, "timestamp;%lu;", &timestamp) == 1) {
-    } else if (sscanf(strchr(buf, ';'), ";%u;%u;%lu;%u;", &pid, &jobs, &runtime, &active) == 4) {
+    } else if (sscanf(strchr(buf, ';'), ";%u;%u;%lu;%u;", &tid, &jobs, &runtime, &active) == 4) {
       if (!strncmp(buf, "v3d_render", 10)) {
-        // gpu_pid_usage_file report wrong pid, this is a workaround.
-        int pid_diff = pid - process_info->pid;
-        if (pid_diff >= 0 && pid_diff < min_pid_diff) {
-          select_runtime = runtime;
-          min_pid_diff = pid_diff;
+        if (get_tgid_from_tid(tid) == process_info->pid) {
+          SET_GPUINFO_PROCESS(process_info, gfx_engine_used, runtime);
+          free(buf);
+          fclose(fp);
+          return;
         }
       }
     }
   }
 
+  SET_GPUINFO_PROCESS(process_info, gfx_engine_used, 0);
   free(buf);
   fclose(fp);
-  SET_GPUINFO_PROCESS(process_info, gfx_engine_used, select_runtime);
   return;
 }
