@@ -138,8 +138,6 @@ NVTOP supports VideoCore (testing on raspberrypi 4B).
 
 Supports GPU frequency, temperature, utilization, per-process utilization, GPU memory usage, and H264 decoding utilization.
 
-The pid in debugfs might be incorrect, so the per-process utilization might be inaccurate.
-
 On non-raspberry pi os, you need to use the `linux-rpi` kernel, ensure the presence of the `/dev/vcio` device, and have access permissions to the `/sys/kernel/debug` directory.
 
 Build
