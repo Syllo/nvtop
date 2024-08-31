@@ -92,7 +92,7 @@ endif()
 
 option(NVIDIA_SUPPORT "Build support for NVIDIA GPUs through libnvml" ${NVIDIA_SUPPORT_DEFAULT})
 option(AMDGPU_SUPPORT "Build support for AMD GPUs through amdgpu driver" ${AMDGPU_SUPPORT_DEFAULT})
-option(INTEL_SUPPORT "Build support for Intel GPUs through i915 driver" ${INTEL_SUPPORT_DEFAULT})
+option(INTEL_SUPPORT "Build support for Intel GPUs through i915 or xe driver" ${INTEL_SUPPORT_DEFAULT})
 option(MSM_SUPPORT "Build support for Adreno GPUs through msm driver" ${MSM_SUPPORT_DEFAULT})
 option(APPLE_SUPPORT "Build support for Apple GPUs through Metal" ${APPLE_SUPPORT_DEFAULT})
 option(PANFROST_SUPPORT "Build support for Mali GPUs through panfrost driver" ${PANFROST_SUPPORT_DEFAULT})

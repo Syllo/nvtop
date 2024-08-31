@@ -17,7 +17,7 @@ RUN apt-get update && \
 # Get a recent-enough CMake
 RUN python3 -m venv /.venv && \
     . /.venv/bin/activate && \
-    pip install --upgrade pip \
+    pip install --upgrade pip && \
     pip install cmake
 
 COPY . /nvtop
