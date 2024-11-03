@@ -1,54 +1,63 @@
 #!/usr/bin/env bash
 
+export ARCH="$(uname -m)"
+export APPIMAGE_EXTRACT_AND_RUN=1
+APPIMAGETOOL="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$ARCH.AppImage"
+
 install_deps() {
-  apt-get update
-  apt-get install -y gcc g++ libncurses5-dev libncursesw5-dev libdrm-dev wget file libudev-dev ninja-build make python3-venv
+	apt-get update
+	apt-get install -y gcc g++ cmake libncurses5-dev libncursesw5-dev libdrm-dev \
+	  wget file libudev-dev ninja-build cmake file desktop-file-utils
 }
 
 configure_nvtop() {
-  cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DUSE_LIBUDEV_OVER_LIBSYSTEMD=ON -DCMAKE_INSTALL_PREFIX=/usr
+	cmake -B build -S . -DCMAKE_BUILD_TYPE=Release \
+	  -DUSE_LIBUDEV_OVER_LIBSYSTEMD=ON -DCMAKE_INSTALL_PREFIX=/usr
 }
 
 build_nvtop() {
-  cmake --build build
+	cmake --build build
 }
 
 install_nvtop_AppDir() {
-  DESTDIR=$PWD/AppDir cmake --build build --target install
+	DESTDIR=$PWD/AppDir cmake --build build --target install
 }
 
-get_linuxdeploy() {
-  wget -nc https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-  chmod u+x linuxdeploy-x86_64.AppImage
-  ./linuxdeploy-x86_64.AppImage --appimage-extract
+bundle_dependencies() {
+	mkdir -p AppDir/usr/lib
+	ldd AppDir/usr/bin/nvtop | awk -F"[> ]" '{print $4}' \
+	  | xargs -I {} cp -vf {} AppDir/usr/lib
+	cp -v /lib64/ld-linux-x86-64.so.2 AppDir
+}
+
+configure_appdir() {
+	cat >> AppDir/AppRun <<- 'EOF'
+	#!/bin/sh
+	HERE="$(readlink -f "$(dirname "$0")")"
+	exec "$HERE/ld-linux-x86-64.so.2" \
+	  --library-path "$HERE/usr/lib" "$HERE"/usr/bin/nvtop "$@"
+	EOF
+	chmod u+x AppDir/AppRun
+	ln -s usr/share/applications/nvtop.desktop AppDir
+	ln -s usr/share/icons/nvtop.svg AppDir
+	ln -s usr/share/icons/nvtop.svg AppDir/.DirIcon
 }
 
 get_appimagetool() {
-	ARCH=x86_64
-	APPIMAGETOOL=$(wget -q https://api.github.com/repos/probonopd/go-appimage/releases -O - | sed 's/"/ /g; s/ /\n/g' | grep -o 'https.*continuous.*tool.*86_64.*mage$')
 	wget -q "$APPIMAGETOOL" -O ./appimagetool
 	chmod u+x ./appimagetool
-	./appimagetool --appimage-extract
-}
-
-get_cmake() {
-  python3 -m venv .venv
-  source .venv/bin/activate
-  pip install --upgrade pip
-  pip install cmake
 }
 
 create_AppImage() {
-  install_deps
-  get_cmake
-  configure_nvtop
-  build_nvtop
-  install_nvtop_AppDir
-  get_linuxdeploy
-  ./squashfs-root/AppRun --appdir AppDir --exclude-library="*udev*" --desktop-file AppDir/usr/share/applications/nvtop.desktop --icon-file AppDir/usr/share/icons/nvtop.svg
-  rm -rf ./squashfs-root
-  get_appimagetool
-  VERSION=$(./AppDir/AppRun --version | awk '{print $NF}') ./squashfs-root/AppRun -s AppDir
+	install_deps
+	configure_nvtop
+	build_nvtop
+	install_nvtop_AppDir
+	bundle_dependencies
+	configure_appdir
+	get_appimagetool
+	export VERSION="$(./AppDir/AppRun --version | awk '{print $NF}')"
+	./appimagetool -n AppDir
 }
 
 create_AppImage
