@@ -9,8 +9,8 @@ accelerators. It can handle multiple GPUs and print information about them in a
 htop-familiar way.
 
 Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
-M2 support), Huawei (Ascend), Intel (Linux i915 or Xe driver), NVIDIA (Linux
-proprietary divers), Qualcomm Adreno (Linux MSM driver).
+M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
+proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver).
 
 Because a picture is worth a thousand words:
 
@@ -30,6 +30,7 @@ Table of Contents
   - [Adreno](#adreno)
   - [Apple](#apple)
   - [Ascend](#ascend) (only tested on 910B)
+  - [VideoCore](#videocore)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
@@ -131,6 +132,14 @@ NVTOP includes some initial support for Apple using Metal. This is only supporte
 NVTOP supports Ascend (testing on Altas 800 (910B)) by DCMI API (version 6.0.0).
 
 Currently, the DCMI only supports limited APIs, missing PCIe generation, tx/rx throughput info, max power draw etc.
+
+### VideoCore
+
+NVTOP supports VideoCore (testing on raspberrypi 4B).
+
+Supports GPU frequency, temperature, utilization, per-process utilization, GPU memory usage, and H264 decoding utilization.
+
+On non-raspberry pi os, you need to use the `linux-rpi` kernel, ensure the presence of the `/dev/vcio` device, and have access permissions to the `/sys/kernel/debug` directory.
 
 Build
 -----
