@@ -68,7 +68,7 @@ if(AMDGPU_SUPPORT OR INTEL_SUPPORT OR V3D_SUPPORT)
     target_compile_definitions(nvtop PRIVATE USING_LIBSYSTEMD)
     target_link_libraries(nvtop PRIVATE systemd)
   else()
-      message(FATAL_ERROR "Neither libsystemd nor libudev were found; These are required for AMDGPU, INTEL and V3D support")
+    message(FATAL_ERROR "Neither libsystemd nor libudev were found; These are required for AMDGPU, INTEL and V3D support")
   endif()
 
   target_sources(nvtop PRIVATE device_discovery_linux.c)
