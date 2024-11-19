@@ -420,6 +420,13 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       unsigned val = strtoul(hwmon_power_max, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, val / 1000);
     }
+    const char *hwmon_fan;
+    // maxFanValue is just a guess, there is no way to get the max fan speed from hwmon
+    const unsigned maxFanValue = 4000/100;
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "fan1_input", &hwmon_fan) >= 0) {
+      unsigned val = strtoul(hwmon_fan, NULL, 10);
+      SET_GPUINFO_DYNAMIC(dynamic_info, fan_speed, val / maxFanValue);
+    }
   }
 
   // Let the temporary devices be garbage collected
