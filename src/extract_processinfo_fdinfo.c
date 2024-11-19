@@ -29,7 +29,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#ifdef __linux
 #include <sys/sysmacros.h>
+#endif
 #include <unistd.h>
 
 #ifndef KCMP_FILE

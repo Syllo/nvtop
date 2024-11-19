@@ -20,7 +20,9 @@
  */
 
 #include <sys/stat.h>
+#ifdef __linux
 #include <sys/sysmacros.h>
+#endif
 #include <xf86drm.h>
 
 #include "nvtop/device_discovery.h"

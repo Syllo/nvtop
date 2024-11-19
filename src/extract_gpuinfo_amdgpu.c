@@ -45,7 +45,9 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#ifdef __linux
 #include <sys/sysmacros.h>
+#endif
 #include <sys/types.h>
 #include <unistd.h>
 #include <uthash.h>
@@ -244,7 +246,8 @@ static void gpuinfo_amdgpu_shutdown(void) {
     if (gpu_info->powerCap)
       fclose(gpu_info->powerCap);
     nvtop_device_unref(gpu_info->amdgpuDevice);
-    nvtop_device_unref(gpu_info->hwmonDevice);
+    if (gpu_info->hwmonDevice)
+      nvtop_device_unref(gpu_info->hwmonDevice);
     _drmFreeVersion(gpu_info->drmVersion);
     _amdgpu_device_deinitialize(gpu_info->amdgpu_device);
     // Clean the process cache
