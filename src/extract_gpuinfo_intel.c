@@ -427,6 +427,11 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       unsigned val = strtoul(hwmon_fan, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, fan_speed, val / maxFanValue);
     }
+    const char *hwmon_temp;
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp1_input", &hwmon_temp) >= 0) {
+      unsigned val = strtoul(hwmon_temp, NULL, 10);
+      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, val / 1000);
+    }
   }
 
   // Let the temporary devices be garbage collected
