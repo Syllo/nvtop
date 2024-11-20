@@ -119,6 +119,7 @@ static const char i915_drm_intel_render[] = "drm-engine-render";
 static const char i915_drm_intel_copy[] = "drm-engine-copy";
 static const char i915_drm_intel_video[] = "drm-engine-video";
 static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
+static const char i915_drm_intel_vram[] = "drm-total-local0";
 
 static const char xe_drm_intel_vram[] = "drm-total-vram0";
 
@@ -159,7 +160,7 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
       bool is_video = !strcmp(key, i915_drm_intel_video);
       bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
       
-      if (strcmp(key, xe_drm_intel_vram)) {
+      if (!strcmp(key, i915_drm_intel_vram) || !strcmp(key, xe_drm_intel_vram)) {
         // TODO: do we count "gtt mem" too?
         unsigned long mem_int;
         char *endptr;
