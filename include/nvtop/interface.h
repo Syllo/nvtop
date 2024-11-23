@@ -26,6 +26,8 @@
 #include "nvtop/interface_common.h"
 #include "nvtop/interface_options.h"
 
+#include <ncurses.h>
+
 struct nvtop_interface;
 
 struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned num_devices, unsigned largest_device_name,
@@ -47,12 +49,12 @@ void update_window_size_to_terminal_size(struct nvtop_interface *inter);
 
 void interface_key(int keyId, struct nvtop_interface *inter);
 
-bool is_escape_for_quit(struct nvtop_interface *inter);
+NCURSES_BOOL is_escape_for_quit(struct nvtop_interface *inter);
 
-bool interface_freeze_processes(struct nvtop_interface *interface);
+NCURSES_BOOL interface_freeze_processes(struct nvtop_interface *interface);
 
 int interface_update_interval(const struct nvtop_interface *interface);
 
-bool show_information_messages(unsigned num_messages, const char **messages);
+NCURSES_BOOL show_information_messages(unsigned num_messages, const char **messages);
 
 #endif // INTERFACE_H_
