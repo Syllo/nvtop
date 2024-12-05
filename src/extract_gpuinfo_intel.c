@@ -25,8 +25,14 @@
 #include "nvtop/time.h"
 
 #include <assert.h>
+#include <drm/drm.h>
+#include <drm/i915_drm.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 #include <uthash.h>
 
 #define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct unique_cache_id), out_ptr)
@@ -66,6 +72,8 @@ struct gpu_info_intel {
   enum { DRIVER_I915, DRIVER_XE } driver;
 
   struct nvtop_device *card_device;
+  int card_fd;
+  
   struct nvtop_device *driver_device;
   struct nvtop_device *hwmon_device;
   struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
@@ -113,12 +121,78 @@ bool gpuinfo_intel_init(void) { return true; }
 void gpuinfo_intel_shutdown(void) {
   for (unsigned i = 0; i < intel_gpu_count; ++i) {
     struct gpu_info_intel *current = &gpu_infos[i];
+    if (current->card_fd)
+        close(current->card_fd);
     nvtop_device_unref(current->card_device);
     nvtop_device_unref(current->driver_device);
   }
 }
 
 const char *gpuinfo_intel_last_error_string(void) { return "Err"; }
+
+// Copied from https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/src/intel/common/intel_gem.h
+static inline int intel_ioctl(int fd, unsigned long request, void *arg) {
+  int ret;
+
+  do {
+    ret = ioctl(fd, request, arg);
+  } while (ret == -1 && (errno == EINTR || errno == EAGAIN));
+  return ret;
+}
+// End Copy
+
+// Copied from https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/src/intel/common/i915/intel_gem.h
+static inline int intel_i915_query(int fd, uint64_t query_id, void *buffer, int32_t *buffer_len) {
+  struct drm_i915_query_item item = {
+      .query_id = query_id,
+      .length = *buffer_len,
+      .flags = 0,
+      .data_ptr = (uintptr_t)buffer,
+  };
+
+  struct drm_i915_query args = {
+      .num_items = 1,
+      .flags = 0,
+      .items_ptr = (uintptr_t)&item,
+  };
+
+  int ret = intel_ioctl(fd, DRM_IOCTL_I915_QUERY, &args);
+  if (ret != 0)
+    return -errno;
+  else if (item.length < 0)
+    return item.length;
+
+  *buffer_len = item.length;
+  return 0;
+}
+
+static inline void *intel_i915_query_alloc(int fd, uint64_t query_id, int32_t *query_length) {
+  if (query_length)
+    *query_length = 0;
+
+  int32_t length = 0;
+  int ret = intel_i915_query(fd, query_id, NULL, &length);
+  if (ret < 0)
+    return NULL;
+
+  void *data = calloc(1, length);
+  assert(data != NULL); /* This shouldn't happen in practice */
+  if (data == NULL)
+    return NULL;
+
+  ret = intel_i915_query(fd, query_id, data, &length);
+  assert(ret == 0); /* We should have caught the error above */
+  if (ret < 0) {
+    free(data);
+    return NULL;
+  }
+
+  if (query_length)
+    *query_length = length;
+
+  return data;
+}
+// End Copy
 
 static const char i915_drm_intel_render[] = "drm-engine-render";
 static const char i915_drm_intel_copy[] = "drm-engine-copy";
@@ -284,6 +358,11 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   thisGPU->card_device = nvtop_device_ref(dev);
   thisGPU->driver_device = nvtop_device_ref(parent);
   thisGPU->hwmon_device = nvtop_device_get_hwmon(thisGPU->driver_device);
+
+  const char *devname;
+  if (nvtop_device_get_devname(thisGPU->card_device, &devname) >= 0)
+    thisGPU->card_fd = open(devname, O_WRONLY);
+
   const char *pdev_val;
   int retval = nvtop_device_get_property_value(thisGPU->driver_device, "PCI_SLOT_NAME", &pdev_val);
   assert(retval >= 0 && pdev_val != NULL && "Could not retrieve device PCI slot name");
@@ -452,6 +531,24 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       }
       gpu_info->energy.energy_uj = val;
       gpu_info->energy.time = ts;
+    }
+  }
+
+  if (gpu_info->card_fd) {
+    int32_t length = 0;
+    struct drm_i915_query_memory_regions *regions =
+        intel_i915_query_alloc(gpu_info->card_fd, DRM_I915_QUERY_MEMORY_REGIONS, &length);
+    if (regions) {
+      for (unsigned i = 0; i < regions->num_regions; i++) {
+        struct drm_i915_memory_region_info mr = regions->regions[i];
+        if (mr.region.memory_class == I915_MEMORY_CLASS_DEVICE) {
+          SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.probed_size);
+          SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mr.unallocated_size);
+          SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, dynamic_info->total_memory - dynamic_info->free_memory);
+          break;
+        }
+      }
+      free(regions);
     }
   }
 
