@@ -72,7 +72,7 @@ struct gpu_info_intel {
 
   struct {
     unsigned energy_uj;
-    struct timespec time;
+    nvtop_time time;
   } energy;
 };
 
@@ -428,15 +428,20 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       unsigned val = strtoul(hwmon_temp, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, val / 1000);
     }
+
     const char *hwmon_power_max;
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1_max", &hwmon_power_max) >= 0) {
+    // power1 is for i915, power2 is for xe
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1_max", &hwmon_power_max) >= 0 ||
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power2_max", &hwmon_power_max) >= 0) {
       unsigned val = strtoul(hwmon_power_max, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, val / 1000);
     }
 
     const char *hwmon_energy;
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy1_input", &hwmon_energy) >= 0) {
-      struct timespec ts, ts_diff;
+    // energy1 is for i915, energy2 is for xe
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy1_input", &hwmon_energy) >= 0 ||
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy2_input", &hwmon_energy) >= 0) {
+      nvtop_time ts, ts_diff;
       nvtop_get_current_time(&ts);
       unsigned val = strtoul(hwmon_energy, NULL, 10);
       unsigned old = gpu_info->energy.energy_uj;
