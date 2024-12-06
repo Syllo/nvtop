@@ -24,6 +24,8 @@
 #include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/time.h"
 
+#include "extract_gpuinfo_intel.h"
+
 #include <assert.h>
 #include <drm/drm.h>
 #include <drm/i915_drm.h>
@@ -34,55 +36,6 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <uthash.h>
-
-#define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct unique_cache_id), out_ptr)
-#define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(struct unique_cache_id), in_ptr)
-
-#define SET_INTEL_CACHE(cachePtr, field, value) SET_VALUE(cachePtr, field, value, intel_cache_)
-#define RESET_INTEL_CACHE(cachePtr, field) INVALIDATE_VALUE(cachePtr, field, intel_cache_)
-#define INTEL_CACHE_FIELD_VALID(cachePtr, field) VALUE_IS_VALID(cachePtr, field, intel_cache_)
-
-enum intel_process_info_cache_valid {
-  intel_cache_engine_render_valid = 0,
-  intel_cache_engine_copy_valid,
-  intel_cache_engine_video_valid,
-  intel_cache_engine_video_enhance_valid,
-  intel_cache_process_info_cache_valid_count
-};
-
-struct __attribute__((__packed__)) unique_cache_id {
-  unsigned client_id;
-  pid_t pid;
-  char *pdev;
-};
-
-struct intel_process_info_cache {
-  struct unique_cache_id client_id;
-  uint64_t engine_render;
-  uint64_t engine_copy;
-  uint64_t engine_video;
-  uint64_t engine_video_enhance;
-  nvtop_time last_measurement_tstamp;
-  unsigned char valid[(intel_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
-  UT_hash_handle hh;
-};
-
-struct gpu_info_intel {
-  struct gpu_info base;
-  enum { DRIVER_I915, DRIVER_XE } driver;
-
-  struct nvtop_device *card_device;
-  int card_fd;
-  
-  struct nvtop_device *driver_device;
-  struct nvtop_device *hwmon_device;
-  struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
-
-  struct {
-    unsigned energy_uj;
-    nvtop_time time;
-  } energy;
-};
 
 static bool gpuinfo_intel_init(void);
 static void gpuinfo_intel_shutdown(void);
@@ -129,70 +82,6 @@ void gpuinfo_intel_shutdown(void) {
 }
 
 const char *gpuinfo_intel_last_error_string(void) { return "Err"; }
-
-// Copied from https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/src/intel/common/intel_gem.h
-static inline int intel_ioctl(int fd, unsigned long request, void *arg) {
-  int ret;
-
-  do {
-    ret = ioctl(fd, request, arg);
-  } while (ret == -1 && (errno == EINTR || errno == EAGAIN));
-  return ret;
-}
-// End Copy
-
-// Copied from https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/src/intel/common/i915/intel_gem.h
-static inline int intel_i915_query(int fd, uint64_t query_id, void *buffer, int32_t *buffer_len) {
-  struct drm_i915_query_item item = {
-      .query_id = query_id,
-      .length = *buffer_len,
-      .flags = 0,
-      .data_ptr = (uintptr_t)buffer,
-  };
-
-  struct drm_i915_query args = {
-      .num_items = 1,
-      .flags = 0,
-      .items_ptr = (uintptr_t)&item,
-  };
-
-  int ret = intel_ioctl(fd, DRM_IOCTL_I915_QUERY, &args);
-  if (ret != 0)
-    return -errno;
-  else if (item.length < 0)
-    return item.length;
-
-  *buffer_len = item.length;
-  return 0;
-}
-
-static inline void *intel_i915_query_alloc(int fd, uint64_t query_id, int32_t *query_length) {
-  if (query_length)
-    *query_length = 0;
-
-  int32_t length = 0;
-  int ret = intel_i915_query(fd, query_id, NULL, &length);
-  if (ret < 0)
-    return NULL;
-
-  void *data = calloc(1, length);
-  assert(data != NULL); /* This shouldn't happen in practice */
-  if (data == NULL)
-    return NULL;
-
-  ret = intel_i915_query(fd, query_id, data, &length);
-  assert(ret == 0); /* We should have caught the error above */
-  if (ret < 0) {
-    free(data);
-    return NULL;
-  }
-
-  if (query_length)
-    *query_length = length;
-
-  return data;
-}
-// End Copy
 
 static const char i915_drm_intel_render[] = "drm-engine-render";
 static const char i915_drm_intel_copy[] = "drm-engine-copy";
@@ -534,22 +423,13 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  if (gpu_info->card_fd) {
-    int32_t length = 0;
-    struct drm_i915_query_memory_regions *regions =
-        intel_i915_query_alloc(gpu_info->card_fd, DRM_I915_QUERY_MEMORY_REGIONS, &length);
-    if (regions) {
-      for (unsigned i = 0; i < regions->num_regions; i++) {
-        struct drm_i915_memory_region_info mr = regions->regions[i];
-        if (mr.region.memory_class == I915_MEMORY_CLASS_DEVICE) {
-          SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.probed_size);
-          SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mr.unallocated_size);
-          SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, dynamic_info->total_memory - dynamic_info->free_memory);
-          break;
-        }
-      }
-      free(regions);
-    }
+  switch (gpu_info->driver) {
+  case DRIVER_I915:
+    gpuinfo_intel_i915_refresh_dynamic_info(_gpu_info);
+    break;
+  case DRIVER_XE:
+    gpuinfo_intel_xe_refresh_dynamic_info(_gpu_info);
+    break;
   }
 
   // Let the temporary devices be garbage collected
