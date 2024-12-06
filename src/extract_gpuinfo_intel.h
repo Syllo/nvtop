@@ -13,7 +13,7 @@ enum intel_process_info_cache_valid {
   intel_cache_engine_copy_valid,
   intel_cache_engine_video_valid,
   intel_cache_engine_video_enhance_valid,
-  intel_cache_cycles_valid,
+  intel_cache_gpu_cycles_valid,
   intel_cache_total_cycles_valid,
   intel_cache_process_info_cache_valid_count
 };
@@ -24,14 +24,25 @@ struct __attribute__((__packed__)) unique_cache_id {
   char *pdev;
 };
 
+union intel_cycles {
+  struct {
+    uint64_t rcs;
+    uint64_t vcs;
+    uint64_t vecs;
+    uint64_t bcs;
+    uint64_t ccs;
+  };
+  uint64_t array[5];
+};
+
 struct intel_process_info_cache {
   struct unique_cache_id client_id;
   uint64_t engine_render;
   uint64_t engine_copy;
   uint64_t engine_video;
   uint64_t engine_video_enhance;
-  uint64_t cycles;
-  uint64_t total_cycles;
+  union intel_cycles gpu_cycles;
+  union intel_cycles total_cycles;
   nvtop_time last_measurement_tstamp;
   unsigned char valid[(intel_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
   UT_hash_handle hh;

@@ -37,6 +37,8 @@
 #include <unistd.h>
 #include <uthash.h>
 
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
+
 // Copied from https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/src/intel/common/intel_gem.h
 static inline int intel_ioctl(int fd, unsigned long request, void *arg) {
   int ret;
@@ -97,8 +99,29 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 }
 
 static const char xe_drm_intel_vram[] = "drm-total-vram0";
-static const char xe_drm_intel_cycles[] = "drm-cycles-rcs";
-static const char xe_drm_intel_total_cycles[] = "drm-total-cycles-rcs";
+static const char xe_drm_intel_gtt[] = "drm-total-gtt";
+// Render
+static const char xe_drm_intel_cycles_rcs[] = "drm-cycles-rcs";
+static const char xe_drm_intel_total_cycles_rcs[] = "drm-total-cycles-rcs";
+// Video Decode
+static const char xe_drm_intel_cycles_vcs[] = "drm-cycles-vcs";
+static const char xe_drm_intel_total_cycles_vcs[] = "drm-total-cycles-vcs";
+// Video Enhance
+static const char xe_drm_intel_cycles_vecs[] = "drm-cycles-vecs";
+static const char xe_drm_intel_total_cycles_vecs[] = "drm-total-cycles-vecs";
+// Copy
+static const char xe_drm_intel_cycles_bcs[] = "drm-cycles-bcs";
+static const char xe_drm_intel_total_cycles_bcs[] = "drm-total-cycles-bcs";
+// Compute
+static const char xe_drm_intel_cycles_ccs[] = "drm-cycles-ccs";
+static const char xe_drm_intel_total_cycles_ccs[] = "drm-total-cycles-ccs";
+
+static const char *cycles_keys[] = {xe_drm_intel_cycles_rcs, xe_drm_intel_cycles_vcs, xe_drm_intel_cycles_vecs,
+                                    xe_drm_intel_cycles_bcs, xe_drm_intel_cycles_ccs};
+
+static const char *total_cycles_keys[] = {xe_drm_intel_total_cycles_rcs, xe_drm_intel_total_cycles_vcs,
+                                          xe_drm_intel_total_cycles_vecs, xe_drm_intel_total_cycles_bcs,
+                                          xe_drm_intel_total_cycles_ccs};
 
 bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
@@ -111,7 +134,9 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
 
-  uint64_t total_cycles = 0;
+  union intel_cycles gpu_cycles = {.array = {0, 0, 0, 0, 0}};
+
+  union intel_cycles total_cycles = {.array = {0, 0, 0, 0, 0}};
 
   while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
     char *key, *val;
@@ -144,37 +169,64 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
             continue;
 
         SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
-      } else if (!strcmp(key, xe_drm_intel_cycles)) {
+      } else {
         unsigned long cycles;
         char *endptr;
+        
+        // Check for cycles
+        for (unsigned i = 0; i < ARRAY_SIZE(gpu_cycles.array); i++) {
+          if (!strcmp(key, cycles_keys[i])) {
+            cycles = strtoull(val, &endptr, 10);
+            gpu_cycles.array[i] = cycles;
+          }
+        }
 
-        cycles = strtoull(val, &endptr, 10);
-
-        SET_GPUINFO_PROCESS(process_info, gpu_cycles, cycles);
-      } else if (!strcmp(key, xe_drm_intel_total_cycles)) {
-        unsigned long cycles;
-        char *endptr;
-
-        cycles = strtoull(val, &endptr, 10);
-
-        total_cycles = cycles;
+        // Check for total cycles
+        for (unsigned i = 0; i < ARRAY_SIZE(total_cycles_keys); i++) {
+          if (!strcmp(key, total_cycles_keys[i])) {
+            cycles = strtoull(val, &endptr, 10);
+            total_cycles.array[i] = cycles;
+          }
+        }
       }
     }
   }
+
+  // Sum cycles for overall usage
+  {
+    uint64_t cycles_sum = 0;
+    for (unsigned i = 0; i < ARRAY_SIZE(gpu_cycles.array); i++) {
+      cycles_sum += gpu_cycles.array[i];
+    }
+    SET_GPUINFO_PROCESS(process_info, gpu_cycles, cycles_sum);
+  }
+
+
   if (!client_id_set)
     return false;
-  // The intel driver does not expose compute engine metrics as of yet
-  process_info->type |= gpu_process_graphical;
+  
+  process_info->type = gpu_process_unknown;
+  if (gpu_cycles.rcs != 0)
+    process_info->type |= gpu_process_graphical;
+  if (gpu_cycles.ccs != 0)
+    process_info->type |= gpu_process_compute;
 
   struct intel_process_info_cache *cache_entry;
   struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid, .pdev = gpu_info->base.pdev};
   HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &ucid, cache_entry);
   if (cache_entry) {
     HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
-    uint64_t cycles = process_info->gpu_cycles;
-    uint64_t cycles_delta = cycles - cache_entry->cycles;
-    uint64_t total_cycles_delta = total_cycles - cache_entry->total_cycles;
-    SET_GPUINFO_PROCESS(process_info, gpu_usage, cycles_delta * 100 / total_cycles_delta);
+
+    {
+      uint64_t cycles_delta = gpu_cycles.rcs - cache_entry->gpu_cycles.rcs;
+      uint64_t total_cycles_delta = total_cycles.rcs - cache_entry->total_cycles.rcs;
+      SET_GPUINFO_PROCESS(process_info, gpu_usage, cycles_delta * 100 / total_cycles_delta);
+    }
+    {
+      uint64_t cycles_delta = gpu_cycles.vcs - cache_entry->gpu_cycles.vcs;
+      uint64_t total_cycles_delta = total_cycles.vcs - cache_entry->total_cycles.vcs;
+      SET_GPUINFO_PROCESS(process_info, decode_usage, cycles_delta * 100 / total_cycles_delta);
+    }
 
   } else {
     cache_entry = calloc(1, sizeof(*cache_entry));
@@ -193,7 +245,7 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
 #endif
 
   RESET_ALL(cache_entry->valid);
-  SET_INTEL_CACHE(cache_entry, cycles, process_info->gpu_cycles);
+  SET_INTEL_CACHE(cache_entry, gpu_cycles, gpu_cycles);
   SET_INTEL_CACHE(cache_entry, total_cycles, total_cycles);
 
   HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
