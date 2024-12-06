@@ -34,8 +34,6 @@ void mbox_close(int mb);
 void set_debug_files(int card_id);
 void set_gpuinfo_from_vcio(struct gpuinfo_dynamic_info *dynamic_info, int mb);
 void set_memory_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info);
-void set_usage_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info);
-void set_pid_usage_gpuinfo(struct gpu_process *process_info);
 void set_init_max_memory(int mb);
 
 #define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct unique_cache_id), out_ptr)
@@ -48,6 +46,7 @@ void set_init_max_memory(int mb);
 enum v3d_process_info_cache_valid { v3d_cache_engine_render_valid = 0, v3d_cache_process_info_cache_valid_count };
 
 struct __attribute__((__packed__)) unique_cache_id {
+  unsigned client_id;
   pid_t pid;
 };
 
@@ -105,24 +104,59 @@ void gpuinfo_v3d_shutdown(void) {
 }
 
 const char *gpuinfo_v3d_last_error_string(void) { return "Err"; }
+static const char v3d_drm_engine_render[] = "drm-engine-render";
+static const char v3d_drm_total_memory[] = "drm-total-memory";
 
 static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
-  if (!fdinfo_file)
-    return false;
   struct gpu_info_v3d *gpu_info = container_of(info, struct gpu_info_v3d, base);
-  struct unique_cache_id ucid = {.pid = process_info->pid};
 
-  struct v3d_process_info_cache *added_cache_entry;
-  HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &ucid, added_cache_entry);
-  if (added_cache_entry)
-    return false;
+  static char *line = NULL;
+  static size_t line_buf_size = 0;
+  ssize_t count = 0;
 
-  set_pid_usage_gpuinfo(process_info);
+  bool client_id_set = false;
+  unsigned cid;
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
 
+  while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
+    char *key, *val;
+    // Get rid of the newline if present
+    if (line[count - 1] == '\n') {
+      line[--count] = '\0';
+    }
+
+    if (!extract_drm_fdinfo_key_value(line, &key, &val))
+      continue;
+
+    if (!strcmp(key, drm_client_id)) {
+      char *endptr;
+      cid = strtoul(val, &endptr, 10);
+      if (*endptr)
+        continue;
+      client_id_set = true;
+    } else if (!strcmp(key, v3d_drm_total_memory)) {
+      unsigned long mem_int;
+      char *endptr;
+      mem_int = strtoul(val, &endptr, 10);
+      if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
+        continue;
+      SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+    } else if (!strcmp(key, v3d_drm_engine_render)) {
+      char *endptr;
+      uint64_t time_spent = strtoull(val, &endptr, 10);
+      if (endptr == val || strcmp(endptr, " ns"))
+        continue;
+      SET_GPUINFO_PROCESS(process_info, gfx_engine_used, time_spent);
+    }
+  }
+
+  if (!client_id_set)
+    return false;
+
   process_info->type |= gpu_process_graphical;
 
+  struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid};
   struct v3d_process_info_cache *cache_entry;
   HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &ucid, cache_entry);
   if (cache_entry) {
@@ -140,6 +174,7 @@ static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struc
     cache_entry = calloc(1, sizeof(*cache_entry));
     if (!cache_entry)
       goto parse_fdinfo_exit;
+    cache_entry->client_id.client_id = cid;
     cache_entry->client_id.pid = process_info->pid;
   }
 
@@ -242,7 +277,6 @@ void gpuinfo_v3d_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   nvtop_device_get_syspath(gpu_info->card_device, &syspath);
   nvtop_device_new_from_syspath(&card_dev_copy, syspath);
 
-  set_usage_gpuinfo(dynamic_info);
   set_memory_gpuinfo(dynamic_info);
   if (gpu_info->mb >= 0)
     set_gpuinfo_from_vcio(dynamic_info, gpu_info->mb);
