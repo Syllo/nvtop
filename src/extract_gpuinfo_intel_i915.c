@@ -128,6 +128,7 @@ static const char i915_drm_intel_render[] = "drm-engine-render";
 static const char i915_drm_intel_copy[] = "drm-engine-copy";
 static const char i915_drm_intel_video[] = "drm-engine-video";
 static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
+static const char i915_drm_intel_compute[] = "drm-engine-compute";
 static const char i915_drm_intel_vram[] = "drm-total-local0";
 
 bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
@@ -166,6 +167,7 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
       bool is_copy = !strcmp(key, i915_drm_intel_copy);
       bool is_video = !strcmp(key, i915_drm_intel_video);
       bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
+      bool is_compute = !strcmp(key, i915_drm_intel_compute);
       
       if (!strcmp(key, i915_drm_intel_vram)) {
         // TODO: do we count "gtt mem" too?
@@ -177,7 +179,7 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
             continue;
 
         SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
-      } else if (is_render || is_copy || is_video || is_video_enhance) {
+      } else if (is_render || is_copy || is_video || is_video_enhance || is_compute) {
         char *endptr;
         uint64_t time_spent = strtoull(val, &endptr, 10);
         if (endptr == val || strcmp(endptr, " ns"))
@@ -187,7 +189,6 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
         }
         if (is_copy) {
           // TODO: what is copy?
-          (void)time_spent;
         }
         if (is_video) {
           // Video represents encode and decode
@@ -197,13 +198,20 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
         if (is_video_enhance) {
           // TODO: what is this
         }
+        if (is_compute) {
+          SET_GPUINFO_PROCESS(process_info, compute_engine_used, time_spent);
+        }
       }
     }
   }
   if (!client_id_set)
     return false;
-  // The intel driver does not expose compute engine metrics as of yet
-  process_info->type |= gpu_process_graphical;
+
+  process_info->type = gpu_process_unknown;
+  if (process_info->gfx_engine_used)
+    process_info->type |= gpu_process_graphical;
+  if (process_info->compute_engine_used)
+    process_info->type |= gpu_process_compute;
 
   struct intel_process_info_cache *cache_entry;
   struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid, .pdev = gpu_info->base.pdev};
@@ -236,6 +244,16 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
                           busy_usage_from_time_usage_round(process_info->enc_engine_used,
                                                            cache_entry->engine_video_enhance, time_elapsed));
     }
+    if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used) &&
+        GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage) &&
+        INTEL_CACHE_FIELD_VALID(cache_entry, engine_compute) &&
+        process_info->compute_engine_used >= cache_entry->engine_compute &&
+        process_info->compute_engine_used - cache_entry->engine_compute <= time_elapsed) {
+      SET_GPUINFO_PROCESS(process_info, gpu_usage,
+                          process_info->gpu_usage + busy_usage_from_time_usage_round(process_info->compute_engine_used,
+                                                                                     cache_entry->engine_compute,
+                                                                                     time_elapsed));
+    }
   } else {
     cache_entry = calloc(1, sizeof(*cache_entry));
     if (!cache_entry)
@@ -259,6 +277,8 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
     SET_INTEL_CACHE(cache_entry, engine_video, process_info->dec_engine_used);
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used))
     SET_INTEL_CACHE(cache_entry, engine_video_enhance, process_info->enc_engine_used);
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used))
+    SET_INTEL_CACHE(cache_entry, engine_compute, process_info->compute_engine_used);
 
   cache_entry->last_measurement_tstamp = current_time;
   HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);

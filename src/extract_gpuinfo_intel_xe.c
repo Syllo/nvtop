@@ -223,6 +223,11 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
       SET_GPUINFO_PROCESS(process_info, gpu_usage, cycles_delta * 100 / total_cycles_delta);
     }
     {
+      uint64_t cycles_delta = gpu_cycles.ccs - cache_entry->gpu_cycles.ccs;
+      uint64_t total_cycles_delta = total_cycles.ccs - cache_entry->total_cycles.ccs;
+      SET_GPUINFO_PROCESS(process_info, gpu_usage, process_info->gpu_usage + cycles_delta * 100 / total_cycles_delta);
+    }
+    {
       uint64_t cycles_delta = gpu_cycles.vcs - cache_entry->gpu_cycles.vcs;
       uint64_t total_cycles_delta = total_cycles.vcs - cache_entry->total_cycles.vcs;
       SET_GPUINFO_PROCESS(process_info, decode_usage, cycles_delta * 100 / total_cycles_delta);

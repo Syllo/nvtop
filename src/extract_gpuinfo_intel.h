@@ -13,6 +13,7 @@ enum intel_process_info_cache_valid {
   intel_cache_engine_copy_valid,
   intel_cache_engine_video_valid,
   intel_cache_engine_video_enhance_valid,
+  intel_cache_engine_compute_valid,
   intel_cache_gpu_cycles_valid,
   intel_cache_total_cycles_valid,
   intel_cache_process_info_cache_valid_count
@@ -41,6 +42,7 @@ struct intel_process_info_cache {
   uint64_t engine_copy;
   uint64_t engine_video;
   uint64_t engine_video_enhance;
+  uint64_t engine_compute;
   union intel_cycles gpu_cycles;
   union intel_cycles total_cycles;
   nvtop_time last_measurement_tstamp;

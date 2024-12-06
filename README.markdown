@@ -97,12 +97,8 @@ source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/dr
 Hence, you will need a kernel with a version greater or equal to 5.19 to see the
 processes using Intel GPUs.
 
-**INTEL SUPPORT STATUS**
-- Intel is working on exposing more hardware information through an `HWMON`
-interface. The patches are still a work in progress: [see patch
-series](https://patchwork.freedesktop.org/series/104278/).
-- The fdinfo interface does not expose the memory allocated by the process. The
-field in the process list is therefore empty.
+Intel requires CAP_PERFMON or CAP_SYS_ADMIN capabilities to access the total memory usage,
+you can run `sudo setcap cap_perfmon=ep nvtop` to grant the necessary permissions or run nvtop as root.
 
 ### NVIDIA
 
