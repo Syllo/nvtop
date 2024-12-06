@@ -115,10 +115,154 @@ void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info) {
           SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.probed_size);
           SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mr.unallocated_size);
           SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, dynamic_info->total_memory - dynamic_info->free_memory);
+          SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, dynamic_info->used_memory * 100 / dynamic_info->total_memory);
           break;
         }
       }
       free(regions);
     }
   }
+}
+
+static const char i915_drm_intel_render[] = "drm-engine-render";
+static const char i915_drm_intel_copy[] = "drm-engine-copy";
+static const char i915_drm_intel_video[] = "drm-engine-video";
+static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
+static const char i915_drm_intel_vram[] = "drm-total-local0";
+
+bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
+  struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
+  static char *line = NULL;
+  static size_t line_buf_size = 0;
+  ssize_t count = 0;
+
+  bool client_id_set = false;
+  unsigned cid;
+  nvtop_time current_time;
+  nvtop_get_current_time(&current_time);
+
+  while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
+    char *key, *val;
+    // Get rid of the newline if present
+    if (line[count - 1] == '\n') {
+      line[--count] = '\0';
+    }
+
+    if (!extract_drm_fdinfo_key_value(line, &key, &val))
+      continue;
+
+    if (!strcmp(key, drm_pdev)) {
+      if (strcmp(val, gpu_info->base.pdev)) {
+        return false;
+      }
+    } else if (!strcmp(key, drm_client_id)) {
+      char *endptr;
+      cid = strtoul(val, &endptr, 10);
+      if (*endptr)
+        continue;
+      client_id_set = true;
+    } else {
+      bool is_render = !strcmp(key, i915_drm_intel_render);
+      bool is_copy = !strcmp(key, i915_drm_intel_copy);
+      bool is_video = !strcmp(key, i915_drm_intel_video);
+      bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
+      
+      if (!strcmp(key, i915_drm_intel_vram)) {
+        // TODO: do we count "gtt mem" too?
+        unsigned long mem_int;
+        char *endptr;
+
+        mem_int = strtoul(val, &endptr, 10);
+        if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
+            continue;
+
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+      } else if (is_render || is_copy || is_video || is_video_enhance) {
+        char *endptr;
+        uint64_t time_spent = strtoull(val, &endptr, 10);
+        if (endptr == val || strcmp(endptr, " ns"))
+          continue;
+        if (is_render) {
+          SET_GPUINFO_PROCESS(process_info, gfx_engine_used, time_spent);
+        }
+        if (is_copy) {
+          // TODO: what is copy?
+          (void)time_spent;
+        }
+        if (is_video) {
+          // Video represents encode and decode
+          SET_GPUINFO_PROCESS(process_info, dec_engine_used, time_spent);
+          SET_GPUINFO_PROCESS(process_info, enc_engine_used, time_spent);
+        }
+        if (is_video_enhance) {
+          // TODO: what is this
+        }
+      }
+    }
+  }
+  if (!client_id_set)
+    return false;
+  // The intel driver does not expose compute engine metrics as of yet
+  process_info->type |= gpu_process_graphical;
+
+  struct intel_process_info_cache *cache_entry;
+  struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid, .pdev = gpu_info->base.pdev};
+  HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &ucid, cache_entry);
+  if (cache_entry) {
+    uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
+    HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
+    if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
+        INTEL_CACHE_FIELD_VALID(cache_entry, engine_render) &&
+        // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
+        process_info->gfx_engine_used >= cache_entry->engine_render &&
+        process_info->gfx_engine_used - cache_entry->engine_render <= time_elapsed) {
+      SET_GPUINFO_PROCESS(
+          process_info, gpu_usage,
+          busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));
+    }
+    if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used) &&
+        INTEL_CACHE_FIELD_VALID(cache_entry, engine_video) &&
+        process_info->dec_engine_used >= cache_entry->engine_video &&
+        process_info->dec_engine_used - cache_entry->engine_video <= time_elapsed) {
+      SET_GPUINFO_PROCESS(
+          process_info, decode_usage,
+          busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->engine_video, time_elapsed));
+    }
+    if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used) &&
+        INTEL_CACHE_FIELD_VALID(cache_entry, engine_video_enhance) &&
+        process_info->enc_engine_used >= cache_entry->engine_video_enhance &&
+        process_info->enc_engine_used - cache_entry->engine_video_enhance <= time_elapsed) {
+      SET_GPUINFO_PROCESS(process_info, encode_usage,
+                          busy_usage_from_time_usage_round(process_info->enc_engine_used,
+                                                           cache_entry->engine_video_enhance, time_elapsed));
+    }
+  } else {
+    cache_entry = calloc(1, sizeof(*cache_entry));
+    if (!cache_entry)
+      goto parse_fdinfo_exit;
+    cache_entry->client_id.client_id = cid;
+    cache_entry->client_id.pid = process_info->pid;
+    cache_entry->client_id.pdev = gpu_info->base.pdev;
+  }
+
+#ifndef NDEBUG
+  // We should only process one fdinfo entry per client id per update
+  struct intel_process_info_cache *cache_entry_check;
+  HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cache_entry->client_id, cache_entry_check);
+  assert(!cache_entry_check && "We should not be processing a client id twice per update");
+#endif
+
+  RESET_ALL(cache_entry->valid);
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used))
+    SET_INTEL_CACHE(cache_entry, engine_render, process_info->gfx_engine_used);
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used))
+    SET_INTEL_CACHE(cache_entry, engine_video, process_info->dec_engine_used);
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used))
+    SET_INTEL_CACHE(cache_entry, engine_video_enhance, process_info->enc_engine_used);
+
+  cache_entry->last_measurement_tstamp = current_time;
+  HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
+
+parse_fdinfo_exit:
+  return true;
 }

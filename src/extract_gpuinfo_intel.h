@@ -13,6 +13,8 @@ enum intel_process_info_cache_valid {
   intel_cache_engine_copy_valid,
   intel_cache_engine_video_valid,
   intel_cache_engine_video_enhance_valid,
+  intel_cache_cycles_valid,
+  intel_cache_total_cycles_valid,
   intel_cache_process_info_cache_valid_count
 };
 
@@ -28,6 +30,8 @@ struct intel_process_info_cache {
   uint64_t engine_copy;
   uint64_t engine_video;
   uint64_t engine_video_enhance;
+  uint64_t cycles;
+  uint64_t total_cycles;
   nvtop_time last_measurement_tstamp;
   unsigned char valid[(intel_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
   UT_hash_handle hh;
@@ -52,3 +56,6 @@ struct gpu_info_intel {
 
 extern void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info);
 extern void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info);
+
+extern bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info);
+extern bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info);
