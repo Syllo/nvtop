@@ -111,11 +111,14 @@ void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (regions) {
       for (unsigned i = 0; i < regions->num_regions; i++) {
         struct drm_i915_memory_region_info mr = regions->regions[i];
-        if (mr.region.memory_class == I915_MEMORY_CLASS_DEVICE) {
+        if (mr.region.memory_class == I915_MEMORY_CLASS_DEVICE || regions->num_regions == 1) {
           SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.probed_size);
-          SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mr.unallocated_size);
-          SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, dynamic_info->total_memory - dynamic_info->free_memory);
-          SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, dynamic_info->used_memory * 100 / dynamic_info->total_memory);
+          // i915 will report the total memory as the unallocated size if we don't have CAP_PERFMON
+          if (mr.unallocated_size != mr.probed_size) {
+            SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mr.unallocated_size);
+            SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, dynamic_info->total_memory - dynamic_info->free_memory);
+            SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, dynamic_info->used_memory * 100 / dynamic_info->total_memory);
+          }
           break;
         }
       }
@@ -130,6 +133,7 @@ static const char i915_drm_intel_video[] = "drm-engine-video";
 static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
 static const char i915_drm_intel_compute[] = "drm-engine-compute";
 static const char i915_drm_intel_vram[] = "drm-total-local0";
+static const char i915_drm_intel_gtt[] = "drm-total-system0";
 
 bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
@@ -168,17 +172,20 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
       bool is_video = !strcmp(key, i915_drm_intel_video);
       bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
       bool is_compute = !strcmp(key, i915_drm_intel_compute);
-      
-      if (!strcmp(key, i915_drm_intel_vram)) {
-        // TODO: do we count "gtt mem" too?
+
+      if (!strcmp(key, i915_drm_intel_vram) || !strcmp(key, i915_drm_intel_gtt)) {
         unsigned long mem_int;
         char *endptr;
 
         mem_int = strtoul(val, &endptr, 10);
         if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
-            continue;
+          continue;
 
-        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+        if GPUINFO_PROCESS_FIELD_VALID (process_info, gpu_memory_usage)
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + (mem_int * 1024));
+        else
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+
       } else if (is_render || is_copy || is_video || is_video_enhance || is_compute) {
         char *endptr;
         uint64_t time_spent = strtoull(val, &endptr, 10);

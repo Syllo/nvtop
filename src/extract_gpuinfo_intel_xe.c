@@ -85,11 +85,14 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (regions) {
       for (unsigned i = 0; i < regions->num_mem_regions; i++) {
         struct drm_xe_mem_region mr = regions->mem_regions[i];
-        if (mr.mem_class == DRM_XE_MEM_REGION_CLASS_VRAM) {
+        if (mr.mem_class == DRM_XE_MEM_REGION_CLASS_VRAM || regions->num_mem_regions == 1) {
           SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.total_size);
-          SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mr.used);
-          SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, dynamic_info->total_memory - dynamic_info->used_memory);
-          SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, dynamic_info->used_memory * 100 / dynamic_info->total_memory);
+          // xe will report 0 kb used if we don't have CAP_PERFMON
+          if (mr.used != 0) {
+            SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mr.used);
+            SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, dynamic_info->total_memory - dynamic_info->used_memory);
+            SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, dynamic_info->used_memory * 100 / dynamic_info->total_memory);
+          }
           break;
         }
       }
@@ -158,21 +161,23 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
       if (*endptr)
         continue;
       client_id_set = true;
-    } else {      
+    } else {
       if (!strcmp(key, xe_drm_intel_vram)) {
-        // TODO: do we count "gtt mem" too?
         unsigned long mem_int;
         char *endptr;
 
         mem_int = strtoul(val, &endptr, 10);
         if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
-            continue;
+          continue;
 
-        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+        if GPUINFO_PROCESS_FIELD_VALID (process_info, gpu_memory_usage)
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + (mem_int * 1024));
+        else
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
       } else {
         unsigned long cycles;
         char *endptr;
-        
+
         // Check for cycles
         for (unsigned i = 0; i < ARRAY_SIZE(gpu_cycles.array); i++) {
           if (!strcmp(key, cycles_keys[i])) {
@@ -201,10 +206,9 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
     SET_GPUINFO_PROCESS(process_info, gpu_cycles, cycles_sum);
   }
 
-
   if (!client_id_set)
     return false;
-  
+
   process_info->type = gpu_process_unknown;
   if (gpu_cycles.rcs != 0)
     process_info->type |= gpu_process_graphical;
