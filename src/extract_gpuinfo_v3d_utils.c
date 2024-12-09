@@ -43,12 +43,8 @@ void mbox_close(int mb);
 void set_debug_files(int card_id);
 void set_gpuinfo_from_vcio(struct gpuinfo_dynamic_info *dynamic_info, int mb);
 void set_memory_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info);
-void set_usage_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info);
-void set_pid_usage_gpuinfo(struct gpu_process *process_info);
 void set_init_max_memory(int mb);
 
-static uint64_t last_timestamp = 0;
-static uint64_t last_runtime = 0;
 static uint64_t max_gpu_memory_bytes = 128 << 20;
 
 static const char measure_temp[] = "measure_temp";
@@ -56,17 +52,9 @@ static const char measure_clock_v3d[] = "measure_clock v3d";
 static const char measure_clock_h264[] = "measure_clock h264";
 static const char get_mem_gpu[] = "get_mem gpu";
 
-static char gpu_usage_file[50];
-static char gpu_pid_usage_file[50];
 static char bo_stats_file[50];
 
 void set_debug_files(int card_id) {
-  snprintf(gpu_usage_file, sizeof(gpu_usage_file), "/sys/kernel/debug/dri/%d/gpu_usage", card_id);
-  if (access(gpu_usage_file, F_OK))
-    printf("%s is not available.\n", gpu_usage_file);
-  snprintf(gpu_pid_usage_file, sizeof(gpu_pid_usage_file), "/sys/kernel/debug/dri/%d/gpu_pid_usage", card_id);
-  if (access(gpu_pid_usage_file, F_OK))
-    printf("%s is not available.\n", gpu_pid_usage_file);
   snprintf(bo_stats_file, sizeof(bo_stats_file), "/sys/kernel/debug/dri/%d/bo_stats", card_id);
   if (access(bo_stats_file, F_OK))
     printf("%s is not available.\n", bo_stats_file);
@@ -206,90 +194,4 @@ void set_memory_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info) {
     max_gpu_memory_bytes = allocated_bo_size_bytes;
   SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, max_gpu_memory_bytes);
   SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, cal_percentage_usage(allocated_bo_size_bytes, max_gpu_memory_bytes));
-}
-
-void set_usage_gpuinfo(struct gpuinfo_dynamic_info *dynamic_info) {
-  FILE *fp = fopen(gpu_usage_file, "rb");
-
-  if (fp == NULL)
-    return;
-
-  char *buf = NULL;
-  size_t res = 0;
-  unsigned jobs, active;
-  uint64_t timestamp, elapsed, runtime;
-
-  while (getline(&buf, &res, fp) > 0) {
-    if (sscanf(buf, "timestamp;%lu;", &timestamp) == 1) {
-      elapsed = timestamp - last_timestamp;
-      last_timestamp = timestamp;
-    } else if (sscanf(strchr(buf, ';'), ";%u;%lu;%u;", &jobs, &runtime, &active) == 3) {
-      if (!strncmp(buf, "v3d_render", 10))
-        break;
-    }
-  }
-  free(buf);
-  fclose(fp);
-  int usage = busy_usage_from_time_usage_round(runtime, last_runtime, elapsed);
-  last_runtime = runtime;
-  SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, usage);
-  return;
-}
-
-static pid_t get_tgid_from_tid(pid_t tid) {
-  char path[40];
-  struct dirent *entry;
-  DIR *dp;
-  pid_t min_tid = INT_MAX;
-
-  snprintf(path, sizeof(path), "/proc/%d/task/", tid);
-
-  dp = opendir(path);
-  if (dp == NULL) {
-    return -1;
-  }
-
-  while ((entry = readdir(dp)) != NULL) {
-    int current_tid = atoi(entry->d_name);
-    if (current_tid > 0 && current_tid < min_tid) {
-      min_tid = current_tid;
-    }
-  }
-
-  closedir(dp);
-
-  return min_tid;
-}
-
-void set_pid_usage_gpuinfo(struct gpu_process *process_info) {
-  FILE *fp = fopen(gpu_pid_usage_file, "rb");
-  if (fp == NULL) {
-    return;
-  }
-
-  char *buf = NULL;
-  size_t res = 0;
-  unsigned jobs, active;
-  pid_t tid;
-  uint64_t runtime;
-  uint64_t timestamp;
-
-  while (getline(&buf, &res, fp) > 0) {
-    if (sscanf(buf, "timestamp;%lu;", &timestamp) == 1) {
-    } else if (sscanf(strchr(buf, ';'), ";%u;%u;%lu;%u;", &tid, &jobs, &runtime, &active) == 4) {
-      if (!strncmp(buf, "v3d_render", 10)) {
-        if (get_tgid_from_tid(tid) == process_info->pid) {
-          SET_GPUINFO_PROCESS(process_info, gfx_engine_used, runtime);
-          free(buf);
-          fclose(fp);
-          return;
-        }
-      }
-    }
-  }
-
-  SET_GPUINFO_PROCESS(process_info, gfx_engine_used, 0);
-  free(buf);
-  fclose(fp);
-  return;
 }
