@@ -43,8 +43,8 @@
 #include <unistd.h>
 
 static unsigned int sizeof_device_field[device_field_count] = {
-    [device_name] = 11,  [device_fan_speed] = 8, [device_temperature] = 10,
-    [device_power] = 15, [device_clock] = 11,    [device_pcie] = 46,
+    [device_name] = 11,       [device_fan_speed] = 11,  [device_temperature] = 10,
+    [device_power] = 15,      [device_clock] = 11,      [device_pcie] = 46,
     [device_shadercores] = 7, [device_l2features] = 11, [device_execengines] = 11,
 };
 
@@ -160,18 +160,16 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
   dwin->dec_was_visible = false;
 
   // Line 4 = Number of shading cores | L2 Features
-  dwin->shader_cores =
-    newwin(1, sizeof_device_field[device_shadercores], start_row + 3, start_col);
+  dwin->shader_cores = newwin(1, sizeof_device_field[device_shadercores], start_row + 3, start_col);
   if (dwin->shader_cores == NULL)
     goto alloc_error;
-  dwin->l2_cache_size =
-    newwin(1, sizeof_device_field[device_l2features], start_row + 3, start_col + spacer +
-           sizeof_device_field[device_shadercores]);
+  dwin->l2_cache_size = newwin(1, sizeof_device_field[device_l2features], start_row + 3,
+                               start_col + spacer + sizeof_device_field[device_shadercores]);
   if (dwin->l2_cache_size == NULL)
     goto alloc_error;
   dwin->exec_engines =
-    newwin(1, sizeof_device_field[device_execengines], start_row + 3, start_col + spacer * 2 +
-           sizeof_device_field[device_shadercores] + sizeof_device_field[device_l2features]);
+      newwin(1, sizeof_device_field[device_execengines], start_row + 3,
+             start_col + spacer * 2 + sizeof_device_field[device_shadercores] + sizeof_device_field[device_l2features]);
   if (dwin->exec_engines == NULL)
     goto alloc_error;
 
@@ -359,9 +357,9 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position setup_position;
 
   compute_sizes_from_layout(devices_count, dwin->options.has_gpu_info_bar ? 4 : 3, device_length(), rows - 1, cols,
-                            dwin->options.gpu_specific_opts, dwin->options.process_fields_displayed,
-                            device_positions, &dwin->num_plots, plot_positions,
-                            map_device_to_plot, &process_position, &setup_position, dwin->options.hide_processes_list);
+                            dwin->options.gpu_specific_opts, dwin->options.process_fields_displayed, device_positions,
+                            &dwin->num_plots, plot_positions, map_device_to_plot, &process_position, &setup_position,
+                            dwin->options.hide_processes_list);
 
   alloc_plot_window(devices_count, plot_positions, map_device_to_plot, dwin);
 
@@ -721,14 +719,21 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     }
 
     // FAN
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed))
-      mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%", device->dynamic_info.fan_speed);
-    else if (device->static_info.integrated_graphics) {
-      mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN ");
-      mvwchgat(dev->fan_speed, 0, 3, 5, 0, cyan_color, NULL);
-    } else
-      mvwprintw(dev->fan_speed, 0, 0, "FAN N/A ");
-    mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed)) {
+      mvwprintw(dev->fan_speed, 0, 0, " FAN %3u%%  ",
+                device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
+      mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
+    } else if (device->static_info.integrated_graphics) {
+      mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
+      mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
+    } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm)) {
+      mvwprintw(dev->fan_speed, 0, 0, "FAN %4uRPM",
+                device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
+      mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+    } else {
+      mvwprintw(dev->fan_speed, 0, 0, "  FAN N/A  ");
+      mvwchgat(dev->fan_speed, 0, 2, 3, 0, cyan_color, NULL);
+    }
     wnoutrefresh(dev->fan_speed);
 
     // GPU CLOCK
@@ -849,7 +854,7 @@ typedef struct {
   struct gpuid_and_process {
     unsigned gpu_id;
     struct gpu_process *process;
-  } * processes;
+  } *processes;
 } all_processes;
 
 static all_processes all_processes_array(struct list_head *devices) {
@@ -1562,7 +1567,8 @@ static void draw_process_shortcuts(struct nvtop_interface *interface) {
   switch (current_state) {
   case nvtop_option_state_hidden:
     for (size_t i = 0; i < ARRAY_SIZE(option_selection_hidden); ++i) {
-      if (interface->options.hide_processes_list && (strcmp(option_selection_hidden_num[i], "6") == 0 || strcmp(option_selection_hidden_num[i], "9") == 0))
+      if (interface->options.hide_processes_list &&
+          (strcmp(option_selection_hidden_num[i], "6") == 0 || strcmp(option_selection_hidden_num[i], "9") == 0))
         continue;
 
       if (process_field_displayed_count(interface->options.process_fields_displayed) > 0 || (i != 1 && i != 2)) {

@@ -237,8 +237,7 @@ int main(int argc, char **argv) {
       allDevicesOptions.gpu_specific_opts[i].to_draw = 0;
     }
   }
-  if (hide_processes_option)
-    allDevicesOptions.hide_processes_list = true;
+  allDevicesOptions.hide_processes_list = hide_processes_option;
   if (encode_decode_timer_option_set) {
     allDevicesOptions.encode_decode_hiding_timer = encode_decode_hide_time;
     if (allDevicesOptions.encode_decode_hiding_timer < 0.)

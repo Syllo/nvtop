@@ -69,6 +69,11 @@ struct gpu_info_intel {
   struct nvtop_device *driver_device;
   struct nvtop_device *hwmon_device;
   struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
+
+  struct {
+    unsigned energy_uj;
+    nvtop_time time;
+  } energy;
 };
 
 static bool gpuinfo_intel_init(void);
@@ -119,6 +124,7 @@ static const char i915_drm_intel_render[] = "drm-engine-render";
 static const char i915_drm_intel_copy[] = "drm-engine-copy";
 static const char i915_drm_intel_video[] = "drm-engine-video";
 static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
+static const char i915_drm_intel_vram[] = "drm-total-local0";
 
 static const char xe_drm_intel_vram[] = "drm-total-vram0";
 
@@ -159,7 +165,7 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
       bool is_video = !strcmp(key, i915_drm_intel_video);
       bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
       
-      if (strcmp(key, xe_drm_intel_vram)) {
+      if (!strcmp(key, i915_drm_intel_vram) || !strcmp(key, xe_drm_intel_vram)) {
         // TODO: do we count "gtt mem" too?
         unsigned long mem_int;
         char *endptr;
@@ -410,15 +416,42 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // TODO: Attributes such as memory, fan, temperature, power info should be available once the hwmon patch lands
   if (hwmon_dev_noncached) {
-    const char *hwmon_power;
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1", &hwmon_power) >= 0) {
-      unsigned val = strtoul(hwmon_power, NULL, 10);
-      SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, val / 1000);
+    const char *hwmon_fan;
+    // maxFanValue is just a guess, there is no way to get the max fan speed from hwmon
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "fan1_input", &hwmon_fan) >= 0) {
+      unsigned val = strtoul(hwmon_fan, NULL, 10);
+      SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, val);
     }
+    const char *hwmon_temp;
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp1_input", &hwmon_temp) >= 0) {
+      unsigned val = strtoul(hwmon_temp, NULL, 10);
+      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, val / 1000);
+    }
+
     const char *hwmon_power_max;
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1_max", &hwmon_power_max) >= 0) {
+    // power1 is for i915, power2 is for xe
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1_max", &hwmon_power_max) >= 0 ||
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power2_max", &hwmon_power_max) >= 0) {
       unsigned val = strtoul(hwmon_power_max, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, val / 1000);
+    }
+
+    const char *hwmon_energy;
+    // energy1 is for i915, energy2 is for xe
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy1_input", &hwmon_energy) >= 0 ||
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy2_input", &hwmon_energy) >= 0) {
+      nvtop_time ts, ts_diff;
+      nvtop_get_current_time(&ts);
+      unsigned val = strtoul(hwmon_energy, NULL, 10);
+      unsigned old = gpu_info->energy.energy_uj;
+      uint64_t time = nvtop_difftime_u64(gpu_info->energy.time, ts);
+      // Skip the first update so we have a time delta
+      if (gpu_info->energy.time.tv_sec != 0) {
+        unsigned power = ((val - old) * 1000000000LL) / time;
+        SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, power / 1000);
+      }
+      gpu_info->energy.energy_uj = val;
+      gpu_info->energy.time = ts;
     }
   }
 
