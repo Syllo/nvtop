@@ -25,7 +25,6 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <sys/types.h>
 
 #include "list.h"

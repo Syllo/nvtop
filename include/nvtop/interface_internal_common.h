@@ -23,12 +23,12 @@
 #define INTERFACE_INTERNAL_COMMON_H__
 
 #include "nvtop/common.h"
-#include "nvtop/interface_layout_selection.h"
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
 #include "nvtop/time.h"
 
 #include <ncurses.h>
+#include <stdbool.h>
 
 #define max(a, b) ((a) > (b) ? (a) : (b))
 #define min(a, b) ((a) < (b) ? (a) : (b))

@@ -22,9 +22,9 @@
 #ifndef INTERFACE_H_
 #define INTERFACE_H_
 
-#include "nvtop/extract_gpuinfo.h"
-#include "nvtop/interface_common.h"
 #include "nvtop/interface_options.h"
+
+#include <stdbool.h>
 
 struct nvtop_interface;
 

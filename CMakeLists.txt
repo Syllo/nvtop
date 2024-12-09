@@ -39,6 +39,7 @@ set_property(TARGET ncurses PROPERTY
   INTERFACE_INCLUDE_DIRECTORIES ${CURSES_INCLUDE_DIRS})
 set_property(TARGET ncurses PROPERTY
   INTERFACE_LINK_LIBRARIES ${CURSES_LIBRARIES})
+add_compile_definitions(NCURSES_ENABLE_STDBOOL_H=1)
 
 #///////////////////////////////////////////////////////////////////#
 #                        COMPILATION OPTIONS                        #

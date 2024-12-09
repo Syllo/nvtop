@@ -21,7 +21,6 @@
 
 #include "nvtop/interface.h"
 #include "nvtop/common.h"
-#include "nvtop/extract_gpuinfo.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface_common.h"
 #include "nvtop/interface_internal_common.h"
@@ -36,6 +35,7 @@
 #include <inttypes.h>
 #include <ncurses.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
