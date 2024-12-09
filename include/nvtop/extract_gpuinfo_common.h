@@ -100,6 +100,7 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_pcie_rx_valid,
   gpuinfo_pcie_tx_valid,
   gpuinfo_fan_speed_valid,
+  gpuinfo_fan_rpm_valid,
   gpuinfo_gpu_temp_valid,
   gpuinfo_power_draw_valid,
   gpuinfo_power_draw_max_valid,
@@ -124,6 +125,7 @@ struct gpuinfo_dynamic_info {
   unsigned int pcie_rx;             // PCIe throughput in KB/s
   unsigned int pcie_tx;             // PCIe throughput in KB/s
   unsigned int fan_speed;           // Fan speed percentage
+  unsigned int fan_rpm;             // Fan speed RPM
   unsigned int gpu_temp;            // GPU temperature °celsius
   unsigned int power_draw;          // Power usage in milliwatts
   unsigned int power_draw_max;      // Max power usage in milliwatts

@@ -418,10 +418,9 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (hwmon_dev_noncached) {
     const char *hwmon_fan;
     // maxFanValue is just a guess, there is no way to get the max fan speed from hwmon
-    const unsigned maxFanValue = 4000/100;
     if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "fan1_input", &hwmon_fan) >= 0) {
       unsigned val = strtoul(hwmon_fan, NULL, 10);
-      SET_GPUINFO_DYNAMIC(dynamic_info, fan_speed, val / maxFanValue);
+      SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, val);
     }
     const char *hwmon_temp;
     if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp1_input", &hwmon_temp) >= 0) {
