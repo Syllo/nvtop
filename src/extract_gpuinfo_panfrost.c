@@ -20,9 +20,11 @@
  */
 
 #include <sys/stat.h>
-#ifdef __linux
+#ifdef __linux__
+// for minor() on linux (available through sys/types.h on BSD)
 #include <sys/sysmacros.h>
 #endif
+#include <sys/types.h>
 #include <xf86drm.h>
 
 #include "nvtop/device_discovery.h"
