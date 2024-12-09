@@ -38,6 +38,7 @@ struct drmFuncTable {
   typeof(drmAuthMagic) *drmAuthMagic;
   typeof(drmDropMaster) *drmDropMaster;
   typeof(drmCommandWriteRead) *drmCommandWriteRead;
+  typeof(drmGetDeviceFromDevId) *drmGetDeviceFromDevId;
   typeof(drmIoctl) *drmIoctl;
 };
 
@@ -52,7 +53,7 @@ struct mali_process_info_cache;
 struct panfrost_driver_data {
   bool original_profiling_state;
   bool profiler_enabled;
-  unsigned int minor;
+  char *sysfs_filename;
 };
 struct panthor_driver_data {
   uint32_t unused;

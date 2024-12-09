@@ -94,6 +94,10 @@ bool mali_init_drm_funcs(struct drmFuncTable *drmFuncs,
   if (!drmFuncs->drmCommandWriteRead)
     goto init_error_clean_exit;
 
+  drmFuncs->drmGetDeviceFromDevId = dlsym(state->libdrm_handle, "drmGetDeviceFromDevId");
+  if (!drmFuncs->drmGetDeviceFromDevId)
+    goto init_error_clean_exit;
+
   drmFuncs->drmIoctl = dlsym(state->libdrm_handle, "drmIoctl");
   if (!drmFuncs->drmCommandWriteRead)
     goto init_error_clean_exit;
