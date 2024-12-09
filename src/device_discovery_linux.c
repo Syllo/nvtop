@@ -51,7 +51,8 @@ nvtop_device *nvtop_device_ref(nvtop_device *device) {
 }
 
 nvtop_device *nvtop_device_unref(nvtop_device *device) {
-  udev_device_unref((struct udev_device *)device);
+  if (device)
+    udev_device_unref((struct udev_device *)device);
   return NULL;
 }
 
@@ -212,7 +213,11 @@ nvtop_device *nvtop_enumerator_get_device_next(nvtop_device_enumerator *enumerat
 
 nvtop_device *nvtop_device_ref(nvtop_device *device) { return (nvtop_device *)sd_device_ref((sd_device *)device); }
 
-nvtop_device *nvtop_device_unref(nvtop_device *device) { return (nvtop_device *)sd_device_unref((sd_device *)device); }
+nvtop_device *nvtop_device_unref(nvtop_device *device) {
+  if (!device)
+    return NULL;
+  return (nvtop_device *)sd_device_unref((sd_device *)device);
+}
 
 int nvtop_device_new_from_syspath(nvtop_device **dev, const char *syspath) {
   return sd_device_new_from_syspath((sd_device **)dev, syspath);

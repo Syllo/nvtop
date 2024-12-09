@@ -246,8 +246,7 @@ static void gpuinfo_amdgpu_shutdown(void) {
     if (gpu_info->powerCap)
       fclose(gpu_info->powerCap);
     nvtop_device_unref(gpu_info->amdgpuDevice);
-    if (gpu_info->hwmonDevice)
-      nvtop_device_unref(gpu_info->hwmonDevice);
+    nvtop_device_unref(gpu_info->hwmonDevice);
     _drmFreeVersion(gpu_info->drmVersion);
     _amdgpu_device_deinitialize(gpu_info->amdgpu_device);
     // Clean the process cache
