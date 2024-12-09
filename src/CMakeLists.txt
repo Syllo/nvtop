@@ -74,7 +74,7 @@ if(AMDGPU_SUPPORT OR INTEL_SUPPORT OR V3D_SUPPORT)
   target_sources(nvtop PRIVATE device_discovery_linux.c)
 endif()
 
-if(AMDGPU_SUPPORT OR MSM_SUPPORT)
+if(AMDGPU_SUPPORT OR MSM_SUPPORT OR PANFROST_SUPPORT OR PANTHOR_SUPPORT)
   # Search for libdrm for AMDGPU support
   find_package(Libdrm)
 
