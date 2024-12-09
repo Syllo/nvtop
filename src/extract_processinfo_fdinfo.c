@@ -29,7 +29,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#ifdef __linux__
+// for major() on linux (available in sys/types.h on BSD)
 #include <sys/sysmacros.h>
+#endif
+#include <sys/types.h>
 #include <unistd.h>
 
 #ifndef KCMP_FILE
