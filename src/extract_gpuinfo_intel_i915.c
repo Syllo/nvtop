@@ -72,7 +72,7 @@ static inline int intel_i915_query(int fd, uint64_t query_id, void *buffer, int3
   return 0;
 }
 
-static inline void *intel_i915_query_alloc(int fd, uint64_t query_id, int32_t *query_length) {
+static inline void *intel_i915_query_alloc_fetch(int fd, uint64_t query_id, int32_t *query_length) {
   if (query_length)
     *query_length = 0;
 
@@ -107,10 +107,11 @@ void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (gpu_info->card_fd) {
     int32_t length = 0;
     struct drm_i915_query_memory_regions *regions =
-        intel_i915_query_alloc(gpu_info->card_fd, DRM_I915_QUERY_MEMORY_REGIONS, &length);
+        intel_i915_query_alloc_fetch(gpu_info->card_fd, DRM_I915_QUERY_MEMORY_REGIONS, &length);
     if (regions) {
       for (unsigned i = 0; i < regions->num_regions; i++) {
         struct drm_i915_memory_region_info mr = regions->regions[i];
+        // ARC will have device memory and system memory, integrated graphics will have only one system region
         if (mr.region.memory_class == I915_MEMORY_CLASS_DEVICE || regions->num_regions == 1) {
           SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.probed_size);
           // i915 will report the total memory as the unallocated size if we don't have CAP_PERFMON
@@ -215,9 +216,9 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
     return false;
 
   process_info->type = gpu_process_unknown;
-  if (process_info->gfx_engine_used)
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) && process_info->gfx_engine_used > 0)
     process_info->type |= gpu_process_graphical;
-  if (process_info->compute_engine_used)
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used) && process_info->compute_engine_used > 0)
     process_info->type |= gpu_process_compute;
 
   struct intel_process_info_cache *cache_entry;

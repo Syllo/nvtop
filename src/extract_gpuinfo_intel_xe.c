@@ -85,6 +85,7 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (regions) {
       for (unsigned i = 0; i < regions->num_mem_regions; i++) {
         struct drm_xe_mem_region mr = regions->mem_regions[i];
+        // ARC will have VRAM and SYSMEM, integrated graphics will have only one SYSMEM region
         if (mr.mem_class == DRM_XE_MEM_REGION_CLASS_VRAM || regions->num_mem_regions == 1) {
           SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.total_size);
           // xe will report 0 kb used if we don't have CAP_PERFMON
@@ -137,9 +138,9 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
 
-  union intel_cycles gpu_cycles = {.array = {0, 0, 0, 0, 0}};
+  union intel_cycles gpu_cycles = {.array = {0}};
 
-  union intel_cycles total_cycles = {.array = {0, 0, 0, 0, 0}};
+  union intel_cycles total_cycles = {.array = {0}};
 
   while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
     char *key, *val;
