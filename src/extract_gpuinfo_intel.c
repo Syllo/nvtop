@@ -24,57 +24,14 @@
 #include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/time.h"
 
+#include "extract_gpuinfo_intel.h"
+
 #include <assert.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <uthash.h>
-
-#define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct unique_cache_id), out_ptr)
-#define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, client_id, sizeof(struct unique_cache_id), in_ptr)
-
-#define SET_INTEL_CACHE(cachePtr, field, value) SET_VALUE(cachePtr, field, value, intel_cache_)
-#define RESET_INTEL_CACHE(cachePtr, field) INVALIDATE_VALUE(cachePtr, field, intel_cache_)
-#define INTEL_CACHE_FIELD_VALID(cachePtr, field) VALUE_IS_VALID(cachePtr, field, intel_cache_)
-
-enum intel_process_info_cache_valid {
-  intel_cache_engine_render_valid = 0,
-  intel_cache_engine_copy_valid,
-  intel_cache_engine_video_valid,
-  intel_cache_engine_video_enhance_valid,
-  intel_cache_process_info_cache_valid_count
-};
-
-struct __attribute__((__packed__)) unique_cache_id {
-  unsigned client_id;
-  pid_t pid;
-  char *pdev;
-};
-
-struct intel_process_info_cache {
-  struct unique_cache_id client_id;
-  uint64_t engine_render;
-  uint64_t engine_copy;
-  uint64_t engine_video;
-  uint64_t engine_video_enhance;
-  nvtop_time last_measurement_tstamp;
-  unsigned char valid[(intel_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
-  UT_hash_handle hh;
-};
-
-struct gpu_info_intel {
-  struct gpu_info base;
-  enum { DRIVER_I915, DRIVER_XE } driver;
-
-  struct nvtop_device *card_device;
-  struct nvtop_device *driver_device;
-  struct nvtop_device *hwmon_device;
-  struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
-
-  struct {
-    unsigned energy_uj;
-    nvtop_time time;
-  } energy;
-};
 
 static bool gpuinfo_intel_init(void);
 static void gpuinfo_intel_shutdown(void);
@@ -113,6 +70,8 @@ bool gpuinfo_intel_init(void) { return true; }
 void gpuinfo_intel_shutdown(void) {
   for (unsigned i = 0; i < intel_gpu_count; ++i) {
     struct gpu_info_intel *current = &gpu_infos[i];
+    if (current->card_fd)
+        close(current->card_fd);
     nvtop_device_unref(current->card_device);
     nvtop_device_unref(current->driver_device);
   }
@@ -120,149 +79,14 @@ void gpuinfo_intel_shutdown(void) {
 
 const char *gpuinfo_intel_last_error_string(void) { return "Err"; }
 
-static const char i915_drm_intel_render[] = "drm-engine-render";
-static const char i915_drm_intel_copy[] = "drm-engine-copy";
-static const char i915_drm_intel_video[] = "drm-engine-video";
-static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
-static const char i915_drm_intel_vram[] = "drm-total-local0";
-
-static const char xe_drm_intel_vram[] = "drm-total-vram0";
-
 static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
-  static char *line = NULL;
-  static size_t line_buf_size = 0;
-  ssize_t count = 0;
-
-  bool client_id_set = false;
-  unsigned cid;
-  nvtop_time current_time;
-  nvtop_get_current_time(&current_time);
-
-  while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
-    char *key, *val;
-    // Get rid of the newline if present
-    if (line[count - 1] == '\n') {
-      line[--count] = '\0';
-    }
-
-    if (!extract_drm_fdinfo_key_value(line, &key, &val))
-      continue;
-
-    if (!strcmp(key, drm_pdev)) {
-      if (strcmp(val, gpu_info->base.pdev)) {
-        return false;
-      }
-    } else if (!strcmp(key, drm_client_id)) {
-      char *endptr;
-      cid = strtoul(val, &endptr, 10);
-      if (*endptr)
-        continue;
-      client_id_set = true;
-    } else {
-      bool is_render = !strcmp(key, i915_drm_intel_render);
-      bool is_copy = !strcmp(key, i915_drm_intel_copy);
-      bool is_video = !strcmp(key, i915_drm_intel_video);
-      bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
-      
-      if (!strcmp(key, i915_drm_intel_vram) || !strcmp(key, xe_drm_intel_vram)) {
-        // TODO: do we count "gtt mem" too?
-        unsigned long mem_int;
-        char *endptr;
-
-        mem_int = strtoul(val, &endptr, 10);
-        if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
-            continue;
-
-        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
-      } else if (is_render || is_copy || is_video || is_video_enhance) {
-        char *endptr;
-        uint64_t time_spent = strtoull(val, &endptr, 10);
-        if (endptr == val || strcmp(endptr, " ns"))
-          continue;
-        if (is_render) {
-          SET_GPUINFO_PROCESS(process_info, gfx_engine_used, time_spent);
-        }
-        if (is_copy) {
-          // TODO: what is copy?
-          (void)time_spent;
-        }
-        if (is_video) {
-          // Video represents encode and decode
-          SET_GPUINFO_PROCESS(process_info, dec_engine_used, time_spent);
-          SET_GPUINFO_PROCESS(process_info, enc_engine_used, time_spent);
-        }
-        if (is_video_enhance) {
-          // TODO: what is this
-        }
-      }
-    }
+  switch (gpu_info->driver) {
+  case DRIVER_I915:
+    return parse_drm_fdinfo_intel_i915(info, fdinfo_file, process_info);
+  case DRIVER_XE:
+    return parse_drm_fdinfo_intel_xe(info, fdinfo_file, process_info);
   }
-  if (!client_id_set)
-    return false;
-  // The intel driver does not expose compute engine metrics as of yet
-  process_info->type |= gpu_process_graphical;
-
-  struct intel_process_info_cache *cache_entry;
-  struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid, .pdev = gpu_info->base.pdev};
-  HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &ucid, cache_entry);
-  if (cache_entry) {
-    uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
-    HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
-    if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
-        INTEL_CACHE_FIELD_VALID(cache_entry, engine_render) &&
-        // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
-        process_info->gfx_engine_used >= cache_entry->engine_render &&
-        process_info->gfx_engine_used - cache_entry->engine_render <= time_elapsed) {
-      SET_GPUINFO_PROCESS(
-          process_info, gpu_usage,
-          busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));
-    }
-    if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used) &&
-        INTEL_CACHE_FIELD_VALID(cache_entry, engine_video) &&
-        process_info->dec_engine_used >= cache_entry->engine_video &&
-        process_info->dec_engine_used - cache_entry->engine_video <= time_elapsed) {
-      SET_GPUINFO_PROCESS(
-          process_info, decode_usage,
-          busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->engine_video, time_elapsed));
-    }
-    if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used) &&
-        INTEL_CACHE_FIELD_VALID(cache_entry, engine_video_enhance) &&
-        process_info->enc_engine_used >= cache_entry->engine_video_enhance &&
-        process_info->enc_engine_used - cache_entry->engine_video_enhance <= time_elapsed) {
-      SET_GPUINFO_PROCESS(process_info, encode_usage,
-                          busy_usage_from_time_usage_round(process_info->enc_engine_used,
-                                                           cache_entry->engine_video_enhance, time_elapsed));
-    }
-  } else {
-    cache_entry = calloc(1, sizeof(*cache_entry));
-    if (!cache_entry)
-      goto parse_fdinfo_exit;
-    cache_entry->client_id.client_id = cid;
-    cache_entry->client_id.pid = process_info->pid;
-    cache_entry->client_id.pdev = gpu_info->base.pdev;
-  }
-
-#ifndef NDEBUG
-  // We should only process one fdinfo entry per client id per update
-  struct intel_process_info_cache *cache_entry_check;
-  HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cache_entry->client_id, cache_entry_check);
-  assert(!cache_entry_check && "We should not be processing a client id twice per update");
-#endif
-
-  RESET_ALL(cache_entry->valid);
-  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used))
-    SET_INTEL_CACHE(cache_entry, engine_render, process_info->gfx_engine_used);
-  if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used))
-    SET_INTEL_CACHE(cache_entry, engine_video, process_info->dec_engine_used);
-  if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used))
-    SET_INTEL_CACHE(cache_entry, engine_video_enhance, process_info->enc_engine_used);
-
-  cache_entry->last_measurement_tstamp = current_time;
-  HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
-
-parse_fdinfo_exit:
-  return true;
 }
 
 static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices, unsigned *count) {
@@ -284,6 +108,11 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   thisGPU->card_device = nvtop_device_ref(dev);
   thisGPU->driver_device = nvtop_device_ref(parent);
   thisGPU->hwmon_device = nvtop_device_get_hwmon(thisGPU->driver_device);
+
+  const char *devname;
+  if (nvtop_device_get_devname(thisGPU->card_device, &devname) >= 0)
+    thisGPU->card_fd = open(devname, O_WRONLY);
+
   const char *pdev_val;
   int retval = nvtop_device_get_property_value(thisGPU->driver_device, "PCI_SLOT_NAME", &pdev_val);
   assert(retval >= 0 && pdev_val != NULL && "Could not retrieve device PCI slot name");
@@ -453,6 +282,15 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       gpu_info->energy.energy_uj = val;
       gpu_info->energy.time = ts;
     }
+  }
+
+  switch (gpu_info->driver) {
+  case DRIVER_I915:
+    gpuinfo_intel_i915_refresh_dynamic_info(_gpu_info);
+    break;
+  case DRIVER_XE:
+    gpuinfo_intel_xe_refresh_dynamic_info(_gpu_info);
+    break;
   }
 
   // Let the temporary devices be garbage collected

@@ -98,6 +98,8 @@ endif()
 
 if(INTEL_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_intel.c)
+  target_sources(nvtop PRIVATE extract_gpuinfo_intel_i915.c)
+  target_sources(nvtop PRIVATE extract_gpuinfo_intel_xe.c)
 endif()
 
 if(V3D_SUPPORT)

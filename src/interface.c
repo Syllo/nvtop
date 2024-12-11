@@ -697,6 +697,15 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       snprintf(buff, 1024, "%.3f%s/%.3f%s", used_prefixed, memory_prefix[prefix_off], total_prefixed,
                memory_prefix[prefix_off]);
       draw_percentage_meter(mem_util_win, "MEM", (unsigned int)(100. * used_mem / total_mem), buff);
+    } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory)) {
+      double total_mem = device->dynamic_info.total_memory;
+      double total_prefixed = total_mem;
+      size_t prefix_off;
+      for (prefix_off = 0; prefix_off < 5 && total_prefixed >= 1000.; ++prefix_off) {
+        total_prefixed /= 1024.;
+      }
+      snprintf(buff, 1024, "N/A/%.3f%s", total_prefixed, memory_prefix[prefix_off]);
+      draw_percentage_meter(mem_util_win, "MEM", 0, buff);
     } else {
       snprintf(buff, 1024, "N/A");
       draw_percentage_meter(mem_util_win, "MEM", 0, buff);
