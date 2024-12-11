@@ -27,8 +27,8 @@
 #include "extract_gpuinfo_intel.h"
 
 #include <assert.h>
-#include <drm/drm.h>
-#include <drm/i915_drm.h>
+#include <libdrm/i915_drm.h>
+#include <libdrm/drm.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
