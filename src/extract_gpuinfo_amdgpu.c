@@ -712,7 +712,7 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     // TODO: Determine if we want to include GTT (GPU accessible system memory)
     SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.vram.total_heap_size);
     SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.vram.heap_usage);
-    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.vram.usable_heap_size - dynamic_info->used_memory);
+    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.vram.total_heap_size - dynamic_info->used_memory);
     SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
                         (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
   }
