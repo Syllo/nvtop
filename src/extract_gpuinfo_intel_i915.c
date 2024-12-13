@@ -27,14 +27,44 @@
 #include "extract_gpuinfo_intel.h"
 
 #include <assert.h>
-#include <libdrm/i915_drm.h>
-#include <libdrm/drm.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <libdrm/drm.h>
+#include <libdrm/i915_drm.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+
+#ifndef DRM_I915_QUERY_MEMORY_REGIONS
+// The versions of libdrm < 2.4.114 don't provide
+// DRM_I915_QUERY_MEMORY_REGIONS.
+// Copied from more recent libdrm/i915_drm.h
+
+#define DRM_I915_QUERY_MEMORY_REGIONS 4
+#define I915_MEMORY_CLASS_DEVICE 1
+struct drm_i915_memory_region_info {
+  struct {
+    __u16 memory_class;
+    __u16 memory_instance;
+  } region;
+  __u32 rsvd0;
+  __u64 probed_size;
+  __u64 unallocated_size;
+  union {
+    __u64 rsvd1[8];
+    struct {
+      __u64 probed_cpu_visible_size;
+      __u64 unallocated_cpu_visible_size;
+    };
+  };
+};
+struct drm_i915_query_memory_regions {
+  __u32 num_regions;
+  __u32 rsvd[3];
+  struct drm_i915_memory_region_info regions[];
+};
+#endif // not defined(DRM_I915_QUERY_MEMORY_REGIONS)
 
 // Copied from https://gitlab.freedesktop.org/mesa/mesa/-/blob/main/src/intel/common/intel_gem.h
 static inline int intel_ioctl(int fd, unsigned long request, void *arg) {
@@ -118,7 +148,8 @@ void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info) {
           if (mr.unallocated_size != mr.probed_size) {
             SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mr.unallocated_size);
             SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, dynamic_info->total_memory - dynamic_info->free_memory);
-            SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, dynamic_info->used_memory * 100 / dynamic_info->total_memory);
+            SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
+                                dynamic_info->used_memory * 100 / dynamic_info->total_memory);
           }
           break;
         }
@@ -253,8 +284,7 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
                                                            cache_entry->engine_video_enhance, time_elapsed));
     }
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used) &&
-        GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage) &&
-        INTEL_CACHE_FIELD_VALID(cache_entry, engine_compute) &&
+        GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage) && INTEL_CACHE_FIELD_VALID(cache_entry, engine_compute) &&
         process_info->compute_engine_used >= cache_entry->engine_compute &&
         process_info->compute_engine_used - cache_entry->engine_compute <= time_elapsed) {
       SET_GPUINFO_PROCESS(process_info, gpu_usage,
