@@ -19,14 +19,17 @@
  *
  */
 
-#include <uthash.h>
-
 #include "nvtop/device_discovery.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/time.h"
+#include <uthash.h>
+#include <xf86drm.h>
 
 #define MAX_ERR_STRING_LEN 256
+
+// Declaration not present in xf86drm.h on Ubuntu 20.04
+extern int drmGetDeviceFromDevId(dev_t dev_id, uint32_t flags, drmDevicePtr *device);
 
 struct drmFuncTable {
   typeof(drmGetDevices) *drmGetDevices;
