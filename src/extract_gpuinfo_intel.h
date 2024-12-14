@@ -61,6 +61,8 @@ struct gpu_info_intel {
   struct nvtop_device *hwmon_device;
   struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
 
+  struct nvtop_device *bridge_device;
+
   struct {
     unsigned energy_uj;
     struct timespec time;

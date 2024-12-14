@@ -180,17 +180,28 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  nvtop_pcie_link max_link_characteristics;
-  int ret = nvtop_device_maximum_pcie_link(gpu_info->driver_device, &max_link_characteristics);
-  if (ret >= 0) {
-    SET_GPUINFO_STATIC(static_info, max_pcie_link_width, max_link_characteristics.width);
-    unsigned pcieGen = nvtop_pcie_gen_from_link_speed(max_link_characteristics.speed);
-    SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
-  }
-
   // Mark integrated GPUs
   if (strcmp(gpu_info->base.pdev, INTEGRATED_I915_GPU_PCI_ID) == 0) {
     static_info->integrated_graphics = true;
+  }
+
+  nvtop_pcie_link max_link_characteristics;
+  int ret = nvtop_device_maximum_pcie_link(gpu_info->driver_device, &max_link_characteristics);
+  if (ret >= 0) {
+    // Some cards report PCIe GEN 1@ 1x, attempt to detect this and get the card's bridge link speeds
+    gpu_info->bridge_device = gpu_info->driver_device;
+    struct nvtop_device *parent;
+    unsigned attempts = 0;
+    while (ret >= 0 && max_link_characteristics.width == 1 && max_link_characteristics.speed == 2 &&
+           static_info->integrated_graphics == false && attempts++ < 2) {
+      ret = nvtop_device_get_parent(gpu_info->bridge_device, &parent);
+      if (ret >= 0 && nvtop_device_maximum_pcie_link(parent, &max_link_characteristics) >= 0) {
+        gpu_info->bridge_device = parent;
+      }
+    }
+    SET_GPUINFO_STATIC(static_info, max_pcie_link_width, max_link_characteristics.width);
+    unsigned pcieGen = nvtop_pcie_gen_from_link_speed(max_link_characteristics.speed);
+    SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
   }
 }
 
@@ -214,6 +225,13 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (nvtop_device_get_syspath(gpu_info->hwmon_device, &syspath) >= 0)
       nvtop_device_new_from_syspath(&hwmon_dev_noncached, syspath);
   }
+  nvtop_device *bridge_dev_noncached = NULL;
+  if (gpu_info->bridge_device) {
+    if (nvtop_device_get_syspath(gpu_info->bridge_device, &syspath) >= 0)
+      nvtop_device_new_from_syspath(&bridge_dev_noncached, syspath);
+  } else {
+    bridge_dev_noncached = driver_dev_noncached;
+  }
 
   nvtop_device *clock_device = gpu_info->driver == DRIVER_XE ? driver_dev_noncached : card_dev_noncached;
   // GPU clock
@@ -235,7 +253,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   if (!static_info->integrated_graphics) {
     nvtop_pcie_link curr_link_characteristics;
-    int ret = nvtop_device_current_pcie_link(driver_dev_noncached, &curr_link_characteristics);
+    int ret = nvtop_device_current_pcie_link(bridge_dev_noncached, &curr_link_characteristics);
     if (ret >= 0) {
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
       unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
