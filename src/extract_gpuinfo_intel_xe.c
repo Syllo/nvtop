@@ -222,6 +222,8 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
   if (cache_entry) {
     HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
 
+    // TODO: find how to extract global utilization
+    // gpu util will be computed as the sum of all the processes utilization for now
     {
       uint64_t cycles_delta = gpu_cycles.rcs - cache_entry->gpu_cycles.rcs;
       uint64_t total_cycles_delta = total_cycles.rcs - cache_entry->total_cycles.rcs;

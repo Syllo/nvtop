@@ -71,7 +71,7 @@ void gpuinfo_intel_shutdown(void) {
   for (unsigned i = 0; i < intel_gpu_count; ++i) {
     struct gpu_info_intel *current = &gpu_infos[i];
     if (current->card_fd)
-        close(current->card_fd);
+      close(current->card_fd);
     nvtop_device_unref(current->card_device);
     nvtop_device_unref(current->driver_device);
   }
@@ -248,9 +248,6 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
   }
 
-  // TODO: find how to extract global utilization
-  // gpu util will be computed as the sum of all the processes utilization for now
-
   if (!static_info->integrated_graphics) {
     nvtop_pcie_link curr_link_characteristics;
     int ret = nvtop_device_current_pcie_link(bridge_dev_noncached, &curr_link_characteristics);
@@ -261,7 +258,6 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // TODO: Attributes such as memory, fan, temperature, power info should be available once the hwmon patch lands
   if (hwmon_dev_noncached) {
     const char *hwmon_fan;
     // maxFanValue is just a guess, there is no way to get the max fan speed from hwmon
