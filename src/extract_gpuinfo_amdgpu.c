@@ -34,8 +34,6 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
-#include <libdrm/amdgpu.h>
-#include <libdrm/amdgpu_drm.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -47,6 +45,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <uthash.h>
+
+// #if LIBDRM_AVAILABLE
+
+#include <libdrm/amdgpu.h>
+#include <libdrm/amdgpu_drm.h>
 #include <xf86drm.h>
 
 // extern
@@ -75,6 +78,20 @@ static void *libdrm_handle;
 static void *libdrm_amdgpu_handle;
 
 static int last_libdrm_return_status = 0;
+
+// #endif // DRM_AVAILABLE
+
+static void *librocm_smi64_handle;
+#if ROCM_SMI_AVAILABLE
+
+#include <rocm_smi/rocm_smi.h>
+
+static typeof(rsmi_init) *_rsmi_init;
+static typeof(rsmi_num_monitor_devices) *_rsmi_num_monitor_devices;
+static typeof(rsmi_dev_id_get) *_rsmi_dev_id_get;
+
+#endif
+
 static char didnt_call_gpuinfo_init[] = "uninitialized";
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
@@ -116,7 +133,12 @@ struct gpu_info_amdgpu {
 
   drmVersionPtr drmVersion;
   int fd;
-  amdgpu_device_handle amdgpu_device;
+  struct {
+    amdgpu_device_handle amdgpu_device;
+#if ROCM_SMI_AVAILABLE
+    uint16_t rocm_smi_dev_id;
+#endif
+  };
 
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
   FILE *fanSpeedFILE; // FILE* for this device current fan speed
@@ -168,7 +190,7 @@ static int wrap_drmGetDevices(drmDevicePtr devices[], int max_devices) {
 
 static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info);
 
-static bool gpuinfo_amdgpu_init(void) {
+static bool init_libdrm(void) {
   libdrm_handle = dlopen("libdrm.so", RTLD_LAZY);
   if (!libdrm_handle)
     libdrm_handle = dlopen("libdrm.so.2", RTLD_LAZY);
@@ -231,6 +253,40 @@ init_error_clean_exit:
   libdrm_handle = NULL;
   return false;
 }
+
+static bool init_rocm_smi(void) {
+
+#if ROCM_SMI_AVAILABLE
+  librocm_smi64_handle = dlopen("librocm_smi64.so", RTLD_LAZY);
+  // ROCm seems to often be installed into the /opt/romc directory
+  if (!librocm_smi64_handle) {
+    librocm_smi64_handle = dlopen("/opt/rocm/lib/librocm_smi64.so", RTLD_LAZY);
+  }
+  if (!librocm_smi64_handle)
+    goto init_rocm_clean_exit;
+
+  _rsmi_init = dlsym(librocm_smi64_handle, "rsmi_init");
+  if (!_rsmi_init)
+    goto init_rocm_clean_exit;
+  _rsmi_num_monitor_devices = dlsym(librocm_smi64_handle, "rsmi_num_monitor_devices");
+  if (!_rsmi_num_monitor_devices)
+    goto init_rocm_clean_exit;
+  _rsmi_dev_id_get = dlsym(librocm_smi64_handle, "rsmi_dev_id_get");
+  if (!_rsmi_dev_id_get)
+    goto init_rocm_clean_exit;
+
+  fprintf(stderr, "Success load of librocm!\n");
+
+  return true;
+
+init_rocm_clean_exit:
+#endif
+  dlclose(librocm_smi64_handle);
+  librocm_smi64_handle = NULL;
+  return false;
+}
+
+static bool gpuinfo_amdgpu_init(void) { return (int)(init_rocm_smi()) | init_libdrm(); }
 
 static void gpuinfo_amdgpu_shutdown(void) {
   for (unsigned i = 0; i < amdgpu_count; ++i) {
