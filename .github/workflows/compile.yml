@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
 
       matrix:
-        os: [ubuntu-24.04]
+        os: [ubuntu-24.04, ubuntu-22.04, ubuntu-20.04]
 
     env:
       BUILD_DIR: build
@@ -32,4 +32,5 @@ jobs:
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
+        name: nvtop ${{ matrix.os }}
         path: ${{ env.BUILD_DIR }}/src/nvtop
