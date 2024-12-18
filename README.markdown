@@ -38,6 +38,7 @@ Table of Contents
   - [Fedora / Red Hat / CentOS](#fedora--red-hat--centos)
   - [OpenSUSE](#opensuse)
   - [Arch Linux](#arch-linux)
+  - [Gentoo](#gentoo)
   - [AppImage](#appimage)
   - [Snap](#snap)
   - [Conda-forge](#conda-forge)
@@ -270,7 +271,7 @@ Build process for OpenSUSE:
 ### Gentoo
 
 - ```bash
-  sudo layman -a guru && sudo emerge -av nvtop
+  sudo emerge -av nvtop
   ```
 
 ### AppImage
