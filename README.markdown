@@ -339,7 +339,7 @@ pixi global install nvtop
 ```bash
 git clone https://github.com/Syllo/nvtop.git
 mkdir -p nvtop/build && cd nvtop/build
-cmake .. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON
+cmake ../.. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON
 make
 
 # Install globally on the system
@@ -348,6 +348,8 @@ sudo make install
 # Alternatively, install without privileges at a location of your choosing
 # make DESTDIR="/your/install/path" install
 ```
+
+> For Apple Silicon, use `-DAPPLE_SUPPORT=ON`.
 
 If you use **conda** as environment manager and encounter an error while building NVTOP, try `conda deactivate` before invoking `cmake`.
 
