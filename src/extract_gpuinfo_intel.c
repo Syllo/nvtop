@@ -87,6 +87,7 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
   case DRIVER_XE:
     return parse_drm_fdinfo_intel_xe(info, fdinfo_file, process_info);
   }
+  return false;
 }
 
 static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices, unsigned *count) {
