@@ -1,4 +1,4 @@
-name: Compile
+name: Compile Ubuntu
 
 on:
   - push
@@ -16,6 +16,7 @@ jobs:
 
     env:
       BUILD_DIR: build
+      DEBIAN_FRONTEND: noninteractive
 
     steps:
     - uses: actions/checkout@v4
@@ -28,9 +29,12 @@ jobs:
 
     - name: Build
       run: cmake --build $BUILD_DIR
+
+    - name: Install
+      run: DESTDIR="$PWD/build/install" cmake --build $BUILD_DIR --target install
       
     - name: Upload
       uses: actions/upload-artifact@v4
       with:
         name: nvtop ${{ matrix.os }}
-        path: ${{ env.BUILD_DIR }}/src/nvtop
+        path: ${{ env.BUILD_DIR }}/install
