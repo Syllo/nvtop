@@ -255,6 +255,8 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
   struct intel_process_info_cache *cache_entry;
   struct unique_cache_id ucid = {.client_id = cid, .pid = process_info->pid, .pdev = gpu_info->base.pdev};
   HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &ucid, cache_entry);
+  // TODO: find how to extract global utilization
+  // gpu util will be computed as the sum of all the processes utilization for now
   if (cache_entry) {
     uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
     HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
