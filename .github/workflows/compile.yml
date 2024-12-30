@@ -1,0 +1,40 @@
+name: Compile Ubuntu
+
+on:
+  - push
+  - pull_request
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04, ubuntu-20.04]
+
+    env:
+      BUILD_DIR: build
+      DEBIAN_FRONTEND: noninteractive
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: sudo apt-get install -y libncurses5-dev libncursesw5-dev libdrm-dev libsystemd-dev
+
+    - name: Configure CMake
+      run: cmake -S . -B $BUILD_DIR
+
+    - name: Build
+      run: cmake --build $BUILD_DIR
+
+    - name: Install
+      run: DESTDIR="$PWD/build/install" cmake --build $BUILD_DIR --target install
+      
+    - name: Upload
+      uses: actions/upload-artifact@v4
+      with:
+        name: nvtop ${{ matrix.os }}
+        path: ${{ env.BUILD_DIR }}/install
