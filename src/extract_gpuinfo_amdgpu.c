@@ -497,8 +497,10 @@ static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const
   va_start(args, format);
   const char *val;
   int ret = nvtop_device_get_sysattr_value(dev, sysAttr, &val);
-  if (ret < 0)
+  if (ret < 0) {
+    va_end(args);
     return ret;
+  }
   // Read the pattern
   int nread = vsscanf(val, format, args);
   va_end(args);
