@@ -191,9 +191,19 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
     // Some cards report PCIe GEN 1@ 1x, attempt to detect this and get the card's bridge link speeds
     gpu_info->bridge_device = gpu_info->driver_device;
     struct nvtop_device *parent;
+    const char *vendor, *class;
     unsigned attempts = 0;
-    while (ret >= 0 && max_link_characteristics.width == 1 && max_link_characteristics.speed == 2 &&
-           static_info->integrated_graphics == false && attempts++ < 2) {
+    while (ret >= 0 && static_info->integrated_graphics == false &&
+           // check likely incorrect speed
+           max_link_characteristics.width == 1 && max_link_characteristics.speed == 2 &&
+           // check vendor
+           nvtop_device_get_sysattr_value(gpu_info->bridge_device, "vendor", &vendor) == 0 &&
+           strcmp(vendor, VENDOR_INTEL_STR) == 0 &&
+           // check class is either VGA or (non-host) PCI Bridge
+           nvtop_device_get_sysattr_value(gpu_info->bridge_device, "class", &class) == 0 &&
+           (strcmp(class, "0x030000") == 0 || strcmp(class, "0x060400") == 0) &&
+           // don't go more than 2 levels up
+           attempts++ < 2) {
       ret = nvtop_device_get_parent(gpu_info->bridge_device, &parent);
       if (ret >= 0 && nvtop_device_maximum_pcie_link(parent, &max_link_characteristics) >= 0) {
         gpu_info->bridge_device = parent;
