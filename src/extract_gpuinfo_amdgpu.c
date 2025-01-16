@@ -796,6 +796,7 @@ static const char drm_amdgpu_enc[] = "drm-engine-enc";
 
 static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_amdgpu *gpu_info = container_of(info, struct gpu_info_amdgpu, base);
+  struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   static char *line = NULL;
   static size_t line_buf_size = 0;
   ssize_t count = 0;
@@ -965,6 +966,12 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       cache_entry->client_id.pid = process_info->pid;
       cache_entry->client_id.pdev = gpu_info->base.pdev;
     }
+
+    // The UI only shows the decode usage when `encode_decode_shared` is true
+    // but amdgpu should only use the encode usage field when it is shared.
+    // Lets add both together for good measure.
+    if (static_info->encode_decode_shared)
+      SET_GPUINFO_PROCESS(process_info, decode_usage, process_info->decode_usage + process_info->encode_usage);
 
 #ifndef NDEBUG
     // We should only process one fdinfo entry per client id per update
