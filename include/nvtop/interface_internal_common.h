@@ -59,6 +59,7 @@ struct device_window {
   WINDOW *mem_util_no_enc_and_dec;
   WINDOW *encode_util;
   WINDOW *decode_util;
+  WINDOW *encdec_util;
   WINDOW *fan_speed;
   WINDOW *temperature;
   WINDOW *power_info;
