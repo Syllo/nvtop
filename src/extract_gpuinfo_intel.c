@@ -294,7 +294,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     // energy1 is for i915, energy2 is for xe
     if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy1_input", &hwmon_energy) >= 0 ||
         nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy2_input", &hwmon_energy) >= 0) {
-      nvtop_time ts, ts_diff;
+      nvtop_time ts;
       nvtop_get_current_time(&ts);
       unsigned val = strtoul(hwmon_energy, NULL, 10);
       unsigned old = gpu_info->energy.energy_uj;

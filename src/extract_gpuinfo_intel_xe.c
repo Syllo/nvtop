@@ -79,7 +79,7 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
   if (gpu_info->card_fd) {
-    int32_t length = 0;
+    uint32_t length = 0;
     struct drm_xe_query_mem_regions *regions =
         xe_device_query_alloc_fetch(gpu_info->card_fd, DRM_XE_DEVICE_QUERY_MEM_REGIONS, &length);
     if (regions) {
@@ -103,7 +103,7 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 }
 
 static const char xe_drm_intel_vram[] = "drm-total-vram0";
-static const char xe_drm_intel_gtt[] = "drm-total-gtt";
+// static const char xe_drm_intel_gtt[] = "drm-total-gtt";
 // Render
 static const char xe_drm_intel_cycles_rcs[] = "drm-cycles-rcs";
 static const char xe_drm_intel_total_cycles_rcs[] = "drm-total-cycles-rcs";
