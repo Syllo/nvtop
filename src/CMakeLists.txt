@@ -74,26 +74,27 @@ if(AMDGPU_SUPPORT OR INTEL_SUPPORT OR V3D_SUPPORT)
   target_sources(nvtop PRIVATE device_discovery_linux.c)
 endif()
 
-if(AMDGPU_SUPPORT OR MSM_SUPPORT OR PANFROST_SUPPORT OR PANTHOR_SUPPORT)
+if(AMDGPU_SUPPORT OR INTEL_SUPPORT OR MSM_SUPPORT OR PANFROST_SUPPORT OR PANTHOR_SUPPORT)
   # Search for libdrm for AMDGPU support
   find_package(Libdrm)
 
   if(Libdrm_FOUND)
     message(STATUS "Found libdrm; Enabling support")
     target_include_directories(nvtop PRIVATE ${Libdrm_INCLUDE_DIRS})
-    if (AMDGPU_SUPPORT)
-      target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu.c)
-      target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu_utils.c)
-    endif()
-
-    if (MSM_SUPPORT)
-      target_sources(nvtop PRIVATE extract_gpuinfo_msm.c)
-      target_sources(nvtop PRIVATE extract_gpuinfo_msm_utils.c)
-    endif()
-
   else()
-    message(FATAL_ERROR "libdrm not found; This library is required for AMDGPU and MSM support")
+    message(FATAL_ERROR "libdrm not found; This library is required for AMDGPU, INTEL, MSM, PANFROST and PANTHOR support")
+    # CMake will exit if libdrm is not found
   endif()
+endif()
+
+if (AMDGPU_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu.c)
+  target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu_utils.c)
+endif()
+
+if (MSM_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_msm.c)
+  target_sources(nvtop PRIVATE extract_gpuinfo_msm_utils.c)
 endif()
 
 if(INTEL_SUPPORT)
