@@ -141,6 +141,9 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
   dwin->decode_util = newwin(1, size_decode, start_row + 2, start_col + spacer * 3 + size_gpu + size_mem + size_encode);
   if (dwin->decode_util == NULL)
     goto alloc_error;
+  dwin->encdec_util = newwin(1, size_encode * 2, start_row + 2, start_col + spacer * 2 + size_gpu + size_mem);
+  if (dwin->encdec_util == NULL)
+    goto alloc_error;
   // For auto-hide encode / decode window
   dwin->gpu_util_no_enc_or_dec = newwin(1, size_gpu + size_encode / 2 + 1, start_row + 2, start_col);
   if (dwin->gpu_util_no_enc_or_dec == NULL)
@@ -190,6 +193,7 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->mem_util_no_enc_and_dec);
   delwin(dwin->encode_util);
   delwin(dwin->decode_util);
+  delwin(dwin->encdec_util);
   delwin(dwin->gpu_clock_info);
   delwin(dwin->mem_clock_info);
   delwin(dwin->power_info);
@@ -646,9 +650,11 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     WINDOW *mem_util_win;
     WINDOW *encode_win = dev->encode_util;
     WINDOW *decode_win = dev->decode_util;
-    if (display_encode && display_decode) {
+    if ((display_encode && display_decode) || (display_decode && device->static_info.encode_decode_shared)) {
       gpu_util_win = dev->gpu_util_enc_dec;
       mem_util_win = dev->mem_util_enc_dec;
+      if (device->static_info.encode_decode_shared)
+        decode_win = dev->encdec_util;
     } else {
       if (display_encode || display_decode) {
         // If encode only, place at decode location
