@@ -302,6 +302,7 @@ int main(int argc, char **argv) {
       timeout(next_sleep);
     }
     draw_gpu_info_ncurses(numMonitoredGpus, &monitoredGpus, interface);
+
     nvtop_time time_before_sleep, time_after_sleep;
     nvtop_get_current_time(&time_before_sleep);
     int input_char = getch();
