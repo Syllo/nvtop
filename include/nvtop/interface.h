@@ -55,4 +55,6 @@ int interface_update_interval(const struct nvtop_interface *interface);
 
 bool show_information_messages(unsigned num_messages, const char **messages);
 
-#endif // INTERFACE_H_
+void print_snapshot(struct list_head *devices, bool use_fahrenheit_option);
+
+#endif // INTERFACE_H_e

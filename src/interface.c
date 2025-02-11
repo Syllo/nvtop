@@ -2055,3 +2055,72 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
   }
   return dontShowAgainOption;
 }
+
+void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
+  gpuinfo_populate_static_infos(devices);
+  gpuinfo_refresh_dynamic_info(devices);
+  struct gpu_info *device;
+
+  list_for_each_entry(device, devices, list) {
+    // Device Name
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name))
+      printf("Device: %s; ", device->static_info.device_name);
+    else
+      printf("Device: N/A; ");
+
+    // GPU Clock Speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed))
+      printf("GPU Clock: %uMHz; ", device->dynamic_info.gpu_clock_speed);
+    else
+      printf("GPU Clock: N/A; ");
+
+    // MEM Clock Speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed))
+      printf("Mem Clock: %uMHz; ", device->dynamic_info.mem_clock_speed);
+    else
+      printf("Mem Clock: N/A; ");
+
+    // GPU Temperature
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
+      unsigned int temp_convert;
+      if (!use_fahrenheit_option)
+        temp_convert = device->dynamic_info.gpu_temp;
+      else
+        temp_convert = (unsigned)(32 + nearbyint(device->dynamic_info.gpu_temp * 1.8));
+
+      printf("Temp: %u%s; ", temp_convert, use_fahrenheit_option ? "F" : "C");
+    } else {
+      printf("Temp: N/A; ");
+    }
+
+    // Fan speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed))
+      printf("Fan: %u%%; ", device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
+    else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm))
+      printf("Fan: %uRPM; ", device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
+    else if (&device->static_info.integrated_graphics)
+      printf("Fan: CPU Fan; ");
+    else
+      printf("Fan: N/A; ");
+
+    //Power draw
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw))
+      printf("Power: %uW; ", device->dynamic_info.power_draw / 1000);
+    else
+      printf("Power: N/A; ");
+
+    // GPU Utilization
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate))
+      printf("GPU Util: %u%%; ", device->dynamic_info.gpu_util_rate);
+    else
+      printf("GPU Util: N/A; ");
+
+    // Memory Utilization
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_util_rate))
+      printf("Mem Util: %u%%; ", device->dynamic_info.mem_util_rate);
+    else
+      printf("Mem Util: N/A; ");
+
+    printf("\n");
+  }
+}
