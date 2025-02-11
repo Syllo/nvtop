@@ -265,7 +265,6 @@ int main(int argc, char **argv) {
   allDevicesOptions.has_gpu_info_bar = allDevicesOptions.has_gpu_info_bar || show_gpu_info_bar;
 
   gpuinfo_populate_static_infos(&monitoredGpus);
-
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 
@@ -302,7 +301,6 @@ int main(int argc, char **argv) {
       int next_sleep = interface_update_interval(interface) - (int)time_slept;
       timeout(next_sleep);
     }
-
     draw_gpu_info_ncurses(numMonitoredGpus, &monitoredGpus, interface);
     nvtop_time time_before_sleep, time_after_sleep;
     nvtop_get_current_time(&time_before_sleep);
