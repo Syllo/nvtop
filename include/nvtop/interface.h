@@ -57,4 +57,4 @@ bool show_information_messages(unsigned num_messages, const char **messages);
 
 void print_snapshot(struct list_head *devices, bool use_fahrenheit_option);
 
-#endif // INTERFACE_H_e
+#endif // INTERFACE_H_
