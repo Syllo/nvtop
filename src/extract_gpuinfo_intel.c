@@ -271,19 +271,20 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   if (hwmon_dev_noncached) {
     const char *hwmon_fan;
-    // maxFanValue is just a guess, there is no way to get the max fan speed from hwmon
     if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "fan1_input", &hwmon_fan) >= 0) {
       unsigned val = strtoul(hwmon_fan, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, val);
     }
     const char *hwmon_temp;
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp1_input", &hwmon_temp) >= 0) {
+    // temp1 is for i915, power2 is for `pkg` on xe
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp1_input", &hwmon_temp) >= 0 ||
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp2_input", &hwmon_temp) >= 0) {
       unsigned val = strtoul(hwmon_temp, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, val / 1000);
     }
 
     const char *hwmon_power_max;
-    // power1 is for i915, power2 is for xe
+    // power1 is for i915 and `card` on supported cards on xe, power2 is `pkg` on xe
     if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1_max", &hwmon_power_max) >= 0 ||
         nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power2_max", &hwmon_power_max) >= 0) {
       unsigned val = strtoul(hwmon_power_max, NULL, 10);
@@ -291,7 +292,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
 
     const char *hwmon_energy;
-    // energy1 is for i915, energy2 is for xe
+    // energy1 is for i915 and `card` on supported cards on xe, energy2 is `pkg` on xe
     if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy1_input", &hwmon_energy) >= 0 ||
         nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy2_input", &hwmon_energy) >= 0) {
       nvtop_time ts;
