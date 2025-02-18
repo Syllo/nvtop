@@ -132,6 +132,19 @@ if ((PANFROST_SUPPORT) OR (PANTHOR_SUPPORT))
   target_sources(nvtop PRIVATE extract_gpuinfo_mali_common.c)
 endif()
 
+if(TPU_SUPPORT)
+  find_library(LIBTPUINFO
+    NAMES libtpuinfo.so
+    PATHS /usr/lib /usr/lib64 /usr/local/lib /usr/local/lib64
+    HINTS ${CMAKE_INSTALL_PREFIX}/lib ${CMAKE_INSTALL_PREFIX}/lib64 lib lib64
+  )
+  if (NOT LIBTPUINFO)
+    message(WARNING "TPU Support enabled, but libtpuinfo.so not found in ldconfig path, we will not be able to read TPU usage")
+    set(TPU_SUPPORT_DEFAULT OFF)
+  endif()
+  target_sources(nvtop PRIVATE extract_gpuinfo_tpu.c)
+endif()
+
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
