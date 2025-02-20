@@ -79,7 +79,7 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
   if (gpu_info->card_fd) {
-    int32_t length = 0;
+    uint32_t length = 0;
     struct drm_xe_query_mem_regions *regions =
         xe_device_query_alloc_fetch(gpu_info->card_fd, DRM_XE_DEVICE_QUERY_MEM_REGIONS, &length);
     if (regions) {
@@ -103,7 +103,7 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 }
 
 static const char xe_drm_intel_vram[] = "drm-total-vram0";
-static const char xe_drm_intel_gtt[] = "drm-total-gtt";
+// static const char xe_drm_intel_gtt[] = "drm-total-gtt";
 // Render
 static const char xe_drm_intel_cycles_rcs[] = "drm-cycles-rcs";
 static const char xe_drm_intel_total_cycles_rcs[] = "drm-total-cycles-rcs";
@@ -222,6 +222,8 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
   if (cache_entry) {
     HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
 
+    // TODO: find how to extract global utilization
+    // gpu util will be computed as the sum of all the processes utilization for now
     {
       uint64_t cycles_delta = gpu_cycles.rcs - cache_entry->gpu_cycles.rcs;
       uint64_t total_cycles_delta = total_cycles.rcs - cache_entry->total_cycles.rcs;

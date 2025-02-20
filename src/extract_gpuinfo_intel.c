@@ -71,7 +71,7 @@ void gpuinfo_intel_shutdown(void) {
   for (unsigned i = 0; i < intel_gpu_count; ++i) {
     struct gpu_info_intel *current = &gpu_infos[i];
     if (current->card_fd)
-        close(current->card_fd);
+      close(current->card_fd);
     nvtop_device_unref(current->card_device);
     nvtop_device_unref(current->driver_device);
   }
@@ -87,6 +87,7 @@ static bool parse_drm_fdinfo_intel(struct gpu_info *info, FILE *fdinfo_file, str
   case DRIVER_XE:
     return parse_drm_fdinfo_intel_xe(info, fdinfo_file, process_info);
   }
+  return false;
 }
 
 static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices, unsigned *count) {
@@ -180,17 +181,38 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  nvtop_pcie_link max_link_characteristics;
-  int ret = nvtop_device_maximum_pcie_link(gpu_info->driver_device, &max_link_characteristics);
-  if (ret >= 0) {
-    SET_GPUINFO_STATIC(static_info, max_pcie_link_width, max_link_characteristics.width);
-    unsigned pcieGen = nvtop_pcie_gen_from_link_speed(max_link_characteristics.speed);
-    SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
-  }
-
   // Mark integrated GPUs
   if (strcmp(gpu_info->base.pdev, INTEGRATED_I915_GPU_PCI_ID) == 0) {
     static_info->integrated_graphics = true;
+  }
+
+  nvtop_pcie_link max_link_characteristics;
+  int ret = nvtop_device_maximum_pcie_link(gpu_info->driver_device, &max_link_characteristics);
+  if (ret >= 0) {
+    // Some cards report PCIe GEN 1@ 1x, attempt to detect this and get the card's bridge link speeds
+    gpu_info->bridge_device = gpu_info->driver_device;
+    struct nvtop_device *parent;
+    const char *vendor, *class;
+    unsigned attempts = 0;
+    while (ret >= 0 && static_info->integrated_graphics == false &&
+           // check likely incorrect speed
+           max_link_characteristics.width == 1 && max_link_characteristics.speed == 2 &&
+           // check vendor
+           nvtop_device_get_sysattr_value(gpu_info->bridge_device, "vendor", &vendor) == 0 &&
+           strcmp(vendor, VENDOR_INTEL_STR) == 0 &&
+           // check class is either VGA or (non-host) PCI Bridge
+           nvtop_device_get_sysattr_value(gpu_info->bridge_device, "class", &class) == 0 &&
+           (strcmp(class, "0x030000") == 0 || strcmp(class, "0x060400") == 0) &&
+           // don't go more than 2 levels up
+           attempts++ < 2) {
+      ret = nvtop_device_get_parent(gpu_info->bridge_device, &parent);
+      if (ret >= 0 && nvtop_device_maximum_pcie_link(parent, &max_link_characteristics) >= 0) {
+        gpu_info->bridge_device = parent;
+      }
+    }
+    SET_GPUINFO_STATIC(static_info, max_pcie_link_width, max_link_characteristics.width);
+    unsigned pcieGen = nvtop_pcie_gen_from_link_speed(max_link_characteristics.speed);
+    SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
   }
 }
 
@@ -214,6 +236,13 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (nvtop_device_get_syspath(gpu_info->hwmon_device, &syspath) >= 0)
       nvtop_device_new_from_syspath(&hwmon_dev_noncached, syspath);
   }
+  nvtop_device *bridge_dev_noncached = NULL;
+  if (gpu_info->bridge_device) {
+    if (nvtop_device_get_syspath(gpu_info->bridge_device, &syspath) >= 0)
+      nvtop_device_new_from_syspath(&bridge_dev_noncached, syspath);
+  } else {
+    bridge_dev_noncached = driver_dev_noncached;
+  }
 
   nvtop_device *clock_device = gpu_info->driver == DRIVER_XE ? driver_dev_noncached : card_dev_noncached;
   // GPU clock
@@ -230,12 +259,9 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
   }
 
-  // TODO: find how to extract global utilization
-  // gpu util will be computed as the sum of all the processes utilization for now
-
   if (!static_info->integrated_graphics) {
     nvtop_pcie_link curr_link_characteristics;
-    int ret = nvtop_device_current_pcie_link(driver_dev_noncached, &curr_link_characteristics);
+    int ret = nvtop_device_current_pcie_link(bridge_dev_noncached, &curr_link_characteristics);
     if (ret >= 0) {
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
       unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
@@ -243,22 +269,22 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // TODO: Attributes such as memory, fan, temperature, power info should be available once the hwmon patch lands
   if (hwmon_dev_noncached) {
     const char *hwmon_fan;
-    // maxFanValue is just a guess, there is no way to get the max fan speed from hwmon
     if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "fan1_input", &hwmon_fan) >= 0) {
       unsigned val = strtoul(hwmon_fan, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, val);
     }
     const char *hwmon_temp;
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp1_input", &hwmon_temp) >= 0) {
+    // temp1 is for i915, power2 is for `pkg` on xe
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp1_input", &hwmon_temp) >= 0 ||
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp2_input", &hwmon_temp) >= 0) {
       unsigned val = strtoul(hwmon_temp, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, val / 1000);
     }
 
     const char *hwmon_power_max;
-    // power1 is for i915, power2 is for xe
+    // power1 is for i915 and `card` on supported cards on xe, power2 is `pkg` on xe
     if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1_max", &hwmon_power_max) >= 0 ||
         nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power2_max", &hwmon_power_max) >= 0) {
       unsigned val = strtoul(hwmon_power_max, NULL, 10);
@@ -266,10 +292,10 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
 
     const char *hwmon_energy;
-    // energy1 is for i915, energy2 is for xe
+    // energy1 is for i915 and `card` on supported cards on xe, energy2 is `pkg` on xe
     if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy1_input", &hwmon_energy) >= 0 ||
         nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy2_input", &hwmon_energy) >= 0) {
-      nvtop_time ts, ts_diff;
+      nvtop_time ts;
       nvtop_get_current_time(&ts);
       unsigned val = strtoul(hwmon_energy, NULL, 10);
       unsigned old = gpu_info->energy.energy_uj;
