@@ -2055,3 +2055,93 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
   }
   return dontShowAgainOption;
 }
+
+void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
+  gpuinfo_populate_static_infos(devices);
+  gpuinfo_refresh_dynamic_info(devices);
+  struct gpu_info *device;
+
+  printf("[\n");
+  list_for_each_entry(device, devices, list) {
+    const char *indent_level_two = "  ";
+    const char *indent_level_four = "   ";
+
+    const char *device_name_field = "device_name";
+    const char *gpu_clock_field = "gpu_clock";
+    const char *mem_clock_field = "mem_clock";
+    const char *temp_field = "temp";
+    const char *fan_field = "fan_speed";
+    const char *power_field = "power_draw";
+    const char *gpu_util_field = "gpu_util";
+    const char *mem_util_field = "mem_util";
+
+    printf("%s{\n", indent_level_two);
+
+    // Device Name
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name))
+      printf("%s\"%s\": \"%s\",\n", indent_level_four, device_name_field, device->static_info.device_name);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, device_name_field);
+
+    // GPU Clock Speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed))
+      printf("%s\"%s\": \"%uMHz\",\n", indent_level_four, gpu_clock_field, device->dynamic_info.gpu_clock_speed);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, gpu_clock_field);
+
+    // MEM Clock Speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed))
+      printf("%s\"%s\": \"%uMHz\",\n", indent_level_four, mem_clock_field, device->dynamic_info.mem_clock_speed);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, mem_clock_field);
+
+    // GPU Temperature
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
+      unsigned int temp_convert;
+      if (!use_fahrenheit_option)
+        temp_convert = device->dynamic_info.gpu_temp;
+      else
+        temp_convert = (unsigned)(32 + nearbyint(device->dynamic_info.gpu_temp * 1.8));
+
+      printf("%s\"%s\": \"%u%s\",\n", indent_level_four, temp_field, temp_convert, use_fahrenheit_option ? "F" : "C");
+    } else {
+      printf("%s\"%s\": null,\n", indent_level_four, temp_field);
+    }
+
+    // Fan speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed))
+      printf("%s\"%s\": \"%u%%\",\n", indent_level_four, fan_field,
+             device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
+    else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm))
+      printf("%s\"%s\": \"%uRPM\",\n", indent_level_four, fan_field,
+             device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
+    else if (&device->static_info.integrated_graphics)
+      printf("%s\"%s\": \"CPU Fan\",\n", indent_level_four, fan_field);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, fan_field);
+
+    // Power draw
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw))
+      printf("%s\"%s\": \"%uW\",\n", indent_level_four, power_field, device->dynamic_info.power_draw / 1000);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, power_field);
+
+    // GPU Utilization
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate))
+      printf("%s\"%s\": \"%u%%\",\n", indent_level_four, gpu_util_field, device->dynamic_info.gpu_util_rate);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, gpu_util_field);
+
+    // Memory Utilization
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_util_rate))
+      printf("%s\"%s\": \"%u%%\"\n", indent_level_four, mem_util_field, device->dynamic_info.mem_util_rate);
+    else
+      printf("%s\"%s\": null\n", indent_level_four, mem_util_field);
+
+    if (device->list.next == devices)
+      printf("%s}\n", indent_level_two);
+    else
+      printf("%s},\n", indent_level_two);
+  }
+  printf("]\n");
+}
