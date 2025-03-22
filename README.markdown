@@ -347,7 +347,9 @@ make
 sudo make install
 
 # Alternatively, install without privileges at a location of your choosing
-# make DESTDIR="/your/install/path" install
+# cmake .. -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON -DCMAKE_INSTALL_PREFIX=/path/to/your/dir
+# make
+# make install
 ```
 
 If you use **conda** as environment manager and encounter an error while building NVTOP, try `conda deactivate` before invoking `cmake`.
