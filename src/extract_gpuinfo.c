@@ -19,7 +19,6 @@
  *
  */
 
-#include <assert.h>
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
@@ -216,10 +215,10 @@ static void gpuinfo_populate_process_info(struct gpu_info *device) {
     // Process memory usage percent of total device memory
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory) &&
         GPUINFO_PROCESS_FIELD_VALID(&device->processes[j], gpu_memory_usage)) {
-      float percentage =
-          roundf(100.f * (float)device->processes[j].gpu_memory_usage / (float)device->dynamic_info.total_memory);
+      double percentage = fmin(
+          round(100. * ((double)device->processes[j].gpu_memory_usage / (double)device->dynamic_info.total_memory)),
+          100.);
       SET_GPUINFO_PROCESS(&device->processes[j], gpu_memory_percentage, (unsigned)percentage);
-      assert(device->processes[j].gpu_memory_percentage <= 100);
     }
   }
 }
