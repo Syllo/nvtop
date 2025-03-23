@@ -2115,7 +2115,7 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
     else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm))
       printf("%s\"%s\": \"%uRPM\",\n", indent_level_four, fan_field,
              device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
-    else if (&device->static_info.integrated_graphics)
+    else if (device->static_info.integrated_graphics)
       printf("%s\"%s\": \"CPU Fan\",\n", indent_level_four, fan_field);
     else
       printf("%s\"%s\": null,\n", indent_level_four, fan_field);
