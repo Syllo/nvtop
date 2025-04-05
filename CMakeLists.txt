@@ -133,7 +133,7 @@ configure_file(
   IMMEDIATE @ONLY)
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/desktop/nvtop.metainfo.xml.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/desktop/nvtop.metainfo.xml"
+  "${CMAKE_CURRENT_BINARY_DIR}/desktop/io.github.syllo.nvtop.metainfo.xml"
   IMMEDIATE @ONLY)
 install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/manpage/nvtop"
@@ -149,7 +149,7 @@ install(FILES
   DESTINATION share/applications
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 install(FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/desktop/nvtop.metainfo.xml"
+  "${CMAKE_CURRENT_BINARY_DIR}/desktop/io.github.syllo.nvtop.metainfo.xml"
   DESTINATION share/metainfo
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 
