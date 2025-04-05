@@ -142,7 +142,7 @@ install(FILES
   RENAME nvtop.1)
 install(FILES
   "${CMAKE_CURRENT_SOURCE_DIR}/desktop/nvtop.svg"
-  DESTINATION share/icons
+  DESTINATION share/icons/hicolor/scalable/apps
   PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ)
 install(FILES
   "${CMAKE_CURRENT_SOURCE_DIR}/desktop/nvtop.desktop"
