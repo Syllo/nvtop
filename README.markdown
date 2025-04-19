@@ -157,20 +157,19 @@ If your distribution provides the snap utility, follow the [snap installation pr
 
 A standalone application is available as [AppImage](#appimage).
 
-#### Ubuntu Impish (21.10), Debian buster (stable) and more recent
+#### Ubuntu Focal (20.04), Debian buster (stable) and more recent
 
-- ```bash
-  sudo apt install nvtop
-  ```
+```bash
+sudo apt install nvtop
+```
 
 #### Ubuntu PPA
 
-A [PPA supporting Ubuntu 20.04, 22.04 and newer](https://launchpad.net/~flexiondotorg/+archive/ubuntu/nvtop) is provided by
-[Martin Wimpress](https://github.com/flexiondotorg) that offers an up-to-date
-version of `nvtop`, enabled for NVIDIA, AMD and Intel.
+A [PPA supporting Ubuntu 20.04 and newer](https://launchpad.net/~quentiumyt/+archive/ubuntu/nvtop) is provided by
+[Quentin Lienhardt](https://github.com/QuentiumYT) that offers an up-to-date version of `nvtop`, enabled for NVIDIA, AMD and Intel.
 
 ```bash
-sudo add-apt-repository ppa:flexiondotorg/nvtop
+sudo add-apt-repository ppa:quentiumyt/nvtop
 sudo apt install nvtop
 ```
 
