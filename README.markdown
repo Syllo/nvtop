@@ -138,6 +138,12 @@ Supports GPU frequency, temperature, utilization, per-process utilization, GPU m
 
 On non-raspberry pi os, you need to use the `linux-rpi 6.12.y` kernel and above, and ensure the presence of the `/dev/vcio` device.
 
+### Rockchip
+
+NVTOP supports Rockchip (testing on orangepi 5 plus).
+
+Supports NPU frequency, temperature, utilization.
+
 Build
 -----
 
