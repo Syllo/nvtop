@@ -60,6 +60,7 @@ enum gpuinfo_static_info_valid {
   gpuinfo_n_shared_cores_valid,
   gpuinfo_l2cache_size_valid,
   gpuinfo_n_exec_engines_valid,
+  gpuinfo_engine_count_valid,
   gpuinfo_static_info_count,
 };
 
@@ -74,6 +75,7 @@ struct gpuinfo_static_info {
   unsigned n_shared_cores;
   unsigned l2cache_size;
   unsigned n_exec_engines;
+  unsigned engine_count;
   bool integrated_graphics;
   bool encode_decode_shared;
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
