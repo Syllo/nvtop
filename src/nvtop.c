@@ -68,6 +68,7 @@ static const char helpstring[] = "Available options:\n"
                                  "(default 30s, negative = always on screen)\n"
                                  "  -h --help         : Print help and exit\n"
                                  "  -s --snapshot     : Output the current gpu stats without ncurses"
+                                 "  -j --ffwd-json    : Output JSON for FFWD"
                                  "(useful for scripting)\n";
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
@@ -86,6 +87,7 @@ static const struct option long_opts[] = {
     {.name = "no-processes", .has_arg = no_argument, .flag = NULL, .val = 'P'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
+    {.name = "ffwd-json", .has_arg = no_argument, .flag = NULL, .val = 'j'},
     {0, 0, 0, 0},
 };
 
@@ -107,6 +109,7 @@ int main(int argc, char **argv) {
   bool show_snapshot = false;
   double encode_decode_hide_time = -1.;
   char *custom_config_file_path = NULL;
+  bool show_ffwd_json = false;
   while (true) {
     int optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -168,6 +171,9 @@ int main(int argc, char **argv) {
     case 's':
       show_snapshot = true;
       break;
+    case 'j':
+      show_ffwd_json = true;
+      break;
     case ':':
     case '?':
       switch (optopt) {
@@ -212,6 +218,12 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   if (allDevCount == 0) {
     fprintf(stdout, "No GPU to monitor.\n");
+    return EXIT_SUCCESS;
+  }
+
+  if (show_ffwd_json) {
+    print_snapshot(&monitoredGpus, use_fahrenheit_option);
+    gpuinfo_shutdown_info_extraction(&monitoredGpus);
     return EXIT_SUCCESS;
   }
 
