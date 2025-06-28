@@ -145,6 +145,12 @@ if(TPU_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_tpu.c)
 endif()
 
+if(ROCKCHIP_SUPPORT)
+  message(STATUS "Building with Rockchip NPU support")
+
+  target_sources(nvtop PRIVATE extract_npuinfo_rockchip.c)
+endif()
+
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
