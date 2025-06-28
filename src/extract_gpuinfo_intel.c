@@ -220,6 +220,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
+  bool is_xe = gpu_info->driver == DRIVER_XE;
 
   RESET_ALL(dynamic_info->valid);
 
@@ -244,16 +245,16 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     bridge_dev_noncached = driver_dev_noncached;
   }
 
-  nvtop_device *clock_device = gpu_info->driver == DRIVER_XE ? driver_dev_noncached : card_dev_noncached;
+  nvtop_device *clock_device = is_xe ? driver_dev_noncached : card_dev_noncached;
   // GPU clock
   const char *gt_cur_freq;
-  const char *gt_cur_freq_sysattr = gpu_info->driver == DRIVER_XE ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
+  const char *gt_cur_freq_sysattr = is_xe ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
   if (nvtop_device_get_sysattr_value(clock_device, gt_cur_freq_sysattr, &gt_cur_freq) >= 0) {
     unsigned val = strtoul(gt_cur_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
   }
   const char *gt_max_freq;
-  const char *gt_max_freq_sysattr = gpu_info->driver == DRIVER_XE ? "tile0/gt0/freq0/max_freq" : "gt_max_freq_mhz";
+  const char *gt_max_freq_sysattr = is_xe ? "tile0/gt0/freq0/max_freq" : "gt_max_freq_mhz";
   if (nvtop_device_get_sysattr_value(clock_device, gt_max_freq_sysattr, &gt_max_freq) >= 0) {
     unsigned val = strtoul(gt_max_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
@@ -275,33 +276,53 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       unsigned val = strtoul(hwmon_fan, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, val);
     }
+
     const char *hwmon_temp;
-    // temp1 is for i915, power2 is for `pkg` on xe
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp1_input", &hwmon_temp) >= 0 ||
-        nvtop_device_get_sysattr_value(hwmon_dev_noncached, "temp2_input", &hwmon_temp) >= 0) {
+    // temp1 is for i915, temp2 is for `pkg` on xe
+    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, is_xe ? "temp2_input" : "temp1_input", &hwmon_temp) >= 0) {
       unsigned val = strtoul(hwmon_temp, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, val / 1000);
     }
 
-    const char *hwmon_power_max;
-    // power1 is for i915 and `card` on supported cards on xe, power2 is `pkg` on xe
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power1_max", &hwmon_power_max) >= 0 ||
-        nvtop_device_get_sysattr_value(hwmon_dev_noncached, "power2_max", &hwmon_power_max) >= 0) {
+    const char *hwmon_power_max = NULL;
+    const char *hwmon_energy = NULL;
+    for (unsigned i = 0; i < (is_xe ? 2 : 1); i++) {
+      // Max Power
+      if (hwmon_power_max == NULL || hwmon_power_max[0] == '0') {
+        // power1 is for i915 and `card` on supported cards on xe, power2 is `pkg` on xe
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "power1_max" : "power2_max", &hwmon_power_max);
+      }
+      if (hwmon_power_max == NULL || hwmon_power_max[0] == '0') {
+        // Battlemage (xe) uses power*_crit
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "power1_crit" : "power2_crit", &hwmon_power_max);
+      }
+      if (hwmon_power_max == NULL || hwmon_power_max[0] == '0') {
+        // Both drivers have this, but it seems to be 0
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "power1_rated_max" : "power2_rated_max", &hwmon_power_max);
+      }
+
+      // Energy Usage
+      if (hwmon_energy == NULL || hwmon_energy[0] == '0') {
+        // energy1 is for i915 and `card` on supported cards on xe, energy2 is `pkg` on xe
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "energy1_input" : "energy2_input", &hwmon_energy);
+      }
+    }
+
+    // Check if we found the max power draw
+    if (hwmon_power_max != NULL) {
       unsigned val = strtoul(hwmon_power_max, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, val / 1000);
     }
 
-    const char *hwmon_energy;
-    // energy1 is for i915 and `card` on supported cards on xe, energy2 is `pkg` on xe
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy1_input", &hwmon_energy) >= 0 ||
-        nvtop_device_get_sysattr_value(hwmon_dev_noncached, "energy2_input", &hwmon_energy) >= 0) {
+    // Check if we found the energy usage and convert it into a wattage
+    if (hwmon_energy != NULL) {
       nvtop_time ts;
       nvtop_get_current_time(&ts);
       unsigned val = strtoul(hwmon_energy, NULL, 10);
-      unsigned old = gpu_info->energy.energy_uj;
-      uint64_t time = nvtop_difftime_u64(gpu_info->energy.time, ts);
       // Skip the first update so we have a time delta
       if (gpu_info->energy.time.tv_sec != 0) {
+        unsigned old = gpu_info->energy.energy_uj;
+        uint64_t time = nvtop_difftime_u64(gpu_info->energy.time, ts);
         unsigned power = ((val - old) * 1000000000LL) / time;
         SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, power / 1000);
       }
