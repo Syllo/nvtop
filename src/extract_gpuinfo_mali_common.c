@@ -456,6 +456,7 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
 				  check_fdinfo_keys match_keys,
 				  struct fdinfo_data *fid)
 {
+  struct gpuinfo_static_info *static_info = &info->static_info;
   static char *line = NULL;
   static size_t line_buf_size = 0;
   uint64_t total_time = 0;
@@ -529,8 +530,10 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
     }
   }
 
-  if (fid->engine_count)
-    SET_GPUINFO_PROCESS(process_info, gfx_engine_used, total_time);
+  if (fid->engine_count) {
+          SET_GPUINFO_PROCESS(process_info, gfx_engine_used, total_time);
+          SET_GPUINFO_STATIC(static_info, engine_count, fid->engine_count);
+  }
 
   if (!client_id_set)
     return false;
