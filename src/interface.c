@@ -19,9 +19,9 @@
  *
  */
 
-#include "nvtop/interface.h"
 #include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/interface.h"
 #include "nvtop/interface_common.h"
 #include "nvtop/interface_internal_common.h"
 #include "nvtop/interface_layout_selection.h"
@@ -1716,7 +1716,7 @@ static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface
   assert(total_to_draw > 0);
   assert(size_data_buff % total_to_draw == 0);
   unsigned max_data_to_copy = size_data_buff / total_to_draw;
-  double(*data_split)[total_to_draw] = (double(*)[total_to_draw])data;
+  double (*data_split)[total_to_draw] = (double (*)[total_to_draw])data;
 
   unsigned in_processing = 0;
   for (unsigned i = 0; i < plot_win->num_devices_to_plot; ++i) {
@@ -2074,6 +2074,9 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
     const char *power_field = "power_draw";
     const char *gpu_util_field = "gpu_util";
     const char *mem_util_field = "mem_util";
+    const char *mem_total_field = "mem_total";
+    const char *mem_used_field = "mem_used";
+    const char *mem_free_field = "mem_free";
 
     printf("%s{\n", indent_level_two);
 
@@ -2137,6 +2140,21 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
       printf("%s\"%s\": \"%u%%\"\n", indent_level_four, mem_util_field, device->dynamic_info.mem_util_rate);
     else
       printf("%s\"%s\": null\n", indent_level_four, mem_util_field);
+    // Memory Total
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory))
+      printf("%s\"%s\": \"%llu\"\n", indent_level_four, mem_total_field, device->dynamic_info.total_memory);
+    else
+      printf("%s\"%s\": null\n", indent_level_four, mem_total_field);
+    // Memory Used
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, used_memory))
+      printf("%s\"%s\": \"%llu\"\n", indent_level_four, mem_used_field, device->dynamic_info.used_memory);
+    else
+      printf("%s\"%s\": null\n", indent_level_four, mem_used_field);
+    // Memory Available
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, free_memory))
+      printf("%s\"%s\": \"%llu\"\n", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
+    else
+      printf("%s\"%s\": null\n", indent_level_four, mem_free_field);
 
     if (device->list.next == devices)
       printf("%s}\n", indent_level_two);
