@@ -329,11 +329,13 @@ int main(int argc, char **argv) {
       signal_exit = 1;
       break;
     case KEY_F(2):
+    case KEY_F(5):
     case KEY_F(9):
     case KEY_F(6):
     case KEY_F(12):
     case '+':
     case '-':
+    case 12: // Ctrl+L
       interface_key(input_char, interface);
       break;
     case 'k':

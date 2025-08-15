@@ -1942,6 +1942,10 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
   case 27:
     interface->process.option_window.state = nvtop_option_state_hidden;
     break;
+  case KEY_F(5):
+  case 12: // Ctrl+L
+    update_window_size_to_terminal_size(interface);
+    break;
   default:
     break;
   }
