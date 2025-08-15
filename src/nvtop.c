@@ -40,6 +40,7 @@
 
 static volatile sig_atomic_t signal_exit = 0;
 static volatile sig_atomic_t signal_resize_win = 0;
+static volatile sig_atomic_t signal_cont_received = 0;
 
 static void exit_handler(int signum) {
   (void)signum;
@@ -49,6 +50,11 @@ static void exit_handler(int signum) {
 static void resize_handler(int signum) {
   (void)signum;
   signal_resize_win = 1;
+}
+
+static void cont_handler(int signum) {
+  (void)signum;
+  signal_cont_received = 1;
 }
 
 static const char helpstring[] = "Available options:\n"
@@ -204,6 +210,11 @@ int main(int argc, char **argv) {
     perror("Impossible to set signal handler for SIGWINCH: ");
     exit(EXIT_FAILURE);
   }
+  siga.sa_handler = cont_handler;
+  if (sigaction(SIGCONT, &siga, NULL) != 0) {
+    perror("Impossible to set signal handler for SIGCONT: ");
+    exit(EXIT_FAILURE);
+  }
 
   unsigned allDevCount = 0;
   LIST_HEAD(monitoredGpus);
@@ -286,6 +297,10 @@ int main(int argc, char **argv) {
       signal_resize_win = 0;
       update_window_size_to_terminal_size(interface);
     }
+    if (signal_cont_received) {
+      signal_cont_received = 0;
+      update_window_size_to_terminal_size(interface);
+    }
     interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
@@ -327,6 +342,9 @@ int main(int argc, char **argv) {
       break;
     case 'q':
       signal_exit = 1;
+      break;
+    case KEY_RESIZE:
+      update_window_size_to_terminal_size(interface);
       break;
     case KEY_F(2):
     case KEY_F(5):
