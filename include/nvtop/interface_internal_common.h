@@ -144,6 +144,7 @@ enum device_field {
   device_power,
   device_pcie,
   device_clock,
+  device_mem_clock,
   device_shadercores,
   device_l2features,
   device_execengines,
