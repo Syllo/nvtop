@@ -607,26 +607,75 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // Device memory info (total,used,free)
   bool got_meminfo = false;
+  bool has_unified_memory = false;
+
   if (nvmlDeviceGetMemoryInfo_v2) {
     nvmlMemory_v2_t memory_info;
     memory_info.version = 2;
     last_nvml_return_status = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
     if (last_nvml_return_status == NVML_SUCCESS) {
-      got_meminfo = true;
-      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.total);
-      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.used);
-      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
-      SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
+      // Check if this is a unified memory GPU (total == 0 indicates unified memory)
+      if (memory_info.total == 0) {
+        has_unified_memory = true;
+      } else {
+        got_meminfo = true;
+        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.total);
+        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.used);
+        SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
+        SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
+      }
+    } else {
+      // Memory query failed - likely unified memory GPU (error code 13 = NOT_SUPPORTED)
+      has_unified_memory = true;
     }
   }
-  if (!got_meminfo && nvmlDeviceGetMemoryInfo) {
+  if (!got_meminfo && !has_unified_memory && nvmlDeviceGetMemoryInfo) {
     nvmlMemory_v1_t memory_info;
     last_nvml_return_status = nvmlDeviceGetMemoryInfo(device, &memory_info);
     if (last_nvml_return_status == NVML_SUCCESS) {
-      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.total);
-      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.used);
-      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
-      SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
+      // Check if this is a unified memory GPU (total == 0 indicates unified memory)
+      if (memory_info.total == 0) {
+        has_unified_memory = true;
+      } else {
+        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.total);
+        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.used);
+        SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
+        SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
+      }
+    } else {
+      // Memory query failed - likely unified memory GPU
+      has_unified_memory = true;
+    }
+  }
+
+  // Handle unified memory GPUs - query system memory instead
+  if (has_unified_memory) {
+    // Read MemAvailable from /proc/meminfo for accurate available memory
+    // This matches what 'free -h' reports and includes reclaimable cache
+    FILE *meminfo = fopen("/proc/meminfo", "r");
+    if (meminfo) {
+      unsigned long long total_ram = 0;
+      unsigned long long available_ram = 0;
+      char line[256];
+      
+      while (fgets(line, sizeof(line), meminfo)) {
+        if (sscanf(line, "MemTotal: %llu kB", &total_ram) == 1) {
+          total_ram *= 1024; // Convert KB to bytes
+        } else if (sscanf(line, "MemAvailable: %llu kB", &available_ram) == 1) {
+          available_ram *= 1024; // Convert KB to bytes
+          break; // We have both values, can stop reading
+        }
+      }
+      fclose(meminfo);
+      
+      if (total_ram > 0 && available_ram > 0) {
+        unsigned long long used_ram = total_ram - available_ram;
+        
+        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_ram);
+        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_ram);
+        SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, available_ram);
+        SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, used_ram * 100 / total_ram);
+      }
     }
   }
 
