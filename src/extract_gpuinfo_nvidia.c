@@ -648,33 +648,119 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // Handle unified memory GPUs - query system memory instead
+  // Handle unified memory GPUs - query actual GPU allocations and system memory
   if (has_unified_memory) {
-    // Read MemAvailable from /proc/meminfo for accurate available memory
-    // This matches what 'free -h' reports and includes reclaimable cache
+    // Get actual GPU memory usage from running processes
+    unsigned long long gpu_used_memory = 0;
+
+    // Sum up memory used by compute processes
+    if (nvmlDeviceGetComputeRunningProcesses_v3 || nvmlDeviceGetComputeRunningProcesses_v2 ||
+        nvmlDeviceGetComputeRunningProcesses_v1) {
+      unsigned int process_count = 0;
+      nvmlReturn_t (*getProcesses)(nvmlDevice_t, unsigned int *, void *) = NULL;
+      size_t process_info_size = 0;
+
+      // Choose the latest available version
+      if (nvmlDeviceGetComputeRunningProcesses_v3) {
+        getProcesses = nvmlDeviceGetComputeRunningProcesses[3];
+        process_info_size = sizeof(nvmlProcessInfo_v3_t);
+      } else if (nvmlDeviceGetComputeRunningProcesses_v2) {
+        getProcesses = nvmlDeviceGetComputeRunningProcesses[2];
+        process_info_size = sizeof(nvmlProcessInfo_v2_t);
+      } else {
+        getProcesses = nvmlDeviceGetComputeRunningProcesses[1];
+        process_info_size = sizeof(nvmlProcessInfo_v1_t);
+      }
+
+      // First call to get count
+      nvmlReturn_t ret = getProcesses(device, &process_count, NULL);
+      if (ret == NVML_SUCCESS || ret == NVML_ERROR_INSUFFICIENT_SIZE) {
+        if (process_count > 0) {
+          void *process_infos = malloc(process_count * process_info_size);
+          if (process_infos) {
+            ret = getProcesses(device, &process_count, process_infos);
+            if (ret == NVML_SUCCESS) {
+              // Sum up memory from all processes
+              for (unsigned int i = 0; i < process_count; i++) {
+                if (nvmlDeviceGetComputeRunningProcesses_v3) {
+                  gpu_used_memory += ((nvmlProcessInfo_v3_t *)process_infos)[i].usedGpuMemory;
+                } else if (nvmlDeviceGetComputeRunningProcesses_v2) {
+                  gpu_used_memory += ((nvmlProcessInfo_v2_t *)process_infos)[i].usedGpuMemory;
+                } else {
+                  gpu_used_memory += ((nvmlProcessInfo_v1_t *)process_infos)[i].usedGpuMemory;
+                }
+              }
+            }
+            free(process_infos);
+          }
+        }
+      }
+    }
+
+    // Also check graphics processes
+    if (nvmlDeviceGetGraphicsRunningProcesses_v3 || nvmlDeviceGetGraphicsRunningProcesses_v2 ||
+        nvmlDeviceGetGraphicsRunningProcesses_v1) {
+      unsigned int process_count = 0;
+      nvmlReturn_t (*getProcesses)(nvmlDevice_t, unsigned int *, void *) = NULL;
+      size_t process_info_size = 0;
+
+      if (nvmlDeviceGetGraphicsRunningProcesses_v3) {
+        getProcesses = nvmlDeviceGetGraphicsRunningProcesses[3];
+        process_info_size = sizeof(nvmlProcessInfo_v3_t);
+      } else if (nvmlDeviceGetGraphicsRunningProcesses_v2) {
+        getProcesses = nvmlDeviceGetGraphicsRunningProcesses[2];
+        process_info_size = sizeof(nvmlProcessInfo_v2_t);
+      } else {
+        getProcesses = nvmlDeviceGetGraphicsRunningProcesses[1];
+        process_info_size = sizeof(nvmlProcessInfo_v1_t);
+      }
+
+      nvmlReturn_t ret = getProcesses(device, &process_count, NULL);
+      if (ret == NVML_SUCCESS || ret == NVML_ERROR_INSUFFICIENT_SIZE) {
+        if (process_count > 0) {
+          void *process_infos = malloc(process_count * process_info_size);
+          if (process_infos) {
+            ret = getProcesses(device, &process_count, process_infos);
+            if (ret == NVML_SUCCESS) {
+              for (unsigned int i = 0; i < process_count; i++) {
+                if (nvmlDeviceGetGraphicsRunningProcesses_v3) {
+                  gpu_used_memory += ((nvmlProcessInfo_v3_t *)process_infos)[i].usedGpuMemory;
+                } else if (nvmlDeviceGetGraphicsRunningProcesses_v2) {
+                  gpu_used_memory += ((nvmlProcessInfo_v2_t *)process_infos)[i].usedGpuMemory;
+                } else {
+                  gpu_used_memory += ((nvmlProcessInfo_v1_t *)process_infos)[i].usedGpuMemory;
+                }
+              }
+            }
+            free(process_infos);
+          }
+        }
+      }
+    }
+
+    // Read MemAvailable from /proc/meminfo for available memory
     FILE *meminfo = fopen("/proc/meminfo", "r");
     if (meminfo) {
-      unsigned long long total_ram = 0;
       unsigned long long available_ram = 0;
       char line[256];
-      
+
       while (fgets(line, sizeof(line), meminfo)) {
-        if (sscanf(line, "MemTotal: %llu kB", &total_ram) == 1) {
-          total_ram *= 1024; // Convert KB to bytes
-        } else if (sscanf(line, "MemAvailable: %llu kB", &available_ram) == 1) {
+        if (sscanf(line, "MemAvailable: %llu kB", &available_ram) == 1) {
           available_ram *= 1024; // Convert KB to bytes
-          break; // We have both values, can stop reading
+          break;
         }
       }
       fclose(meminfo);
-      
-      if (total_ram > 0 && available_ram > 0) {
-        unsigned long long used_ram = total_ram - available_ram;
-        
-        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_ram);
-        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_ram);
+
+      if (available_ram > 0) {
+        unsigned long long total_memory = gpu_used_memory + available_ram;
+
+        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
+        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, gpu_used_memory);
         SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, available_ram);
-        SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, used_ram * 100 / total_ram);
+        if (total_memory > 0) {
+          SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, gpu_used_memory * 100 / total_memory);
+        }
       }
     }
   }
