@@ -8,8 +8,10 @@ nvtop \- interactive GPU process viewer
 
 .SH SYNOPSIS
 .B nvtop
-\fR[\fB\-hv\fR]
+\fR[\fB\-hvCfpPris\fR]
 \fR[\fB\-d\fR \fIdelay\fR]
+\fR[\fB\-c\fR \fIconfig-file\fR]
+\fR[\fB\-E\fR \fIseconds\fR]
 
 .SH DESCRIPTION
 nvtop is a ncurses\-based GPU status viewer for AMD, Intel and NVIDIA GPUs.
