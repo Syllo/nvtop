@@ -151,6 +151,10 @@ if(ROCKCHIP_SUPPORT)
   target_sources(nvtop PRIVATE extract_npuinfo_rockchip.c)
 endif()
 
+if(METAX_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_metax.c)
+endif()
+
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
