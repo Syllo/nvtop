@@ -43,9 +43,9 @@
 #include <unistd.h>
 
 static unsigned int sizeof_device_field[device_field_count] = {
-    [device_name] = 11,       [device_fan_speed] = 11,  [device_temperature] = 10,
-    [device_power] = 15,      [device_clock] = 11,      [device_pcie] = 46,
-    [device_shadercores] = 7, [device_l2features] = 11, [device_execengines] = 11,
+    [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
+    [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
+    [device_l2features] = 11, [device_execengines] = 11,
 };
 
 static unsigned int sizeof_process_field[process_field_count] = {
@@ -74,22 +74,24 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
   dwin->gpu_clock_info = newwin(1, sizeof_device_field[device_clock], start_row + 1, start_col);
   if (dwin->gpu_clock_info == NULL)
     goto alloc_error;
-  dwin->mem_clock_info = newwin(1, sizeof_device_field[device_clock], start_row + 1,
+  dwin->mem_clock_info = newwin(1, sizeof_device_field[device_mem_clock], start_row + 1,
                                 start_col + spacer + sizeof_device_field[device_clock]);
   if (dwin->mem_clock_info == NULL)
     goto alloc_error;
-  dwin->temperature = newwin(1, sizeof_device_field[device_temperature], start_row + 1,
-                             start_col + spacer * 2 + sizeof_device_field[device_clock] * 2);
+  dwin->temperature =
+      newwin(1, sizeof_device_field[device_temperature], start_row + 1,
+             start_col + spacer * 2 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock]);
   if (dwin->temperature == NULL)
     goto alloc_error;
-  dwin->fan_speed =
-      newwin(1, sizeof_device_field[device_fan_speed], start_row + 1,
-             start_col + spacer * 3 + sizeof_device_field[device_clock] * 2 + sizeof_device_field[device_temperature]);
+  dwin->fan_speed = newwin(1, sizeof_device_field[device_fan_speed], start_row + 1,
+                           start_col + spacer * 3 + sizeof_device_field[device_clock] +
+                               sizeof_device_field[device_mem_clock] + sizeof_device_field[device_temperature]);
   if (dwin->fan_speed == NULL)
     goto alloc_error;
-  dwin->power_info = newwin(1, sizeof_device_field[device_power], start_row + 1,
-                            start_col + spacer * 4 + sizeof_device_field[device_clock] * 2 +
-                                sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed]);
+  dwin->power_info =
+      newwin(1, sizeof_device_field[device_power], start_row + 1,
+             start_col + spacer * 4 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                 sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed]);
   if (dwin->power_info == NULL)
     goto alloc_error;
 
@@ -341,9 +343,9 @@ static void alloc_plot_window(unsigned devices_count, struct window_position *pl
 
 static unsigned device_length(void) {
   return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
-
-             2 * sizeof_device_field[device_clock] + sizeof_device_field[device_temperature] +
-                 sizeof_device_field[device_fan_speed] + sizeof_device_field[device_power] + 4);
+             sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                 sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
+                 sizeof_device_field[device_power] + 4);
 }
 
 static pid_t nvtop_pid;
