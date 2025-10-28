@@ -278,7 +278,7 @@ void gpuinfo_clear_cache(void) {
 bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val) {
   char *p = buf;
 
-  p = index(buf, ':');
+  p = strchr(buf, ':');
   if (!p || p == buf)
     return false;
   *p = '\0';
@@ -353,13 +353,14 @@ void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info) {
     return;
 
   if (IS_VALID(gpuinfo_engine_count_valid, gpu_info->static_info.valid))
-          ec = gpu_info->static_info.engine_count;
+    ec = gpu_info->static_info.engine_count;
   else
-          ec = 1;
+    ec = 1;
 
   avg_delta_secs = ((double)total_delta / gpu_info->processes_count) / 1000000000.0;
   max_freq_hz = gpu_info->dynamic_info.gpu_clock_speed_max * 1000000;
-  utilisation_rate = (unsigned int)((((double)gfx_total_process_cycles) / (((double)max_freq_hz) * avg_delta_secs * ec)) * 100);
+  utilisation_rate =
+      (unsigned int)((((double)gfx_total_process_cycles) / (((double)max_freq_hz) * avg_delta_secs * ec)) * 100);
   utilisation_rate = utilisation_rate > 100 ? 100 : utilisation_rate;
 
   SET_GPUINFO_DYNAMIC(&gpu_info->dynamic_info, gpu_util_rate, utilisation_rate);

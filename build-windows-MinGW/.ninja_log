@@ -1,0 +1,7 @@
+# ninja log v7
+93	738	7833095530108010	src/CMakeFiles/nvtop.dir/time.c.obj	7fae02437c2d050a
+71	752	7833095529890669	src/CMakeFiles/nvtop.dir/interface_ring_buffer.c.obj	a89554ffbb0943ee
+116	783	7833095530369405	src/CMakeFiles/nvtop.dir/ini.c.obj	bb2f15b478badc40
+39	1128	7833095529580030	src/CMakeFiles/nvtop.dir/interface_layout_selection.c.obj	2d255977b7707f2d
+141	5242	7833095530600049	src/CMakeFiles/nvtop.dir/info_messages_windows.c.obj	d5d1c6f6ed415146
+153	5309	7833095530712905	src/CMakeFiles/nvtop.dir/windows_compat.c.obj	56cb55404131d90a

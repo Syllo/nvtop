@@ -19,6 +19,11 @@
  *
  */
 
+#ifdef _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
 #include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface.h"
@@ -1433,11 +1438,19 @@ static const char *signalNames[] = {
 #define SIGPWR SIGINFO
 #endif
 
+#ifndef _WIN32
 static const int signalValues[ARRAY_SIZE(signalNames)] = {
     -1,      SIGHUP,  SIGINT,  SIGQUIT,   SIGILL,  SIGTRAP,  SIGABRT, SIGBUS,  SIGFPE,  SIGKILL, SIGUSR1,
     SIGSEGV, SIGUSR2, SIGPIPE, SIGALRM,   SIGTERM, SIGCHLD,  SIGCONT, SIGSTOP, SIGTSTP, SIGTTIN, SIGTTOU,
     SIGURG,  SIGXCPU, SIGXFSZ, SIGVTALRM, SIGPROF, SIGWINCH, SIGIO,   SIGPWR,  SIGSYS,
 };
+#else
+// Windows only supports a subset of signals
+static const int signalValues[ARRAY_SIZE(signalNames)] = {
+    -1, 1,  SIGINT, 3,  SIGILL, 5,  SIGABRT, 7,  SIGFPE, 9,  10, SIGSEGV, 12, 13, 14, SIGTERM,
+    16, 17, 18,     19, 20,     21, 22,      23, 24,     25, 26, 27,      28, 29, 30,
+};
+#endif
 
 static const size_t nvtop_num_signals = ARRAY_SIZE(signalNames) - 1;
 
@@ -1832,7 +1845,16 @@ static void option_do_kill(struct nvtop_interface *interface) {
   pid_t pid = interface->process.selected_pid;
   int sig = signalValues[interface->process.option_window.selected_row];
   if (pid > 0) {
+#ifdef _WIN32
+    // Windows: Use TerminateProcess for forceful termination
+    HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+    if (hProcess) {
+      TerminateProcess(hProcess, 1);
+      CloseHandle(hProcess);
+    }
+#else
     kill(pid, sig);
+#endif
   }
 }
 

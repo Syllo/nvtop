@@ -1,0 +1,92 @@
+[
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/nvtop.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/nvtop.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/nvtop.c",
+  "output": "src/CMakeFiles/nvtop.dir/nvtop.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/interface.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/interface.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/interface.c",
+  "output": "src/CMakeFiles/nvtop.dir/interface.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/interface_layout_selection.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/interface_layout_selection.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/interface_layout_selection.c",
+  "output": "src/CMakeFiles/nvtop.dir/interface_layout_selection.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/interface_options.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/interface_options.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/interface_options.c",
+  "output": "src/CMakeFiles/nvtop.dir/interface_options.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/interface_setup_win.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/interface_setup_win.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/interface_setup_win.c",
+  "output": "src/CMakeFiles/nvtop.dir/interface_setup_win.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/interface_ring_buffer.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/interface_ring_buffer.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/interface_ring_buffer.c",
+  "output": "src/CMakeFiles/nvtop.dir/interface_ring_buffer.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/extract_gpuinfo.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/extract_gpuinfo.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/extract_gpuinfo.c",
+  "output": "src/CMakeFiles/nvtop.dir/extract_gpuinfo.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/time.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/time.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/time.c",
+  "output": "src/CMakeFiles/nvtop.dir/time.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/plot.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/plot.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/plot.c",
+  "output": "src/CMakeFiles/nvtop.dir/plot.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/ini.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/ini.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/ini.c",
+  "output": "src/CMakeFiles/nvtop.dir/ini.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/get_process_info_linux.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/get_process_info_linux.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/get_process_info_linux.c",
+  "output": "src/CMakeFiles/nvtop.dir/get_process_info_linux.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/extract_processinfo_fdinfo.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/extract_processinfo_fdinfo.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/extract_processinfo_fdinfo.c",
+  "output": "src/CMakeFiles/nvtop.dir/extract_processinfo_fdinfo.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/info_messages_linux.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/info_messages_linux.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/info_messages_linux.c",
+  "output": "src/CMakeFiles/nvtop.dir/info_messages_linux.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/extract_gpuinfo_nvidia.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/extract_gpuinfo_nvidia.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/extract_gpuinfo_nvidia.c",
+  "output": "src/CMakeFiles/nvtop.dir/extract_gpuinfo_nvidia.c.o"
+},
+{
+  "directory": "/mnt/c/Users/adamm/dev/nvtop/build-linux/src",
+  "command": "/usr/bin/cc -DHAS_REALLOCARRAY -DNCURSES_ENABLE_STDBOOL_H=1 -D_GNU_SOURCE -I/mnt/c/Users/adamm/dev/nvtop/include -I/mnt/c/Users/adamm/dev/nvtop/build-linux/include -O3 -DNDEBUG -std=gnu11 -o CMakeFiles/nvtop.dir/extract_gpuinfo_metax.c.o -c /mnt/c/Users/adamm/dev/nvtop/src/extract_gpuinfo_metax.c",
+  "file": "/mnt/c/Users/adamm/dev/nvtop/src/extract_gpuinfo_metax.c",
+  "output": "src/CMakeFiles/nvtop.dir/extract_gpuinfo_metax.c.o"
+}
+]
