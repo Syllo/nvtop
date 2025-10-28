@@ -53,14 +53,32 @@ static nvmlDeviceGetPowerUsage_t nvmlDeviceGetPowerUsage_ptr = NULL;
 static nvmlDeviceGetClockInfo_t nvmlDeviceGetClockInfo_ptr = NULL;
 
 static bool load_nvml_library(void) {
-  // Try to load NVML DLL
-  nvmlHandle = LoadLibraryA("nvml.dll");
+  // Secure DLL loading: Use full path to prevent DLL hijacking
+  // Try common NVIDIA locations
+  char nvmlPath[MAX_PATH];
+  const char *searchPaths[] = {"C:\\Windows\\System32\\nvml.dll",
+                               "C:\\Program Files\\NVIDIA Corporation\\NVSMI\\nvml.dll", NULL};
+
+  // Also check in PATH with LoadLibraryEx and LOAD_LIBRARY_SEARCH_SYSTEM32
+  nvmlHandle = LoadLibraryExA("nvml.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+
   if (!nvmlHandle) {
-    fprintf(stderr, "Failed to load nvml.dll\n");
+    // Try full paths
+    for (int i = 0; searchPaths[i] != NULL; i++) {
+      nvmlHandle = LoadLibraryA(searchPaths[i]);
+      if (nvmlHandle) {
+        break;
+      }
+    }
+  }
+
+  if (!nvmlHandle) {
+    fprintf(stderr, "Failed to load nvml.dll from secure locations\n");
+    fprintf(stderr, "Please ensure NVIDIA drivers are properly installed\n");
     return false;
   }
 
-  // Load function pointers
+  // Load function pointers with validation
   nvmlInit_v2_ptr = (nvmlInit_v2_t)GetProcAddress(nvmlHandle, "nvmlInit_v2");
   nvmlShutdown_ptr = (nvmlShutdown_t)GetProcAddress(nvmlHandle, "nvmlShutdown");
   nvmlDeviceGetCount_v2_ptr = (nvmlDeviceGetCount_v2_t)GetProcAddress(nvmlHandle, "nvmlDeviceGetCount_v2");

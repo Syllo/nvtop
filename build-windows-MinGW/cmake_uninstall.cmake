@@ -1,9 +1,9 @@
-if(NOT EXISTS "C:/Users/adamm/dev/nvtop/build-windows-MinGW/install_manifest.txt")
+if(NOT EXISTS "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/install_manifest.txt")
   message(FATAL_ERROR
-    "Cannot find install manifest: C:/Users/adamm/dev/nvtop/build-windows-MinGW/install_manifest.txt")
-endif(NOT EXISTS "C:/Users/adamm/dev/nvtop/build-windows-MinGW/install_manifest.txt")
+    "Cannot find install manifest: C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/install_manifest.txt")
+endif(NOT EXISTS "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/install_manifest.txt")
 
-file(READ "C:/Users/adamm/dev/nvtop/build-windows-MinGW/install_manifest.txt" files)
+file(READ "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/install_manifest.txt" files)
 string(REGEX REPLACE "\n" ";" files "${files}")
 foreach(file ${files})
   message(STATUS "Uninstalling $ENV{DESTDIR}${file}")

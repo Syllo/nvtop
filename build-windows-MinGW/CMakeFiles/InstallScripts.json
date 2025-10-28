@@ -1,9 +1,9 @@
 {
 	"InstallScripts" : 
 	[
-		"C:/Users/adamm/dev/nvtop/build-windows-MinGW/cmake_install.cmake",
-		"C:/Users/adamm/dev/nvtop/build-windows-MinGW/src/cmake_install.cmake",
-		"C:/Users/adamm/dev/nvtop/build-windows-MinGW/tests/cmake_install.cmake"
+		"C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/cmake_install.cmake",
+		"C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/src/cmake_install.cmake",
+		"C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/tests/cmake_install.cmake"
 	],
 	"Parallel" : false
 }

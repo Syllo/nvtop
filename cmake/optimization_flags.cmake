@@ -38,5 +38,17 @@ set(ADDITIONAL_DEBUG_COMPILE_OPTIONS
   CACHE INTERNAL "String"
   )
 
+# Security hardening flags for release builds
+set(ADDITIONAL_RELEASE_COMPILE_OPTIONS
+  "-fstack-protector-strong"
+  "-D_FORTIFY_SOURCE=2"
+  "-fPIE"
+  CACHE INTERNAL "String"
+  )
+
 set(ADDITIONAL_RELEASE_LINK_OPTIONS
-  "-Wl,-z,relro")
+  "-Wl,-z,relro"
+  "-Wl,-z,now"
+  "-pie"
+  CACHE INTERNAL "String"
+  )

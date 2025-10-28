@@ -1,4 +1,4 @@
-# Install script for directory: C:/Users/adamm/dev/nvtop
+# Install script for directory: C:/Users/adamm/dev/nervosys/utilities/nvtop
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -39,34 +39,34 @@ endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Users/adamm/dev/nvtop/build-windows-MinGW/src/cmake_install.cmake")
+  include("C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/src/cmake_install.cmake")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/man/man1" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ RENAME "nvtop.1" FILES "C:/Users/adamm/dev/nvtop/build-windows-MinGW/manpage/nvtop")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/man/man1" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ RENAME "nvtop.1" FILES "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/manpage/nvtop")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/scalable/apps" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ FILES "C:/Users/adamm/dev/nvtop/desktop/nvtop.svg")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/icons/hicolor/scalable/apps" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ FILES "C:/Users/adamm/dev/nervosys/utilities/nvtop/desktop/nvtop.svg")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/applications" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ FILES "C:/Users/adamm/dev/nvtop/desktop/nvtop.desktop")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/applications" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ FILES "C:/Users/adamm/dev/nervosys/utilities/nvtop/desktop/nvtop.desktop")
 endif()
 
 if(CMAKE_INSTALL_COMPONENT STREQUAL "Unspecified" OR NOT CMAKE_INSTALL_COMPONENT)
-  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/metainfo" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ FILES "C:/Users/adamm/dev/nvtop/build-windows-MinGW/desktop/io.github.syllo.nvtop.metainfo.xml")
+  file(INSTALL DESTINATION "${CMAKE_INSTALL_PREFIX}/share/metainfo" TYPE FILE PERMISSIONS OWNER_READ OWNER_WRITE GROUP_READ WORLD_READ FILES "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/desktop/io.github.syllo.nvtop.metainfo.xml")
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
   # Include the install script for the subdirectory.
-  include("C:/Users/adamm/dev/nvtop/build-windows-MinGW/tests/cmake_install.cmake")
+  include("C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/tests/cmake_install.cmake")
 endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
 if(CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "C:/Users/adamm/dev/nvtop/build-windows-MinGW/install_local_manifest.txt"
+  file(WRITE "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/install_local_manifest.txt"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()
 if(CMAKE_INSTALL_COMPONENT)
@@ -82,6 +82,6 @@ else()
 endif()
 
 if(NOT CMAKE_INSTALL_LOCAL_ONLY)
-  file(WRITE "C:/Users/adamm/dev/nvtop/build-windows-MinGW/${CMAKE_INSTALL_MANIFEST}"
+  file(WRITE "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")
 endif()

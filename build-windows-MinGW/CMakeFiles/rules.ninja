@@ -42,7 +42,7 @@ rule C_EXECUTABLE_LINKER__nvtop_Release
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = C:\msys64\ucrt64\bin\cmake.exe --regenerate-during-build -SC:\Users\adamm\dev\nvtop -BC:\Users\adamm\dev\nvtop\build-windows-MinGW
+  command = C:\msys64\ucrt64\bin\cmake.exe --regenerate-during-build -SC:\Users\adamm\dev\nervosys\utilities\nvtop -BC:\Users\adamm\dev\nervosys\utilities\nvtop\build-windows-MinGW
   description = Re-running CMake...
   generator = 1
 

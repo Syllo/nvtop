@@ -78,18 +78,31 @@ int getopt(int argc, char *const argv[], const char *optstring) {
 }
 
 int getopt_long(int argc, char *const argv[], const char *optstring, const struct option *longopts, int *longindex) {
-  if (optind >= argc) {
+  if (optind >= argc || argv == NULL || longopts == NULL) {
     return -1;
   }
 
   if (argv[optind][0] == '-' && argv[optind][1] == '-') {
     // Long option
     char *arg = argv[optind] + 2;
+    if (*arg == '\0') {
+      // Just "--" means end of options
+      optind++;
+      return -1;
+    }
+
     char *eq = strchr(arg, '=');
-    size_t len = eq ? (size_t)(eq - arg) : strlen(arg);
+    size_t len = eq ? (size_t)(eq - arg) : strnlen(arg, 256); // Limit length check
+
+    if (len == 0 || len >= 256) {
+      // Invalid option length
+      optind++;
+      return '?';
+    }
 
     for (int i = 0; longopts[i].name != NULL; i++) {
-      if (strncmp(arg, longopts[i].name, len) == 0 && longopts[i].name[len] == '\0') {
+      size_t opt_name_len = strnlen(longopts[i].name, 256);
+      if (opt_name_len == len && strncmp(arg, longopts[i].name, len) == 0) {
         if (longindex) {
           *longindex = i;
         }
@@ -124,7 +137,7 @@ int getopt_long(int argc, char *const argv[], const char *optstring, const struc
       }
     }
 
-    fprintf(stderr, "%s: unrecognized option '--%s'\n", argv[0], arg);
+    fprintf(stderr, "%s: unrecognized option '--%.*s'\n", argv[0], (int)len, arg);
     optind++;
     return '?';
   }

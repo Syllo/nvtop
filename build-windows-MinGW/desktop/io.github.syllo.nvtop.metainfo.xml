@@ -39,6 +39,6 @@
         <binary>nvtop</binary>
     </provides>
     <releases>
-    <release version="3.2.0" date="2025-10-27"></release>
+    <release version="3.2.0" date="2025-10-28"></release>
     </releases>
 </component>

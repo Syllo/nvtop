@@ -364,7 +364,7 @@ events:
       Compilation of the C compiler identification source "CMakeCCompilerId.c" produced "a.exe"
       
       The C compiler identification is GNU, found in:
-        C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/4.1.2/CompilerIdC/a.exe
+        C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/4.1.2/CompilerIdC/a.exe
       
   -
     kind: "find-v1"
@@ -3243,7 +3243,7 @@ events:
       Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "a.exe"
       
       The CXX compiler identification is GNU, found in:
-        C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/4.1.2/CompilerIdCXX/a.exe
+        C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/4.1.2/CompilerIdCXX/a.exe
       
   -
     kind: "find-v1"
@@ -4523,8 +4523,8 @@ events:
     checks:
       - "Detecting C compiler ABI info"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-yq8dws"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-yq8dws"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-azktro"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-azktro"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
@@ -4533,10 +4533,10 @@ events:
       variable: "CMAKE_C_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-yq8dws'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-azktro'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_7a26a
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -v -o CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj -c C:/msys64/ucrt64/share/cmake/Modules/CMakeCCompilerABI.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_f4fa8
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -v -o CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj -c C:/msys64/ucrt64/share/cmake/Modules/CMakeCCompilerABI.c
         Using built-in specs.
         COLLECT_GCC=C:\\msys64\\ucrt64\\bin\\gcc.exe
         Target: x86_64-w64-mingw32
@@ -4544,8 +4544,8 @@ events:
         Thread model: posix
         Supported LTO compression algorithms: zlib zstd
         gcc version 15.2.0 (Rev8, Built by MSYS2 project) 
-        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_7a26a.dir/'
-         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/cc1.exe -quiet -v -iprefix C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/ -D_REENTRANT C:/msys64/ucrt64/share/cmake/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_7a26a.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=generic -march=nocona -version -o C:\\Users\\adamm\\AppData\\Local\\Temp\\ccwH37Lg.s
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_f4fa8.dir/'
+         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/cc1.exe -quiet -v -iprefix C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/ -D_REENTRANT C:/msys64/ucrt64/share/cmake/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_f4fa8.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=generic -march=nocona -version -o C:\\Users\\adamm\\AppData\\Local\\Temp\\cc2kK7Gj.s
         GNU C23 (Rev8, Built by MSYS2 project) version 15.2.0 (x86_64-w64-mingw32)
         	compiled by GNU C version 15.2.0, GMP version 6.3.0, MPFR version 4.2.2, MPC version 1.3.1, isl version isl-0.27-GMP
         
@@ -4564,13 +4564,13 @@ events:
          C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/include-fixed
         End of search list.
         Compiler executable checksum: f68563dd6aebdc6b84233a210e98d3c3
-        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_7a26a.dir/'
-         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/as.exe -v -o CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj C:\\Users\\adamm\\AppData\\Local\\Temp\\ccwH37Lg.s
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_f4fa8.dir/'
+         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/as.exe -v -o CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj C:\\Users\\adamm\\AppData\\Local\\Temp\\cc2kK7Gj.s
         GNU assembler version 2.45 (x86_64-w64-mingw32) using BFD version (GNU Binutils) 2.45
         COMPILER_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/;C:/msys64/ucrt64/bin/../lib/gcc/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/
         LIBRARY_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/;C:/msys64/ucrt64/bin/../lib/gcc/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../
-        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.'
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -v -Wl,-v CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj -o cmTC_7a26a.exe -Wl,--out-implib,libcmTC_7a26a.dll.a -Wl,--major-image-version,0,--minor-image-version,0   && cd ."
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.'
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -v -Wl,-v CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj -o cmTC_f4fa8.exe -Wl,--out-implib,libcmTC_f4fa8.dll.a -Wl,--major-image-version,0,--minor-image-version,0   && cd ."
         Using built-in specs.
         COLLECT_GCC=C:\\msys64\\ucrt64\\bin\\gcc.exe
         COLLECT_LTO_WRAPPER=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe
@@ -4581,12 +4581,12 @@ events:
         gcc version 15.2.0 (Rev8, Built by MSYS2 project) 
         COMPILER_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/;C:/msys64/ucrt64/bin/../lib/gcc/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/
         LIBRARY_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/;C:/msys64/ucrt64/bin/../lib/gcc/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../
-        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_7a26a.exe' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_7a26a.'
-         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccRDOHBo.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_7a26a.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_7a26a.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_f4fa8.exe' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_f4fa8.'
+         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccc6jkmI.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_f4fa8.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_f4fa8.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o
         collect2 version 15.2.0
-        C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccRDOHBo.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_7a26a.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_7a26a.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o
+        C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccc6jkmI.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_f4fa8.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_f4fa8.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o
         GNU ld (GNU Binutils) 2.45
-        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_7a26a.exe' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_7a26a.'
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_f4fa8.exe' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_f4fa8.'
         
       exitCode: 0
   -
@@ -4619,10 +4619,10 @@ events:
       Parsed C implicit link information:
         link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
         linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
-        ignore line: [Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-yq8dws']
+        ignore line: [Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-azktro']
         ignore line: []
-        ignore line: [Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_7a26a]
-        ignore line: [[1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -v -o CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj -c C:/msys64/ucrt64/share/cmake/Modules/CMakeCCompilerABI.c]
+        ignore line: [Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_f4fa8]
+        ignore line: [[1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -v -o CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj -c C:/msys64/ucrt64/share/cmake/Modules/CMakeCCompilerABI.c]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=C:\\msys64\\ucrt64\\bin\\gcc.exe]
         ignore line: [Target: x86_64-w64-mingw32]
@@ -4630,8 +4630,8 @@ events:
         ignore line: [Thread model: posix]
         ignore line: [Supported LTO compression algorithms: zlib zstd]
         ignore line: [gcc version 15.2.0 (Rev8  Built by MSYS2 project) ]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_7a26a.dir/']
-        ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/cc1.exe -quiet -v -iprefix C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/ -D_REENTRANT C:/msys64/ucrt64/share/cmake/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_7a26a.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=generic -march=nocona -version -o C:\\Users\\adamm\\AppData\\Local\\Temp\\ccwH37Lg.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_f4fa8.dir/']
+        ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/cc1.exe -quiet -v -iprefix C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/ -D_REENTRANT C:/msys64/ucrt64/share/cmake/Modules/CMakeCCompilerABI.c -quiet -dumpdir CMakeFiles/cmTC_f4fa8.dir/ -dumpbase CMakeCCompilerABI.c.c -dumpbase-ext .c -mtune=generic -march=nocona -version -o C:\\Users\\adamm\\AppData\\Local\\Temp\\cc2kK7Gj.s]
         ignore line: [GNU C23 (Rev8  Built by MSYS2 project) version 15.2.0 (x86_64-w64-mingw32)]
         ignore line: [	compiled by GNU C version 15.2.0  GMP version 6.3.0  MPFR version 4.2.2  MPC version 1.3.1  isl version isl-0.27-GMP]
         ignore line: []
@@ -4650,8 +4650,8 @@ events:
         ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/include-fixed]
         ignore line: [End of search list.]
         ignore line: [Compiler executable checksum: f68563dd6aebdc6b84233a210e98d3c3]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_7a26a.dir/']
-        ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/as.exe -v -o CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj C:\\Users\\adamm\\AppData\\Local\\Temp\\ccwH37Lg.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_f4fa8.dir/']
+        ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/as.exe -v -o CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj C:\\Users\\adamm\\AppData\\Local\\Temp\\cc2kK7Gj.s]
         ignore line: [GNU assembler version 2.45 (x86_64-w64-mingw32) using BFD version (GNU Binutils) 2.45]
         ignore line: [COMPILER_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/]
@@ -4662,8 +4662,8 @@ events:
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.']
-        ignore line: [[2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -v -Wl -v CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj -o cmTC_7a26a.exe -Wl --out-implib libcmTC_7a26a.dll.a -Wl --major-image-version 0 --minor-image-version 0   && cd ."]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj' '-c' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.']
+        ignore line: [[2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -v -Wl -v CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj -o cmTC_f4fa8.exe -Wl --out-implib libcmTC_f4fa8.dll.a -Wl --major-image-version 0 --minor-image-version 0   && cd ."]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=C:\\msys64\\ucrt64\\bin\\gcc.exe]
         ignore line: [COLLECT_LTO_WRAPPER=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe]
@@ -4681,13 +4681,13 @@ events:
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_7a26a.exe' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_7a26a.']
-        link line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccRDOHBo.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_7a26a.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_7a26a.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_f4fa8.exe' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_f4fa8.']
+        link line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccc6jkmI.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_f4fa8.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_f4fa8.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe] ==> ignore
           arg [-plugin] ==> ignore
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll] ==> ignore
           arg [-plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe] ==> ignore
-          arg [-plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccRDOHBo.res] ==> ignore
+          arg [-plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccc6jkmI.res] ==> ignore
           arg [-plugin-opt=-pass-through=-lmingw32] ==> ignore
           arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
           arg [-plugin-opt=-pass-through=-lgcc_eh] ==> ignore
@@ -4709,7 +4709,7 @@ events:
           arg [i386pep] ==> ignore
           arg [-Bdynamic] ==> search dynamic
           arg [-o] ==> ignore
-          arg [cmTC_7a26a.exe] ==> ignore
+          arg [cmTC_f4fa8.exe] ==> ignore
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o] ==> obj [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o]
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o] ==> obj [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o]
           arg [-LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0] ==> dir [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0]
@@ -4719,9 +4719,9 @@ events:
           arg [-LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib] ==> dir [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib]
           arg [-LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../..] ==> dir [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../..]
           arg [-v] ==> ignore
-          arg [CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj] ==> ignore
+          arg [CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj] ==> ignore
           arg [--out-implib] ==> ignore
-          arg [libcmTC_7a26a.dll.a] ==> ignore
+          arg [libcmTC_f4fa8.dll.a] ==> ignore
           arg [--major-image-version] ==> ignore
           arg [0] ==> ignore
           arg [--minor-image-version] ==> ignore
@@ -4746,7 +4746,7 @@ events:
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o] ==> obj [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o]
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o] ==> obj [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
         ignore line: [collect2 version 15.2.0]
-        ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccRDOHBo.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_7a26a.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_7a26a.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_7a26a.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
+        ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccc6jkmI.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lgcc_eh -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_f4fa8.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_f4fa8.dir/CMakeCCompilerABI.c.obj --out-implib libcmTC_f4fa8.dll.a --major-image-version 0 --minor-image-version 0 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc -lgcc_eh -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
         linker tool for 'C': C:/msys64/ucrt64/x86_64-w64-mingw32/bin/ld.exe
         remove lib [gcc_eh]
         remove lib [msvcrt]
@@ -4787,8 +4787,8 @@ events:
     checks:
       - "Detecting CXX compiler ABI info"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dbn0n8"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dbn0n8"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-v55nss"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-v55nss"
     cmakeVariables:
       CMAKE_CXX_FLAGS: ""
       CMAKE_CXX_FLAGS_DEBUG: "-g"
@@ -4798,10 +4798,10 @@ events:
       variable: "CMAKE_CXX_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dbn0n8'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-v55nss'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_8916c
-        [1/2] C:\\msys64\\ucrt64\\bin\\g++.exe   -v -o CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj -c C:/msys64/ucrt64/share/cmake/Modules/CMakeCXXCompilerABI.cpp
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_546ff
+        [1/2] C:\\msys64\\ucrt64\\bin\\g++.exe   -v -o CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj -c C:/msys64/ucrt64/share/cmake/Modules/CMakeCXXCompilerABI.cpp
         Using built-in specs.
         COLLECT_GCC=C:\\msys64\\ucrt64\\bin\\g++.exe
         Target: x86_64-w64-mingw32
@@ -4809,8 +4809,8 @@ events:
         Thread model: posix
         Supported LTO compression algorithms: zlib zstd
         gcc version 15.2.0 (Rev8, Built by MSYS2 project) 
-        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_8916c.dir/'
-         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/cc1plus.exe -quiet -v -iprefix C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/ -D_REENTRANT C:/msys64/ucrt64/share/cmake/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_8916c.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=nocona -version -o C:\\Users\\adamm\\AppData\\Local\\Temp\\cciZX5Hu.s
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_546ff.dir/'
+         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/cc1plus.exe -quiet -v -iprefix C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/ -D_REENTRANT C:/msys64/ucrt64/share/cmake/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_546ff.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=nocona -version -o C:\\Users\\adamm\\AppData\\Local\\Temp\\ccFC6Wb3.s
         GNU C++17 (Rev8, Built by MSYS2 project) version 15.2.0 (x86_64-w64-mingw32)
         	compiled by GNU C version 15.2.0, GMP version 6.3.0, MPFR version 4.2.2, MPC version 1.3.1, isl version isl-0.27-GMP
         
@@ -4835,13 +4835,13 @@ events:
          C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/include-fixed
         End of search list.
         Compiler executable checksum: 3a1a95c83f0136a64748ec8c5a2a87f3
-        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_8916c.dir/'
-         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/as.exe -v -o CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj C:\\Users\\adamm\\AppData\\Local\\Temp\\cciZX5Hu.s
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_546ff.dir/'
+         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/as.exe -v -o CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj C:\\Users\\adamm\\AppData\\Local\\Temp\\ccFC6Wb3.s
         GNU assembler version 2.45 (x86_64-w64-mingw32) using BFD version (GNU Binutils) 2.45
         COMPILER_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/;C:/msys64/ucrt64/bin/../lib/gcc/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/
         LIBRARY_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/;C:/msys64/ucrt64/bin/../lib/gcc/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../
-        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.'
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\g++.exe  -v -Wl,-v CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj -o cmTC_8916c.exe -Wl,--out-implib,libcmTC_8916c.dll.a -Wl,--major-image-version,0,--minor-image-version,0   && cd ."
+        COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.'
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\g++.exe  -v -Wl,-v CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj -o cmTC_546ff.exe -Wl,--out-implib,libcmTC_546ff.dll.a -Wl,--major-image-version,0,--minor-image-version,0   && cd ."
         Using built-in specs.
         COLLECT_GCC=C:\\msys64\\ucrt64\\bin\\g++.exe
         COLLECT_LTO_WRAPPER=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe
@@ -4852,12 +4852,12 @@ events:
         gcc version 15.2.0 (Rev8, Built by MSYS2 project) 
         COMPILER_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/;C:/msys64/ucrt64/bin/../lib/gcc/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/
         LIBRARY_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/;C:/msys64/ucrt64/bin/../lib/gcc/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/;C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../
-        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_8916c.exe' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_8916c.'
-         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccAk0roJ.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_8916c.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_8916c.dll.a --major-image-version 0 --minor-image-version 0 -lstdc++ -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_546ff.exe' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_546ff.'
+         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccw3Hf1i.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_546ff.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_546ff.dll.a --major-image-version 0 --minor-image-version 0 -lstdc++ -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o
         collect2 version 15.2.0
-        C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccAk0roJ.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_8916c.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_8916c.dll.a --major-image-version 0 --minor-image-version 0 -lstdc++ -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o
+        C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccw3Hf1i.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_546ff.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_546ff.dll.a --major-image-version 0 --minor-image-version 0 -lstdc++ -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o
         GNU ld (GNU Binutils) 2.45
-        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_8916c.exe' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_8916c.'
+        COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_546ff.exe' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_546ff.'
         
       exitCode: 0
   -
@@ -4896,10 +4896,10 @@ events:
       Parsed CXX implicit link information:
         link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
         linker tool regex: [^[ 	]*(->|")?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)))("|,| |$)]
-        ignore line: [Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dbn0n8']
+        ignore line: [Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-v55nss']
         ignore line: []
-        ignore line: [Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_8916c]
-        ignore line: [[1/2] C:\\msys64\\ucrt64\\bin\\g++.exe   -v -o CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj -c C:/msys64/ucrt64/share/cmake/Modules/CMakeCXXCompilerABI.cpp]
+        ignore line: [Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_546ff]
+        ignore line: [[1/2] C:\\msys64\\ucrt64\\bin\\g++.exe   -v -o CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj -c C:/msys64/ucrt64/share/cmake/Modules/CMakeCXXCompilerABI.cpp]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=C:\\msys64\\ucrt64\\bin\\g++.exe]
         ignore line: [Target: x86_64-w64-mingw32]
@@ -4907,8 +4907,8 @@ events:
         ignore line: [Thread model: posix]
         ignore line: [Supported LTO compression algorithms: zlib zstd]
         ignore line: [gcc version 15.2.0 (Rev8  Built by MSYS2 project) ]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_8916c.dir/']
-        ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/cc1plus.exe -quiet -v -iprefix C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/ -D_REENTRANT C:/msys64/ucrt64/share/cmake/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_8916c.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=nocona -version -o C:\\Users\\adamm\\AppData\\Local\\Temp\\cciZX5Hu.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_546ff.dir/']
+        ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/cc1plus.exe -quiet -v -iprefix C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/ -D_REENTRANT C:/msys64/ucrt64/share/cmake/Modules/CMakeCXXCompilerABI.cpp -quiet -dumpdir CMakeFiles/cmTC_546ff.dir/ -dumpbase CMakeCXXCompilerABI.cpp.cpp -dumpbase-ext .cpp -mtune=generic -march=nocona -version -o C:\\Users\\adamm\\AppData\\Local\\Temp\\ccFC6Wb3.s]
         ignore line: [GNU C++17 (Rev8  Built by MSYS2 project) version 15.2.0 (x86_64-w64-mingw32)]
         ignore line: [	compiled by GNU C version 15.2.0  GMP version 6.3.0  MPFR version 4.2.2  MPC version 1.3.1  isl version isl-0.27-GMP]
         ignore line: []
@@ -4933,8 +4933,8 @@ events:
         ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/include-fixed]
         ignore line: [End of search list.]
         ignore line: [Compiler executable checksum: 3a1a95c83f0136a64748ec8c5a2a87f3]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_8916c.dir/']
-        ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/as.exe -v -o CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj C:\\Users\\adamm\\AppData\\Local\\Temp\\cciZX5Hu.s]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_546ff.dir/']
+        ignore line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/as.exe -v -o CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj C:\\Users\\adamm\\AppData\\Local\\Temp\\ccFC6Wb3.s]
         ignore line: [GNU assembler version 2.45 (x86_64-w64-mingw32) using BFD version (GNU Binutils) 2.45]
         ignore line: [COMPILER_PATH=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/]
@@ -4945,8 +4945,8 @@ events:
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.']
-        ignore line: [[2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\g++.exe  -v -Wl -v CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj -o cmTC_8916c.exe -Wl --out-implib libcmTC_8916c.dll.a -Wl --major-image-version 0 --minor-image-version 0   && cd ."]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj' '-c' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.']
+        ignore line: [[2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\g++.exe  -v -Wl -v CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj -o cmTC_546ff.exe -Wl --out-implib libcmTC_546ff.dll.a -Wl --major-image-version 0 --minor-image-version 0   && cd ."]
         ignore line: [Using built-in specs.]
         ignore line: [COLLECT_GCC=C:\\msys64\\ucrt64\\bin\\g++.exe]
         ignore line: [COLLECT_LTO_WRAPPER=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe]
@@ -4964,13 +4964,13 @@ events:
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/]
         ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../]
-        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_8916c.exe' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_8916c.']
-        link line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccAk0roJ.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_8916c.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_8916c.dll.a --major-image-version 0 --minor-image-version 0 -lstdc++ -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
+        ignore line: [COLLECT_GCC_OPTIONS='-v' '-o' 'cmTC_546ff.exe' '-shared-libgcc' '-mtune=generic' '-march=nocona' '-dumpdir' 'cmTC_546ff.']
+        link line: [ C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccw3Hf1i.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_546ff.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_546ff.dll.a --major-image-version 0 --minor-image-version 0 -lstdc++ -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/collect2.exe] ==> ignore
           arg [-plugin] ==> ignore
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll] ==> ignore
           arg [-plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe] ==> ignore
-          arg [-plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccAk0roJ.res] ==> ignore
+          arg [-plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccw3Hf1i.res] ==> ignore
           arg [-plugin-opt=-pass-through=-lmingw32] ==> ignore
           arg [-plugin-opt=-pass-through=-lgcc_s] ==> ignore
           arg [-plugin-opt=-pass-through=-lgcc] ==> ignore
@@ -4992,7 +4992,7 @@ events:
           arg [i386pep] ==> ignore
           arg [-Bdynamic] ==> search dynamic
           arg [-o] ==> ignore
-          arg [cmTC_8916c.exe] ==> ignore
+          arg [cmTC_546ff.exe] ==> ignore
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o] ==> obj [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o]
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o] ==> obj [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o]
           arg [-LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0] ==> dir [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0]
@@ -5002,9 +5002,9 @@ events:
           arg [-LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib] ==> dir [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib]
           arg [-LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../..] ==> dir [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../..]
           arg [-v] ==> ignore
-          arg [CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj] ==> ignore
+          arg [CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj] ==> ignore
           arg [--out-implib] ==> ignore
-          arg [libcmTC_8916c.dll.a] ==> ignore
+          arg [libcmTC_546ff.dll.a] ==> ignore
           arg [--major-image-version] ==> ignore
           arg [0] ==> ignore
           arg [--minor-image-version] ==> ignore
@@ -5030,7 +5030,7 @@ events:
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o] ==> obj [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o]
           arg [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o] ==> obj [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
         ignore line: [collect2 version 15.2.0]
-        ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccAk0roJ.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_8916c.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_8916c.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_8916c.dll.a --major-image-version 0 --minor-image-version 0 -lstdc++ -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
+        ignore line: [C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe -plugin C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.dll -plugin-opt=C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/lto-wrapper.exe -plugin-opt=-fresolution=C:\\Users\\adamm\\AppData\\Local\\Temp\\ccw3Hf1i.res -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lpthread -plugin-opt=-pass-through=-ladvapi32 -plugin-opt=-pass-through=-lshell32 -plugin-opt=-pass-through=-luser32 -plugin-opt=-pass-through=-lkernel32 -plugin-opt=-pass-through=-lmingw32 -plugin-opt=-pass-through=-lgcc_s -plugin-opt=-pass-through=-lgcc -plugin-opt=-pass-through=-lmingwex -plugin-opt=-pass-through=-lmsvcrt -plugin-opt=-pass-through=-lkernel32 -m i386pep -Bdynamic -o cmTC_546ff.exe C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/crt2.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtbegin.o -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0 -LC:/msys64/ucrt64/bin/../lib/gcc -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib/../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/lib -LC:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../.. -v CMakeFiles/cmTC_546ff.dir/CMakeCXXCompilerABI.cpp.obj --out-implib libcmTC_546ff.dll.a --major-image-version 0 --minor-image-version 0 -lstdc++ -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 -lpthread -ladvapi32 -lshell32 -luser32 -lkernel32 -lmingw32 -lgcc_s -lgcc -lmingwex -lmsvcrt -lkernel32 C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../lib/default-manifest.o C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/crtend.o]
         linker tool for 'CXX': C:/msys64/ucrt64/x86_64-w64-mingw32/bin/ld.exe
         remove lib [msvcrt]
         remove lib [msvcrt]
@@ -5608,22 +5608,22 @@ events:
     checks:
       - "Looking for cbreak in C:/msys64/ucrt64/lib/libncursesw.dll.a"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-wx1r0e"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-wx1r0e"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-2k9wi4"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-2k9wi4"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "CURSES_NCURSES_HAS_CBREAK"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-wx1r0e'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-2k9wi4'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_89a19
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -DCHECK_FUNCTION_EXISTS=cbreak -o CMakeFiles/cmTC_89a19.dir/CheckFunctionExists.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-wx1r0e/CheckFunctionExists.c
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe -DCHECK_FUNCTION_EXISTS=cbreak  CMakeFiles/cmTC_89a19.dir/CheckFunctionExists.c.obj -o cmTC_89a19.exe -Wl,--out-implib,libcmTC_89a19.dll.a -Wl,--major-image-version,0,--minor-image-version,0  C:/msys64/ucrt64/lib/libncursesw.dll.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_703cf
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -DCHECK_FUNCTION_EXISTS=cbreak -o CMakeFiles/cmTC_703cf.dir/CheckFunctionExists.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-2k9wi4/CheckFunctionExists.c
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe -DCHECK_FUNCTION_EXISTS=cbreak  CMakeFiles/cmTC_703cf.dir/CheckFunctionExists.c.obj -o cmTC_703cf.exe -Wl,--out-implib,libcmTC_703cf.dll.a -Wl,--major-image-version,0,--minor-image-version,0  C:/msys64/ucrt64/lib/libncursesw.dll.a  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -6988,28 +6988,28 @@ events:
     checks:
       - "Performing Test HAS_REALLOCARRAY"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vox8tq"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vox8tq"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-031i0l"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-031i0l"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "HAS_REALLOCARRAY"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vox8tq'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-031i0l'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_29363
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe -DHAS_REALLOCARRAY   -o CMakeFiles/cmTC_29363.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vox8tq/src.c
-        FAILED: [code=1] CMakeFiles/cmTC_29363.dir/src.c.obj 
-        C:\\msys64\\ucrt64\\bin\\gcc.exe -DHAS_REALLOCARRAY   -o CMakeFiles/cmTC_29363.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vox8tq/src.c
-        C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vox8tq/src.c: In function 'main':
-        C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vox8tq/src.c:5:11: error: implicit declaration of function 'reallocarray' [-Wimplicit-function-declaration]
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_47444
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe -DHAS_REALLOCARRAY   -o CMakeFiles/cmTC_47444.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-031i0l/src.c
+        FAILED: [code=1] CMakeFiles/cmTC_47444.dir/src.c.obj 
+        C:\\msys64\\ucrt64\\bin\\gcc.exe -DHAS_REALLOCARRAY   -o CMakeFiles/cmTC_47444.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-031i0l/src.c
+        C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-031i0l/src.c: In function 'main':
+        C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-031i0l/src.c:5:11: error: implicit declaration of function 'reallocarray' [-Wimplicit-function-declaration]
             5 |     buf = reallocarray(buf, 15, sizeof(*buf));
               |           ^~~~~~~~~~~~
-        C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vox8tq/src.c:5:9: error: assignment to 'int *' from 'int' makes pointer from integer without a cast [-Wint-conversion]
+        C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-031i0l/src.c:5:9: error: assignment to 'int *' from 'int' makes pointer from integer without a cast [-Wint-conversion]
             5 |     buf = reallocarray(buf, 15, sizeof(*buf));
               |         ^
         ninja: build stopped: subcommand failed.
@@ -7814,27 +7814,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wall"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gxjydl"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gxjydl"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-bbjkww"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-bbjkww"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wall"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gxjydl'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-bbjkww'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_de5d6
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wall -Wall -o CMakeFiles/cmTC_de5d6.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gxjydl/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_1d576
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wall -Wall -o CMakeFiles/cmTC_1d576.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-bbjkww/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_de5d6.dir/src.c.obj -o cmTC_de5d6.exe -Wl,--out-implib,libcmTC_de5d6.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_1d576.dir/src.c.obj -o cmTC_1d576.exe -Wl,--out-implib,libcmTC_1d576.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7844,27 +7844,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wextra"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-kq951d"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-kq951d"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-oc4r4b"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-oc4r4b"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wextra"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-kq951d'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-oc4r4b'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_68468
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wextra -Wextra -o CMakeFiles/cmTC_68468.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-kq951d/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_51b7f
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wextra -Wextra -o CMakeFiles/cmTC_51b7f.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-oc4r4b/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_68468.dir/src.c.obj -o cmTC_68468.exe -Wl,--out-implib,libcmTC_68468.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_51b7f.dir/src.c.obj -o cmTC_51b7f.exe -Wl,--out-implib,libcmTC_51b7f.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7874,27 +7874,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Waddress"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-967u15"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-967u15"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-4o2zow"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-4o2zow"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Waddress"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-967u15'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-4o2zow'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_a0fa1
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Waddress -Waddress -o CMakeFiles/cmTC_a0fa1.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-967u15/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_0edc8
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Waddress -Waddress -o CMakeFiles/cmTC_0edc8.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-4o2zow/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_a0fa1.dir/src.c.obj -o cmTC_a0fa1.exe -Wl,--out-implib,libcmTC_a0fa1.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_0edc8.dir/src.c.obj -o cmTC_0edc8.exe -Wl,--out-implib,libcmTC_0edc8.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7904,27 +7904,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Waggressive-loop-optimizations"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-2iv0ts"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-2iv0ts"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-fzxf71"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-fzxf71"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Waggressive-loop-optimizations"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-2iv0ts'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-fzxf71'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_acd4f
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Waggressive-loop-optimizations -Waggressive-loop-optimizations -o CMakeFiles/cmTC_acd4f.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-2iv0ts/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_51c9f
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Waggressive-loop-optimizations -Waggressive-loop-optimizations -o CMakeFiles/cmTC_51c9f.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-fzxf71/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_acd4f.dir/src.c.obj -o cmTC_acd4f.exe -Wl,--out-implib,libcmTC_acd4f.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_51c9f.dir/src.c.obj -o cmTC_51c9f.exe -Wl,--out-implib,libcmTC_51c9f.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7934,27 +7934,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wbad-function-cast"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-82v77i"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-82v77i"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-1wo5g8"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-1wo5g8"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wbad-function-cast"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-82v77i'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-1wo5g8'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_7799c
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wbad-function-cast -Wbad-function-cast -o CMakeFiles/cmTC_7799c.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-82v77i/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_be4e3
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wbad-function-cast -Wbad-function-cast -o CMakeFiles/cmTC_be4e3.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-1wo5g8/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_7799c.dir/src.c.obj -o cmTC_7799c.exe -Wl,--out-implib,libcmTC_7799c.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_be4e3.dir/src.c.obj -o cmTC_be4e3.exe -Wl,--out-implib,libcmTC_be4e3.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7964,27 +7964,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wmissing-declarations"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-qirl5g"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-qirl5g"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mukd42"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mukd42"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wmissing-declarations"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-qirl5g'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mukd42'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_16853
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wmissing-declarations -Wmissing-declarations -o CMakeFiles/cmTC_16853.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-qirl5g/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_d63d9
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wmissing-declarations -Wmissing-declarations -o CMakeFiles/cmTC_d63d9.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mukd42/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_16853.dir/src.c.obj -o cmTC_16853.exe -Wl,--out-implib,libcmTC_16853.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_d63d9.dir/src.c.obj -o cmTC_d63d9.exe -Wl,--out-implib,libcmTC_d63d9.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -7994,27 +7994,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wmissing-parameter-type"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mfwjyp"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mfwjyp"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-n2xwkp"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-n2xwkp"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wmissing-parameter-type"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mfwjyp'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-n2xwkp'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_51e1c
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wmissing-parameter-type -Wmissing-parameter-type -o CMakeFiles/cmTC_51e1c.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mfwjyp/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_969b2
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wmissing-parameter-type -Wmissing-parameter-type -o CMakeFiles/cmTC_969b2.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-n2xwkp/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_51e1c.dir/src.c.obj -o cmTC_51e1c.exe -Wl,--out-implib,libcmTC_51e1c.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_969b2.dir/src.c.obj -o cmTC_969b2.exe -Wl,--out-implib,libcmTC_969b2.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8024,27 +8024,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wmissing-prototypes"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-triw3w"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-triw3w"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-zdt1fr"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-zdt1fr"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wmissing-prototypes"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-triw3w'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-zdt1fr'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_41973
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wmissing-prototypes -Wmissing-prototypes -o CMakeFiles/cmTC_41973.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-triw3w/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_e01a5
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wmissing-prototypes -Wmissing-prototypes -o CMakeFiles/cmTC_e01a5.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-zdt1fr/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_41973.dir/src.c.obj -o cmTC_41973.exe -Wl,--out-implib,libcmTC_41973.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_e01a5.dir/src.c.obj -o cmTC_e01a5.exe -Wl,--out-implib,libcmTC_e01a5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8054,27 +8054,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wnested-externs"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-p7ep86"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-p7ep86"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-m360b6"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-m360b6"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wnested-externs"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-p7ep86'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-m360b6'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_48133
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wnested-externs -Wnested-externs -o CMakeFiles/cmTC_48133.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-p7ep86/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_2ee87
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wnested-externs -Wnested-externs -o CMakeFiles/cmTC_2ee87.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-m360b6/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_48133.dir/src.c.obj -o cmTC_48133.exe -Wl,--out-implib,libcmTC_48133.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_2ee87.dir/src.c.obj -o cmTC_2ee87.exe -Wl,--out-implib,libcmTC_2ee87.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8084,27 +8084,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wold-style-declaration"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-shvqr0"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-shvqr0"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-8lm56m"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-8lm56m"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wold-style-declaration"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-shvqr0'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-8lm56m'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_c2ef8
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wold-style-declaration -Wold-style-declaration -o CMakeFiles/cmTC_c2ef8.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-shvqr0/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_0ae76
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wold-style-declaration -Wold-style-declaration -o CMakeFiles/cmTC_0ae76.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-8lm56m/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_c2ef8.dir/src.c.obj -o cmTC_c2ef8.exe -Wl,--out-implib,libcmTC_c2ef8.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_0ae76.dir/src.c.obj -o cmTC_0ae76.exe -Wl,--out-implib,libcmTC_0ae76.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8114,27 +8114,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wold-style-definition"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-glr67z"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-glr67z"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-6jx96t"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-6jx96t"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wold-style-definition"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-glr67z'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-6jx96t'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_ada90
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wold-style-definition -Wold-style-definition -o CMakeFiles/cmTC_ada90.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-glr67z/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_74c3c
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wold-style-definition -Wold-style-definition -o CMakeFiles/cmTC_74c3c.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-6jx96t/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_ada90.dir/src.c.obj -o cmTC_ada90.exe -Wl,--out-implib,libcmTC_ada90.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_74c3c.dir/src.c.obj -o cmTC_74c3c.exe -Wl,--out-implib,libcmTC_74c3c.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8144,27 +8144,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wstrict-prototypes"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-fa0wab"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-fa0wab"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-q9qtnt"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-q9qtnt"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wstrict-prototypes"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-fa0wab'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-q9qtnt'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_26a36
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wstrict-prototypes -Wstrict-prototypes -o CMakeFiles/cmTC_26a36.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-fa0wab/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_7704a
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wstrict-prototypes -Wstrict-prototypes -o CMakeFiles/cmTC_7704a.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-q9qtnt/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_26a36.dir/src.c.obj -o cmTC_26a36.exe -Wl,--out-implib,libcmTC_26a36.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_7704a.dir/src.c.obj -o cmTC_7704a.exe -Wl,--out-implib,libcmTC_7704a.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8174,27 +8174,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wpointer-sign"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-adv213"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-adv213"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-suh12g"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-suh12g"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wpointer-sign"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-adv213'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-suh12g'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_80752
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wpointer-sign -Wpointer-sign -o CMakeFiles/cmTC_80752.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-adv213/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_54fd5
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wpointer-sign -Wpointer-sign -o CMakeFiles/cmTC_54fd5.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-suh12g/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_80752.dir/src.c.obj -o cmTC_80752.exe -Wl,--out-implib,libcmTC_80752.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_54fd5.dir/src.c.obj -o cmTC_54fd5.exe -Wl,--out-implib,libcmTC_54fd5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8204,27 +8204,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wdouble-promotion"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-z460wx"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-z460wx"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-0oydth"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-0oydth"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wdouble-promotion"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-z460wx'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-0oydth'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_619e9
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wdouble-promotion -Wdouble-promotion -o CMakeFiles/cmTC_619e9.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-z460wx/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_0caaa
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wdouble-promotion -Wdouble-promotion -o CMakeFiles/cmTC_0caaa.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-0oydth/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_619e9.dir/src.c.obj -o cmTC_619e9.exe -Wl,--out-implib,libcmTC_619e9.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_0caaa.dir/src.c.obj -o cmTC_0caaa.exe -Wl,--out-implib,libcmTC_0caaa.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8234,27 +8234,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wuninitialized"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dz5eg8"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dz5eg8"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ffxizl"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ffxizl"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wuninitialized"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dz5eg8'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ffxizl'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_bc047
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wuninitialized -Wuninitialized -o CMakeFiles/cmTC_bc047.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dz5eg8/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_09909
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wuninitialized -Wuninitialized -o CMakeFiles/cmTC_09909.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ffxizl/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_bc047.dir/src.c.obj -o cmTC_bc047.exe -Wl,--out-implib,libcmTC_bc047.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_09909.dir/src.c.obj -o cmTC_09909.exe -Wl,--out-implib,libcmTC_09909.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8264,27 +8264,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Winit-self"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-l6uobk"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-l6uobk"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-a6rzn7"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-a6rzn7"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Winit-self"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-l6uobk'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-a6rzn7'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_3e3a4
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Winit-self -Winit-self -o CMakeFiles/cmTC_3e3a4.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-l6uobk/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_27ae1
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Winit-self -Winit-self -o CMakeFiles/cmTC_27ae1.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-a6rzn7/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_3e3a4.dir/src.c.obj -o cmTC_3e3a4.exe -Wl,--out-implib,libcmTC_3e3a4.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_27ae1.dir/src.c.obj -o cmTC_27ae1.exe -Wl,--out-implib,libcmTC_27ae1.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8294,27 +8294,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wstrict-aliasing"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-cgg8fs"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-cgg8fs"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-uhuv2z"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-uhuv2z"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wstrict-aliasing"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-cgg8fs'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-uhuv2z'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_3d1eb
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wstrict-aliasing -Wstrict-aliasing -o CMakeFiles/cmTC_3d1eb.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-cgg8fs/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_4111b
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wstrict-aliasing -Wstrict-aliasing -o CMakeFiles/cmTC_4111b.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-uhuv2z/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_3d1eb.dir/src.c.obj -o cmTC_3d1eb.exe -Wl,--out-implib,libcmTC_3d1eb.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_4111b.dir/src.c.obj -o cmTC_4111b.exe -Wl,--out-implib,libcmTC_4111b.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8324,27 +8324,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wsuggest-attribute-const"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mp6fk1"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mp6fk1"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ixs8d3"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ixs8d3"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wsuggest-attribute-const"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mp6fk1'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ixs8d3'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_c5bd7
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wsuggest-attribute-const -Wsuggest-attribute=const -o CMakeFiles/cmTC_c5bd7.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-mp6fk1/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_56bae
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wsuggest-attribute-const -Wsuggest-attribute=const -o CMakeFiles/cmTC_56bae.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ixs8d3/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_c5bd7.dir/src.c.obj -o cmTC_c5bd7.exe -Wl,--out-implib,libcmTC_c5bd7.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_56bae.dir/src.c.obj -o cmTC_56bae.exe -Wl,--out-implib,libcmTC_56bae.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8354,27 +8354,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wtrampolines"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-tkp77g"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-tkp77g"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-j3d6xh"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-j3d6xh"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wtrampolines"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-tkp77g'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-j3d6xh'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_519a3
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wtrampolines -Wtrampolines -o CMakeFiles/cmTC_519a3.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-tkp77g/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_763ea
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wtrampolines -Wtrampolines -o CMakeFiles/cmTC_763ea.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-j3d6xh/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_519a3.dir/src.c.obj -o cmTC_519a3.exe -Wl,--out-implib,libcmTC_519a3.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_763ea.dir/src.c.obj -o cmTC_763ea.exe -Wl,--out-implib,libcmTC_763ea.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8384,27 +8384,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wfloat-equal"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vunuhu"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vunuhu"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-s1uqps"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-s1uqps"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wfloat-equal"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vunuhu'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-s1uqps'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_81809
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wfloat-equal -Wfloat-equal -o CMakeFiles/cmTC_81809.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vunuhu/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_04d19
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wfloat-equal -Wfloat-equal -o CMakeFiles/cmTC_04d19.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-s1uqps/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_81809.dir/src.c.obj -o cmTC_81809.exe -Wl,--out-implib,libcmTC_81809.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_04d19.dir/src.c.obj -o cmTC_04d19.exe -Wl,--out-implib,libcmTC_04d19.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8414,27 +8414,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wshadow"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-6xj43b"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-6xj43b"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-hpondq"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-hpondq"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wshadow"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-6xj43b'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-hpondq'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_e4a03
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wshadow -Wshadow -o CMakeFiles/cmTC_e4a03.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-6xj43b/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_88dcf
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wshadow -Wshadow -o CMakeFiles/cmTC_88dcf.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-hpondq/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_e4a03.dir/src.c.obj -o cmTC_e4a03.exe -Wl,--out-implib,libcmTC_e4a03.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_88dcf.dir/src.c.obj -o cmTC_88dcf.exe -Wl,--out-implib,libcmTC_88dcf.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8444,27 +8444,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wunsafe-loop-optimizations"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gw2gd6"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gw2gd6"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-jz45t8"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-jz45t8"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wunsafe-loop-optimizations"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gw2gd6'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-jz45t8'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_14b62
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wunsafe-loop-optimizations -Wunsafe-loop-optimizations -o CMakeFiles/cmTC_14b62.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gw2gd6/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_75195
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wunsafe-loop-optimizations -Wunsafe-loop-optimizations -o CMakeFiles/cmTC_75195.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-jz45t8/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_14b62.dir/src.c.obj -o cmTC_14b62.exe -Wl,--out-implib,libcmTC_14b62.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_75195.dir/src.c.obj -o cmTC_75195.exe -Wl,--out-implib,libcmTC_75195.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8474,27 +8474,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wfloat-conversion"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-g01h93"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-g01h93"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-zc2k9m"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-zc2k9m"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wfloat-conversion"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-g01h93'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-zc2k9m'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_9e48e
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wfloat-conversion -Wfloat-conversion -o CMakeFiles/cmTC_9e48e.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-g01h93/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_c18d7
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wfloat-conversion -Wfloat-conversion -o CMakeFiles/cmTC_c18d7.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-zc2k9m/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_9e48e.dir/src.c.obj -o cmTC_9e48e.exe -Wl,--out-implib,libcmTC_9e48e.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_c18d7.dir/src.c.obj -o cmTC_c18d7.exe -Wl,--out-implib,libcmTC_c18d7.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8504,27 +8504,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wlogical-op"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vlr4qf"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vlr4qf"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-kxuwx1"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-kxuwx1"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wlogical-op"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vlr4qf'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-kxuwx1'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_4d790
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wlogical-op -Wlogical-op -o CMakeFiles/cmTC_4d790.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-vlr4qf/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_1cb06
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wlogical-op -Wlogical-op -o CMakeFiles/cmTC_1cb06.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-kxuwx1/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_4d790.dir/src.c.obj -o cmTC_4d790.exe -Wl,--out-implib,libcmTC_4d790.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_1cb06.dir/src.c.obj -o cmTC_1cb06.exe -Wl,--out-implib,libcmTC_1cb06.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8534,27 +8534,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wnormalized"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-41x6rm"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-41x6rm"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-t6q49e"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-t6q49e"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wnormalized"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-41x6rm'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-t6q49e'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_7acf0
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wnormalized -Wnormalized -o CMakeFiles/cmTC_7acf0.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-41x6rm/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_50b87
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wnormalized -Wnormalized -o CMakeFiles/cmTC_50b87.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-t6q49e/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_7acf0.dir/src.c.obj -o cmTC_7acf0.exe -Wl,--out-implib,libcmTC_7acf0.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_50b87.dir/src.c.obj -o cmTC_50b87.exe -Wl,--out-implib,libcmTC_50b87.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8564,27 +8564,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wdisabled-optimization"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-9dqg9t"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-9dqg9t"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dwer2w"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dwer2w"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wdisabled-optimization"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-9dqg9t'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dwer2w'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_1deb9
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wdisabled-optimization -Wdisabled-optimization -o CMakeFiles/cmTC_1deb9.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-9dqg9t/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_58109
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wdisabled-optimization -Wdisabled-optimization -o CMakeFiles/cmTC_58109.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-dwer2w/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_1deb9.dir/src.c.obj -o cmTC_1deb9.exe -Wl,--out-implib,libcmTC_1deb9.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_58109.dir/src.c.obj -o cmTC_58109.exe -Wl,--out-implib,libcmTC_58109.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8594,27 +8594,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Whsa"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-lgolob"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-lgolob"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-tko6pq"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-tko6pq"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Whsa"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-lgolob'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-tko6pq'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_c714b
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Whsa -Whsa -o CMakeFiles/cmTC_c714b.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-lgolob/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_0cb28
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Whsa -Whsa -o CMakeFiles/cmTC_0cb28.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-tko6pq/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_c714b.dir/src.c.obj -o cmTC_c714b.exe -Wl,--out-implib,libcmTC_c714b.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_0cb28.dir/src.c.obj -o cmTC_0cb28.exe -Wl,--out-implib,libcmTC_0cb28.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8624,27 +8624,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wunused-result"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ykf9r2"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ykf9r2"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-epeyku"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-epeyku"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wunused-result"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ykf9r2'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-epeyku'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_4c2cd
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wunused-result -Wunused-result -o CMakeFiles/cmTC_4c2cd.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-ykf9r2/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_81021
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wunused-result -Wunused-result -o CMakeFiles/cmTC_81021.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-epeyku/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_4c2cd.dir/src.c.obj -o cmTC_4c2cd.exe -Wl,--out-implib,libcmTC_4c2cd.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_81021.dir/src.c.obj -o cmTC_81021.exe -Wl,--out-implib,libcmTC_81021.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8654,27 +8654,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Werror-implicit-function-declaration"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-nryd1h"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-nryd1h"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-r1uk0o"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-r1uk0o"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Werror-implicit-function-declaration"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-nryd1h'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-r1uk0o'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_72b93
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Werror-implicit-function-declaration -Werror=implicit-function-declaration -o CMakeFiles/cmTC_72b93.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-nryd1h/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_3c3c5
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Werror-implicit-function-declaration -Werror=implicit-function-declaration -o CMakeFiles/cmTC_3c3c5.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-r1uk0o/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_72b93.dir/src.c.obj -o cmTC_72b93.exe -Wl,--out-implib,libcmTC_72b93.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_3c3c5.dir/src.c.obj -o cmTC_3c3c5.exe -Wl,--out-implib,libcmTC_3c3c5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8684,27 +8684,27 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wformat"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-31ntni"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-31ntni"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-25how5"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-25how5"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wformat"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-31ntni'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-25how5'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_89671
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wformat -Wformat -o CMakeFiles/cmTC_89671.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-31ntni/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_850e5
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wformat -Wformat -o CMakeFiles/cmTC_850e5.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-25how5/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_89671.dir/src.c.obj -o cmTC_89671.exe -Wl,--out-implib,libcmTC_89671.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_850e5.dir/src.c.obj -o cmTC_850e5.exe -Wl,--out-implib,libcmTC_850e5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8714,28 +8714,118 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
       - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
-      - "src/CMakeLists.txt:195 (add_compiler_option_to_target_type)"
+      - "src/CMakeLists.txt:200 (add_compiler_option_to_target_type)"
     checks:
       - "Performing Test compiler_has-Wformat-security"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-8wplqy"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-8wplqy"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-m9l5s6"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-m9l5s6"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "compiler_has-Wformat-security"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-8wplqy'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-m9l5s6'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_053a5
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wformat-security -Wformat-security -o CMakeFiles/cmTC_053a5.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-8wplqy/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_26182
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-Wformat-security -Wformat-security -o CMakeFiles/cmTC_26182.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-m9l5s6/src.c
         cc1.exe: warning: '-Wformat-security' ignored without '-Wformat' [-Wformat-security]
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_053a5.dir/src.c.obj -o cmTC_053a5.exe -Wl,--out-implib,libcmTC_053a5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_26182.dir/src.c.obj -o cmTC_26182.exe -Wl,--out-implib,libcmTC_26182.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
+      - "src/CMakeLists.txt:201 (add_compiler_option_to_target_type)"
+    checks:
+      - "Performing Test compiler_has-fstack-protector-strong"
+    directories:
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-7bhk0b"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-7bhk0b"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
+    buildResult:
+      variable: "compiler_has-fstack-protector-strong"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-7bhk0b'
+        
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_37e2e
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-fstack-protector-strong -fstack-protector-strong -o CMakeFiles/cmTC_37e2e.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-7bhk0b/src.c
+        <command-line>: warning: ISO C99 requires whitespace after the macro name
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_37e2e.dir/src.c.obj -o cmTC_37e2e.exe -Wl,--out-implib,libcmTC_37e2e.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
+      - "src/CMakeLists.txt:201 (add_compiler_option_to_target_type)"
+    checks:
+      - "Performing Test compiler_has-D_FORTIFY_SOURCE-2"
+    directories:
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-crt3u6"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-crt3u6"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
+    buildResult:
+      variable: "compiler_has-D_FORTIFY_SOURCE-2"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-crt3u6'
+        
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_752ea
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe -D_FORTIFY_SOURCE=2  -Dcompiler_has-D_FORTIFY_SOURCE-2 -o CMakeFiles/cmTC_752ea.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-crt3u6/src.c
+        <command-line>: warning: ISO C99 requires whitespace after the macro name
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_752ea.dir/src.c.obj -o cmTC_752ea.exe -Wl,--out-implib,libcmTC_752ea.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        
+      exitCode: 0
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/CheckCCompilerFlag.cmake:105 (cmake_check_compiler_flag)"
+      - "cmake/compile-flags-helpers.cmake:8 (check_c_compiler_flag)"
+      - "src/CMakeLists.txt:201 (add_compiler_option_to_target_type)"
+    checks:
+      - "Performing Test compiler_has-fPIE"
+    directories:
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gmezek"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gmezek"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
+    buildResult:
+      variable: "compiler_has-fPIE"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gmezek'
+        
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_dbed8
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dcompiler_has-fPIE -fPIE -o CMakeFiles/cmTC_dbed8.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-gmezek/src.c
+        <command-line>: warning: ISO C99 requires whitespace after the macro name
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe   CMakeFiles/cmTC_dbed8.dir/src.c.obj -o cmTC_dbed8.exe -Wl,--out-implib,libcmTC_dbed8.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         
       exitCode: 0
   -
@@ -8745,35 +8835,101 @@ events:
       - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckLinkerFlag.cmake:34 (cmake_check_source_compiles)"
       - "C:/msys64/ucrt64/share/cmake/Modules/CheckLinkerFlag.cmake:153 (cmake_check_linker_flag)"
       - "cmake/compile-flags-helpers.cmake:47 (check_linker_flag)"
-      - "src/CMakeLists.txt:196 (add_linker_option_to_all_but_target_type)"
+      - "src/CMakeLists.txt:203 (add_linker_option_to_all_but_target_type)"
     checks:
       - "Performing Test linker_has-Wl_-z_relro"
     directories:
-      source: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-43yp9d"
-      binary: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-43yp9d"
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-883xvd"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-883xvd"
     cmakeVariables:
       CMAKE_C_FLAGS: ""
       CMAKE_C_FLAGS_DEBUG: "-g"
       CMAKE_EXE_LINKER_FLAGS: ""
-      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nvtop/cmake/modules;C:/Users/adamm/dev/nvtop/cmake"
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
     buildResult:
       variable: "linker_has-Wl_-z_relro"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-43yp9d'
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-883xvd'
         
-        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_337dc
-        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dlinker_has-Wl_-z_relro -o CMakeFiles/cmTC_337dc.dir/src.c.obj -c C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-43yp9d/src.c
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_a73b5
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dlinker_has-Wl_-z_relro -o CMakeFiles/cmTC_a73b5.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-883xvd/src.c
         <command-line>: warning: ISO C99 requires whitespace after the macro name
-        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -Wl,-z,relro CMakeFiles/cmTC_337dc.dir/src.c.obj -o cmTC_337dc.exe -Wl,--out-implib,libcmTC_337dc.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
-        FAILED: [code=1] cmTC_337dc.exe 
-        C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -Wl,-z,relro CMakeFiles/cmTC_337dc.dir/src.c.obj -o cmTC_337dc.exe -Wl,--out-implib,libcmTC_337dc.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -Wl,-z,relro CMakeFiles/cmTC_a73b5.dir/src.c.obj -o cmTC_a73b5.exe -Wl,--out-implib,libcmTC_a73b5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        FAILED: [code=1] cmTC_a73b5.exe 
+        C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -Wl,-z,relro CMakeFiles/cmTC_a73b5.dir/src.c.obj -o cmTC_a73b5.exe -Wl,--out-implib,libcmTC_a73b5.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: unrecognized option '-z'
         C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: use the --help option for usage information
         collect2.exe: error: ld returned 1 exit status
         ninja: build stopped: subcommand failed.
         
       exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckLinkerFlag.cmake:34 (cmake_check_source_compiles)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/CheckLinkerFlag.cmake:153 (cmake_check_linker_flag)"
+      - "cmake/compile-flags-helpers.cmake:47 (check_linker_flag)"
+      - "src/CMakeLists.txt:203 (add_linker_option_to_all_but_target_type)"
+    checks:
+      - "Performing Test linker_has-Wl_-z_now"
+    directories:
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-85htps"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-85htps"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
+    buildResult:
+      variable: "linker_has-Wl_-z_now"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-85htps'
+        
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_3189e
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dlinker_has-Wl_-z_now -o CMakeFiles/cmTC_3189e.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-85htps/src.c
+        <command-line>: warning: ISO C99 requires whitespace after the macro name
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -Wl,-z,now CMakeFiles/cmTC_3189e.dir/src.c.obj -o cmTC_3189e.exe -Wl,--out-implib,libcmTC_3189e.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        FAILED: [code=1] cmTC_3189e.exe 
+        C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -Wl,-z,now CMakeFiles/cmTC_3189e.dir/src.c.obj -o cmTC_3189e.exe -Wl,--out-implib,libcmTC_3189e.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: unrecognized option '-z'
+        C:/msys64/ucrt64/bin/../lib/gcc/x86_64-w64-mingw32/15.2.0/../../../../x86_64-w64-mingw32/bin/ld.exe: use the --help option for usage information
+        collect2.exe: error: ld returned 1 exit status
+        ninja: build stopped: subcommand failed.
+        
+      exitCode: 1
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/Internal/CheckLinkerFlag.cmake:34 (cmake_check_source_compiles)"
+      - "C:/msys64/ucrt64/share/cmake/Modules/CheckLinkerFlag.cmake:153 (cmake_check_linker_flag)"
+      - "cmake/compile-flags-helpers.cmake:47 (check_linker_flag)"
+      - "src/CMakeLists.txt:203 (add_linker_option_to_all_but_target_type)"
+    checks:
+      - "Performing Test linker_has-pie"
+    directories:
+      source: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-t9czdx"
+      binary: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-t9czdx"
+    cmakeVariables:
+      CMAKE_C_FLAGS: ""
+      CMAKE_C_FLAGS_DEBUG: "-g"
+      CMAKE_EXE_LINKER_FLAGS: ""
+      CMAKE_MODULE_PATH: "C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake/modules;C:/Users/adamm/dev/nervosys/utilities/nvtop/cmake"
+    buildResult:
+      variable: "linker_has-pie"
+      cached: true
+      stdout: |
+        Change Dir: 'C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-t9czdx'
+        
+        Run Build Command(s): C:/msys64/ucrt64/bin/ninja.exe -v cmTC_2ebe6
+        [1/2] C:\\msys64\\ucrt64\\bin\\gcc.exe   -Dlinker_has-pie -o CMakeFiles/cmTC_2ebe6.dir/src.c.obj -c C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/CMakeScratch/TryCompile-t9czdx/src.c
+        <command-line>: warning: ISO C99 requires whitespace after the macro name
+        [2/2] C:\\WINDOWS\\system32\\cmd.exe /C "cd . && C:\\msys64\\ucrt64\\bin\\gcc.exe  -pie CMakeFiles/cmTC_2ebe6.dir/src.c.obj -o cmTC_2ebe6.exe -Wl,--out-implib,libcmTC_2ebe6.dll.a -Wl,--major-image-version,0,--minor-image-version,0  -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32 && cd ."
+        
+      exitCode: 0
   -
     kind: "find_package-v1"
     backtrace:
@@ -8811,11 +8967,11 @@ events:
         CMAKE_FIND_ROOT_PATH_MODE: "BOTH"
     candidates:
       -
-        path: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/pkgRedirects/GTestConfig.cmake"
+        path: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/pkgRedirects/GTestConfig.cmake"
         mode: "config"
         reason: "no_exist"
       -
-        path: "C:/Users/adamm/dev/nvtop/build-windows-MinGW/CMakeFiles/pkgRedirects/gtest-config.cmake"
+        path: "C:/Users/adamm/dev/nervosys/utilities/nvtop/build-windows-MinGW/CMakeFiles/pkgRedirects/gtest-config.cmake"
         mode: "config"
         reason: "no_exist"
       -
