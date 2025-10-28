@@ -38,7 +38,13 @@ find_package(UDev)
 find_package(Systemd)
 option(USE_LIBUDEV_OVER_LIBSYSTEMD "Use libudev, even if libsystemd is present" OFF)
 
-if(UNIX AND NOT APPLE)
+if(WIN32)
+  target_sources(nvtop PRIVATE
+    get_process_info_windows.c
+    info_messages_windows.c
+    windows_compat.c)
+  target_compile_definitions(nvtop PRIVATE _WIN32_WINNT=0x0A00 WIN32_LEAN_AND_MEAN NOMINMAX)
+elseif(UNIX AND NOT APPLE)
   target_sources(nvtop PRIVATE
     get_process_info_linux.c
     extract_processinfo_fdinfo.c
@@ -51,7 +57,12 @@ elseif(APPLE)
 endif()
 
 if(NVIDIA_SUPPORT)
-  target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
+  if(WIN32)
+    target_sources(nvtop PRIVATE extract_gpuinfo_nvidia_windows.c)
+    target_compile_definitions(nvtop PRIVATE NVML_SUPPORT)
+  else()
+    target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
+  endif()
 endif()
 
 if(ASCEND_SUPPORT)
@@ -159,6 +170,11 @@ target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
 
+# Add ncurses include path for Windows/MSYS2
+if(WIN32)
+  target_include_directories(nvtop PRIVATE C:/msys64/ucrt64/include/ncursesw)
+endif()
+
 find_package(Sanitizers)
 
 add_sanitizers(nvtop)
@@ -167,8 +183,13 @@ set_property(TARGET nvtop PROPERTY C_STANDARD 11)
 
 target_compile_definitions(nvtop PRIVATE _GNU_SOURCE)
 
-target_link_libraries(nvtop
-  PRIVATE ncurses m ${CMAKE_DL_LIBS})
+if(WIN32)
+  target_link_libraries(nvtop
+    PRIVATE ncurses psapi)
+else()
+  target_link_libraries(nvtop
+    PRIVATE ncurses m ${CMAKE_DL_LIBS})
+endif()
 
 install(TARGETS nvtop
   RUNTIME DESTINATION bin)
@@ -177,4 +198,6 @@ include(compile-flags-helpers)
 include(${PROJECT_SOURCE_DIR}/cmake/optimization_flags.cmake)
 
 add_compiler_option_to_target_type(nvtop Debug PRIVATE ${ADDITIONAL_DEBUG_COMPILE_OPTIONS})
+add_compiler_option_to_target_type(nvtop Release PRIVATE ${ADDITIONAL_RELEASE_COMPILE_OPTIONS})
+add_compiler_option_to_target_type(nvtop RelWithDebInfo PRIVATE ${ADDITIONAL_RELEASE_COMPILE_OPTIONS})
 add_linker_option_to_all_but_target_type(nvtop dummy PRIVATE ${ADDITIONAL_RELEASE_LINK_OPTIONS})

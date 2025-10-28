@@ -19,6 +19,10 @@
  *
  */
 
+#ifdef _WIN32
+#include "nvtop/windows_compat.h"
+#endif
+
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/info_messages.h"
 #include "nvtop/interface.h"
@@ -27,16 +31,20 @@
 #include "nvtop/time.h"
 #include "nvtop/version.h"
 
+#ifndef _WIN32
 #include <getopt.h>
-#include <ncurses.h>
 #include <signal.h>
+#include <unistd.h>
+#else
+#include <windows.h>
+#endif
+
+#include <locale.h>
+#include <ncurses.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
-
-#include <locale.h>
 
 static volatile sig_atomic_t signal_exit = 0;
 static volatile sig_atomic_t signal_resize_win = 0;
@@ -190,6 +198,14 @@ int main(int argc, char **argv) {
     }
   }
 
+#ifdef _WIN32
+  // Windows: Set ESCDELAY via environment
+  _putenv("ESCDELAY=10");
+
+  // Windows: Use basic signal handling
+  signal(SIGINT, exit_handler);
+  signal(SIGTERM, exit_handler);
+#else
   setenv("ESCDELAY", "10", 1);
 
   struct sigaction siga;
@@ -215,6 +231,7 @@ int main(int argc, char **argv) {
     perror("Impossible to set signal handler for SIGCONT: ");
     exit(EXIT_FAILURE);
   }
+#endif
 
   unsigned allDevCount = 0;
   LIST_HEAD(monitoredGpus);

@@ -1,0 +1,86 @@
+[
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\nvtop.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\nvtop.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/nvtop.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/nvtop.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\interface.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\interface.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/interface.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/interface.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\interface_layout_selection.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\interface_layout_selection.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/interface_layout_selection.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/interface_layout_selection.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\interface_options.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\interface_options.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/interface_options.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/interface_options.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\interface_setup_win.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\interface_setup_win.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/interface_setup_win.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/interface_setup_win.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\interface_ring_buffer.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\interface_ring_buffer.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/interface_ring_buffer.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/interface_ring_buffer.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\extract_gpuinfo.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\extract_gpuinfo.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/extract_gpuinfo.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/extract_gpuinfo.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\time.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\time.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/time.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/time.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\plot.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\plot.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/plot.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/plot.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\ini.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\ini.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/ini.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/ini.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\get_process_info_windows.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\get_process_info_windows.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/get_process_info_windows.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/get_process_info_windows.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\info_messages_windows.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\info_messages_windows.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/info_messages_windows.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/info_messages_windows.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\windows_compat.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\windows_compat.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/windows_compat.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/windows_compat.c.obj"
+},
+{
+  "directory": "C:/Users/adamm/dev/nvtop/build-windows",
+  "command": "C:\\msys64\\ucrt64\\bin\\gcc.exe -DNCURSES_ENABLE_STDBOOL_H=1 -DNOMINMAX -DNVML_SUPPORT -DWIN32_LEAN_AND_MEAN -D_GNU_SOURCE -D_WIN32_WINNT=0x0A00 -IC:/Users/adamm/dev/nvtop/include -IC:/Users/adamm/dev/nvtop/build-windows/include -IC:/msys64/ucrt64/include/ncursesw -O3 -DNDEBUG -std=gnu11 -o src\\CMakeFiles\\nvtop.dir\\extract_gpuinfo_nvidia_windows.c.obj -c C:\\Users\\adamm\\dev\\nvtop\\src\\extract_gpuinfo_nvidia_windows.c",
+  "file": "C:/Users/adamm/dev/nvtop/src/extract_gpuinfo_nvidia_windows.c",
+  "output": "C:/Users/adamm/dev/nvtop/build-windows/src/CMakeFiles/nvtop.dir/extract_gpuinfo_nvidia_windows.c.obj"
+}
+]

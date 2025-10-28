@@ -44,7 +44,7 @@ static const char *default_config_path(void) {
     // XDG config dir not set, default to $HOME/.config
     xdg_config_dir = getenv("HOME");
     if (!xdg_config_dir)
-            return NULL;
+      return NULL;
     conf_path_length = sizeof(config_conf_path);
   }
   size_t xdg_path_length = strlen(xdg_config_dir);
@@ -141,8 +141,8 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
     if (default_path) {
       options->config_file_location = malloc(strlen(default_path) + 1);
       if (!options->config_file_location) {
-	perror("Cannot allocate memory: ");
-	exit(EXIT_FAILURE);
+        perror("Cannot allocate memory: ");
+        exit(EXIT_FAILURE);
       }
       strcpy(options->config_file_location, default_path);
     }
@@ -349,7 +349,11 @@ static bool create_config_directory_rec(char *config_directory) {
   for (char *index = config_directory + 1; *index != '\0'; ++index) {
     if (*index == '/') {
       *index = '\0';
+#ifdef _WIN32
+      if (mkdir(config_directory)) {
+#else
       if (mkdir(config_directory, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
+#endif
         if (errno != EEXIST) {
           char *error_str = strerror(errno);
           fprintf(stderr, "Could not create directory \"%s\": %s\n", config_directory, error_str);
@@ -359,7 +363,11 @@ static bool create_config_directory_rec(char *config_directory) {
       *index = '/';
     }
   }
+#ifdef _WIN32
+  if (mkdir(config_directory)) {
+#else
   if (mkdir(config_directory, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
+#endif
     if (errno != EEXIST) {
       char *error_str = strerror(errno);
       fprintf(stderr, "Could not create directory \"%s\": %s\n", config_directory, error_str);

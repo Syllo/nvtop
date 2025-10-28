@@ -1,0 +1,40 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/nvtop.dir/link.d"
+  "CMakeFiles/nvtop.dir/extract_gpuinfo.c.o"
+  "CMakeFiles/nvtop.dir/extract_gpuinfo.c.o.d"
+  "CMakeFiles/nvtop.dir/extract_gpuinfo_metax.c.o"
+  "CMakeFiles/nvtop.dir/extract_gpuinfo_metax.c.o.d"
+  "CMakeFiles/nvtop.dir/extract_gpuinfo_nvidia.c.o"
+  "CMakeFiles/nvtop.dir/extract_gpuinfo_nvidia.c.o.d"
+  "CMakeFiles/nvtop.dir/extract_processinfo_fdinfo.c.o"
+  "CMakeFiles/nvtop.dir/extract_processinfo_fdinfo.c.o.d"
+  "CMakeFiles/nvtop.dir/get_process_info_linux.c.o"
+  "CMakeFiles/nvtop.dir/get_process_info_linux.c.o.d"
+  "CMakeFiles/nvtop.dir/info_messages_linux.c.o"
+  "CMakeFiles/nvtop.dir/info_messages_linux.c.o.d"
+  "CMakeFiles/nvtop.dir/ini.c.o"
+  "CMakeFiles/nvtop.dir/ini.c.o.d"
+  "CMakeFiles/nvtop.dir/interface.c.o"
+  "CMakeFiles/nvtop.dir/interface.c.o.d"
+  "CMakeFiles/nvtop.dir/interface_layout_selection.c.o"
+  "CMakeFiles/nvtop.dir/interface_layout_selection.c.o.d"
+  "CMakeFiles/nvtop.dir/interface_options.c.o"
+  "CMakeFiles/nvtop.dir/interface_options.c.o.d"
+  "CMakeFiles/nvtop.dir/interface_ring_buffer.c.o"
+  "CMakeFiles/nvtop.dir/interface_ring_buffer.c.o.d"
+  "CMakeFiles/nvtop.dir/interface_setup_win.c.o"
+  "CMakeFiles/nvtop.dir/interface_setup_win.c.o.d"
+  "CMakeFiles/nvtop.dir/nvtop.c.o"
+  "CMakeFiles/nvtop.dir/nvtop.c.o.d"
+  "CMakeFiles/nvtop.dir/plot.c.o"
+  "CMakeFiles/nvtop.dir/plot.c.o.d"
+  "CMakeFiles/nvtop.dir/time.c.o"
+  "CMakeFiles/nvtop.dir/time.c.o.d"
+  "nvtop"
+  "nvtop.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang C)
+  include(CMakeFiles/nvtop.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()
