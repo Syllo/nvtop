@@ -27,32 +27,43 @@ Write-Host ""
 
 # Check for WiX Toolset
 $wixPath = $null
-$possiblePaths = @(
-    "$env:WIX\bin",
-    "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin",
-    "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin",
-    "${env:ProgramFiles}\WiX Toolset v3.14\bin",
-    "${env:ProgramFiles}\WiX Toolset v3.11\bin"
-)
+$wixVersion = $null
 
-foreach ($path in $possiblePaths) {
-    if (Test-Path "$path\candle.exe") {
-        $wixPath = $path
-        break
+# Check for WiX 6.x (new unified CLI)
+$wixExe = Get-Command "wix.exe" -ErrorAction SilentlyContinue
+if ($wixExe) {
+    $wixPath = Split-Path -Parent $wixExe.Source
+    $wixVersion = 6
+    Write-Host "✓ Found WiX Toolset 6.x: $wixPath" -ForegroundColor Green
+} else {
+    # Check for WiX 3.x (legacy)
+    $possiblePaths = @(
+        "$env:WIX\bin",
+        "${env:ProgramFiles(x86)}\WiX Toolset v3.14\bin",
+        "${env:ProgramFiles(x86)}\WiX Toolset v3.11\bin",
+        "${env:ProgramFiles}\WiX Toolset v3.14\bin",
+        "${env:ProgramFiles}\WiX Toolset v3.11\bin"
+    )
+
+    foreach ($path in $possiblePaths) {
+        if (Test-Path "$path\candle.exe") {
+            $wixPath = $path
+            $wixVersion = 3
+            Write-Host "✓ Found WiX Toolset 3.x: $wixPath" -ForegroundColor Green
+            break
+        }
     }
 }
 
 if (-not $wixPath) {
     Write-Host "❌ WiX Toolset not found!" -ForegroundColor Red
     Write-Host ""
-    Write-Host "Please install WiX Toolset 3.x:" -ForegroundColor Yellow
+    Write-Host "Please install WiX Toolset:" -ForegroundColor Yellow
     Write-Host "  winget install WiXToolset.WiXToolset" -ForegroundColor Cyan
     Write-Host ""
     Write-Host "Or download from: https://wixtoolset.org/releases/" -ForegroundColor Yellow
     exit 1
 }
-
-Write-Host "✓ Found WiX Toolset: $wixPath" -ForegroundColor Green
 
 # Check if build exists
 if (-not (Test-Path "$BuildDir\src\nvtop.exe")) {
@@ -81,38 +92,58 @@ Write-Host "Building MSI Installer" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Step 1: Compile WiX source to object file
-Write-Host "Step 1: Compiling WiX source..." -ForegroundColor Yellow
-$candleArgs = @(
-    "-nologo",
-    "-ext", "WixUIExtension",
-    "-out", "$InstallerDir\nvtop.wixobj",
-    "$InstallerDir\nvtop.wxs"
-)
+if ($wixVersion -eq 6) {
+    # WiX 6.x unified build command
+    Write-Host "Building with WiX 6.x..." -ForegroundColor Yellow
+    $wixArgs = @(
+        "build",
+        "-nologo",
+        "-ext", "WixToolset.UI.wixext",
+        "-out", "$InstallerDir\nvtop-3.3.0-x64.msi",
+        "$InstallerDir\nvtop.wxs"
+    )
+    
+    & "wix.exe" @wixArgs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ wix.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+    Write-Host "✓ MSI created successfully" -ForegroundColor Green
+    
+} else {
+    # WiX 3.x two-step build (candle + light)
+    Write-Host "Step 1: Compiling WiX source..." -ForegroundColor Yellow
+    $candleArgs = @(
+        "-nologo",
+        "-ext", "WixUIExtension",
+        "-out", "$InstallerDir\nvtop.wixobj",
+        "$InstallerDir\nvtop.wxs"
+    )
 
-& "$wixPath\candle.exe" @candleArgs
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ candle.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
-    exit $LASTEXITCODE
+    & "$wixPath\candle.exe" @candleArgs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ candle.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+    Write-Host "✓ Compilation successful" -ForegroundColor Green
+    Write-Host ""
+
+    Write-Host "Step 2: Linking MSI..." -ForegroundColor Yellow
+    $lightArgs = @(
+        "-nologo",
+        "-ext", "WixUIExtension",
+        "-out", "$InstallerDir\nvtop-3.3.0-x64.msi",
+        "$InstallerDir\nvtop.wixobj"
+    )
+
+    & "$wixPath\light.exe" @lightArgs
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "❌ light.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
+        exit $LASTEXITCODE
+    }
+    Write-Host "✓ MSI created successfully" -ForegroundColor Green
 }
-Write-Host "✓ Compilation successful" -ForegroundColor Green
-Write-Host ""
 
-# Step 2: Link object file to create MSI
-Write-Host "Step 2: Linking MSI..." -ForegroundColor Yellow
-$lightArgs = @(
-    "-nologo",
-    "-ext", "WixUIExtension",
-    "-out", "$InstallerDir\nvtop-3.3.0-x64.msi",
-    "$InstallerDir\nvtop.wixobj"
-)
-
-& "$wixPath\light.exe" @lightArgs
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ light.exe failed with exit code $LASTEXITCODE" -ForegroundColor Red
-    exit $LASTEXITCODE
-}
-Write-Host "✓ MSI created successfully" -ForegroundColor Green
 Write-Host ""
 
 # Calculate hash

@@ -1,37 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<!-- Compatible with WiX Toolset 3.x and 4.x+ -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   
   <!-- Product Definition -->
-  <Product Id="*" 
-           Name="NVTOP" 
+  <Package Name="NVTOP" 
            Language="1033" 
            Version="3.3.0.0" 
            Manufacturer="Nervosys" 
            UpgradeCode="F4A5E6D7-8B9C-4A1D-9E2F-3B4C5D6E7F8A">
     
-    <Package InstallerVersion="200" 
-             Compressed="yes" 
-             InstallScope="perMachine"
-             Description="NVTOP - GPU Monitoring Tool"
-             Comments="Multi-vendor GPU monitoring for Windows" />
-
-    <!-- Upgrade logic -->
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
     
-    <!-- Embed CAB in MSI -->
-    <MediaTemplate EmbedCab="yes" />
+    <!-- Media/Packaging -->
+    <Media Id="1" Cabinet="nvtop.cab" EmbedCab="yes" />
 
     <!-- Installation directory structure -->
-    <Directory Id="TARGETDIR" Name="SourceDir">
-      <Directory Id="ProgramFilesFolder">
-        <Directory Id="INSTALLFOLDER" Name="NVTOP" />
-      </Directory>
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="NVTOP" />
+    </StandardDirectory>
       
-      <!-- Start Menu -->
-      <Directory Id="ProgramMenuFolder">
-        <Directory Id="ApplicationProgramsFolder" Name="NVTOP"/>
-      </Directory>
-    </Directory>
+    <!-- Start Menu -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="NVTOP"/>
+    </StandardDirectory>
 
     <!-- Files to install -->
     <DirectoryRef Id="INSTALLFOLDER">
@@ -110,8 +102,7 @@
     </Feature>
 
     <!-- UI -->
-    <UIRef Id="WixUI_InstallDir" />
-    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     
     <!-- License Agreement -->
     <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
@@ -122,5 +113,5 @@
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/nervosys/nvtop" />
     <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
     
-  </Product>
+  </Package>
 </Wix>
