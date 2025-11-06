@@ -216,12 +216,25 @@ install(TARGETS nvtop
 
 # Windows: Copy required DLLs to the build directory for standalone execution
 if(WIN32 AND MINGW)
+  # Determine MSYS2 prefix - check environment variable or detect from compiler path
+  if(DEFINED ENV{MSYSTEM_PREFIX})
+    set(MSYS2_PREFIX "$ENV{MSYSTEM_PREFIX}")
+  else()
+    # Try to detect from compiler path
+    get_filename_component(COMPILER_DIR "${CMAKE_C_COMPILER}" DIRECTORY)
+    get_filename_component(MSYS2_PREFIX "${COMPILER_DIR}" DIRECTORY)
+    message(STATUS "Detected MSYS2 prefix: ${MSYS2_PREFIX}")
+  endif()
+  
   add_custom_command(TARGET nvtop POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$ENV{MSYSTEM_PREFIX}/bin/libncursesw6.dll"
+      "${MSYS2_PREFIX}/bin/libncursesw6.dll"
       "$<TARGET_FILE_DIR:nvtop>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-      "$ENV{MSYSTEM_PREFIX}/bin/libwinpthread-1.dll"
+      "${MSYS2_PREFIX}/bin/libwinpthread-1.dll"
+      "$<TARGET_FILE_DIR:nvtop>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "${MSYS2_PREFIX}/bin/libgcc_s_seh-1.dll"
       "$<TARGET_FILE_DIR:nvtop>"
     COMMENT "Copying runtime DLLs to build directory for standalone execution"
   )

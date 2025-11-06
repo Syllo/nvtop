@@ -14,8 +14,8 @@ Commands:
 ReleaseDate: 2025-11-06
 Installers:
 - Architecture: x64
-  InstallerUrl: https://github.com/nervosys/nvtop/archive/refs/tags/v3.3.0.zip
-  InstallerSha256: 61fe4424c9ccc87700777a8d4f6526f414b3c9f0dc3106ed83b8edc783483be0
+  InstallerUrl: https://github.com/nervosys/nvtop/releases/download/v3.3.0/nvtop-3.3.0-windows-x64.zip
+  InstallerSha256: 75F6C3A059AECCD3745762E1259EB055145A44AC96F8E4FE8BF002205AFC44A7
   NestedInstallerType: portable
   NestedInstallerFiles:
   - RelativeFilePath: nvtop.exe
