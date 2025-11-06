@@ -28,6 +28,11 @@ nvtop-dist/
 *.zip
 *.tar.gz
 
+# MSI installer artifacts
+installer/*.wixobj
+installer/*.wixpdb
+installer/*.msi
+
 # Test executables
 test_*.exe
 test_dxgi_enum

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  
+  <!-- Product Definition -->
+  <Product Id="*" 
+           Name="NVTOP" 
+           Language="1033" 
+           Version="3.3.0.0" 
+           Manufacturer="Nervosys" 
+           UpgradeCode="F4A5E6D7-8B9C-4A1D-9E2F-3B4C5D6E7F8A">
+    
+    <Package InstallerVersion="200" 
+             Compressed="yes" 
+             InstallScope="perMachine"
+             Description="NVTOP - GPU Monitoring Tool"
+             Comments="Multi-vendor GPU monitoring for Windows" />
+
+    <!-- Upgrade logic -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <!-- Embed CAB in MSI -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Installation directory structure -->
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="NVTOP" />
+      </Directory>
+      
+      <!-- Start Menu -->
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="NVTOP"/>
+      </Directory>
+    </Directory>
+
+    <!-- Files to install -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-4789-A0B1-C2D3E4F5A6B7">
+        <File Id="nvtop.exe" 
+              Source="..\build-windows-MinGW\src\nvtop.exe" 
+              KeyPath="yes" 
+              Checksum="yes" />
+        <Environment Id="PATH" 
+                     Name="PATH" 
+                     Value="[INSTALLFOLDER]" 
+                     Permanent="no" 
+                     Part="last" 
+                     Action="set" 
+                     System="yes" />
+      </Component>
+      
+      <Component Id="NcursesDLL" Guid="B2C3D4E5-F6A7-4890-B1C2-D3E4F5A6B7C8">
+        <File Id="libncursesw6.dll" 
+              Source="..\build-windows-MinGW\src\libncursesw6.dll" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="PthreadDLL" Guid="C3D4E5F6-A7B8-4901-C2D3-E4F5A6B7C8D9">
+        <File Id="libwinpthread_1.dll" 
+              Source="..\build-windows-MinGW\src\libwinpthread-1.dll" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="GccDLL" Guid="D4E5F6A7-B8C9-4012-D3E4-F5A6B7C8D9E0">
+        <File Id="libgcc_s_seh_1.dll" 
+              Source="..\build-windows-MinGW\src\libgcc_s_seh-1.dll" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="License" Guid="E5F6A7B8-C9D0-4123-E4F5-A6B7C8D9E0F1">
+        <File Id="COPYING" 
+              Source="..\COPYING" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ReadMe" Guid="F6A7B8C9-D0E1-4234-F5A6-B7C8D9E0F1A2">
+        <File Id="README.md" 
+              Source="..\README.md" 
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Start Menu Shortcut -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="A7B8C9D0-E1F2-4345-A6B7-C8D9E0F1A2B3">
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="NVTOP"
+                  Description="GPU Monitoring Tool"
+                  Target="[INSTALLFOLDER]nvtop.exe"
+                  WorkingDirectory="INSTALLFOLDER"/>
+        <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" 
+                       Key="Software\Nervosys\NVTOP" 
+                       Name="installed" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Features to install -->
+    <Feature Id="ProductFeature" Title="NVTOP" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="NcursesDLL" />
+      <ComponentRef Id="PthreadDLL" />
+      <ComponentRef Id="GccDLL" />
+      <ComponentRef Id="License" />
+      <ComponentRef Id="ReadMe" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+
+    <!-- UI -->
+    <UIRef Id="WixUI_InstallDir" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    
+    <!-- License Agreement -->
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    
+    <!-- Program/Add Remove Programs entries -->
+    <Property Id="ARPPRODUCTICON" Value="nvtop.exe" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/nervosys/nvtop" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/nervosys/nvtop" />
+    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+    
+  </Product>
+</Wix>
