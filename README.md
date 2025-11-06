@@ -55,6 +55,8 @@ Table of Contents
       - [conda / mamba / miniforge](#conda--mamba--miniforge)
       - [pixi](#pixi)
     - [Docker](#docker)
+    - [Windows](#windows)
+      - [Quick Start (Automated Build)](#quick-start-automated-build)
       - [Manual Installation](#manual-installation)
       - [Alternative: WSL2 Installation](#alternative-wsl2-installation)
       - [Windows Features](#windows-features)
