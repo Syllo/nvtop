@@ -72,35 +72,44 @@ if(ASCEND_SUPPORT)
 endif()
 
 if(AMDGPU_SUPPORT OR INTEL_SUPPORT OR V3D_SUPPORT)
-  if((SYSTEMD_FOUND AND UDEV_FOUND AND USE_LIBUDEV_OVER_LIBSYSTEMD) OR(NOT SYSTEMD_FOUND AND UDEV_FOUND))
-    target_compile_definitions(nvtop PRIVATE USING_LIBUDEV)
-    target_link_libraries(nvtop PRIVATE udev)
-  elseif(SYSTEMD_FOUND)
-    target_compile_definitions(nvtop PRIVATE USING_LIBSYSTEMD)
-    target_link_libraries(nvtop PRIVATE systemd)
-  else()
-    message(FATAL_ERROR "Neither libsystemd nor libudev were found; These are required for AMDGPU, INTEL and V3D support")
-  endif()
+  if(NOT WIN32)
+    if((SYSTEMD_FOUND AND UDEV_FOUND AND USE_LIBUDEV_OVER_LIBSYSTEMD) OR(NOT SYSTEMD_FOUND AND UDEV_FOUND))
+      target_compile_definitions(nvtop PRIVATE USING_LIBUDEV)
+      target_link_libraries(nvtop PRIVATE udev)
+    elseif(SYSTEMD_FOUND)
+      target_compile_definitions(nvtop PRIVATE USING_LIBSYSTEMD)
+      target_link_libraries(nvtop PRIVATE systemd)
+    else()
+      message(FATAL_ERROR "Neither libsystemd nor libudev were found; These are required for AMDGPU, INTEL and V3D support")
+    endif()
 
-  target_sources(nvtop PRIVATE device_discovery_linux.c)
+    target_sources(nvtop PRIVATE device_discovery_linux.c)
+  endif()
 endif()
 
 if(AMDGPU_SUPPORT OR INTEL_SUPPORT OR MSM_SUPPORT OR PANFROST_SUPPORT OR PANTHOR_SUPPORT)
-  # Search for libdrm for AMDGPU support
-  find_package(Libdrm)
+  if(NOT WIN32)
+    # Search for libdrm for AMDGPU support (Linux only)
+    find_package(Libdrm)
 
-  if(Libdrm_FOUND)
-    message(STATUS "Found libdrm; Enabling support")
-    target_include_directories(nvtop PRIVATE ${Libdrm_INCLUDE_DIRS})
-  else()
-    message(FATAL_ERROR "libdrm not found; This library is required for AMDGPU, INTEL, MSM, PANFROST and PANTHOR support")
-    # CMake will exit if libdrm is not found
+    if(Libdrm_FOUND)
+      message(STATUS "Found libdrm; Enabling support")
+      target_include_directories(nvtop PRIVATE ${Libdrm_INCLUDE_DIRS})
+    else()
+      message(FATAL_ERROR "libdrm not found; This library is required for AMDGPU, INTEL, MSM, PANFROST and PANTHOR support")
+      # CMake will exit if libdrm is not found
+    endif()
   endif()
 endif()
 
 if (AMDGPU_SUPPORT)
-  target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu.c)
-  target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu_utils.c)
+  if(WIN32)
+    target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu_windows.c)
+    message(STATUS "AMD GPU support on Windows is ENABLED (using DXGI/PDH)")
+  else()
+    target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu.c)
+    target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu_utils.c)
+  endif()
 endif()
 
 if (MSM_SUPPORT)
@@ -109,9 +118,14 @@ if (MSM_SUPPORT)
 endif()
 
 if(INTEL_SUPPORT)
-  target_sources(nvtop PRIVATE extract_gpuinfo_intel.c)
-  target_sources(nvtop PRIVATE extract_gpuinfo_intel_i915.c)
-  target_sources(nvtop PRIVATE extract_gpuinfo_intel_xe.c)
+  if(WIN32)
+    target_sources(nvtop PRIVATE extract_gpuinfo_intel_windows.c)
+    message(STATUS "Intel GPU support on Windows is ENABLED (using DXGI/PDH)")
+  else()
+    target_sources(nvtop PRIVATE extract_gpuinfo_intel.c)
+    target_sources(nvtop PRIVATE extract_gpuinfo_intel_i915.c)
+    target_sources(nvtop PRIVATE extract_gpuinfo_intel_xe.c)
+  endif()
 endif()
 
 if(V3D_SUPPORT)
@@ -184,8 +198,14 @@ set_property(TARGET nvtop PROPERTY C_STANDARD 11)
 target_compile_definitions(nvtop PRIVATE _GNU_SOURCE)
 
 if(WIN32)
-  target_link_libraries(nvtop
-    PRIVATE ncurses psapi)
+  set(WIN32_LIBS ncurses psapi)
+  
+  # Add PDH and DXGI libraries if Intel or AMD support is enabled
+  if(INTEL_SUPPORT OR AMDGPU_SUPPORT)
+    list(APPEND WIN32_LIBS pdh dxgi)
+  endif()
+  
+  target_link_libraries(nvtop PRIVATE ${WIN32_LIBS})
 else()
   target_link_libraries(nvtop
     PRIVATE ncurses m ${CMAKE_DL_LIBS})
@@ -193,6 +213,19 @@ endif()
 
 install(TARGETS nvtop
   RUNTIME DESTINATION bin)
+
+# Windows: Copy required DLLs to the build directory for standalone execution
+if(WIN32 AND MINGW)
+  add_custom_command(TARGET nvtop POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$ENV{MSYSTEM_PREFIX}/bin/libncursesw6.dll"
+      "$<TARGET_FILE_DIR:nvtop>"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+      "$ENV{MSYSTEM_PREFIX}/bin/libwinpthread-1.dll"
+      "$<TARGET_FILE_DIR:nvtop>"
+    COMMENT "Copying runtime DLLs to build directory for standalone execution"
+  )
+endif()
 
 include(compile-flags-helpers)
 include(${PROJECT_SOURCE_DIR}/cmake/optimization_flags.cmake)

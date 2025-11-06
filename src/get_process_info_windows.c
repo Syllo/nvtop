@@ -5,11 +5,14 @@
  * This file is part of Nvtop.
  */
 
-// Windows headers must be included in this order
+// clang-format off
+// CRITICAL: windows.h and process.h (via windows_compat.h) MUST be included FIRST
+// windows.h defines basic types, process.h defines pid_t
+#include "nvtop/windows_compat.h"
 #include <psapi.h>
 #include <sddl.h>
 #include <tlhelp32.h>
-#include <windows.h>
+// clang-format on
 
 #include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/get_process_info.h"

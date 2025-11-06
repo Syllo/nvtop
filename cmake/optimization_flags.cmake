@@ -39,12 +39,21 @@ set(ADDITIONAL_DEBUG_COMPILE_OPTIONS
   )
 
 # Security hardening flags for release builds
-set(ADDITIONAL_RELEASE_COMPILE_OPTIONS
-  "-fstack-protector-strong"
-  "-D_FORTIFY_SOURCE=2"
-  "-fPIE"
-  CACHE INTERNAL "String"
+if(WIN32)
+  # Windows MinGW: Stack protector only (FORTIFY_SOURCE has compatibility issues)
+  set(ADDITIONAL_RELEASE_COMPILE_OPTIONS
+    "-fstack-protector-strong"
+    CACHE INTERNAL "String"
   )
+else()
+  # Linux/Unix: Full hardening
+  set(ADDITIONAL_RELEASE_COMPILE_OPTIONS
+    "-fstack-protector-strong"
+    "-D_FORTIFY_SOURCE=2"
+    "-fPIE"
+    CACHE INTERNAL "String"
+  )
+endif()
 
 set(ADDITIONAL_RELEASE_LINK_OPTIONS
   "-Wl,-z,relro"

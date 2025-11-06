@@ -99,6 +99,16 @@ typedef nvmlReturn_t (*nvmlDeviceGetPowerUsage_t)(nvmlDevice_t device, unsigned 
 typedef nvmlReturn_t (*nvmlDeviceGetClockInfo_t)(nvmlDevice_t device, nvmlClockType_t type, unsigned int *clock);
 typedef nvmlReturn_t (*nvmlDeviceGetPciInfo_v3_t)(nvmlDevice_t device, nvmlPciInfo_t *pci);
 
+// PCIe throughput counter types
+typedef enum nvmlPcieUtilCounter_enum {
+  NVML_PCIE_UTIL_TX_BYTES = 0, // PCIe TX (transmit) bytes
+  NVML_PCIE_UTIL_RX_BYTES = 1, // PCIe RX (receive) bytes
+  NVML_PCIE_UTIL_COUNT = 2
+} nvmlPcieUtilCounter_t;
+
+typedef nvmlReturn_t (*nvmlDeviceGetPcieThroughput_t)(nvmlDevice_t device, nvmlPcieUtilCounter_t counter,
+                                                      unsigned int *value);
+
 #ifdef __cplusplus
 }
 #endif

@@ -202,6 +202,11 @@ int main(int argc, char **argv) {
   // Windows: Set ESCDELAY via environment
   _putenv("ESCDELAY=10");
 
+  // Windows: Set TERM for ncurses/PDCurses compatibility
+  if (getenv("TERM") == NULL) {
+    _putenv("TERM=xterm-256color");
+  }
+
   // Windows: Use basic signal handling
   signal(SIGINT, exit_handler);
   signal(SIGTERM, exit_handler);
@@ -236,8 +241,12 @@ int main(int argc, char **argv) {
   unsigned allDevCount = 0;
   LIST_HEAD(monitoredGpus);
   LIST_HEAD(nonMonitoredGpus);
-  if (!gpuinfo_init_info_extraction(&allDevCount, &monitoredGpus))
+
+  // Quick GPU initialization without verbose output
+  if (!gpuinfo_init_info_extraction(&allDevCount, &monitoredGpus)) {
     return EXIT_FAILURE;
+  }
+
   if (allDevCount == 0) {
     fprintf(stdout, "No GPU to monitor.\n");
     return EXIT_SUCCESS;

@@ -1,9 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"C:/Users/adamm/dev/nvtop/build-windows/cmake_install.cmake",
-		"C:/Users/adamm/dev/nvtop/build-windows/src/cmake_install.cmake",
-		"C:/Users/adamm/dev/nvtop/build-windows/tests/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

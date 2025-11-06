@@ -20,7 +20,9 @@
  */
 
 #ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #endif
 
@@ -433,7 +435,25 @@ struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devic
   interface->total_dev_count = total_devices;
   interface->monitored_dev_count = devices_count;
   sizeof_device_field[device_name] = largest_device_name + 11;
-  initscr();
+
+#ifdef _WIN32
+  // Windows: Ensure TERM is set for ncurses/PDCurses
+  if (getenv("TERM") == NULL) {
+    _putenv("TERM=xterm-256color");
+  }
+#endif
+
+  WINDOW *init_result = initscr();
+  if (init_result == NULL) {
+    fprintf(stderr, "Error: Failed to initialize ncurses screen.\n");
+    fprintf(stderr, "This may be due to terminal compatibility issues.\n");
+#ifdef _WIN32
+    fprintf(stderr, "Try setting TERM environment variable: set TERM=xterm-256color\n");
+#endif
+    free(interface->devices_win);
+    free(interface);
+    exit(EXIT_FAILURE);
+  }
   refresh();
   if (interface->options.use_color && has_colors() == TRUE) {
     initialize_colors();
@@ -491,10 +511,24 @@ static void draw_percentage_meter(WINDOW *win, const char *prelude, unsigned int
   whline(win, '|', (int)represent_usage);
   mvwhline(win, cury, curx + represent_usage, ' ', between_sbraces - represent_usage);
   mvwaddch(win, cury, curx + between_sbraces, ']');
+
+  // Color-code based on utilization percentage
+  short bar_color;
+  if (new_percentage >= 90) {
+    bar_color = red_color; // Critical: >= 90%
+  } else if (new_percentage >= 75) {
+    bar_color = yellow_color; // Warning: >= 75%
+  } else {
+    bar_color = green_color; // Normal: < 75%
+  }
+
+  mvwchgat(win, cury, curx, represent_usage, 0, bar_color, NULL);
+
+  // Print the text in white (default color) after coloring the bar
   unsigned int right_side_braces_space_required = strlen(inside_braces_right);
+  wstandend(win); // Reset to default attributes
   wmove(win, cury, curx + between_sbraces - right_side_braces_space_required);
   wprintw(win, "%s", inside_braces_right);
-  mvwchgat(win, cury, curx, represent_usage, 0, green_color, NULL);
   wnoutrefresh(win);
 }
 
@@ -2165,9 +2199,22 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
 
     // Memory Utilization
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_util_rate))
-      printf("%s\"%s\": \"%u%%\"\n", indent_level_four, mem_util_field, device->dynamic_info.mem_util_rate);
+      printf("%s\"%s\": \"%u%%\",\n", indent_level_four, mem_util_field, device->dynamic_info.mem_util_rate);
     else
-      printf("%s\"%s\": null\n", indent_level_four, mem_util_field);
+      printf("%s\"%s\": null,\n", indent_level_four, mem_util_field);
+
+    // PCIe RX throughput
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
+      printf("%s\"pcie_rx\": \"%u KB/s\",\n", indent_level_four, device->dynamic_info.pcie_rx);
+    else
+      printf("%s\"pcie_rx\": null,\n", indent_level_four);
+
+    // PCIe TX throughput
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
+      printf("%s\"pcie_tx\": \"%u KB/s\",\n", indent_level_four, device->dynamic_info.pcie_tx);
+    else
+      printf("%s\"pcie_tx\": null,\n", indent_level_four);
+
     // Memory Total
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory))
       printf("%s\"%s\": \"%llu\"\n", indent_level_four, mem_total_field, device->dynamic_info.total_memory);
