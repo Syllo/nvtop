@@ -1,6 +1,3 @@
-# Created using winget-create 1.6.1.0
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
-
 PackageIdentifier: Nervosys.Nvtop
 PackageVersion: 3.3.0
 PackageLocale: en-US
@@ -13,22 +10,7 @@ License: GPL-3.0
 LicenseUrl: https://github.com/nervosys/nvtop/blob/windows/COPYING
 Copyright: Copyright (C) 2024 Nervosys
 ShortDescription: GPU monitoring tool for Windows - htop-like task monitor for NVIDIA, AMD, and Intel GPUs
-Description: |-
-  NVTOP (Neat Videocard TOP) is a GPU monitoring tool for Windows that provides real-time information about GPU usage in an htop-familiar way.
-  
-  Features:
-  • Multi-vendor GPU support: NVIDIA (full NVML support), AMD (DXGI/PDH), Intel (DXGI/PDH)
-  • Per-process GPU usage monitoring for all supported vendors
-  • Real-time monitoring of GPU utilization, memory usage, power consumption, clock speeds, and temperatures
-  • Color-coded utilization bars (green/yellow/red) based on load
-  • Interactive ncurses-based terminal interface
-  • Snapshot mode for JSON output (perfect for scripting and automation)
-  • Native Windows performance - no WSL required
-  
-  Requirements:
-  • Windows 10/11
-  • GPU drivers: NVIDIA (470+), AMD (with DXGI 1.4+), or Intel (Gen 11+/Arc)
-  • For NVIDIA: CUDA Toolkit or nvml.dll in PATH
+Description: NVTOP (Neat Videocard TOP) is a GPU monitoring tool for Windows that provides real-time information about GPU usage. Features multi-vendor GPU support (NVIDIA, AMD, Intel), per-process monitoring, color-coded utilization bars, and native Windows performance.
 Moniker: nvtop
 Tags:
 - amd
@@ -39,26 +21,5 @@ Tags:
 - nvidia
 - performance
 - system-monitor
-- task-manager
-ReleaseNotes: |-
-  Version 3.3.0 - Windows Native Support
-  
-  • Added native Windows support for NVIDIA GPUs (full NVML integration)
-  • Added Windows support for AMD GPUs via DXGI/PDH
-  • Added Windows support for Intel GPUs via DXGI/PDH
-  • Per-process GPU usage monitoring for all vendors
-  • Color-coded utilization bars with dynamic thresholds
-  • Performance optimizations: ~40% faster startup and shutdown
-  • Power consumption and clock speed monitoring
-  • Comprehensive Windows build system and documentation
-  • Security hardening and code cleanup
-ReleaseNotesUrl: https://github.com/nervosys/nvtop/releases/tag/v3.3.0
-Documentations:
-- DocumentLabel: Windows Quick Start Guide
-  DocumentUrl: https://github.com/nervosys/nvtop/blob/windows/docs/QUICKSTART_WINDOWS.md
-- DocumentLabel: Windows Build Guide
-  DocumentUrl: https://github.com/nervosys/nvtop/blob/windows/docs/WINDOWS_NATIVE_BUILD.md
-- DocumentLabel: AMD/Intel Testing Guide
-  DocumentUrl: https://github.com/nervosys/nvtop/blob/windows/docs/AMD_INTEL_TESTING_GUIDE.md
 ManifestType: defaultLocale
 ManifestVersion: 1.6.0

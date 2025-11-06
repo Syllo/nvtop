@@ -1,15 +1,14 @@
-# Created using winget-create 1.6.1.0
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
-# NOTE: Downloads zip file. Users must manually extract and add to PATH.
-
 PackageIdentifier: Nervosys.Nvtop
 PackageVersion: 3.3.0
-InstallerType: portable
+InstallerType: msi
+Scope: machine
+UpgradeBehavior: install
+Commands:
+- nvtop
 Installers:
 - Architecture: x64
-  InstallerUrl: https://github.com/nervosys/nvtop/releases/download/v3.3.0/nvtop-3.3.0-windows-x64.zip
-  InstallerSha256: 8DF2F37AF8406CA7F361A3447E4C26EC2D825B5CEB8D1CDFB139A48E5DA8A915
-ManifestType: installer
-ManifestVersion: 1.6.0
+  InstallerUrl: https://github.com/nervosys/nvtop/releases/download/v3.3.0/nvtop-3.3.0-x64.msi
+  InstallerSha256: 5FEF1259BEFD16AEC84E3E5B1D3E0A6FFBBBA0B31E0BCEC268F3E600D0B99056
+  ProductCode: '{2DFA2994-7056-480A-A3CE-C9C2A210D15E}'
 ManifestType: installer
 ManifestVersion: 1.6.0
