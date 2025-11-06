@@ -1,24 +1,15 @@
 # Created using winget-create 1.6.1.0
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
-# NOTE: Replace InstallerSha256 with actual hash before submitting to winget-pkgs
-#       Calculate with: Get-FileHash nvtop-3.3.0-windows-x64.zip -Algorithm SHA256
+# NOTE: Downloads zip file. Users must manually extract and add to PATH.
 
 PackageIdentifier: Nervosys.Nvtop
 PackageVersion: 3.3.0
-Platform:
-- Windows.Desktop
-MinimumOSVersion: 10.0.0.0
 InstallerType: portable
-Commands:
-- nvtop
-ReleaseDate: 2025-11-06
 Installers:
 - Architecture: x64
   InstallerUrl: https://github.com/nervosys/nvtop/releases/download/v3.3.0/nvtop-3.3.0-windows-x64.zip
-  InstallerSha256: 75F6C3A059AECCD3745762E1259EB055145A44AC96F8E4FE8BF002205AFC44A7
-  NestedInstallerType: portable
-  NestedInstallerFiles:
-  - RelativeFilePath: nvtop.exe
-    PortableCommandAlias: nvtop
+  InstallerSha256: 8DF2F37AF8406CA7F361A3447E4C26EC2D825B5CEB8D1CDFB139A48E5DA8A915
+ManifestType: installer
+ManifestVersion: 1.6.0
 ManifestType: installer
 ManifestVersion: 1.6.0

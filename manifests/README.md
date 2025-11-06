@@ -1,6 +1,49 @@
 # Windows Package Manager (winget) Manifest
 
-This directory contains the winget package manifest files for NVTOP.
+This directory contains **reference** winget package manifest files for NVTOP.
+
+## ⚠️ Current Limitation
+
+**winget portable installers do not support applications with DLL dependencies.**
+
+NVTOP requires three DLLs (`libncursesw6.dll`, `libwinpthread-1.dll`, `libgcc_s_seh-1.dll`) which cannot be properly installed via winget's portable installer type. 
+
+For proper winget integration, NVTOP would need:
+- An MSI/MSIX installer package, OR
+- Static linking of all dependencies into a single .exe file
+
+## Recommended Installation Method
+
+**Download and extract manually from GitHub Releases:**
+
+```powershell
+# Download the release
+Invoke-WebRequest -Uri "https://github.com/nervosys/nvtop/releases/download/v3.3.0/nvtop-3.3.0-windows-x64.zip" -OutFile "nvtop.zip"
+
+# Extract to a permanent location  
+Expand-Archive -Path "nvtop.zip" -DestinationPath "$env:LOCALAPPDATA\Programs\nvtop" -Force
+
+# Add to PATH (permanent - User scope)
+$userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
+if ($userPath -notlike "*nvtop*") {
+    [Environment]::SetEnvironmentVariable("PATH", "$env:LOCALAPPDATA\Programs\nvtop;$userPath", "User")
+    $env:PATH = "$env:LOCALAPPDATA\Programs\nvtop;$env:PATH"  # Update current session
+}
+
+# Verify installation
+nvtop --version
+```
+
+## Alternative: Portable Usage (No Installation)
+
+```powershell
+# Extract to any location
+Expand-Archive -Path "nvtop.zip" -DestinationPath "C:\Tools\nvtop"
+
+# Run with full path or from that directory
+cd C:\Tools\nvtop
+.\nvtop.exe
+```
 
 ## Manifest Files
 
@@ -154,8 +197,32 @@ winget-create update Nervosys.Nvtop --version 3.4.0 --urls https://github.com/ne
 
 ## Notes
 
-- The manifest uses **portable** installer type since NVTOP is a standalone executable
+- **Current Limitation**: winget portable installers don't support extracting executables with DLL dependencies
+- Until this is resolved, users should download the zip manually from GitHub Releases
+- Alternative: Create an MSI/MSIX installer for proper winget integration
+- The manifest is provided as a template for future proper installer support
 - SHA256 hash must be updated when the release binary is created
 - The installer URL must point to a publicly accessible GitHub release
 - winget-pkgs requires all URLs to use HTTPS
 - Package validation is automatic when you submit a PR to winget-pkgs
+
+## Manual Installation (Current Recommended Method)
+
+Until winget portable installer limitations are resolved:
+
+```powershell
+# Download from GitHub Releases
+Invoke-WebRequest -Uri "https://github.com/nervosys/nvtop/releases/download/v3.3.0/nvtop-3.3.0-windows-x64.zip" -OutFile "nvtop.zip"
+
+# Extract to a permanent location
+Expand-Archive -Path "nvtop.zip" -DestinationPath "$env:LOCALAPPDATA\nvtop"
+
+# Add to PATH (current session)
+$env:PATH = "$env:LOCALAPPDATA\nvtop;$env:PATH"
+
+# Add to PATH (permanent - requires admin)
+[Environment]::SetEnvironmentVariable("PATH", "$env:LOCALAPPDATA\nvtop;$([Environment]::GetEnvironmentVariable('PATH', 'User'))", "User")
+
+# Run nvtop
+nvtop
+```
