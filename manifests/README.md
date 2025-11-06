@@ -78,10 +78,19 @@ winget validate --manifest .
 
 ### 3. Test Local Installation
 
+**Important**: Local manifest installation requires enabling the feature first:
+```powershell
+# Run as Administrator
+winget settings --enable LocalManifestFiles
+```
+
 Test the manifest locally before submitting:
 ```powershell
-winget install --manifest .\manifests\n\Nervosys\Nvtop\3.3.0\Nervosys.Nvtop.yaml
+# Point to the directory containing the manifest files, not a specific .yaml file
+winget install --manifest .\manifests\n\Nervosys\Nvtop\3.3.0\
 ```
+
+**Note**: If you get "This feature needs to be enabled by administrators", you must run the enable command above in an elevated PowerShell window.
 
 ### 4. Submit to winget-pkgs Repository
 
