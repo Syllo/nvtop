@@ -35,8 +35,7 @@ if ($wixExe) {
     $wixPath = Split-Path -Parent $wixExe.Source
     $wixVersion = 6
     Write-Host "✓ Found WiX Toolset 6.x: $wixPath" -ForegroundColor Green
-}
-else {
+} else {
     # Check for WiX 3.x (legacy)
     $possiblePaths = @(
         "$env:WIX\bin",
@@ -115,8 +114,7 @@ if ($wixVersion -eq 6) {
         exit $LASTEXITCODE
     }
     Write-Host "✓ MSI created successfully" -ForegroundColor Green
-}
-else {
+} else {
     # WiX 3.x two-step build (candle + light)
     Write-Host "Step 1: Compiling WiX source..." -ForegroundColor Yellow
     $candleArgs = @(
