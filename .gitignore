@@ -1,6 +1,68 @@
-*.o
-*ctags
+# Build directories
 build/
+build-*/
 cmake-build*/
-.vscode
-.idea
+
+# Build artifacts
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+
+# IDE and editor files
+.vscode/
+.idea/
+.vs/
+*.swp
+*.swo
+*~
+*ctags
+.DS_Store
+
+# Distribution artifacts
+nvtop-dist/
+nvtop-windows-x64/
+*.zip
+*.tar.gz
+
+# MSI installer artifacts
+installer/*.wixobj
+installer/*.wixpdb
+installer/*.msi
+*.msi
+*.wixpdb
+msi-output/
+temp/
+
+# Test executables
+test_*.exe
+test_dxgi_enum
+test_ncurses
+test_pcie
+tests/manual/test_*.exe
+tests/manual/test_dxgi_enum
+tests/manual/test_ncurses
+tests/manual/test_pcie
+
+# CMake files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+CTestTestfile.cmake
+Makefile
+
+# Ninja files
+build.ninja
+.ninja_deps
+.ninja_log
+
+# Personal/local files
+*.local
+*.user
+.env

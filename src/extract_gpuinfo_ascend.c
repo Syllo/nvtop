@@ -18,11 +18,11 @@
  *
  */
 
+#include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdbool.h>
 #include <string.h>
-#include <errno.h>
 
 #include "ascend/dcmi_interface_api.h"
 #include "list.h"
@@ -85,9 +85,7 @@ static void gpuinfo_ascend_shutdown(void) {
   }
 }
 
-static const char *gpuinfo_ascend_last_error_string(void) {
-  return local_error_string;
-}
+static const char *gpuinfo_ascend_last_error_string(void) { return local_error_string; }
 
 static bool gpuinfo_ascend_get_device_handles(struct list_head *devices, unsigned *count) {
   int num_cards;
@@ -155,11 +153,18 @@ static void gpuinfo_ascend_populate_static_info(struct gpu_info *_gpu_info) {
   _decode_card_device_id_from_pdev(_gpu_info->pdev, &card_id, &device_id);
 
   struct dcmi_chip_info *chip_info = malloc(sizeof(struct dcmi_chip_info));
+  if (chip_info == NULL) {
+    return; // Allocation failed
+  }
   last_dcmi_return_status = dcmi_get_device_chip_info(card_id, device_id, chip_info);
   if (last_dcmi_return_status == DCMI_SUCCESS) {
-    // assume Ascend only use ASCII code for chip name
-    static_info->device_name[MAX_DEVICE_NAME - 1] = '\0';
-    strncpy(static_info->device_name, (char*) chip_info->chip_name, MAX_DEVICE_NAME - 1);
+    // Safe copy with null termination guarantee
+    memset(static_info->device_name, 0, MAX_DEVICE_NAME);
+    size_t chip_name_len = strnlen((char *)chip_info->chip_name, MAX_DEVICE_NAME);
+    if (chip_name_len >= MAX_DEVICE_NAME)
+      chip_name_len = MAX_DEVICE_NAME - 1;
+    memcpy(static_info->device_name, chip_info->chip_name, chip_name_len);
+    static_info->device_name[chip_name_len] = '\0';
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
   }
   free(chip_info);
@@ -196,7 +201,8 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 
   unsigned aicore_util_rate;
-  last_dcmi_return_status = dcmi_get_device_utilization_rate(card_id, device_id, DCMI_UTILIZATION_RATE_AICORE, &aicore_util_rate);
+  last_dcmi_return_status =
+      dcmi_get_device_utilization_rate(card_id, device_id, DCMI_UTILIZATION_RATE_AICORE, &aicore_util_rate);
   if (last_dcmi_return_status == DCMI_SUCCESS) {
     dynamic_info->gpu_util_rate = aicore_util_rate;
     SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
@@ -236,7 +242,8 @@ static void gpuinfo_ascend_get_running_processes(struct gpu_info *_gpu_info) {
   if (last_dcmi_return_status == DCMI_SUCCESS) {
     _gpu_info->processes_count = proc_num;
     _gpu_info->processes_array_size = proc_num + PROC_ALLOC_INC;
-    _gpu_info->processes = reallocarray(_gpu_info->processes, _gpu_info->processes_array_size, sizeof(*_gpu_info->processes));
+    _gpu_info->processes =
+        reallocarray(_gpu_info->processes, _gpu_info->processes_array_size, sizeof(*_gpu_info->processes));
     if (!_gpu_info->processes) {
       perror("Could not allocate memory: ");
       exit(EXIT_FAILURE);

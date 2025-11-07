@@ -1,0 +1,72 @@
+Windows Terminal Profile Additions for NVTOP
+==============================================
+
+Add these profile entries to your Windows Terminal settings.json
+
+File location: 
+%LOCALAPPDATA%\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json
+
+PROFILE ENTRIES
+---------------
+Add these to "profiles" -> "list" array:
+
+{
+    "name": "NVTOP (WSL)",
+    "guid": "{12345678-1234-5678-1234-567812345678}",
+    "commandline": "wsl nvtop",
+    "icon": "🎮",
+    "colorScheme": "One Half Dark",
+    "font": {
+        "face": "Cascadia Code",
+        "size": 10
+    },
+    "startingDirectory": "~",
+    "hidden": false,
+    "closeOnExit": "always",
+    "suppressApplicationTitle": true,
+    "tabTitle": "NVTOP GPU Monitor"
+}
+
+{
+    "name": "NVTOP Build (WSL Ubuntu)",
+    "guid": "{87654321-4321-8765-4321-876543218765}",
+    "commandline": "wsl -d Ubuntu-22.04 -- bash",
+    "icon": "🔧",
+    "colorScheme": "Ubuntu",
+    "font": {
+        "face": "Cascadia Code",
+        "size": 10
+    },
+    "startingDirectory": "~",
+    "hidden": false,
+    "tabTitle": "NVTOP Build Environment"
+}
+
+
+COLOR SCHEME
+------------
+Add this to "schemes" array:
+
+{
+    "name": "Ubuntu",
+    "background": "#300A24",
+    "foreground": "#FFFFFF",
+    "black": "#2E3436",
+    "blue": "#3465A4",
+    "brightBlack": "#555753",
+    "brightBlue": "#729FCF",
+    "brightCyan": "#34E2E2",
+    "brightGreen": "#8AE234",
+    "brightPurple": "#AD7FA8",
+    "brightRed": "#EF2929",
+    "brightWhite": "#EEEEEC",
+    "brightYellow": "#FCE94F",
+    "cyan": "#06989A",
+    "green": "#4E9A06",
+    "purple": "#75507B",
+    "red": "#CC0000",
+    "white": "#D3D7CF",
+    "yellow": "#C4A000",
+    "cursorColor": "#FFFFFF",
+    "selectionBackground": "#FFFFFF"
+}

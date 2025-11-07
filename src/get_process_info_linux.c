@@ -33,41 +33,56 @@
 #define pid_path_size 1024
 static char pid_path[pid_path_size];
 
+// Validate PID is in reasonable range to prevent path traversal
+static inline bool is_valid_pid(pid_t pid) {
+  return pid > 0 && pid < 4194304; // Linux max PID (2^22)
+}
+
 void get_username_from_pid(pid_t pid, char **buffer) {
+  *buffer = NULL;
+
+  // Validate PID
+  if (!is_valid_pid(pid)) {
+    return;
+  }
+
   int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX, (intmax_t)pid);
-  if (written == pid_path_size) {
-    *buffer = NULL;
+  if (written <= 0 || written >= pid_path_size) {
     return;
   }
   struct stat folder_stat;
   int starval = stat(pid_path, &folder_stat);
   if (starval == -1) {
-    *buffer = NULL;
     return;
   }
   uid_t user_id = folder_stat.st_uid;
   struct passwd *user_info = getpwuid(user_id);
   if (user_info == NULL) {
-    *buffer = NULL;
     return;
   }
   size_t namelen = strlen(user_info->pw_name) + 1;
   *buffer = malloc(namelen * sizeof(**buffer));
-
-  strncpy(*buffer, user_info->pw_name, namelen);
+  if (*buffer) {
+    memcpy(*buffer, user_info->pw_name, namelen);
+  }
 }
 
 #define command_line_increment 32
 
 void get_command_from_pid(pid_t pid, char **buffer) {
+  *buffer = NULL;
+
+  // Validate PID
+  if (!is_valid_pid(pid)) {
+    return;
+  }
+
   int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX "/cmdline", (intmax_t)pid);
-  if (written == pid_path_size) {
-    *buffer = NULL;
+  if (written <= 0 || written >= pid_path_size) {
     return;
   }
   FILE *pid_file = fopen(pid_path, "r");
   if (!pid_file) {
-    *buffer = NULL;
     return;
   }
 
@@ -177,10 +192,15 @@ void get_command_from_pid(pid_t pid, char **buffer) {
  */
 
 bool get_process_info(pid_t pid, struct process_cpu_usage *usage) {
+  // Validate PID
+  if (!is_valid_pid(pid)) {
+    return false;
+  }
+
   double clock_ticks_per_second = sysconf(_SC_CLK_TCK);
   size_t page_size = (size_t)sysconf(_SC_PAGESIZE);
   int written = snprintf(pid_path, pid_path_size, "/proc/%" PRIdMAX "/stat", (intmax_t)pid);
-  if (written == pid_path_size) {
+  if (written <= 0 || written >= pid_path_size) {
     return false;
   }
   FILE *stat_file = fopen(pid_path, "r");

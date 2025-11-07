@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  nvtop:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NVIDIA_SUPPORT=ON
+        - AMDGPU_SUPPORT=ON
+        - INTEL_SUPPORT=ON
+    image: nvtop:latest
+    container_name: nvtop
+    runtime: nvidia
+    pid: host
+    stdin_open: true
+    tty: true
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - TERM=xterm-256color
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+
+  # Alternative service without GPU runtime (for testing UI only)
+  nvtop-no-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NVIDIA_SUPPORT=OFF
+        - AMDGPU_SUPPORT=OFF
+        - INTEL_SUPPORT=OFF
+    image: nvtop:no-gpu
+    container_name: nvtop-no-gpu
+    stdin_open: true
+    tty: true
+    environment:
+      - TERM=xterm-256color

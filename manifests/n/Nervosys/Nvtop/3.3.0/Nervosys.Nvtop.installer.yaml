@@ -1,0 +1,14 @@
+PackageIdentifier: Nervosys.Nvtop
+PackageVersion: 3.3.0
+InstallerType: msi
+Scope: machine
+UpgradeBehavior: install
+Commands:
+- nvtop
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/nervosys/nvtop/releases/download/v3.3.0/nvtop-3.3.0-x64.msi
+  InstallerSha256: 8A460E6F88A1E00DFB24003B367F4BFF5DC0F217547A3C7AC91566137B6A6C40
+  ProductCode: '{2DFA2994-7056-480A-A3CE-C9C2A210D15E}'
+ManifestType: installer
+ManifestVersion: 1.6.0

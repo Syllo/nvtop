@@ -535,73 +535,92 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
     name = amdgpu_parse_marketing_name(&info);
   }
 
-  static_info->device_name[MAX_DEVICE_NAME - 1] = '\0';
+  // Safe string copy with guaranteed null termination
+  memset(static_info->device_name, 0, MAX_DEVICE_NAME);
   if (name && strlen(name)) {
-    strncpy(static_info->device_name, name, MAX_DEVICE_NAME - 1);
+    size_t copy_len = strlen(name);
+    if (copy_len >= MAX_DEVICE_NAME)
+      copy_len = MAX_DEVICE_NAME - 1;
+    memcpy(static_info->device_name, name, copy_len);
+    static_info->device_name[copy_len] = '\0';
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
   } else if (gpu_info->drmVersion->desc && strlen(gpu_info->drmVersion->desc)) {
-    strncpy(static_info->device_name, gpu_info->drmVersion->desc, MAX_DEVICE_NAME - 1);
+    size_t copy_len = strlen(gpu_info->drmVersion->desc);
+    if (copy_len >= MAX_DEVICE_NAME)
+      copy_len = MAX_DEVICE_NAME - 1;
+    memcpy(static_info->device_name, gpu_info->drmVersion->desc, copy_len);
+    static_info->device_name[copy_len] = '\0';
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
 
     if (info_query_success) {
-      size_t len = strlen(static_info->device_name);
-      assert(len < MAX_DEVICE_NAME);
+      size_t len = strnlen(static_info->device_name, MAX_DEVICE_NAME);
+      if (len < MAX_DEVICE_NAME - 1) {
+        char *dst = static_info->device_name + len;
+        size_t remaining_len = MAX_DEVICE_NAME - len - 1;
+        const char *suffix = NULL;
 
-      char *dst = static_info->device_name + len;
-      size_t remaining_len = MAX_DEVICE_NAME - 1 - len;
-      switch (info.family_id) {
+        switch (info.family_id) {
 #ifdef AMDGPU_FAMILY_SI
-      case AMDGPU_FAMILY_SI:
-        strncpy(dst, " (Hainan / Oland / Verde / Pitcairn / Tahiti)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_SI:
+          suffix = " (Hainan / Oland / Verde / Pitcairn / Tahiti)";
+          break;
 #endif
 #ifdef AMDGPU_FAMILY_CI
-      case AMDGPU_FAMILY_CI:
-        strncpy(dst, " (Bonaire / Hawaii)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_CI:
+          suffix = " (Bonaire / Hawaii)";
+          break;
 #endif
 #ifdef AMDGPU_FAMILY_KV
-      case AMDGPU_FAMILY_KV:
-        strncpy(dst, " (Kaveri / Kabini / Mullins)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_KV:
+          suffix = " (Kaveri / Kabini / Mullins)";
+          break;
 #endif
 #ifdef AMDGPU_FAMILY_VI
-      case AMDGPU_FAMILY_VI:
-        strncpy(dst, " (Iceland / Tonga)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_VI:
+          suffix = " (Iceland / Tonga)";
+          break;
 #endif
 #ifdef AMDGPU_FAMILY_CZ
-      case AMDGPU_FAMILY_CZ:
-        strncpy(dst, " (Carrizo / Stoney)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_CZ:
+          suffix = " (Carrizo / Stoney)";
+          break;
 #endif
 #ifdef AMDGPU_FAMILY_AI
-      case AMDGPU_FAMILY_AI:
-        strncpy(dst, " (Vega10)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_AI:
+          suffix = " (Vega10)";
+          break;
 #endif
 #ifdef AMDGPU_FAMILY_RV
-      case AMDGPU_FAMILY_RV:
-        strncpy(dst, " (Raven)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_RV:
+          suffix = " (Raven)";
+          break;
 #endif
 #ifdef AMDGPU_FAMILY_NV
-      case AMDGPU_FAMILY_NV:
-        strncpy(dst, " (Navi10)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_NV:
+          suffix = " (Navi10)";
+          break;
 #endif
 #ifdef AMDGPU_FAMILY_VGH
-      case AMDGPU_FAMILY_VGH:
-        strncpy(dst, " (Van Gogh)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_VGH:
+          suffix = " (Van Gogh)";
+          break;
 #endif
 #ifdef AMDGPU_FAMILY_YC
-      case AMDGPU_FAMILY_YC:
-        strncpy(dst, " (Yellow Carp)", remaining_len);
-        break;
+        case AMDGPU_FAMILY_YC:
+          suffix = " (Yellow Carp)";
+          break;
 #endif
-      default:
-        break;
+        default:
+          break;
+        }
+
+        if (suffix) {
+          size_t suffix_len = strlen(suffix);
+          if (suffix_len > remaining_len)
+            suffix_len = remaining_len;
+          memcpy(dst, suffix, suffix_len);
+          dst[suffix_len] = '\0';
+        }
       }
     }
   }

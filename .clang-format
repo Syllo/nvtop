@@ -131,7 +131,9 @@ PPIndentWidth:   -1
 ReferenceAlignment: Pointer
 ReflowComments:  true
 ShortNamespaceLines: 1
-SortIncludes:    CaseSensitive
+# CRITICAL: Never sort includes - Windows headers have strict ordering requirements
+# windows.h MUST come before psapi.h, sddl.h, tlhelp32.h
+SortIncludes:    Never
 SortJavaStaticImport: Before
 SortUsingDeclarations: true
 SpaceAfterCStyleCast: false
