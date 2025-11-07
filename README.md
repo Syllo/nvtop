@@ -12,15 +12,74 @@ Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
 M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
 proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver).
 
+On Windows, native support is available for NVIDIA, AMD, and Intel GPUs.
+
 Because a picture is worth a thousand words:
 
 ![NVTOP interface](/screenshot/NVTOP_ex1.png)
+
+Quick Start
+-----------
+
+### Installation
+
+**Windows** (Recommended - via WinGet):
+```powershell
+winget install Nervosys.Nvtop
+```
+
+**Linux** (Ubuntu/Debian):
+```bash
+sudo apt install nvtop
+```
+
+**Linux** (Fedora):
+```bash
+sudo dnf install nvtop
+```
+
+**Linux** (Arch):
+```bash
+sudo pacman -S nvtop
+```
+
+**Other platforms**: See [Distribution Specific Installation](#distribution-specific-installation-process) below.
+
+### Usage
+
+Simply run:
+```bash
+nvtop
+```
+
+**Interactive commands** (while running):
+- `F2` - Setup/configuration menu
+- `F12` - Save current settings
+- `q` or `Esc` - Quit
+- Arrow keys - Navigate and select GPUs
+- `+/-` - Adjust refresh rate
+
+**Command-line options**:
+```bash
+nvtop --help           # Show all options
+nvtop --color          # Enable color support
+nvtop --snapshot       # JSON output for scripting
+nvtop --version        # Show version
+```
+
+**Windows-specific**:
+```powershell
+nvtop.exe --snapshot | ConvertFrom-Json  # PowerShell JSON parsing
+```
 
 Table of Contents
 -----------------
 
 - [NVTOP](#nvtop)
   - [What is NVTOP?](#what-is-nvtop)
+  - [Quick Start](#quick-start)
+    - [Installation](#installation)
+    - [Usage](#usage)
   - [Table of Contents](#table-of-contents)
   - [NVTOP Options and Interactive Commands](#nvtop-options-and-interactive-commands)
     - [Interactive Setup Window](#interactive-setup-window)
