@@ -8,7 +8,7 @@ Commands:
 Installers:
 - Architecture: x64
   InstallerUrl: https://github.com/nervosys/nvtop/releases/download/v3.3.0/nvtop-3.3.0-x64.msi
-  InstallerSha256: 5FEF1259BEFD16AEC84E3E5B1D3E0A6FFBBBA0B31E0BCEC268F3E600D0B99056
+  InstallerSha256: 
   ProductCode: '{2DFA2994-7056-480A-A3CE-C9C2A210D15E}'
 ManifestType: installer
 ManifestVersion: 1.6.0

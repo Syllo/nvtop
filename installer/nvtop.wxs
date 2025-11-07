@@ -29,7 +29,7 @@
     <DirectoryRef Id="INSTALLFOLDER">
       <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-4789-A0B1-C2D3E4F5A6B7">
         <File Id="nvtop.exe" 
-              Source="..\build-windows-MinGW\src\nvtop.exe" 
+              Source="$(var.ProjectRoot)\build-windows\src\nvtop.exe" 
               KeyPath="yes" 
               Checksum="yes" />
         <Environment Id="PATH" 
@@ -43,31 +43,31 @@
       
       <Component Id="NcursesDLL" Guid="B2C3D4E5-F6A7-4890-B1C2-D3E4F5A6B7C8">
         <File Id="libncursesw6.dll" 
-              Source="..\build-windows-MinGW\src\libncursesw6.dll" 
+              Source="$(var.ProjectRoot)\build-windows\src\libncursesw6.dll" 
               KeyPath="yes" />
       </Component>
       
       <Component Id="PthreadDLL" Guid="C3D4E5F6-A7B8-4901-C2D3-E4F5A6B7C8D9">
         <File Id="libwinpthread_1.dll" 
-              Source="..\build-windows-MinGW\src\libwinpthread-1.dll" 
+              Source="$(var.ProjectRoot)\build-windows\src\libwinpthread-1.dll" 
               KeyPath="yes" />
       </Component>
       
       <Component Id="GccDLL" Guid="D4E5F6A7-B8C9-4012-D3E4-F5A6B7C8D9E0">
         <File Id="libgcc_s_seh_1.dll" 
-              Source="..\build-windows-MinGW\src\libgcc_s_seh-1.dll" 
+              Source="$(var.ProjectRoot)\build-windows\src\libgcc_s_seh-1.dll" 
               KeyPath="yes" />
       </Component>
       
       <Component Id="License" Guid="E5F6A7B8-C9D0-4123-E4F5-A6B7C8D9E0F1">
         <File Id="COPYING" 
-              Source="..\COPYING" 
+              Source="$(var.ProjectRoot)\LICENSE" 
               KeyPath="yes" />
       </Component>
       
       <Component Id="ReadMe" Guid="F6A7B8C9-D0E1-4234-F5A6-B7C8D9E0F1A2">
         <File Id="README.md" 
-              Source="..\README.md" 
+              Source="$(var.ProjectRoot)\README.md" 
               KeyPath="yes" />
       </Component>
     </DirectoryRef>
@@ -105,7 +105,7 @@
     <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     
     <!-- License Agreement -->
-    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectRoot)\installer\License.rtf" />
     
     <!-- Program/Add Remove Programs entries -->
     <Property Id="ARPPRODUCTICON" Value="nvtop.exe" />

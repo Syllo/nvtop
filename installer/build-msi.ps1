@@ -96,10 +96,15 @@ Write-Host ""
 if ($wixVersion -eq 6) {
     # WiX 6.x unified build command
     Write-Host "Building with WiX 6.x..." -ForegroundColor Yellow
+    
+    # Get absolute path to project root
+    $ProjectRoot = (Get-Item $InstallerDir).Parent.FullName
+    
     $wixArgs = @(
         "build",
         "-nologo",
         "-ext", "WixToolset.UI.wixext",
+        "-d", "ProjectRoot=$ProjectRoot",
         "-out", "$InstallerDir\nvtop-3.3.0-x64.msi",
         "$InstallerDir\nvtop.wxs"
     )
@@ -110,7 +115,6 @@ if ($wixVersion -eq 6) {
         exit $LASTEXITCODE
     }
     Write-Host "✓ MSI created successfully" -ForegroundColor Green
-    
 }
 else {
     # WiX 3.x two-step build (candle + light)
