@@ -52,7 +52,8 @@ foreach ($dll in $dllsToCopy) {
     if (Test-Path $dllPath) {
         Copy-Item $dllPath "$distDir\"
         Write-Host "    - $dll" -ForegroundColor Gray
-    } else {
+    }
+    else {
         Write-Host "    - $dll NOT FOUND!" -ForegroundColor Red
     }
 }
@@ -167,10 +168,12 @@ if (Test-Path $msiScript) {
         
         $msiSize = [math]::Round((Get-Item $msiPath).Length / 1MB, 2)
         Write-Host "    Size: $msiSize MB" -ForegroundColor Gray
-    } else {
+    }
+    else {
         Write-Host "    ERROR: MSI was not created!" -ForegroundColor Red
     }
-} else {
+}
+else {
     Write-Host "  ERROR: MSI build script not found at $msiScript" -ForegroundColor Red
 }
 
@@ -191,10 +194,12 @@ if (Test-Path $installerManifest) {
         $content = $content -replace 'InstallerSha256:\s*[A-F0-9]{64}', "InstallerSha256: $msiHash"
         Set-Content -Path $installerManifest -Value $content -NoNewline
         Write-Host "    Updated InstallerSha256" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "    WARNING: Could not find InstallerSha256 field" -ForegroundColor Yellow
     }
-} else {
+}
+else {
     Write-Host "  ERROR: Installer manifest not found at $installerManifest" -ForegroundColor Red
 }
 

@@ -25,6 +25,7 @@ cmake-build*/
 
 # Distribution artifacts
 nvtop-dist/
+nvtop-windows-x64/
 *.zip
 *.tar.gz
 
@@ -32,6 +33,10 @@ nvtop-dist/
 installer/*.wixobj
 installer/*.wixpdb
 installer/*.msi
+*.msi
+*.wixpdb
+msi-output/
+temp/
 
 # Test executables
 test_*.exe
