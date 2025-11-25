@@ -105,6 +105,7 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_gpu_temp_valid,
   gpuinfo_power_draw_valid,
   gpuinfo_power_draw_max_valid,
+  gpuinfo_effective_load_rate_valid,
   gpuinfo_multi_instance_mode_valid,
   gpuinfo_dynamic_info_count,
 };
@@ -116,6 +117,7 @@ struct gpuinfo_dynamic_info {
   unsigned int mem_clock_speed_max; // Maximum clock speed in MHz
   unsigned int gpu_util_rate;       // GPU utilization rate in %
   unsigned int mem_util_rate;       // MEM utilization rate in %
+  unsigned int effective_load_rate; // Effective load rate in %
   unsigned int encoder_rate;        // Encoder utilization rate in %
   unsigned int decoder_rate;        // Decoder utilization rate in %
   unsigned long long total_memory;  // Total memory (bytes)
