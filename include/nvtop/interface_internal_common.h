@@ -69,6 +69,7 @@ struct device_window {
   WINDOW *shader_cores;
   WINDOW *l2_cache_size;
   WINDOW *exec_engines;
+  WINDOW *effective_load;
   bool enc_was_visible;
   bool dec_was_visible;
   nvtop_time last_decode_seen;
@@ -148,6 +149,7 @@ enum device_field {
   device_shadercores,
   device_l2features,
   device_execengines,
+  device_effective_load,
   device_field_count,
 };
 
