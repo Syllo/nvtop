@@ -451,7 +451,7 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       last_libdrm_return_status =
           _amdgpu_device_initialize(fd, &drm_major, &drm_minor, &gpu_infos[amdgpu_count].amdgpu_device);
     } else {
-      // TODO: radeon suppport here
+      // TODO: radeon support here
       assert(false);
     }
 
@@ -612,20 +612,20 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   // If multiple fans are present, use the first one. Some hardware do not wire
   // the sensor for the second fan, or use the same value as the first fan.
 
-  // Critical temparature
+  // Critical temperature
   // temp1_* files should always be the GPU die in millidegrees Celsius
   if (gpu_info->hwmonDevice) {
     unsigned criticalTemp;
-    int NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_crit", "%u", &criticalTemp);
-    if (NreadPatterns == 1) {
+    int nReadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_crit", "%u", &criticalTemp);
+    if (nReadPatterns == 1) {
       SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, criticalTemp);
     }
 
-    // Emergency/shutdown temparature
-    unsigned emergemcyTemp;
-    NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_emergency", "%u", &emergemcyTemp);
-    if (NreadPatterns == 1) {
-      SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergemcyTemp);
+    // Emergency/shutdown temperature
+    unsigned emergencyTemp;
+    nReadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_emergency", "%u", &emergencyTemp);
+    if (nReadPatterns == 1) {
+      SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergencyTemp);
     }
   }
 

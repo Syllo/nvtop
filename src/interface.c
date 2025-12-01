@@ -789,7 +789,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->power_info);
 
-    // PICe throughput
+    // PCIe throughput
     werase(dev->pcie_info);
     if (device->static_info.integrated_graphics) {
       wcolor_set(dev->pcie_info, cyan_color, NULL);
