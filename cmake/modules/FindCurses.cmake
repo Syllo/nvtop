@@ -53,7 +53,7 @@ if(NOT CURSES_NEED_WIDE)
   set(NCURSES_LIBRARY_NAME "ncurses")
 else()
   set(NCURSES_LIBRARY_NAME "ncursesw")
-  # Also, if we are searchig fo wide curses - we are actually searching
+  # Also, if we are searching for wide curses - we are actually searching
   # for ncurses, we don't know about any other unicode version.
   set(CURSES_NEED_NCURSES TRUE)
 endif()

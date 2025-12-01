@@ -196,11 +196,11 @@ sudo apt install nvtop
   sudo apt install libudev-dev
   ```
 
-- NVIDIA Depenency
+- NVIDIA Dependency
   - NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
 
 - NVTOP Dependencies
- - CMake, ncurses and Git
+  - CMake, ncurses and Git
   ```bash
   sudo apt install cmake libncurses5-dev libncursesw5-dev git
   ```
@@ -240,11 +240,11 @@ A standalone application is available as [AppImage](#appimage).
   sudo dnf install libdrm-devel systemd-devel
   ```
 
-- NVIDIA Depenency
+- NVIDIA Dependency
   - NVIDIA drivers, **CUDA required for nvml libraries** (see [RPM Fusion](https://rpmfusion.org/Howto/NVIDIA))
 
 - NVTOP Dependencies
- - CMake, ncurses, C++ and Git
+  - CMake, ncurses, C++ and Git
   ```bash
   sudo dnf install cmake ncurses-devel git gcc-c++
   ```
@@ -258,12 +258,12 @@ A standalone application is available as an [AppImage](#appimage).
 
 Build process for OpenSUSE:
 
-- AMD Dependecy
+- AMD Dependency
   ```bash
   sudo zypper install libdrm-devel
   ```
 
-- NVIDIA Depenency
+- NVIDIA Dependency
   - NVIDIA drivers (see [SUSE Support Database](https://en.opensuse.org/SDB:NVIDIA_drivers))
 
 - NVTOP Dependencies

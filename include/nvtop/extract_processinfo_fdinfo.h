@@ -57,8 +57,8 @@ void processinfo_drop_callback(const struct gpu_info *info);
 void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool enable);
 
 /**
- * @brief Scann all the processes in /proc. Call the registered callbacks on
- * each file descriptor to the DRM driver that can successfully be oppened. If a
+ * @brief Scan all the processes in /proc. Call the registered callbacks on
+ * each file descriptor to the DRM driver that can successfully be opened. If a
  * callback succeeds, the gpu_info structure processes array will be updated
  * with the retrieved data.
  */

@@ -224,7 +224,7 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   RESET_ALL(dynamic_info->valid);
 
-  // We are creating new devices because the device_get_sysattr_value caches its querries
+  // We are creating new devices because the device_get_sysattr_value caches its queries
   const char *syspath;
   nvtop_device *card_dev_noncached = NULL;
   if (nvtop_device_get_syspath(gpu_info->card_device, &syspath) >= 0)

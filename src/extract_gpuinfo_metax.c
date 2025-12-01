@@ -97,7 +97,7 @@ typedef enum {
 static mxSmlReturn_t (*mxSmlGetTemperatureInfo)(unsigned int deviceId, mxSmlTemperatureSensors_t sensorType,
                                                int *temp);
 
-// Dynamic infomation extraction
+// Dynamic information extraction
 typedef enum {
   MXSML_Clock_Dla = 1,            //!< Valid for N-class device
   MXSML_Clock_Mc = 2,             //!< Valid for N-class device
@@ -493,7 +493,7 @@ static void gpuinfo_metax_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.visVramUse * 100 / memory_info.visVramTotal);
   }
 
-  // Pcie generation and width used by the device
+  // PCIe generation and width used by the device
   mxSmlPcieInfo_t pcieInfo;
   last_mxsml_return_status = mxSmlGetPcieInfo(deviceId, &pcieInfo);
   if (last_mxsml_return_status == MXSML_SUCCESS) {
@@ -509,7 +509,7 @@ static void gpuinfo_metax_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // Pcie eception and transmission throughput
+  // PCIe reception and transmission throughput
   mxSmlPcieThroughput_t pcieThroughput;
   last_mxsml_return_status = mxSmlGetPcieThroughput(deviceId, &pcieThroughput);
   if (last_mxsml_return_status == MXSML_SUCCESS) {

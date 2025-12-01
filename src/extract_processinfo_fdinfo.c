@@ -95,7 +95,7 @@ static bool is_drm_fd(int fd_dir_fd, const char *name) {
 }
 
 // Increment for the number DRM FD tracked per process
-// 8 has been experimentally selected for being small while avoiding multipe allocations in most common cases
+// 8 has been experimentally selected for being small while avoiding multiple allocations in most common cases
 #define DRM_FD_LINEAR_REALLOC_INC 8
 
 void processinfo_sweep_fdinfos(void) {
