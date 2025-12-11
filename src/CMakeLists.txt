@@ -155,6 +155,11 @@ if(METAX_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_metax.c)
 endif()
 
+if(ENFLAME_SUPPORT)
+  message(STATUS "Building with Enflame GCU support")
+  target_sources(nvtop PRIVATE extract_gcuinfo_enflame.c)
+endif()
+
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)

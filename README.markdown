@@ -10,7 +10,8 @@ htop-familiar way.
 
 Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
 M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
-proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver).
+proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver),
+Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver).
 
 Because a picture is worth a thousand words:
 
@@ -31,6 +32,9 @@ Table of Contents
   - [Apple](#apple)
   - [Ascend](#ascend) (only tested on 910B)
   - [VideoCore](#videocore)
+  - [Rockchip](#rockchip)
+  - [MetaX](#metax)
+  - [Enflame](#enflame)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
@@ -150,6 +154,12 @@ NVTOP supports MetaX (testing on MXC500) by MXSML LIBRARY.
 
 For more information about GPUs please take a look at the [METAX documentation](https://developer.metax-tech.com/doc/index)
 
+### Enflame
+
+NVTOP supports Enflame GCUs (testing on Enflame S60, Enflame L300 and Enflame L600) by EFML LIBRARY
+
+GCU, which refers to General Compute Unit, is a type of accelerator card that is used to perform general-purpose computing tasks just like GPGPU.
+
 Build
 -----
 
@@ -162,6 +172,7 @@ Several libraries are required in order for NVTOP to display GPU info:
 * For AMD: the libdrm library used to query AMD GPUs through the kernel driver.
 * For METAX: the *MetaX System Management Library* (*MXSML*) which comes with the GPU driver.
   * This queries the GPU for info.
+* For Enflame: the *Enflame Management Library* (*EFML*) which comes with the GCU driver.
 
 ## Distribution Specific Installation Process
 

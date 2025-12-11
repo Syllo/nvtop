@@ -94,7 +94,7 @@ else()
   set(METAX_SUPPORT_DEFAULT ON)
 endif()
 
-# TPU support is only available on Linux
+# TPU and Enflame GCU support is only available on Linux
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   # Check for libtpuinfo.so to set the default for TPU support
   find_library(LIBTPUINFO
@@ -107,8 +107,10 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   else()
     set(TPU_SUPPORT_DEFAULT ON)
   endif()
+  set(ENFLAME_SUPPORT_DEFAULT ON)
 else()
   set(TPU_SUPPORT_DEFAULT OFF)
+  set(ENFLAME_SUPPORT_DEFAULT OFF)
 endif()
 
 # Rockchip support is only available on Linux on arm
@@ -132,6 +134,7 @@ option(V3D_SUPPORT "Build support for Raspberrypi through v3d" ${V3D_SUPPORT_DEF
 option(TPU_SUPPORT "Build support for Google TPUs through GRPC" ${TPU_SUPPORT_DEFAULT})
 option(ROCKCHIP_SUPPORT "Enable support for Rockchip NPU" ${ROCKCHIP_SUPPORT_DEFAULT})
 option(METAX_SUPPORT "Build support for MetaX GPUs through libmxsml" ${METAX_SUPPORT_DEFAULT})
+option(ENFLAME_SUPPORT "Build support for Enflame GCUs through libefml" ${ENFLAME_SUPPORT_DEFAULT})
 
 add_subdirectory(src)
 
