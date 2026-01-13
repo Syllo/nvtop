@@ -2123,8 +2123,21 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
   gpuinfo_refresh_dynamic_info(devices);
   struct gpu_info *device;
 
-  printf("[\n");
+  // Count valid devices (those with a device name)
+  unsigned valid_count = 0;
   list_for_each_entry(device, devices, list) {
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name))
+      valid_count++;
+  }
+
+  printf("[\n");
+  unsigned printed = 0;
+  list_for_each_entry(device, devices, list) {
+    // Skip devices without a valid name (N/A devices)
+    if (!GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name))
+      continue;
+
+    printed++;
     const char *indent_level_two = "  ";
     const char *indent_level_four = "   ";
 
@@ -2231,10 +2244,11 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
     else
       printf("%s\"%s\": null\n", indent_level_four, mem_free_field);
 
-    if (device->list.next == devices)
-      printf("%s}\n", indent_level_two);
-    else
+    // Print closing brace with comma if not the last valid device
+    if (printed < valid_count)
       printf("%s},\n", indent_level_two);
+    else
+      printf("%s}\n", indent_level_two);
   }
   printf("]\n");
 }
