@@ -19,6 +19,13 @@
  *
  */
 
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
 #include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface.h"
@@ -428,7 +435,25 @@ struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devic
   interface->total_dev_count = total_devices;
   interface->monitored_dev_count = devices_count;
   sizeof_device_field[device_name] = largest_device_name + 11;
-  initscr();
+
+#ifdef _WIN32
+  // Windows: Ensure TERM is set for ncurses/PDCurses
+  if (getenv("TERM") == NULL) {
+    _putenv("TERM=xterm-256color");
+  }
+#endif
+
+  WINDOW *init_result = initscr();
+  if (init_result == NULL) {
+    fprintf(stderr, "Error: Failed to initialize ncurses screen.\n");
+    fprintf(stderr, "This may be due to terminal compatibility issues.\n");
+#ifdef _WIN32
+    fprintf(stderr, "Try setting TERM environment variable: set TERM=xterm-256color\n");
+#endif
+    free(interface->devices_win);
+    free(interface);
+    exit(EXIT_FAILURE);
+  }
   refresh();
   if (interface->options.use_color && has_colors() == TRUE) {
     initialize_colors();
@@ -486,10 +511,24 @@ static void draw_percentage_meter(WINDOW *win, const char *prelude, unsigned int
   whline(win, '|', (int)represent_usage);
   mvwhline(win, cury, curx + represent_usage, ' ', between_sbraces - represent_usage);
   mvwaddch(win, cury, curx + between_sbraces, ']');
+
+  // Color-code based on utilization percentage
+  short bar_color;
+  if (new_percentage >= 90) {
+    bar_color = red_color; // Critical: >= 90%
+  } else if (new_percentage >= 75) {
+    bar_color = yellow_color; // Warning: >= 75%
+  } else {
+    bar_color = green_color; // Normal: < 75%
+  }
+
+  mvwchgat(win, cury, curx, represent_usage, 0, bar_color, NULL);
+
+  // Print the text in white (default color) after coloring the bar
   unsigned int right_side_braces_space_required = strlen(inside_braces_right);
+  wstandend(win); // Reset to default attributes
   wmove(win, cury, curx + between_sbraces - right_side_braces_space_required);
   wprintw(win, "%s", inside_braces_right);
-  mvwchgat(win, cury, curx, represent_usage, 0, green_color, NULL);
   wnoutrefresh(win);
 }
 
@@ -1433,11 +1472,19 @@ static const char *signalNames[] = {
 #define SIGPWR SIGINFO
 #endif
 
+#ifndef _WIN32
 static const int signalValues[ARRAY_SIZE(signalNames)] = {
     -1,      SIGHUP,  SIGINT,  SIGQUIT,   SIGILL,  SIGTRAP,  SIGABRT, SIGBUS,  SIGFPE,  SIGKILL, SIGUSR1,
     SIGSEGV, SIGUSR2, SIGPIPE, SIGALRM,   SIGTERM, SIGCHLD,  SIGCONT, SIGSTOP, SIGTSTP, SIGTTIN, SIGTTOU,
     SIGURG,  SIGXCPU, SIGXFSZ, SIGVTALRM, SIGPROF, SIGWINCH, SIGIO,   SIGPWR,  SIGSYS,
 };
+#else
+// Windows only supports a subset of signals
+static const int signalValues[ARRAY_SIZE(signalNames)] = {
+    -1, 1,  SIGINT, 3,  SIGILL, 5,  SIGABRT, 7,  SIGFPE, 9,  10, SIGSEGV, 12, 13, 14, SIGTERM,
+    16, 17, 18,     19, 20,     21, 22,      23, 24,     25, 26, 27,      28, 29, 30,
+};
+#endif
 
 static const size_t nvtop_num_signals = ARRAY_SIZE(signalNames) - 1;
 
@@ -1832,7 +1879,16 @@ static void option_do_kill(struct nvtop_interface *interface) {
   pid_t pid = interface->process.selected_pid;
   int sig = signalValues[interface->process.option_window.selected_row];
   if (pid > 0) {
+#ifdef _WIN32
+    // Windows: Use TerminateProcess for forceful termination
+    HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+    if (hProcess) {
+      TerminateProcess(hProcess, 1);
+      CloseHandle(hProcess);
+    }
+#else
     kill(pid, sig);
+#endif
   }
 }
 
@@ -2067,8 +2123,21 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
   gpuinfo_refresh_dynamic_info(devices);
   struct gpu_info *device;
 
-  printf("[\n");
+  // Count valid devices (those with a device name)
+  unsigned valid_count = 0;
   list_for_each_entry(device, devices, list) {
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name))
+      valid_count++;
+  }
+
+  printf("[\n");
+  unsigned printed = 0;
+  list_for_each_entry(device, devices, list) {
+    // Skip devices without a valid name (N/A devices)
+    if (!GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name))
+      continue;
+
+    printed++;
     const char *indent_level_two = "  ";
     const char *indent_level_four = "   ";
 
@@ -2143,29 +2212,43 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
 
     // Memory Utilization
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_util_rate))
-      printf("%s\"%s\": \"%u%%\"\n", indent_level_four, mem_util_field, device->dynamic_info.mem_util_rate);
+      printf("%s\"%s\": \"%u%%\",\n", indent_level_four, mem_util_field, device->dynamic_info.mem_util_rate);
     else
-      printf("%s\"%s\": null\n", indent_level_four, mem_util_field);
+      printf("%s\"%s\": null,\n", indent_level_four, mem_util_field);
+
+    // PCIe RX throughput
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
+      printf("%s\"pcie_rx\": \"%u KB/s\",\n", indent_level_four, device->dynamic_info.pcie_rx);
+    else
+      printf("%s\"pcie_rx\": null,\n", indent_level_four);
+
+    // PCIe TX throughput
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
+      printf("%s\"pcie_tx\": \"%u KB/s\",\n", indent_level_four, device->dynamic_info.pcie_tx);
+    else
+      printf("%s\"pcie_tx\": null,\n", indent_level_four);
+
     // Memory Total
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory))
-      printf("%s\"%s\": \"%llu\"\n", indent_level_four, mem_total_field, device->dynamic_info.total_memory);
+      printf("%s\"%s\": \"%llu\",\n", indent_level_four, mem_total_field, device->dynamic_info.total_memory);
     else
-      printf("%s\"%s\": null\n", indent_level_four, mem_total_field);
+      printf("%s\"%s\": null,\n", indent_level_four, mem_total_field);
     // Memory Used
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, used_memory))
-      printf("%s\"%s\": \"%llu\"\n", indent_level_four, mem_used_field, device->dynamic_info.used_memory);
+      printf("%s\"%s\": \"%llu\",\n", indent_level_four, mem_used_field, device->dynamic_info.used_memory);
     else
-      printf("%s\"%s\": null\n", indent_level_four, mem_used_field);
+      printf("%s\"%s\": null,\n", indent_level_four, mem_used_field);
     // Memory Available
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, free_memory))
       printf("%s\"%s\": \"%llu\"\n", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
     else
       printf("%s\"%s\": null\n", indent_level_four, mem_free_field);
 
-    if (device->list.next == devices)
-      printf("%s}\n", indent_level_two);
-    else
+    // Print closing brace with comma if not the last valid device
+    if (printed < valid_count)
       printf("%s},\n", indent_level_two);
+    else
+      printf("%s}\n", indent_level_two);
   }
   printf("]\n");
 }

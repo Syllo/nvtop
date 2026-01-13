@@ -107,10 +107,19 @@ static unsigned gencmd(int mb, const char *command, char *result, int result_len
   p[0] = i * sizeof *p; // actual size
 
   mbox_property(mb, p);
-  result[0] = 0;
+  result[0] = '\0';
 
-  size_t available_space = result_len - strlen(result) - 1;
-  strncat(result, (const char *)(p + 6), available_space);
+  // Safe string concatenation with proper length checking
+  size_t current_len = strnlen(result, result_len);
+  if (current_len < result_len - 1) {
+    size_t available_space = result_len - current_len - 1;
+    const char *source = (const char *)(p + 6);
+    size_t source_len = strnlen(source, available_space);
+    if (source_len > available_space)
+      source_len = available_space;
+    memcpy(result + current_len, source, source_len);
+    result[current_len + source_len] = '\0';
+  }
 
   return p[5];
 }

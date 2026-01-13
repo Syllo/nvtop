@@ -117,7 +117,13 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   const char *pdev_val;
   int retval = nvtop_device_get_property_value(thisGPU->driver_device, "PCI_SLOT_NAME", &pdev_val);
   assert(retval >= 0 && pdev_val != NULL && "Could not retrieve device PCI slot name");
-  strncpy(thisGPU->base.pdev, pdev_val, PDEV_LEN);
+  // Safe copy with null termination guarantee
+  memset(thisGPU->base.pdev, 0, PDEV_LEN);
+  size_t pdev_len = strlen(pdev_val);
+  if (pdev_len >= PDEV_LEN)
+    pdev_len = PDEV_LEN - 1;
+  memcpy(thisGPU->base.pdev, pdev_val, pdev_len);
+  thisGPU->base.pdev[pdev_len] = '\0';
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base);
@@ -298,7 +304,8 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       }
       if (hwmon_power_max == NULL || hwmon_power_max[0] == '0') {
         // Both drivers have this, but it seems to be 0
-        nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "power1_rated_max" : "power2_rated_max", &hwmon_power_max);
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "power1_rated_max" : "power2_rated_max",
+                                       &hwmon_power_max);
       }
 
       // Energy Usage

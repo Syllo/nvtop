@@ -1,0 +1,29 @@
+PackageIdentifier: Nervosys.Nvtop
+PackageVersion: 3.3.1
+PackageLocale: en-US
+Publisher: Nervosys
+PublisherUrl: https://github.com/nervosys
+PublisherSupportUrl: https://github.com/nervosys/nvtop/issues
+PackageName: NVTOP
+PackageUrl: https://github.com/nervosys/nvtop
+License: GPL-3.0
+LicenseUrl: https://github.com/nervosys/nvtop/blob/windows/COPYING
+Copyright: Copyright (C) 2025 Nervosys
+ShortDescription: GPU monitoring tool for Windows - htop-like task monitor for NVIDIA, AMD, and Intel GPUs
+Description: NVTOP (Neat Videocard TOP) is a GPU monitoring tool for Windows that provides real-time information about GPU usage. Features multi-vendor GPU support (NVIDIA, AMD, Intel), per-process monitoring, color-coded utilization bars, and native Windows performance.
+Moniker: nvtop
+Tags:
+- amd
+- gpu
+- gpu-monitoring
+- intel
+- monitoring
+- nvidia
+- performance
+- system-monitor
+ReleaseNotes: |-
+  - Fixed N/A devices being displayed in the UI and JSON snapshot output
+  - Devices without valid device names are now filtered out
+ReleaseNotesUrl: https://github.com/nervosys/nvtop/releases/tag/v3.3.1
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

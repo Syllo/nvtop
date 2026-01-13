@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.18)
 #                              PROJECT                              #
 #///////////////////////////////////////////////////////////////////#
 
-project(nvtop VERSION 3.2.0
+project(nvtop VERSION 3.3.1
   LANGUAGES C CXX)
 
 set(default_build_type "Release")
@@ -66,6 +66,16 @@ if(APPLE)
   set(NVIDIA_SUPPORT_DEFAULT OFF)
   set(AMDGPU_SUPPORT_DEFAULT OFF)
   set(INTEL_SUPPORT_DEFAULT OFF)
+  set(MSM_SUPPORT_DEFAULT OFF)
+  set(PANFROST_SUPPORT_DEFAULT OFF)
+  set(PANTHOR_SUPPORT_DEFAULT OFF)
+  set(ASCEND_SUPPORT_DEFAULT OFF)
+  set(METAX_SUPPORT_DEFAULT OFF)
+elseif(WIN32)
+  set(APPLE_SUPPORT_DEFAULT OFF)
+  set(NVIDIA_SUPPORT_DEFAULT ON)
+  set(AMDGPU_SUPPORT_DEFAULT ON)
+  set(INTEL_SUPPORT_DEFAULT ON)
   set(MSM_SUPPORT_DEFAULT OFF)
   set(PANFROST_SUPPORT_DEFAULT OFF)
   set(PANTHOR_SUPPORT_DEFAULT OFF)

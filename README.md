@@ -12,40 +12,115 @@ Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
 M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
 proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver).
 
+On Windows, native support is available for NVIDIA, AMD, and Intel GPUs.
+
 Because a picture is worth a thousand words:
 
 ![NVTOP interface](/screenshot/NVTOP_ex1.png)
 
+Quick Start
+-----------
+
+### Installation
+
+**Windows** (Recommended - via WinGet):
+```powershell
+winget install Nervosys.Nvtop
+```
+
+**Linux** (Ubuntu/Debian):
+```bash
+sudo apt install nvtop
+```
+
+**Linux** (Fedora):
+```bash
+sudo dnf install nvtop
+```
+
+**Linux** (Arch):
+```bash
+sudo pacman -S nvtop
+```
+
+**Other platforms**: See [Distribution Specific Installation](#distribution-specific-installation-process) below.
+
+### Usage
+
+Simply run:
+```bash
+nvtop
+```
+
+**Interactive commands** (while running):
+- `F2` - Setup/configuration menu
+- `F12` - Save current settings
+- `q` or `Esc` - Quit
+- Arrow keys - Navigate and select GPUs
+- `+/-` - Adjust refresh rate
+
+**Command-line options**:
+```bash
+nvtop --help           # Show all options
+nvtop --color          # Enable color support
+nvtop --snapshot       # JSON output for scripting
+nvtop --version        # Show version
+```
+
+**Windows-specific**:
+```powershell
+nvtop.exe --snapshot | ConvertFrom-Json  # PowerShell JSON parsing
+```
+
 Table of Contents
 -----------------
 
-- [NVTOP Options and Interactive Commands](#nvtop-options-and-interactive-commands)
-  - [Interactive Setup Window](#interactive-setup-window)
-  - [Saving Preferences](#saving-preferences)
-  - [NVTOP Manual and Command line Options](#nvtop-manual-and-command-line-options)
-- [GPU Support](#gpu-support)
-  - [AMD](#amd)
-  - [Intel](#intel)
-  - [NVIDIA](#nvidia)
-  - [Adreno](#adreno)
-  - [Apple](#apple)
-  - [Ascend](#ascend) (only tested on 910B)
-  - [VideoCore](#videocore)
-- [Build](#build)
-- [Distribution Specific Installation Process](#distribution-specific-installation-process)
-  - [Ubuntu / Debian](#ubuntu--debian)
-    - [Ubuntu Impish (21.10) / Debian buster (stable) and more recent (stable)](#ubuntu-impish-2110-debian-buster-stable-and-more-recent)
-  - [Fedora / Red Hat / CentOS](#fedora--red-hat--centos)
-  - [OpenSUSE](#opensuse)
-  - [Arch Linux](#arch-linux)
-  - [Gentoo](#gentoo)
-  - [AppImage](#appimage)
-  - [Snap](#snap)
-  - [Conda-forge](#conda-forge)
-  - [Docker](#docker)
-- [NVTOP Build](#nvtop-build)
-- [Troubleshoot](#troubleshoot)
-- [License](#license)
+- [NVTOP](#nvtop)
+  - [What is NVTOP?](#what-is-nvtop)
+  - [Quick Start](#quick-start)
+    - [Installation](#installation)
+    - [Usage](#usage)
+  - [Table of Contents](#table-of-contents)
+  - [NVTOP Options and Interactive Commands](#nvtop-options-and-interactive-commands)
+    - [Interactive Setup Window](#interactive-setup-window)
+    - [Saving Preferences](#saving-preferences)
+    - [NVTOP Manual and Command line Options](#nvtop-manual-and-command-line-options)
+  - [GPU Support](#gpu-support)
+    - [AMD](#amd)
+    - [Intel](#intel)
+    - [NVIDIA](#nvidia)
+    - [Adreno](#adreno)
+    - [Apple](#apple)
+    - [Ascend](#ascend)
+    - [VideoCore](#videocore)
+    - [Rockchip](#rockchip)
+    - [MetaX](#metax)
+  - [Build](#build)
+  - [Distribution Specific Installation Process](#distribution-specific-installation-process)
+    - [Ubuntu / Debian](#ubuntu--debian)
+      - [Ubuntu Focal (20.04), Debian buster (stable) and more recent](#ubuntu-focal-2004-debian-buster-stable-and-more-recent)
+      - [Ubuntu PPA](#ubuntu-ppa)
+      - [Older](#older)
+    - [Fedora / Red Hat / CentOS](#fedora--red-hat--centos)
+      - [Fedora 36 and newer](#fedora-36-and-newer)
+      - [CentOS Stream, Rocky Linux, AlmaLinux](#centos-stream-rocky-linux-almalinux)
+    - [OpenSUSE](#opensuse)
+    - [Arch Linux](#arch-linux)
+    - [AppImage](#appimage)
+- [Go to the download location \*\* The path may differ on your system \*\*](#go-to-the-download-location--the-path-may-differ-on-your-system-)
+- [Make the AppImage executable](#make-the-appimage-executable)
+- [Enjoy nvtop](#enjoy-nvtop)
+    - [Conda-forge](#conda-forge)
+      - [conda / mamba / miniforge](#conda--mamba--miniforge)
+      - [pixi](#pixi)
+    - [Docker](#docker)
+      - [Manual Installation](#manual-installation)
+      - [Alternative: WSL2 Installation](#alternative-wsl2-installation)
+      - [Windows Features](#windows-features)
+      - [Windows-Specific Notes](#windows-specific-notes)
+  - [NVTOP Build](#nvtop-build)
+  - [Troubleshoot](#troubleshoot)
+  - [License](#license)
 
 NVTOP Options and Interactive Commands
 --------------------------------------
@@ -347,6 +422,86 @@ pixi global install nvtop
   sudo docker build --tag nvtop .
   sudo docker run -it --rm --runtime=nvidia --gpus=all --pid=host nvtop
   ```
+
+### Windows
+
+NVTOP now supports native Windows 10/11 with multi-vendor GPU support (NVIDIA, AMD, Intel).
+
+#### Quick Start (Automated Build)
+
+```powershell
+# Clone the repository
+git clone https://github.com/nervosys/nvtop.git -b windows
+cd nvtop
+
+# Run automated build script (installs prerequisites and builds)
+.\scripts\build-windows-native.ps1 -All
+
+# Run nvtop
+.\build-windows\src\nvtop.exe
+```
+
+#### Manual Installation
+
+**Prerequisites:**
+- **MSYS2** (UCRT64 environment): https://www.msys2.org/
+- **GPU Drivers**: NVIDIA (470+), AMD (with DXGI 1.4+), or Intel (Gen 11+/Arc)
+
+**Install Dependencies (in MSYS2 UCRT64 terminal):**
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-gcc \
+                   mingw-w64-ucrt-x86_64-cmake \
+                   mingw-w64-ucrt-x86_64-ninja \
+                   mingw-w64-ucrt-x86_64-ncurses \
+                   git
+```
+
+**Build NVTOP:**
+```bash
+mkdir build-windows && cd build-windows
+cmake .. -G Ninja -DNVIDIA_SUPPORT=ON -DAMDGPU_SUPPORT=ON -DINTEL_SUPPORT=ON
+ninja
+```
+
+**Run NVTOP:**
+```bash
+# From build directory
+./src/nvtop.exe
+
+# Or from PowerShell/CMD
+.\build-windows\src\nvtop.exe
+```
+
+#### Alternative: WSL2 Installation
+
+For a Linux-like experience on Windows, you can use WSL2:
+
+```powershell
+# Install WSL2 and Ubuntu
+wsl --install
+
+# Inside WSL2, follow the Ubuntu installation instructions above
+```
+
+#### Windows Features
+
+- ✅ **Multi-vendor support**: NVIDIA (full), AMD (DXGI/PDH), Intel (DXGI/PDH)
+- ✅ **Per-process GPU usage**: All vendors
+- ✅ **Color-coded utilization**: Green/Yellow/Red bars based on load
+- ✅ **Real-time monitoring**: GPU, memory, power, clocks, temperatures
+- ✅ **Native performance**: No WSL required, runs directly on Windows
+
+#### Windows-Specific Notes
+
+- **NVIDIA**: Requires CUDA Toolkit or copy `nvml.dll` to nvtop directory
+- **AMD**: Temperature and fan speed require ADL SDK (not included)
+- **Intel**: Limited power/clock reporting depending on driver
+- **Snapshot mode**: Use `nvtop.exe --snapshot` for JSON output (scripting)
+
+For detailed Windows build instructions, troubleshooting, and features, see:
+- [Quick Start Guide](docs/QUICKSTART_WINDOWS.md)
+- [Windows Build Guide](docs/WINDOWS_NATIVE_BUILD.md)
+- [AMD/Intel Testing Guide](docs/AMD_INTEL_TESTING_GUIDE.md)
 
 ## NVTOP Build
 

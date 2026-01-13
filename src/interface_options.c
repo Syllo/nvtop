@@ -44,7 +44,7 @@ static const char *default_config_path(void) {
     // XDG config dir not set, default to $HOME/.config
     xdg_config_dir = getenv("HOME");
     if (!xdg_config_dir)
-            return NULL;
+      return NULL;
     conf_path_length = sizeof(config_conf_path);
   }
   size_t xdg_path_length = strlen(xdg_config_dir);
@@ -69,12 +69,17 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
   struct gpu_info *device, *list_tmp;
   list_for_each_entry_safe(device, list_tmp, monitoredGpu, list) {
     assert(idx <= num_devices);
-    if (options->gpu_specific_opts[idx].doNotMonitor) {
+    // Skip devices without a valid name (N/A devices) or those marked as doNotMonitor
+    bool skipDevice =
+        options->gpu_specific_opts[idx].doNotMonitor || !GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name);
+    if (skipDevice) {
       list_move_tail(&device->list, nonMonitoredGpu);
       nvtop_interface_gpu_opts saveInfo = options->gpu_specific_opts[idx];
       memmove(&options->gpu_specific_opts[idx], &options->gpu_specific_opts[idx + 1],
               (num_devices - idx - 1) * sizeof(*options->gpu_specific_opts));
       options->gpu_specific_opts[num_devices - 1] = saveInfo;
+      // Mark N/A devices as doNotMonitor so they stay hidden
+      options->gpu_specific_opts[num_devices - 1].doNotMonitor = true;
     } else {
       idx++;
     }
@@ -82,7 +87,10 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
   unsigned numMonitored = idx;
   list_for_each_entry_safe(device, list_tmp, nonMonitoredGpu, list) {
     assert(idx <= num_devices);
-    if (!options->gpu_specific_opts[idx].doNotMonitor) {
+    // Only move devices back to monitored if they have a valid name and aren't marked doNotMonitor
+    bool canMonitor =
+        !options->gpu_specific_opts[idx].doNotMonitor && GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name);
+    if (canMonitor) {
       list_move_tail(&device->list, monitoredGpu);
       nvtop_interface_gpu_opts saveInfo = options->gpu_specific_opts[idx];
       for (unsigned nonMonPred = idx; nonMonPred > numMonitored; --nonMonPred) {
@@ -94,12 +102,22 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
     idx++;
   }
   assert(idx == num_devices);
-  // We keep at least one monitored gpu at all times
+  // We keep at least one monitored gpu at all times (but only if it has a valid name)
   if (num_devices > 0 && numMonitored == 0) {
     assert(list_empty(monitoredGpu));
-    list_move(&list_first_entry(nonMonitoredGpu, struct gpu_info, list)->list, monitoredGpu);
-    options->gpu_specific_opts[0].doNotMonitor = false;
-    numMonitored++;
+    // Find the first device with a valid name
+    struct gpu_info *first_valid = NULL;
+    list_for_each_entry(device, nonMonitoredGpu, list) {
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name)) {
+        first_valid = device;
+        break;
+      }
+    }
+    if (first_valid) {
+      list_move(&first_valid->list, monitoredGpu);
+      options->gpu_specific_opts[0].doNotMonitor = false;
+      numMonitored++;
+    }
   }
   list_for_each_entry(device, monitoredGpu, list) { processinfo_enable_disable_callback_for(device, true); }
   list_for_each_entry(device, nonMonitoredGpu, list) { processinfo_enable_disable_callback_for(device, false); }
@@ -141,8 +159,8 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
     if (default_path) {
       options->config_file_location = malloc(strlen(default_path) + 1);
       if (!options->config_file_location) {
-	perror("Cannot allocate memory: ");
-	exit(EXIT_FAILURE);
+        perror("Cannot allocate memory: ");
+        exit(EXIT_FAILURE);
       }
       strcpy(options->config_file_location, default_path);
     }
@@ -349,7 +367,11 @@ static bool create_config_directory_rec(char *config_directory) {
   for (char *index = config_directory + 1; *index != '\0'; ++index) {
     if (*index == '/') {
       *index = '\0';
+#ifdef _WIN32
+      if (mkdir(config_directory)) {
+#else
       if (mkdir(config_directory, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
+#endif
         if (errno != EEXIST) {
           char *error_str = strerror(errno);
           fprintf(stderr, "Could not create directory \"%s\": %s\n", config_directory, error_str);
@@ -359,7 +381,11 @@ static bool create_config_directory_rec(char *config_directory) {
       *index = '/';
     }
   }
+#ifdef _WIN32
+  if (mkdir(config_directory)) {
+#else
   if (mkdir(config_directory, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)) {
+#endif
     if (errno != EEXIST) {
       char *error_str = strerror(errno);
       fprintf(stderr, "Could not create directory \"%s\": %s\n", config_directory, error_str);

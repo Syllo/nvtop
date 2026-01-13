@@ -34,9 +34,9 @@
 
 typedef struct timespec nvtop_time;
 
-inline void nvtop_get_current_time(nvtop_time *time) { clock_gettime(NVTOP_CLOCK, time); }
+static inline void nvtop_get_current_time(nvtop_time *time) { clock_gettime(NVTOP_CLOCK, time); }
 
-inline double nvtop_difftime(nvtop_time t0, nvtop_time t1) {
+static inline double nvtop_difftime(nvtop_time t0, nvtop_time t1) {
   double secdiff = difftime(t1.tv_sec, t0.tv_sec);
   if (t1.tv_nsec < t0.tv_nsec) {
     long val = 1000000000l - t0.tv_nsec + t1.tv_nsec;

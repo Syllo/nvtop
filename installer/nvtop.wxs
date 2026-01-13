@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Compatible with WiX Toolset 3.x and 4.x+ -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  
+  <!-- Product Definition -->
+  <Package Name="NVTOP" 
+           Language="1033" 
+           Version="3.3.1.0" 
+           Manufacturer="Nervosys" 
+           UpgradeCode="F4A5E6D7-8B9C-4A1D-9E2F-3B4C5D6E7F8A">
+    
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <!-- Media/Packaging -->
+    <Media Id="1" Cabinet="nvtop.cab" EmbedCab="yes" />
+
+    <!-- Installation directory structure -->
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="NVTOP" />
+    </StandardDirectory>
+      
+    <!-- Start Menu -->
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="NVTOP"/>
+    </StandardDirectory>
+
+    <!-- Files to install -->
+    <DirectoryRef Id="INSTALLFOLDER">
+      <Component Id="MainExecutable" Guid="A1B2C3D4-E5F6-4789-A0B1-C2D3E4F5A6B7">
+        <File Id="nvtop.exe" 
+              Source="$(var.ProjectRoot)\build-windows\src\nvtop.exe" 
+              KeyPath="yes" 
+              Checksum="yes" />
+        <Environment Id="PATH" 
+                     Name="PATH" 
+                     Value="[INSTALLFOLDER]" 
+                     Permanent="no" 
+                     Part="last" 
+                     Action="set" 
+                     System="yes" />
+      </Component>
+      
+      <Component Id="NcursesDLL" Guid="B2C3D4E5-F6A7-4890-B1C2-D3E4F5A6B7C8">
+        <File Id="libncursesw6.dll" 
+              Source="$(var.ProjectRoot)\build-windows\src\libncursesw6.dll" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="PthreadDLL" Guid="C3D4E5F6-A7B8-4901-C2D3-E4F5A6B7C8D9">
+        <File Id="libwinpthread_1.dll" 
+              Source="$(var.ProjectRoot)\build-windows\src\libwinpthread-1.dll" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="GccDLL" Guid="D4E5F6A7-B8C9-4012-D3E4-F5A6B7C8D9E0">
+        <File Id="libgcc_s_seh_1.dll" 
+              Source="$(var.ProjectRoot)\build-windows\src\libgcc_s_seh-1.dll" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="License" Guid="E5F6A7B8-C9D0-4123-E4F5-A6B7C8D9E0F1">
+        <File Id="COPYING" 
+              Source="$(var.ProjectRoot)\LICENSE" 
+              KeyPath="yes" />
+      </Component>
+      
+      <Component Id="ReadMe" Guid="F6A7B8C9-D0E1-4234-F5A6-B7C8D9E0F1A2">
+        <File Id="README.md" 
+              Source="$(var.ProjectRoot)\README.md" 
+              KeyPath="yes" />
+      </Component>
+    </DirectoryRef>
+
+    <!-- Start Menu Shortcut -->
+    <DirectoryRef Id="ApplicationProgramsFolder">
+      <Component Id="ApplicationShortcut" Guid="A7B8C9D0-E1F2-4345-A6B7-C8D9E0F1A2B3">
+        <Shortcut Id="ApplicationStartMenuShortcut"
+                  Name="NVTOP"
+                  Description="GPU Monitoring Tool"
+                  Target="[INSTALLFOLDER]nvtop.exe"
+                  WorkingDirectory="INSTALLFOLDER"/>
+        <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall"/>
+        <RegistryValue Root="HKCU" 
+                       Key="Software\Nervosys\NVTOP" 
+                       Name="installed" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes"/>
+      </Component>
+    </DirectoryRef>
+
+    <!-- Features to install -->
+    <Feature Id="ProductFeature" Title="NVTOP" Level="1">
+      <ComponentRef Id="MainExecutable" />
+      <ComponentRef Id="NcursesDLL" />
+      <ComponentRef Id="PthreadDLL" />
+      <ComponentRef Id="GccDLL" />
+      <ComponentRef Id="License" />
+      <ComponentRef Id="ReadMe" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+
+    <!-- UI -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    
+    <!-- License Agreement -->
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectRoot)\installer\License.rtf" />
+    
+    <!-- Program/Add Remove Programs entries -->
+    <Property Id="ARPPRODUCTICON" Value="nvtop.exe" />
+    <Property Id="ARPHELPLINK" Value="https://github.com/nervosys/nvtop" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/nervosys/nvtop" />
+    <Property Id="ARPNOREPAIR" Value="yes" Secure="yes" />
+    
+  </Package>
+</Wix>
