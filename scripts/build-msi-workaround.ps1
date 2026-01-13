@@ -45,7 +45,7 @@ try {
         "-ext", "WixToolset.UI.wixext"
         "-d", "ProjectRoot=$ProjectRoot"
         "-intermediatefolder", $tempBuildDir
-        "-out", "$ProjectRoot\nvtop-3.3.0-x64.msi"
+        "-out", "$ProjectRoot\nvtop-3.3.1-x64.msi"
         "$ProjectRoot\installer\nvtop.wxs"
     )
     
@@ -56,14 +56,14 @@ try {
         Write-Host "  ✓ Build successful!" -ForegroundColor Green
         Remove-Item $tempBuildDir -Recurse -Force -ErrorAction SilentlyContinue
         
-        if (Test-Path "$ProjectRoot\nvtop-3.3.0-x64.msi") {
-            $hash = Get-FileHash "$ProjectRoot\nvtop-3.3.0-x64.msi" -Algorithm SHA256
-            $size = [math]::Round((Get-Item "$ProjectRoot\nvtop-3.3.0-x64.msi").Length / 1MB, 2)
+        if (Test-Path "$ProjectRoot\nvtop-3.3.1-x64.msi") {
+            $hash = Get-FileHash "$ProjectRoot\nvtop-3.3.1-x64.msi" -Algorithm SHA256
+            $size = [math]::Round((Get-Item "$ProjectRoot\nvtop-3.3.1-x64.msi").Length / 1MB, 2)
             
             Write-Host "`n========================================" -ForegroundColor Cyan
             Write-Host "MSI Package Created Successfully!" -ForegroundColor Green
             Write-Host "========================================" -ForegroundColor Cyan
-            Write-Host "File: nvtop-3.3.0-x64.msi" -ForegroundColor White
+            Write-Host "File: nvtop-3.3.1-x64.msi" -ForegroundColor White
             Write-Host "Size: $size MB" -ForegroundColor White
             Write-Host "SHA256: $($hash.Hash)" -ForegroundColor Cyan
             exit 0

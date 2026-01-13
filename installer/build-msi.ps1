@@ -104,7 +104,7 @@ if ($wixVersion -eq 6) {
         "-nologo",
         "-ext", "WixToolset.UI.wixext",
         "-d", "ProjectRoot=$ProjectRoot",
-        "-out", "$InstallerDir\nvtop-3.3.0-x64.msi",
+        "-out", "$InstallerDir\nvtop-3.3.1-x64.msi",
         "$InstallerDir\nvtop.wxs"
     )
     
@@ -136,7 +136,7 @@ if ($wixVersion -eq 6) {
     $lightArgs = @(
         "-nologo",
         "-ext", "WixUIExtension",
-        "-out", "$InstallerDir\nvtop-3.3.0-x64.msi",
+        "-out", "$InstallerDir\nvtop-3.3.1-x64.msi",
         "$InstallerDir\nvtop.wixobj"
     )
 
@@ -156,7 +156,7 @@ Write-Host "MSI Information" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
-$msiPath = "$InstallerDir\nvtop-3.3.0-x64.msi"
+$msiPath = "$InstallerDir\nvtop-3.3.1-x64.msi"
 $msiInfo = Get-Item $msiPath
 $hash = Get-FileHash $msiPath -Algorithm SHA256
 

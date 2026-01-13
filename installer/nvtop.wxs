@@ -6,7 +6,7 @@
   <!-- Product Definition -->
   <Package Name="NVTOP" 
            Language="1033" 
-           Version="3.3.0.0" 
+           Version="3.3.1.0" 
            Manufacturer="Nervosys" 
            UpgradeCode="F4A5E6D7-8B9C-4A1D-9E2F-3B4C5D6E7F8A">
     
