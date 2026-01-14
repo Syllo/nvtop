@@ -357,12 +357,17 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
     cache_entry->client_id.pid = process_info->pid;
   }
 
-#ifndef NDEBUG
-  // We should only process one fdinfo entry per client id per update
+  // Check if we already processed this client_id in the current update cycle.
+  // This can happen when a process has multiple file descriptors referencing
+  // the same DRM client (e.g., via DRM master operations).
   struct msm_process_info_cache *cache_entry_check;
-  HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cid, cache_entry_check);
-  assert(!cache_entry_check && "We should not be processing a client id twice per update");
-#endif
+  HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cache_entry->client_id, cache_entry_check);
+  if (cache_entry_check) {
+    // Already processed this client_id, free the entry if we allocated it
+    if (cache_entry != cache_entry_check)
+      free(cache_entry);
+    goto parse_fdinfo_exit;
+  }
 
   RESET_ALL(cache_entry->valid);
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used))

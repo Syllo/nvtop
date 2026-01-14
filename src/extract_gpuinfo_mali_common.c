@@ -435,12 +435,17 @@ void mali_common_parse_fdinfo_handle_cache(struct gpu_info_mali *gpu_info,
     cache_entry->last_cycles = total_cycles;
   }
 
-#ifndef NDEBUG
-  // We should only process one fdinfo entry per client id per update
+  // Check if we already processed this client_id in the current update cycle.
+  // This can happen when a process has multiple file descriptors referencing
+  // the same DRM client (e.g., via DRM master operations).
   struct mali_process_info_cache *cache_entry_check;
   HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cache_entry->client_id, cache_entry_check);
-  assert(!cache_entry_check && "We should not be processing a client id twice per update");
-#endif
+  if (cache_entry_check) {
+    // Already processed this client_id, free the entry if we allocated it
+    if (cache_entry != cache_entry_check)
+      free(cache_entry);
+    return;
+  }
 
   RESET_ALL(cache_entry->valid);
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used))
