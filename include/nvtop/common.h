@@ -42,7 +42,7 @@ static void *nvtop_reallocarray__(void *ptr, size_t nmemb, size_t size) {
 #endif // !defined(HAS_REALLOCARRAY)
 
 // Increment for the number of tracked processes
-// 16 has been experimentally selected for being small while avoiding multipe allocations in most common cases
+// 16 has been experimentally selected for being small while avoiding multiple allocations in most common cases
 #define COMMON_PROCESS_LINEAR_REALLOC_INC 16
 
 #define MAX_LINES_PER_PLOT 4

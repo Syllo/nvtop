@@ -82,7 +82,7 @@ extern "C" {
     unsigned long hugepagesize;             /* unit:KB */
     unsigned long hugepages_total;
     unsigned long hugepages_free;
-    unsigned int utiliza;                  /* ddr memory info usages */
+    unsigned int utilize;                  /* ddr memory info usages */
     unsigned char reserve[60];             /* the size of dcmi_memory_info is 96 */
   };
 
@@ -447,7 +447,7 @@ extern "C" {
   struct dcmi_memory_info_stru {
     unsigned long long memory_size;
     unsigned int freq;
-    unsigned int utiliza;
+    unsigned int utilize;
   };
 
   DCMIDLLEXPORT int dcmi_get_memory_info(int card_id, int device_id, struct dcmi_memory_info_stru *device_memory_info);

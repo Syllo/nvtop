@@ -451,7 +451,7 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       last_libdrm_return_status =
           _amdgpu_device_initialize(fd, &drm_major, &drm_minor, &gpu_infos[amdgpu_count].amdgpu_device);
     } else {
-      // TODO: radeon suppport here
+      // TODO: radeon support here
       assert(false);
     }
 
@@ -612,20 +612,20 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   // If multiple fans are present, use the first one. Some hardware do not wire
   // the sensor for the second fan, or use the same value as the first fan.
 
-  // Critical temparature
+  // Critical temperature
   // temp1_* files should always be the GPU die in millidegrees Celsius
   if (gpu_info->hwmonDevice) {
     unsigned criticalTemp;
-    int NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_crit", "%u", &criticalTemp);
-    if (NreadPatterns == 1) {
+    int nReadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_crit", "%u", &criticalTemp);
+    if (nReadPatterns == 1) {
       SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, criticalTemp);
     }
 
-    // Emergency/shutdown temparature
-    unsigned emergemcyTemp;
-    NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_emergency", "%u", &emergemcyTemp);
-    if (NreadPatterns == 1) {
-      SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergemcyTemp);
+    // Emergency/shutdown temperature
+    unsigned emergencyTemp;
+    nReadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_emergency", "%u", &emergencyTemp);
+    if (nReadPatterns == 1) {
+      SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergencyTemp);
     }
   }
 
@@ -711,10 +711,15 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   else
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
-    // TODO: Determine if we want to include GTT (GPU accessible system memory)
-    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.vram.total_heap_size);
-    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.vram.heap_usage);
-    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.vram.total_heap_size - dynamic_info->used_memory);
+    if (gpu_info->base.static_info.integrated_graphics) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.vram.total_heap_size + memory_info.gtt.total_heap_size);
+      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.vram.heap_usage + memory_info.gtt.heap_usage);
+      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.vram.total_heap_size + memory_info.gtt.total_heap_size - dynamic_info->used_memory);
+    } else {
+      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.vram.total_heap_size);
+      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.vram.heap_usage);
+      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.vram.total_heap_size - memory_info.vram.heap_usage);
+    }
     SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
                         (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
   }
@@ -975,12 +980,17 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
     if (static_info->encode_decode_shared)
       SET_GPUINFO_PROCESS(process_info, decode_usage, process_info->decode_usage + process_info->encode_usage);
 
-#ifndef NDEBUG
-    // We should only process one fdinfo entry per client id per update
+    // Check if we already processed this client_id in the current update cycle.
+    // This can happen when a process has multiple file descriptors referencing
+    // the same DRM client (e.g., via DRM master operations).
     struct amdgpu_process_info_cache *cache_entry_check;
     HASH_FIND_CLIENT(gpu_info->current_update_process_cache, &cache_entry->client_id, cache_entry_check);
-    assert(!cache_entry_check && "We should not be processing a client id twice per update");
-#endif
+    if (cache_entry_check) {
+      // Already processed this client_id, free the entry if we allocated it
+      if (cache_entry != cache_entry_check)
+        free(cache_entry);
+      goto parse_fdinfo_exit;
+    }
 
     // Store this measurement data
     RESET_ALL(cache_entry->valid);
