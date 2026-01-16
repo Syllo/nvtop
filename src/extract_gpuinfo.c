@@ -97,10 +97,26 @@ bool gpuinfo_populate_static_infos(struct list_head *devices) {
   return true;
 }
 
+static void calculate_effective_load(struct gpuinfo_dynamic_info *dynamic_info) {
+  if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) &&
+      GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, power_draw) &&
+      GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, power_draw_max) && dynamic_info->power_draw_max > 0) {
+    double power_factor = (double)dynamic_info->power_draw / (double)dynamic_info->power_draw_max;
+    unsigned int effective_load = (unsigned int)(dynamic_info->gpu_util_rate * power_factor);
+    effective_load = effective_load > 100 ? 100 : effective_load;
+    SET_GPUINFO_DYNAMIC(dynamic_info, effective_load_rate, effective_load);
+  } else {
+    RESET_GPUINFO_DYNAMIC(dynamic_info, effective_load_rate);
+  }
+}
+
 bool gpuinfo_refresh_dynamic_info(struct list_head *devices) {
   struct gpu_info *device;
 
-  list_for_each_entry(device, devices, list) { device->vendor->refresh_dynamic_info(device); }
+  list_for_each_entry(device, devices, list) {
+    device->vendor->refresh_dynamic_info(device);
+    calculate_effective_load(&device->dynamic_info);
+  }
   return true;
 }
 
@@ -157,6 +173,7 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
           dynamic_info, gpu_util_rate,
           (dynamic_info->gpu_util_rate > reportedGpuRate ? dynamic_info->gpu_util_rate : reportedGpuRate));
     }
+    calculate_effective_load(dynamic_info);
   }
   return true;
 }

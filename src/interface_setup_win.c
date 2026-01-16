@@ -79,7 +79,7 @@ static const char *setup_chart_options_descriptions[setup_chart_options_count] =
 static const char *setup_chart_gpu_value_descriptions[plot_information_count] = {
     "GPU utilization rate", "GPU memory utilization rate",   "GPU encoder rate", "GPU decoder rate",
     "GPU temperature",      "Power draw rate (current/max)", "Fan speed",        "GPU clock rate",
-    "GPU memory clock rate"};
+    "GPU memory clock rate", "Effective load rate"};
 
 // Process List Options
 

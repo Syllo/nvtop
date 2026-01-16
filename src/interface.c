@@ -45,7 +45,7 @@
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
     [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
-    [device_l2features] = 11, [device_execengines] = 11,
+    [device_l2features] = 11, [device_execengines] = 11, [device_effective_load] = 12,
 };
 
 static unsigned int sizeof_process_field[process_field_count] = {
@@ -93,6 +93,13 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
              start_col + spacer * 4 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed]);
   if (dwin->power_info == NULL)
+    goto alloc_error;
+  dwin->effective_load =
+      newwin(1, sizeof_device_field[device_effective_load], start_row + 1,
+             start_col + spacer * 5 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                 sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
+                 sizeof_device_field[device_power]);
+  if (dwin->effective_load == NULL)
     goto alloc_error;
 
   // Line 3 = GPU used | MEM used | Encoder | Decoder
@@ -199,6 +206,7 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->gpu_clock_info);
   delwin(dwin->mem_clock_info);
   delwin(dwin->power_info);
+  delwin(dwin->effective_load);
   delwin(dwin->temperature);
   delwin(dwin->fan_speed);
   delwin(dwin->pcie_info);
@@ -345,7 +353,7 @@ static unsigned device_length(void) {
   return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
              sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                 sizeof_device_field[device_power] + 4);
+                 sizeof_device_field[device_power] + sizeof_device_field[device_effective_load] + 5);
 }
 
 static pid_t nvtop_pid;
@@ -789,7 +797,16 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->power_info);
 
-    // PCIe throughput
+    // EFFECTIVE LOAD
+    werase(dev->effective_load);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate))
+      mvwprintw(dev->effective_load, 0, 0, "Eff. %3u%%", device->dynamic_info.effective_load_rate);
+    else
+      mvwprintw(dev->effective_load, 0, 0, "Eff. N/A%%");
+    mvwchgat(dev->effective_load, 0, 0, 4, 0, cyan_color, NULL);
+    wnoutrefresh(dev->effective_load);
+
+    // PICe throughput
     werase(dev->pcie_info);
     if (device->static_info.integrated_graphics) {
       wcolor_set(dev->pcie_info, cyan_color, NULL);
@@ -1690,6 +1707,11 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
             data_val = device->dynamic_info.mem_clock_speed * 100 / device->dynamic_info.mem_clock_speed_max;
           }
           break;
+        case plot_effective_load_rate:
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate)) {
+            data_val = device->dynamic_info.effective_load_rate;
+          }
+          break;
         case plot_information_count:
           break;
         }
@@ -1755,6 +1777,9 @@ static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface
           break;
         case plot_gpu_mem_clock_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u mem clock%%", dev_id);
+          break;
+        case plot_effective_load_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u eff. load%%", dev_id);
           break;
         case plot_information_count:
           break;
