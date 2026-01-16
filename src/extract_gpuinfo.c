@@ -103,6 +103,7 @@ static void calculate_effective_load(struct gpuinfo_dynamic_info *dynamic_info) 
       GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, power_draw_max) && dynamic_info->power_draw_max > 0) {
     double power_factor = (double)dynamic_info->power_draw / (double)dynamic_info->power_draw_max;
     unsigned int effective_load = (unsigned int)(dynamic_info->gpu_util_rate * power_factor);
+    effective_load = effective_load > 100 ? 100 : effective_load;
     SET_GPUINFO_DYNAMIC(dynamic_info, effective_load_rate, effective_load);
   } else {
     RESET_GPUINFO_DYNAMIC(dynamic_info, effective_load_rate);

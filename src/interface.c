@@ -1710,8 +1710,6 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
         case plot_effective_load_rate:
           if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate)) {
             data_val = device->dynamic_info.effective_load_rate;
-            if (data_val > 100)
-              data_val = 100u;
           }
           break;
         case plot_information_count:
