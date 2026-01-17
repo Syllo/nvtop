@@ -140,7 +140,9 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
     // Update them here since per-process sysfs exposes this information.
     bool needGpuEncode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate);
     bool needGpuDecode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate);
-    if (needGpuRate || needGpuEncode || needGpuDecode) {
+    bool needGPUMemory = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) &&
+                         GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory);
+    if (needGpuRate || needGpuEncode || needGpuDecode || needGPUMemory) {
       for (unsigned processIdx = 0; processIdx < device->processes_count; ++processIdx) {
         struct gpu_process *process_info = &device->processes[processIdx];
         if (needGpuRate && GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage)) {
@@ -164,7 +166,27 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
             SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, MYMIN(100, process_info->decode_usage));
           }
         }
+        if (needGPUMemory && GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage)) {
+          if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory)) {
+            dynamic_info->used_memory += dynamic_info->used_memory + process_info->gpu_memory_usage;
+          } else {
+            SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, process_info->gpu_memory_usage);
+          }
+        }
       }
+    }
+    // Sanitize what we got from processes: we can't have more than the total!
+    if (needGPUMemory && GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) &&
+        GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory) &&
+        dynamic_info->used_memory > dynamic_info->total_memory) {
+      RESET_GPUINFO_DYNAMIC(dynamic_info, used_memory);
+    }
+    if (needGPUMemory && !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, free_memory) &&
+        GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) &&
+        GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory)) {
+      // We already checked that used_memory <= total_memory so no underflow can happen here
+      unsigned long long free = dynamic_info->total_memory - dynamic_info->used_memory;
+      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, free);
     }
     if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
@@ -228,14 +250,18 @@ static void gpuinfo_populate_process_info(struct gpu_info *device) {
     } else {
       cached_pid_info->last_total_consumed_cpu_time = -1;
     }
-
     // Process memory usage percent of total device memory
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory) &&
         GPUINFO_PROCESS_FIELD_VALID(&device->processes[j], gpu_memory_usage)) {
-      double percentage = fmin(
-          round(100. * ((double)device->processes[j].gpu_memory_usage / (double)device->dynamic_info.total_memory)),
-          100.);
-      SET_GPUINFO_PROCESS(&device->processes[j], gpu_memory_percentage, (unsigned)percentage);
+      // Sanitize process inputs
+      if (device->dynamic_info.total_memory < device->processes[j].gpu_memory_usage) {
+        RESET_GPUINFO_PROCESS(&device->processes[j], gpu_memory_usage);
+      } else {
+        double percentage = fmin(
+            round(100. * ((double)device->processes[j].gpu_memory_usage / (double)device->dynamic_info.total_memory)),
+            100.);
+        SET_GPUINFO_PROCESS(&device->processes[j], gpu_memory_percentage, (unsigned)percentage);
+      }
     }
   }
 }
