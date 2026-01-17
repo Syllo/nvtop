@@ -31,6 +31,7 @@
 #include <string.h>
 
 #define NVML_SUCCESS 0
+#define NVML_ERROR_NOT_SUPPORTED 3
 #define NVML_ERROR_INSUFFICIENT_SIZE 7
 
 typedef struct nvmlDevice *nvmlDevice_t;
@@ -624,8 +625,10 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
         SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
         SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
       }
-    } else {
-      // Memory query failed - likely unified memory GPU (error code 13 = NOT_SUPPORTED)
+    } else if (last_nvml_return_status == NVML_ERROR_NOT_SUPPORTED) {
+      // From the NVM: documentation:
+      // On certain SOC platforms, the integrated GPU (iGPU) does not use a dedicated framebuffer but instead shares
+      // memory with the system. As a result, NVML_ERROR_NOT_SUPPORTED will be returned in this case.
       has_unified_memory = true;
     }
   }
@@ -642,8 +645,10 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
         SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
         SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
       }
-    } else {
-      // Memory query failed - likely unified memory GPU
+    } else if (last_nvml_return_status == NVML_ERROR_NOT_SUPPORTED) {
+      // From the NVM: documentation:
+      // On certain SOC platforms, the integrated GPU (iGPU) does not use a dedicated framebuffer but instead shares
+      // memory with the system. As a result, NVML_ERROR_NOT_SUPPORTED will be returned in this case.
       has_unified_memory = true;
     }
   }
