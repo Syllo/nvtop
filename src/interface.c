@@ -45,7 +45,7 @@
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
     [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
-    [device_l2features] = 11, [device_execengines] = 11, [device_effective_load] = 12,
+    [device_l2features] = 11, [device_execengines] = 11,
 };
 
 static unsigned int sizeof_process_field[process_field_count] = {
@@ -93,13 +93,6 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
              start_col + spacer * 4 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed]);
   if (dwin->power_info == NULL)
-    goto alloc_error;
-  dwin->effective_load =
-      newwin(1, sizeof_device_field[device_effective_load], start_row + 1,
-             start_col + spacer * 5 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
-                 sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                 sizeof_device_field[device_power]);
-  if (dwin->effective_load == NULL)
     goto alloc_error;
 
   // Line 3 = GPU used | MEM used | Encoder | Decoder
@@ -206,7 +199,6 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->gpu_clock_info);
   delwin(dwin->mem_clock_info);
   delwin(dwin->power_info);
-  delwin(dwin->effective_load);
   delwin(dwin->temperature);
   delwin(dwin->fan_speed);
   delwin(dwin->pcie_info);
@@ -353,7 +345,7 @@ static unsigned device_length(void) {
   return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
              sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                 sizeof_device_field[device_power] + sizeof_device_field[device_effective_load] + 5);
+                 sizeof_device_field[device_power] + 5);
 }
 
 static pid_t nvtop_pid;
@@ -498,6 +490,23 @@ static void draw_percentage_meter(WINDOW *win, const char *prelude, unsigned int
   wmove(win, cury, curx + between_sbraces - right_side_braces_space_required);
   wprintw(win, "%s", inside_braces_right);
   mvwchgat(win, cury, curx, represent_usage, 0, green_color, NULL);
+  wnoutrefresh(win);
+}
+
+// Draw percentage with a yellow highlight percentage (yellow percentage <= new_percentage)
+static void draw_percentage_meter_with_yellow_highlight(WINDOW *win, const char *prelude, unsigned int new_percentage,
+                                                        unsigned int yellow_percentage,
+                                                        const char inside_braces_right[1024]) {
+  draw_percentage_meter(win, prelude, new_percentage, inside_braces_right);
+  if (yellow_percentage > new_percentage)
+    yellow_percentage = new_percentage;
+  int rows, cols;
+  getmaxyx(win, rows, cols);
+  (void)rows;
+  size_t size_prelude = strlen(prelude);
+  int between_sbraces = cols - size_prelude - 2;
+  float usage = round((float)between_sbraces * yellow_percentage / 100.f);
+  mvwchgat(win, 0, size_prelude + 1, (int)usage, 0, yellow_color, NULL);
   wnoutrefresh(win);
 }
 
@@ -693,8 +702,15 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         draw_percentage_meter(decode_win, "DEC", rate, buff);
     }
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate)) {
-      snprintf(buff, 1024, "%u%%", device->dynamic_info.gpu_util_rate);
-      draw_percentage_meter(gpu_util_win, "GPU", device->dynamic_info.gpu_util_rate, buff);
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate)) {
+        snprintf(buff, 1024, "%u%%(eff %u%%)", device->dynamic_info.gpu_util_rate,
+                 device->dynamic_info.effective_load_rate);
+        draw_percentage_meter_with_yellow_highlight(gpu_util_win, "GPU", device->dynamic_info.gpu_util_rate,
+                                                    device->dynamic_info.effective_load_rate, buff);
+      } else {
+        snprintf(buff, 1024, "%u%%", device->dynamic_info.gpu_util_rate);
+        draw_percentage_meter(gpu_util_win, "GPU", device->dynamic_info.gpu_util_rate, buff);
+      }
     } else {
       snprintf(buff, 1024, "N/A");
       draw_percentage_meter(gpu_util_win, "GPU", 0, buff);
@@ -796,15 +812,6 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       mvwprintw(dev->power_info, 0, 0, "POW N/A W");
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->power_info);
-
-    // EFFECTIVE LOAD
-    werase(dev->effective_load);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate))
-      mvwprintw(dev->effective_load, 0, 0, "Eff. %3u%%", device->dynamic_info.effective_load_rate);
-    else
-      mvwprintw(dev->effective_load, 0, 0, "Eff. N/A%%");
-    mvwchgat(dev->effective_load, 0, 0, 4, 0, cyan_color, NULL);
-    wnoutrefresh(dev->effective_load);
 
     // PICe throughput
     werase(dev->pcie_info);
