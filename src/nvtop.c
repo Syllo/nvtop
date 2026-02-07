@@ -74,7 +74,8 @@ static const char helpstring[] = "Available options:\n"
                                  "(default 30s, negative = always on screen)\n"
                                  "  -h --help         : Print help and exit\n"
                                  "  -s --snapshot     : Output the current gpu stats without ncurses"
-                                 "(useful for scripting)\n";
+                                 "(useful for scripting)\n"
+                                 "  -l --loop         : Output the current gpu stats without ncurses in a loop\n";
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
@@ -92,10 +93,11 @@ static const struct option long_opts[] = {
     {.name = "no-processes", .has_arg = no_argument, .flag = NULL, .val = 'P'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
+    {.name = "loop", .has_arg = no_argument, .flag = NULL, .val = 'l'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pPris";
+static const char opts[] = "hvd:c:CfE:pPrisl";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -111,6 +113,7 @@ int main(int argc, char **argv) {
   bool encode_decode_timer_option_set = false;
   bool show_gpu_info_bar = false;
   bool show_snapshot = false;
+  bool loop_snapshot = false;
   double encode_decode_hide_time = -1.;
   char *custom_config_file_path = NULL;
   while (true) {
@@ -174,6 +177,9 @@ int main(int argc, char **argv) {
     case 's':
       show_snapshot = true;
       break;
+    case 'l':
+      loop_snapshot = true;
+      break;
     case ':':
     case '?':
       switch (optopt) {
@@ -231,6 +237,18 @@ int main(int argc, char **argv) {
     if (update_interval_option_set)
       interval = update_interval_option;
     print_snapshot(&monitoredGpus, use_fahrenheit_option, interval);
+    gpuinfo_shutdown_info_extraction(&monitoredGpus);
+    return EXIT_SUCCESS;
+  }
+
+  if (loop_snapshot) {
+    int interval = 1000;
+    if (update_interval_option_set)
+      interval = update_interval_option;
+    while (!signal_exit) {
+      print_snapshot(&monitoredGpus, use_fahrenheit_option, 0);
+      usleep(interval * 1000);
+    }
     gpuinfo_shutdown_info_extraction(&monitoredGpus);
     return EXIT_SUCCESS;
   }
