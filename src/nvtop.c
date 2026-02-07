@@ -227,7 +227,10 @@ int main(int argc, char **argv) {
   }
 
   if (show_snapshot) {
-    print_snapshot(&monitoredGpus, use_fahrenheit_option);
+    int interval = 0;
+    if (update_interval_option_set)
+      interval = update_interval_option;
+    print_snapshot(&monitoredGpus, use_fahrenheit_option, interval);
     gpuinfo_shutdown_info_extraction(&monitoredGpus);
     return EXIT_SUCCESS;
   }

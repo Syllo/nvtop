@@ -2094,9 +2094,21 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
   return dontShowAgainOption;
 }
 
-void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
+void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, int interval) {
   gpuinfo_populate_static_infos(devices);
   gpuinfo_refresh_dynamic_info(devices);
+  gpuinfo_refresh_processes(devices);
+  gpuinfo_utilisation_rate(devices);
+  gpuinfo_fix_dynamic_info_from_process_info(devices);
+
+  if (interval > 0) {
+    usleep(interval * 1000);
+    gpuinfo_refresh_dynamic_info(devices);
+    gpuinfo_refresh_processes(devices);
+    gpuinfo_utilisation_rate(devices);
+    gpuinfo_fix_dynamic_info_from_process_info(devices);
+  }
+
   struct gpu_info *device;
 
   printf("[\n");
