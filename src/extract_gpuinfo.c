@@ -21,9 +21,7 @@
 
 #include <ctype.h>
 #include <math.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/extract_gpuinfo_common.h"

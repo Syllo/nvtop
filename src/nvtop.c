@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <locale.h>
@@ -74,7 +75,8 @@ static const char helpstring[] = "Available options:\n"
                                  "(default 30s, negative = always on screen)\n"
                                  "  -h --help         : Print help and exit\n"
                                  "  -s --snapshot     : Output the current gpu stats without ncurses"
-                                 "(useful for scripting)\n";
+                                 "(useful for scripting)\n"
+                                 "  -l --loop         : Output the current gpu stats without ncurses in a loop\n";
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
@@ -92,10 +94,11 @@ static const struct option long_opts[] = {
     {.name = "no-processes", .has_arg = no_argument, .flag = NULL, .val = 'P'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
+    {.name = "loop", .has_arg = no_argument, .flag = NULL, .val = 'l'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pPris";
+static const char opts[] = "hvd:c:CfE:pPrisl";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -111,6 +114,7 @@ int main(int argc, char **argv) {
   bool encode_decode_timer_option_set = false;
   bool show_gpu_info_bar = false;
   bool show_snapshot = false;
+  bool loop_snapshot = false;
   double encode_decode_hide_time = -1.;
   char *custom_config_file_path = NULL;
   while (true) {
@@ -174,6 +178,9 @@ int main(int argc, char **argv) {
     case 's':
       show_snapshot = true;
       break;
+    case 'l':
+      loop_snapshot = true;
+      break;
     case ':':
     case '?':
       switch (optopt) {
@@ -226,8 +233,34 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
   }
 
-  if (show_snapshot) {
-    print_snapshot(&monitoredGpus, use_fahrenheit_option);
+  if (show_snapshot || loop_snapshot) {
+    gpuinfo_populate_static_infos(&monitoredGpus);
+
+    // Always do a refresh followed by a short sleep to have valid cycle based
+    // metrics
+    gpuinfo_refresh_dynamic_info(&monitoredGpus);
+    gpuinfo_refresh_processes(&monitoredGpus);
+    gpuinfo_utilisation_rate(&monitoredGpus);
+    // Default to 0.1 sec
+    if (!update_interval_option_set)
+      update_interval_option = 100;
+
+    do {
+#if _POSIX_C_SOURCE >= 199309L
+      struct timespec tv = {.tv_sec = update_interval_option / 1000,
+                            .tv_nsec = (update_interval_option % 1000) * 1000000};
+      nanosleep(&tv, &tv);
+#else
+      int sec = update_interval_option / 1000;
+      sleep(sec > 0 ? sec : 1);
+#endif
+      gpuinfo_refresh_dynamic_info(&monitoredGpus);
+      gpuinfo_refresh_processes(&monitoredGpus);
+      gpuinfo_utilisation_rate(&monitoredGpus);
+      gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
+      print_snapshot(&monitoredGpus, use_fahrenheit_option);
+    } while (loop_snapshot && !signal_exit);
+
     gpuinfo_shutdown_info_extraction(&monitoredGpus);
     return EXIT_SUCCESS;
   }
