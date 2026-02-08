@@ -34,6 +34,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include <locale.h>
@@ -232,23 +233,34 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
   }
 
-  if (show_snapshot) {
-    int interval = 0;
-    if (update_interval_option_set)
-      interval = update_interval_option;
-    print_snapshot(&monitoredGpus, use_fahrenheit_option, interval);
-    gpuinfo_shutdown_info_extraction(&monitoredGpus);
-    return EXIT_SUCCESS;
-  }
+  if (show_snapshot || loop_snapshot) {
+    gpuinfo_populate_static_infos(&monitoredGpus);
 
-  if (loop_snapshot) {
-    int interval = 1000;
-    if (update_interval_option_set)
-      interval = update_interval_option;
-    while (!signal_exit) {
-      print_snapshot(&monitoredGpus, use_fahrenheit_option, 0);
-      usleep(interval * 1000);
-    }
+    // Always do a refresh followed by a short sleep to have valid cycle based
+    // metrics
+    gpuinfo_refresh_dynamic_info(&monitoredGpus);
+    gpuinfo_refresh_processes(&monitoredGpus);
+    gpuinfo_utilisation_rate(&monitoredGpus);
+    // Default to 0.1 sec
+    if (!update_interval_option_set)
+      update_interval_option = 100;
+
+    do {
+#if _POSIX_C_SOURCE >= 199309L
+      struct timespec tv = {.tv_sec = update_interval_option / 1000,
+                            .tv_nsec = (update_interval_option % 1000) * 1000000};
+      nanosleep(&tv, &tv);
+#else
+      int sec = update_interval_option / 1000;
+      sleep(sec > 0 ? sec : 1);
+#endif
+      gpuinfo_refresh_dynamic_info(&monitoredGpus);
+      gpuinfo_refresh_processes(&monitoredGpus);
+      gpuinfo_utilisation_rate(&monitoredGpus);
+      gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
+      print_snapshot(&monitoredGpus, use_fahrenheit_option);
+    } while (loop_snapshot && !signal_exit);
+
     gpuinfo_shutdown_info_extraction(&monitoredGpus);
     return EXIT_SUCCESS;
   }
