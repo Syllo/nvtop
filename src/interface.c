@@ -2336,4 +2336,5 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
       printf("%s},\n", indent_level_two);
   }
   printf("]\n");
+  fflush(stdout);
 }
