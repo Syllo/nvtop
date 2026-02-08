@@ -2223,7 +2223,7 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
       // PID
       printf("%s\"pid\": \"%d\",\n", indent_level_eight, proc->pid);
 
-      printf("%s\"cmdline\": \"", indent_level_six);
+      printf("%s\"cmdline\": \"", indent_level_eight);
       for (char *li = proc->cmdline; *li != '\0'; li++) {
         // We need to escape some characters for for json strings
         if (*li == '\n') {
