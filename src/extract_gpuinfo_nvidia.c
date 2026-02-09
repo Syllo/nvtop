@@ -271,10 +271,9 @@ __attribute__((constructor)) static void init_extract_gpuinfo_nvidia(void) { reg
  *
  */
 static bool gpuinfo_nvidia_init(void) {
-
-  libnvidia_ml_handle = dlopen("libnvidia-ml.so", RTLD_LAZY);
-  if (!libnvidia_ml_handle)
     libnvidia_ml_handle = dlopen("libnvidia-ml.so.1", RTLD_LAZY);
+  if (!libnvidia_ml_handle)
+    libnvidia_ml_handle = dlopen("libnvidia-ml.so", RTLD_LAZY);
   if (!libnvidia_ml_handle) {
     local_error_string = dlerror();
     return false;
