@@ -135,6 +135,10 @@ void processinfo_sweep_fdinfos(void) {
     if (!client_pid)
       goto next;
 
+    // Do not show nvtop itself in its internal processes list.
+    if (client_pid == (unsigned int)getpid())
+      goto next;
+
     fd_dir_fd = openat(pid_dir_fd, "fd", O_DIRECTORY);
     if (fd_dir_fd < 0)
       goto next;
@@ -277,12 +281,10 @@ void processinfo_sweep_fdinfos(void) {
                             process_info->dec_engine_used + processes_info_local.dec_engine_used);
       }
       if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_cycles)) {
-        SET_GPUINFO_PROCESS(process_info, gpu_cycles,
-                            process_info->gpu_cycles + processes_info_local.gpu_cycles);
+        SET_GPUINFO_PROCESS(process_info, gpu_cycles, process_info->gpu_cycles + processes_info_local.gpu_cycles);
       }
       if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, sample_delta)) {
-        SET_GPUINFO_PROCESS(process_info, sample_delta,
-                            process_info->sample_delta + processes_info_local.sample_delta);
+        SET_GPUINFO_PROCESS(process_info, sample_delta, process_info->sample_delta + processes_info_local.sample_delta);
       }
     }
 

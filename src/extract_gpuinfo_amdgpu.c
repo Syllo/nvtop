@@ -37,10 +37,13 @@
 #include <libdrm/amdgpu.h>
 #include <libdrm/amdgpu_drm.h>
 #include <math.h>
+#include <pthread.h>
 #include <stdarg.h>
+#include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -48,6 +51,9 @@
 #include <unistd.h>
 #include <uthash.h>
 #include <xf86drm.h>
+
+extern bool nvtop_debug_amdgpu_metrics;
+extern bool nvtop_enable_pcie_bw_sleep;
 
 // extern
 const char *amdgpu_parse_marketing_name(struct amdgpu_gpu_info *info);
@@ -120,8 +126,14 @@ struct gpu_info_amdgpu {
 
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
   FILE *fanSpeedFILE; // FILE* for this device current fan speed
-  FILE *PCIeBW;       // FILE* for this device PCIe bandwidth over one second
+  FILE *fanRPMFILE;   // FILE* for raw RPM reading (always fan1_input)
   FILE *powerCap;     // FILE* for this device power cap
+
+  // gpu_metrics sysfs file descriptor for non-blocking PCIe bandwidth reading
+  // (replaces pcie_bw which blocks for 1 second per read due to kernel msleep(1000))
+  int gpuMetricsFD;
+  uint64_t last_pcie_bw_acc; // Previous pcie_bandwidth_acc value for delta computation
+  bool has_pcie_bw_acc_prev; // Whether we have a previous accumulated value
 
   nvtop_device *amdgpuDevice; // The AMDGPU driver device
   nvtop_device *hwmonDevice;  // The AMDGPU driver hwmon device
@@ -130,6 +142,9 @@ struct gpu_info_amdgpu {
 
   // Used to compute the actual fan speed
   unsigned maxFanValue;
+
+  // Asynchronous PCIe Bandwidth fetching thread (Fallback if gpuMetricsFD < 0 or missing PCIe)
+  FILE *PCIeBW; // FILE* for this device PCIe bandwidth over one second
 };
 
 unsigned amdgpu_count;
@@ -142,6 +157,7 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_amdgpu_get_running_processes(struct gpu_info *_gpu_info);
+static int rewindAndReadPattern(FILE *file, const char *format, ...);
 
 struct gpu_vendor gpu_vendor_amdgpu = {
     .init = gpuinfo_amdgpu_init,
@@ -235,8 +251,14 @@ init_error_clean_exit:
 static void gpuinfo_amdgpu_shutdown(void) {
   for (unsigned i = 0; i < amdgpu_count; ++i) {
     struct gpu_info_amdgpu *gpu_info = &gpu_infos[i];
+
     if (gpu_info->fanSpeedFILE)
       fclose(gpu_info->fanSpeedFILE);
+    // Only close if it's a separate file handle (not shared with fanSpeedFILE)
+    if (gpu_info->fanRPMFILE && gpu_info->fanRPMFILE != gpu_info->fanSpeedFILE)
+      fclose(gpu_info->fanRPMFILE);
+    if (gpu_info->gpuMetricsFD >= 0)
+      close(gpu_info->gpuMetricsFD);
     if (gpu_info->PCIeBW)
       fclose(gpu_info->PCIeBW);
     if (gpu_info->powerCap)
@@ -332,15 +354,32 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
 
     // Look for which fan to use (PWM or RPM)
     gpu_info->fanSpeedFILE = NULL;
+    gpu_info->fanRPMFILE = NULL;
     unsigned pwmIsEnabled;
     int NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "pwm1_enable", "%u", &pwmIsEnabled);
     bool usePWMSensor = NreadPatterns == 1 && pwmIsEnabled > 0;
 
     bool useRPMSensor = false;
-    if (!usePWMSensor) {
+    // When pwm1_enable=2 (automatic), the driver/firmware controls the fan
+    // directly and pwm1 often reads 0 regardless of actual speed.
+    // Prefer fan1_input (RPM tachometer) which always reflects reality.
+    if (usePWMSensor && pwmIsEnabled == 2) {
+      // Check if RPM tachometer is available and readable
+      unsigned rpmCheck;
+      NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "fan1_input", "%u", &rpmCheck);
+      if (NreadPatterns == 1) {
+        unsigned rpmMax;
+        NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "fan1_max", "%u", &rpmMax);
+        if (NreadPatterns == 1 && rpmMax > 0) {
+          usePWMSensor = false;
+          useRPMSensor = true;
+        }
+      }
+    }
+    if (!usePWMSensor && !useRPMSensor) {
       unsigned rpmIsEnabled;
       NreadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "fan1_enable", "%u", &rpmIsEnabled);
-      useRPMSensor = NreadPatterns && rpmIsEnabled > 0;
+      useRPMSensor = NreadPatterns == 1 && rpmIsEnabled > 0;
     }
     // Either RPM or PWM or neither
     assert((useRPMSensor ^ usePWMSensor) || (!useRPMSensor && !usePWMSensor));
@@ -360,6 +399,21 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
         }
       }
     }
+
+    // Always try to open fan1_input for raw RPM display, independent of
+    // which sensor is used for percentage calculation.
+    // If fanSpeedFILE already reads fan1_input (useRPMSensor), reuse it.
+    if (useRPMSensor && gpu_info->fanSpeedFILE) {
+      gpu_info->fanRPMFILE = gpu_info->fanSpeedFILE;
+    } else {
+      int fanRPMFD = openat(hwmonFD, "fan1_input", O_RDONLY);
+      if (fanRPMFD >= 0) {
+        gpu_info->fanRPMFILE = fdopen(fanRPMFD, "r");
+        if (!gpu_info->fanRPMFILE)
+          close(fanRPMFD);
+      }
+    }
+
     // Open the power cap file for dynamic info gathering
     gpu_info->powerCap = NULL;
     int powerCapFD = openat(hwmonFD, "power1_cap", O_RDONLY);
@@ -370,11 +424,29 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
   }
 
   int sysfsFD = open(devicePath, O_RDONLY);
-  // Open the PCIe bandwidth file for dynamic info gathering
+  // Open the gpu_metrics file for non-blocking PCIe bandwidth reading
+  // (pcie_bw sysfs blocks for 1 second per read due to kernel msleep(1000))
+  gpu_info->gpuMetricsFD = openat(sysfsFD, "gpu_metrics", O_RDONLY);
+  gpu_info->last_pcie_bw_acc = 0;
+  gpu_info->has_pcie_bw_acc_prev = false;
+
+  bool metrics_has_pcie = false;
+  if (gpu_info->gpuMetricsFD >= 0) {
+    uint8_t header[4];
+    if (pread(gpu_info->gpuMetricsFD, header, sizeof(header), 0) == 4) {
+      if (header[2] == 1 && header[3] >= 4) {
+        metrics_has_pcie = true;
+      }
+    }
+  }
+
+  // Open the legacy PCIe bandwidth file for async worker fallback gathering
   gpu_info->PCIeBW = NULL;
-  int pcieBWFD = openat(sysfsFD, "pcie_bw", O_RDONLY);
-  if (pcieBWFD) {
-    gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
+  if (!metrics_has_pcie) {
+    int pcieBWFD = openat(sysfsFD, "pcie_bw", O_RDONLY);
+    if (pcieBWFD >= 0) {
+      gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
+    }
   }
 
   close(sysfsFD);
@@ -466,6 +538,7 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       list_add_tail(&gpu_infos[amdgpu_count].base.list, devices);
       // Register a fdinfo callback for this GPU
       processinfo_register_fdinfo_callback(parse_drm_fdinfo_amd, &gpu_infos[amdgpu_count].base);
+
       amdgpu_count++;
     } else {
       _drmFreeVersion(ver);
@@ -627,6 +700,13 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
     if (nReadPatterns == 1) {
       SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergencyTemp);
     }
+
+    // Fan RPM max (for UI display alongside percentage)
+    unsigned fanRPMMax;
+    nReadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "fan1_max", "%u", &fanRPMMax);
+    if (nReadPatterns == 1 && fanRPMMax > 0) {
+      SET_GPUINFO_STATIC(static_info, fan_rpm_max, fanRPMMax);
+    }
   }
 
   nvtop_pcie_link max_link_characteristics;
@@ -705,16 +785,29 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // Memory usage
   struct drm_amdgpu_memory_info memory_info;
+  struct timespec t_query_start, t_query_end;
+  if (nvtop_debug_amdgpu_metrics) {
+    clock_gettime(CLOCK_MONOTONIC, &t_query_start);
+  }
   if (libdrm_amdgpu_handle && _amdgpu_query_info)
     last_libdrm_return_status =
         _amdgpu_query_info(gpu_info->amdgpu_device, AMDGPU_INFO_MEMORY, sizeof(memory_info), &memory_info);
   else
     last_libdrm_return_status = 1;
+  if (nvtop_debug_amdgpu_metrics) {
+    clock_gettime(CLOCK_MONOTONIC, &t_query_end);
+    double elapsed_q = (t_query_end.tv_sec - t_query_start.tv_sec) * 1000.0 +
+                       (t_query_end.tv_nsec - t_query_start.tv_nsec) / 1000000.0;
+    fprintf(stderr, "[DEBUG] AMD _amdgpu_query_info(AMDGPU_INFO_MEMORY) took %.2f ms\n", elapsed_q);
+  }
   if (!last_libdrm_return_status) {
     if (gpu_info->base.static_info.integrated_graphics) {
-      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.vram.total_heap_size + memory_info.gtt.total_heap_size);
+      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory,
+                          memory_info.vram.total_heap_size + memory_info.gtt.total_heap_size);
       SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.vram.heap_usage + memory_info.gtt.heap_usage);
-      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.vram.total_heap_size + memory_info.gtt.total_heap_size - dynamic_info->used_memory);
+      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory,
+                          memory_info.vram.total_heap_size + memory_info.gtt.total_heap_size -
+                              dynamic_info->used_memory);
     } else {
       SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.vram.total_heap_size);
       SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.vram.heap_usage);
@@ -736,9 +829,35 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // Fan speed
   unsigned currentFanSpeed;
+  if (nvtop_debug_amdgpu_metrics) {
+    clock_gettime(CLOCK_MONOTONIC, &t_query_start);
+  }
   int patternsMatched = rewindAndReadPattern(gpu_info->fanSpeedFILE, "%u", &currentFanSpeed);
+  if (nvtop_debug_amdgpu_metrics) {
+    clock_gettime(CLOCK_MONOTONIC, &t_query_end);
+    double elapsed_q = (t_query_end.tv_sec - t_query_start.tv_sec) * 1000.0 +
+                       (t_query_end.tv_nsec - t_query_start.tv_nsec) / 1000000.0;
+    fprintf(stderr, "[DEBUG] AMD rewindAndReadPattern(fanSpeedFILE) took %.2f ms\n", elapsed_q);
+  }
   if (patternsMatched == 1) {
     SET_GPUINFO_DYNAMIC(dynamic_info, fan_speed, currentFanSpeed * 100 / gpu_info->maxFanValue);
+  }
+
+  // Fan RPM (raw tachometer reading)
+  if (gpu_info->fanRPMFILE) {
+    unsigned currentRPM;
+    // If fanRPMFILE is the same as fanSpeedFILE (RPM sensor used for both),
+    // reuse the value we already read instead of reading the file again.
+    if (gpu_info->fanRPMFILE == gpu_info->fanSpeedFILE) {
+      if (patternsMatched == 1) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, currentFanSpeed);
+      }
+    } else {
+      patternsMatched = rewindAndReadPattern(gpu_info->fanRPMFILE, "%u", &currentRPM);
+      if (patternsMatched == 1) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, currentRPM);
+      }
+    }
   }
 
   // Device power usage
@@ -759,21 +878,93 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, pcieGen);
   }
 
-  // PCIe bandwidth
-  if (gpu_info->PCIeBW) {
-    // According to https://github.com/torvalds/linux/blob/master/drivers/gpu/drm/amd/pm/amdgpu_pm.c, under the pcie_bw
-    // section, we should be able to read the number of packets received and sent by the GPU and get the maximum payload
-    // size during the last second. This is untested but should work when the file is populated by the driver.
+  // PCIe bandwidth via gpu_metrics (non-blocking, replaces pcie_bw which has a 1-second kernel sleep)
+  if (gpu_info->gpuMetricsFD >= 0) {
+    // Read the gpu_metrics binary file from sysfs
+    // The file starts with a 4-byte header: structure_size(u16), format_revision(u8), content_revision(u8)
+    // For dGPU metrics v1_4+, pcie_bandwidth_inst is available at a known offset
+    uint8_t metrics_buf[256]; // Large enough for the header + PCIe bandwidth fields
+    ssize_t nread = pread(gpu_info->gpuMetricsFD, metrics_buf, sizeof(metrics_buf), 0);
+    if (nread >= 4) {
+      uint16_t structure_size;
+      memcpy(&structure_size, metrics_buf, sizeof(structure_size));
+      uint8_t format_revision = metrics_buf[2];
+      uint8_t content_revision = metrics_buf[3];
+
+      // gpu_metrics v1_4+ (dGPU) has pcie_bandwidth_acc and pcie_bandwidth_inst
+      // format_revision == 1 means dGPU metrics, content_revision >= 4 means v1_4+
+      if (format_revision == 1 && content_revision >= 4 && nread >= (ssize_t)structure_size) {
+        // In gpu_metrics_v1_4, the layout after the header has pcie_bandwidth_acc and pcie_bandwidth_inst
+        // as uint64_t fields. We use pcie_bandwidth_inst (instantaneous bandwidth in GB/sec)
+        // and split evenly as an approximation for RX/TX since the kernel doesn't separate them.
+        //
+        // Field offsets within gpu_metrics_v1_4 (after the 4-byte header):
+        //   The pcie_bandwidth_inst field follows pcie_bandwidth_acc.
+        //   We scan from the structure definition to find pcie_bandwidth_acc offset.
+        //
+        // Offset calculation for gpu_metrics_v1_4:
+        //   header(4) + temp_hotspot(2) + temp_mem(2) + temp_vrsoc(2) = 10
+        //   curr_socket_power(2) = 12
+        //   avg_gfx_activity(2) + avg_umc_activity(2) + vcn_activity[4](8) = 24
+        //   energy_accumulator(8) = 32
+        //   system_clock_counter(8) = 40
+        //   throttle_status(4) = 44
+        //   gfxclk_lock_status(4) = 48
+        //   pcie_link_width(2) + pcie_link_speed(2) = 52
+        //   xgmi_link_width(2) + xgmi_link_speed(2) = 56
+        //   gfx_activity_acc(4) + mem_activity_acc(4) = 64
+        //   pcie_bandwidth_acc(8) = offset 64, ends at 72
+        //   pcie_bandwidth_inst(8) = offset 72, ends at 80
+        // const size_t pcie_bw_acc_offset = 64;
+        const size_t pcie_bw_inst_offset = 72;
+        if (nread >= (ssize_t)(pcie_bw_inst_offset + sizeof(uint64_t))) {
+          uint64_t pcie_bw_inst;
+          memcpy(&pcie_bw_inst, metrics_buf + pcie_bw_inst_offset, sizeof(pcie_bw_inst));
+
+          // In gpu_metrics, if a sensor is unsupported, it often reports 0xFFFFFFFFFFFFFFFF (UINT64_MAX)
+          if (pcie_bw_inst != UINT64_MAX) {
+            // pcie_bandwidth_inst is in GB/sec, convert to KiB/sec
+            // Split evenly between RX and TX as a best approximation
+            uint64_t total_kib = pcie_bw_inst * 1024 * 1024; // GB/sec -> KiB/sec
+            SET_GPUINFO_DYNAMIC(dynamic_info, pcie_rx, total_kib / 2);
+            SET_GPUINFO_DYNAMIC(dynamic_info, pcie_tx, total_kib / 2);
+          }
+        }
+      }
+
+      if (nvtop_debug_amdgpu_metrics) {
+        fprintf(stderr, "[DEBUG] AMD gpu_metrics read %zd bytes: format_revision=%u, content_revision=%u\n", nread,
+                format_revision, content_revision);
+        fprintf(stderr, "[DEBUG] Raw gpu_metrics hex dump:\n");
+        for (ssize_t i = 0; i < nread; i++) {
+          fprintf(stderr, "%02x ", metrics_buf[i]);
+          if ((i + 1) % 16 == 0)
+            fprintf(stderr, "\n");
+        }
+        fprintf(stderr, "\n");
+      }
+    }
+  } else if (gpu_info->PCIeBW && nvtop_enable_pcie_bw_sleep) {
     uint64_t received, transmitted;
     int maxPayloadSize;
+    if (nvtop_debug_amdgpu_metrics) {
+      clock_gettime(CLOCK_MONOTONIC, &t_query_start);
+    }
     int NreadPatterns =
         rewindAndReadPattern(gpu_info->PCIeBW, "%" SCNu64 " %" SCNu64 " %i", &received, &transmitted, &maxPayloadSize);
+    if (nvtop_debug_amdgpu_metrics) {
+      clock_gettime(CLOCK_MONOTONIC, &t_query_end);
+      double elapsed_q = (t_query_end.tv_sec - t_query_start.tv_sec) * 1000.0 +
+                         (t_query_end.tv_nsec - t_query_start.tv_nsec) / 1000000.0;
+      fprintf(stderr, "[DEBUG] AMD pcie_bw inline read took %.2f ms. Matches: %d\n", elapsed_q, NreadPatterns);
+    }
     if (NreadPatterns == 3) {
       received *= maxPayloadSize;
       transmitted *= maxPayloadSize;
-      // Set in KiB
+      // Store in KiB
       received /= 1024;
       transmitted /= 1024;
+
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_rx, received);
       SET_GPUINFO_DYNAMIC(dynamic_info, pcie_tx, transmitted);
     }
@@ -787,6 +978,12 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, powerCap / 1000);
     }
   }
+
+  // AMDGPU does not expose encode/decode utilization through DRM sensor queries.
+  // Set baseline to 0; actual per-process usage will be aggregated in
+  // gpuinfo_fix_dynamic_info_from_process_info.
+  SET_GPUINFO_DYNAMIC(dynamic_info, encoder_rate, 0);
+  SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, 0);
 }
 
 static const char drm_amdgpu_pdev_old[] = "pdev";

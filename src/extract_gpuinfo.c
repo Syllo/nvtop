@@ -134,43 +134,67 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
     unsigned reportedGpuRate = dynamic_info->gpu_util_rate;
     RESET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate);
 
-    // AMDGPU does not provide encode and decode utilization through the DRM sensor info.
-    // Update them here since per-process sysfs exposes this information.
-    bool needGpuEncode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate);
-    bool needGpuDecode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate);
+    // For encode/decode, save vendor-reported values and reset, then re-aggregate
+    // from per-process info (same pattern as gpu_util_rate). This ensures GPUs that
+    // set a baseline (e.g., AMDGPU sets 0) show 0% when idle, while GPUs that never
+    // set encoder_rate/decoder_rate still show null.
+    bool validReportedEncoderRate = GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate);
+    unsigned reportedEncoderRate = dynamic_info->encoder_rate;
+    if (validReportedEncoderRate)
+      RESET_GPUINFO_DYNAMIC(dynamic_info, encoder_rate);
+
+    bool validReportedDecoderRate = GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate);
+    unsigned reportedDecoderRate = dynamic_info->decoder_rate;
+    if (validReportedDecoderRate)
+      RESET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate);
+
     bool needGPUMemory = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) &&
                          GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory);
-    if (needGpuRate || needGpuEncode || needGpuDecode || needGPUMemory) {
-      for (unsigned processIdx = 0; processIdx < device->processes_count; ++processIdx) {
-        struct gpu_process *process_info = &device->processes[processIdx];
-        if (needGpuRate && GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage)) {
-          if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate)) {
-            dynamic_info->gpu_util_rate = MYMIN(100, dynamic_info->gpu_util_rate + process_info->gpu_usage);
-          } else {
-            SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, MYMIN(100, process_info->gpu_usage));
-          }
+    for (unsigned processIdx = 0; processIdx < device->processes_count; ++processIdx) {
+      struct gpu_process *process_info = &device->processes[processIdx];
+      if (needGpuRate && GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage)) {
+        if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate)) {
+          dynamic_info->gpu_util_rate = MYMIN(100, dynamic_info->gpu_util_rate + process_info->gpu_usage);
+        } else {
+          SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, MYMIN(100, process_info->gpu_usage));
         }
-        if (needGpuEncode && GPUINFO_PROCESS_FIELD_VALID(process_info, encode_usage)) {
-          if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate)) {
-            dynamic_info->encoder_rate = MYMIN(100, dynamic_info->encoder_rate + process_info->encode_usage);
-          } else {
-            SET_GPUINFO_DYNAMIC(dynamic_info, encoder_rate, MYMIN(100, process_info->encode_usage));
-          }
+      }
+      if (GPUINFO_PROCESS_FIELD_VALID(process_info, encode_usage)) {
+        if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate)) {
+          dynamic_info->encoder_rate = MYMIN(100, dynamic_info->encoder_rate + process_info->encode_usage);
+        } else {
+          SET_GPUINFO_DYNAMIC(dynamic_info, encoder_rate, MYMIN(100, process_info->encode_usage));
         }
-        if (needGpuDecode && GPUINFO_PROCESS_FIELD_VALID(process_info, decode_usage)) {
-          if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate)) {
-            dynamic_info->decoder_rate = MYMIN(100, dynamic_info->decoder_rate + process_info->decode_usage);
-          } else {
-            SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, MYMIN(100, process_info->decode_usage));
-          }
+      }
+      if (GPUINFO_PROCESS_FIELD_VALID(process_info, decode_usage)) {
+        if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate)) {
+          dynamic_info->decoder_rate = MYMIN(100, dynamic_info->decoder_rate + process_info->decode_usage);
+        } else {
+          SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, MYMIN(100, process_info->decode_usage));
         }
-        if (needGPUMemory && GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage)) {
-          if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory)) {
-            dynamic_info->used_memory += dynamic_info->used_memory + process_info->gpu_memory_usage;
-          } else {
-            SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, process_info->gpu_memory_usage);
-          }
+      }
+      if (needGPUMemory && GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage)) {
+        if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory)) {
+          dynamic_info->used_memory += dynamic_info->used_memory + process_info->gpu_memory_usage;
+        } else {
+          SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, process_info->gpu_memory_usage);
         }
+      }
+    }
+    // Restore vendor-reported encoder/decoder rate if process aggregation didn't produce a value,
+    // or use the max of vendor-reported and process-aggregated
+    if (validReportedEncoderRate) {
+      if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, encoder_rate)) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, encoder_rate, reportedEncoderRate);
+      } else if (dynamic_info->encoder_rate < reportedEncoderRate) {
+        dynamic_info->encoder_rate = reportedEncoderRate;
+      }
+    }
+    if (validReportedDecoderRate) {
+      if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate)) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, reportedDecoderRate);
+      } else if (dynamic_info->decoder_rate < reportedDecoderRate) {
+        dynamic_info->decoder_rate = reportedDecoderRate;
       }
     }
     // Sanitize what we got from processes: we can't have more than the total!
@@ -394,13 +418,14 @@ void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info) {
     return;
 
   if (IS_VALID(gpuinfo_engine_count_valid, gpu_info->static_info.valid))
-          ec = gpu_info->static_info.engine_count;
+    ec = gpu_info->static_info.engine_count;
   else
-          ec = 1;
+    ec = 1;
 
   avg_delta_secs = ((double)total_delta / gpu_info->processes_count) / 1000000000.0;
   max_freq_hz = gpu_info->dynamic_info.gpu_clock_speed_max * 1000000;
-  utilisation_rate = (unsigned int)((((double)gfx_total_process_cycles) / (((double)max_freq_hz) * avg_delta_secs * ec)) * 100);
+  utilisation_rate =
+      (unsigned int)((((double)gfx_total_process_cycles) / (((double)max_freq_hz) * avg_delta_secs * ec)) * 100);
   utilisation_rate = utilisation_rate > 100 ? 100 : utilisation_rate;
 
   SET_GPUINFO_DYNAMIC(&gpu_info->dynamic_info, gpu_util_rate, utilisation_rate);

@@ -29,6 +29,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #define NVML_SUCCESS 0
 #define NVML_ERROR_NOT_SUPPORTED 3
@@ -170,8 +171,8 @@ typedef struct {
   unsigned long long usedGpuMemory;
   unsigned int gpuInstanceId;
   unsigned int computeInstanceId;
-  // This is present in https://github.com/NVIDIA/DCGM/blob/master/sdk/nvidia/nvml/nvml.h#L294 but not the latest driver nvml.h
-  // unsigned long long usedGpuCcProtectedMemory;
+  // This is present in https://github.com/NVIDIA/DCGM/blob/master/sdk/nvidia/nvml/nvml.h#L294 but not the latest driver
+  // nvml.h unsigned long long usedGpuCcProtectedMemory;
 } nvmlProcessInfo_v3_t;
 
 static nvmlReturn_t (*nvmlDeviceGetGraphicsRunningProcesses_v1)(nvmlDevice_t device, unsigned int *infoCount,
@@ -394,11 +395,11 @@ static bool gpuinfo_nvidia_init(void) {
     goto init_error_clean_exit;
 
   nvmlDeviceGetGraphicsRunningProcesses[1] =
-      (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetGraphicsRunningProcesses_v1;
+      (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetGraphicsRunningProcesses_v1;
   nvmlDeviceGetGraphicsRunningProcesses[2] =
-      (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetGraphicsRunningProcesses_v2;
+      (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetGraphicsRunningProcesses_v2;
   nvmlDeviceGetGraphicsRunningProcesses[3] =
-      (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetGraphicsRunningProcesses_v3;
+      (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetGraphicsRunningProcesses_v3;
 
   nvmlDeviceGetComputeRunningProcesses_v3 = dlsym(libnvidia_ml_handle, "nvmlDeviceGetComputeRunningProcesses_v3");
   nvmlDeviceGetComputeRunningProcesses_v2 = dlsym(libnvidia_ml_handle, "nvmlDeviceGetComputeRunningProcesses_v2");
@@ -408,11 +409,11 @@ static bool gpuinfo_nvidia_init(void) {
     goto init_error_clean_exit;
 
   nvmlDeviceGetComputeRunningProcesses[1] =
-      (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetComputeRunningProcesses_v1;
+      (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetComputeRunningProcesses_v1;
   nvmlDeviceGetComputeRunningProcesses[2] =
-      (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetComputeRunningProcesses_v2;
+      (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetComputeRunningProcesses_v2;
   nvmlDeviceGetComputeRunningProcesses[3] =
-      (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetComputeRunningProcesses_v3;
+      (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetComputeRunningProcesses_v3;
 
   // These functions were not available in older NVML libs; don't error if not present
   nvmlDeviceGetMPSComputeRunningProcesses_v3 = dlsym(libnvidia_ml_handle, "nvmlDeviceGetMPSComputeRunningProcesses_v3");
@@ -420,11 +421,11 @@ static bool gpuinfo_nvidia_init(void) {
   nvmlDeviceGetMPSComputeRunningProcesses_v1 = dlsym(libnvidia_ml_handle, "nvmlDeviceGetMPSComputeRunningProcesses");
 
   nvmlDeviceGetMPSComputeRunningProcesses[1] =
-      (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetMPSComputeRunningProcesses_v1;
+      (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetMPSComputeRunningProcesses_v1;
   nvmlDeviceGetMPSComputeRunningProcesses[2] =
-      (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetMPSComputeRunningProcesses_v2;
+      (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetMPSComputeRunningProcesses_v2;
   nvmlDeviceGetMPSComputeRunningProcesses[3] =
-      (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetMPSComputeRunningProcesses_v3;
+      (nvmlReturn_t (*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetMPSComputeRunningProcesses_v3;
 
   // These ones might not be available
   nvmlDeviceGetProcessUtilization = dlsym(libnvidia_ml_handle, "nvmlDeviceGetProcessUtilization");
@@ -882,30 +883,44 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
         }
       }
       memset(_gpu_info->processes, 0, _gpu_info->processes_count * sizeof(*_gpu_info->processes));
+      unsigned valid_procs = 0;
       for (unsigned i = 0; i < graphical_count + compute_count; ++i) {
-        if (i < graphical_count)
-          _gpu_info->processes[i].type = gpu_process_graphical;
-        else
-          _gpu_info->processes[i].type = gpu_process_compute;
+        pid_t parsed_pid = -1;
         switch (version) {
         case 2: {
           nvmlProcessInfo_v2_t *pinfo = (nvmlProcessInfo_v2_t *)retrieved_infos;
-          _gpu_info->processes[i].pid = pinfo[i].pid;
-          _gpu_info->processes[i].gpu_memory_usage = pinfo[i].usedGpuMemory;
+          parsed_pid = pinfo[i].pid;
+          _gpu_info->processes[valid_procs].pid = pinfo[i].pid;
+          _gpu_info->processes[valid_procs].gpu_memory_usage = pinfo[i].usedGpuMemory;
         } break;
         case 3: {
           nvmlProcessInfo_v3_t *pinfo = (nvmlProcessInfo_v3_t *)retrieved_infos;
-          _gpu_info->processes[i].pid = pinfo[i].pid;
-          _gpu_info->processes[i].gpu_memory_usage = pinfo[i].usedGpuMemory;
+          parsed_pid = pinfo[i].pid;
+          _gpu_info->processes[valid_procs].pid = pinfo[i].pid;
+          _gpu_info->processes[valid_procs].gpu_memory_usage = pinfo[i].usedGpuMemory;
         } break;
         default: {
           nvmlProcessInfo_v1_t *pinfo = (nvmlProcessInfo_v1_t *)retrieved_infos;
-          _gpu_info->processes[i].pid = pinfo[i].pid;
-          _gpu_info->processes[i].gpu_memory_usage = pinfo[i].usedGpuMemory;
+          parsed_pid = pinfo[i].pid;
+          _gpu_info->processes[valid_procs].pid = pinfo[i].pid;
+          _gpu_info->processes[valid_procs].gpu_memory_usage = pinfo[i].usedGpuMemory;
         } break;
         }
-        SET_VALID(gpuinfo_process_gpu_memory_usage_valid, _gpu_info->processes[i].valid);
+
+        // Do not display nvtop in its own interface.
+        if (parsed_pid == getpid()) {
+          continue;
+        }
+
+        if (i < graphical_count)
+          _gpu_info->processes[valid_procs].type = gpu_process_graphical;
+        else
+          _gpu_info->processes[valid_procs].type = gpu_process_compute;
+
+        SET_VALID(gpuinfo_process_gpu_memory_usage_valid, _gpu_info->processes[valid_procs].valid);
+        valid_procs++;
       }
+      _gpu_info->processes_count = valid_procs;
     }
   }
   // If the GPU is in MIG mode; process utilization is not supported

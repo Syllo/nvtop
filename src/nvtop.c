@@ -28,6 +28,7 @@
 #include "nvtop/version.h"
 
 #include <getopt.h>
+#include <math.h>
 #include <ncurses.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -58,6 +59,9 @@ static void cont_handler(int signum) {
   signal_cont_received = 1;
 }
 
+bool nvtop_debug_amdgpu_metrics = false;
+bool nvtop_enable_pcie_bw_sleep = false;
+
 static const char helpstring[] = "Available options:\n"
                                  "  -d --delay        : Select the refresh rate (1 == 0.1s)\n"
                                  "  -v --version      : Print the version and exit\n"
@@ -75,8 +79,9 @@ static const char helpstring[] = "Available options:\n"
                                  "(default 30s, negative = always on screen)\n"
                                  "  -h --help         : Print help and exit\n"
                                  "  -s --snapshot     : Output the current gpu stats without ncurses"
-                                 "(useful for scripting)\n"
-                                 "  -l --loop         : Output the current gpu stats without ncurses in a loop\n";
+                                 "  -l --loop         : Output the current gpu stats without ncurses in a loop\n"
+                                 "  -S --pciespeed    : Forces 1-second delay for PCIe bandwidth fallback (AMD only)\n"
+                                 "  -D --debug        : Output raw gpu_metrics data to stderr (AMD only)\n";
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
@@ -95,10 +100,12 @@ static const struct option long_opts[] = {
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
     {.name = "loop", .has_arg = no_argument, .flag = NULL, .val = 'l'},
+    {.name = "pciespeed", .has_arg = no_argument, .flag = NULL, .val = 'S'},
+    {.name = "debug", .has_arg = no_argument, .flag = NULL, .val = 'D'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pPrisl";
+static const char opts[] = "hvd:c:CfE:pPrislSD";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -181,6 +188,12 @@ int main(int argc, char **argv) {
     case 'l':
       loop_snapshot = true;
       break;
+    case 'D':
+      nvtop_debug_amdgpu_metrics = true;
+      break;
+    case 'S':
+      nvtop_enable_pcie_bw_sleep = true;
+      break;
     case ':':
     case '?':
       switch (optopt) {
@@ -233,27 +246,53 @@ int main(int argc, char **argv) {
     return EXIT_SUCCESS;
   }
 
-  if (show_snapshot || loop_snapshot) {
-    gpuinfo_populate_static_infos(&monitoredGpus);
+  gpuinfo_populate_static_infos(&monitoredGpus);
 
-    // Always do a refresh followed by a short sleep to have valid cycle based
-    // metrics
-    gpuinfo_refresh_dynamic_info(&monitoredGpus);
-    gpuinfo_refresh_processes(&monitoredGpus);
-    gpuinfo_utilisation_rate(&monitoredGpus);
-    // Default to 0.1 sec
+  // Pre-warm the cycle-based metrics by taking an initial reading here.
+  // This allows the ensuing setup time (e.g. sysfs parsing, curses init) to
+  // count towards the 100ms time delta needed to calculate load percentages
+  // before the first frame is drawn.
+  gpuinfo_refresh_dynamic_info(&monitoredGpus);
+  gpuinfo_refresh_processes(&monitoredGpus);
+  gpuinfo_utilisation_rate(&monitoredGpus);
+
+  nvtop_time time_startup_refresh;
+  nvtop_get_current_time(&time_startup_refresh);
+
+  if (show_snapshot || loop_snapshot) {
+    // Default to 0.1 sec if not given
     if (!update_interval_option_set)
       update_interval_option = 100;
 
+    bool first_snapshot = true;
+
     do {
+      if (first_snapshot) {
+        nvtop_time time_before_snap;
+        nvtop_get_current_time(&time_before_snap);
+        double startup_elapsed_ms = nvtop_difftime(time_startup_refresh, time_before_snap) * 1000.0;
+
+        if (startup_elapsed_ms < update_interval_option) {
+          double remaining_ms = update_interval_option - startup_elapsed_ms;
 #if _POSIX_C_SOURCE >= 199309L
-      struct timespec tv = {.tv_sec = update_interval_option / 1000,
-                            .tv_nsec = (update_interval_option % 1000) * 1000000};
-      nanosleep(&tv, &tv);
+          struct timespec tv = {.tv_sec = (long)(remaining_ms / 1000.0),
+                                .tv_nsec = (long)(fmod(remaining_ms, 1000.0) * 1000000.0)};
+          nanosleep(&tv, &tv);
 #else
-      int sec = update_interval_option / 1000;
-      sleep(sec > 0 ? sec : 1);
+          usleep((useconds_t)(remaining_ms * 1000.0));
 #endif
+        }
+        first_snapshot = false;
+      } else {
+#if _POSIX_C_SOURCE >= 199309L
+        struct timespec tv = {.tv_sec = update_interval_option / 1000,
+                              .tv_nsec = (update_interval_option % 1000) * 1000000};
+        nanosleep(&tv, &tv);
+#else
+        int sec = update_interval_option / 1000;
+        sleep(sec > 0 ? sec : 1);
+#endif
+      }
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
       gpuinfo_refresh_processes(&monitoredGpus);
       gpuinfo_utilisation_rate(&monitoredGpus);
@@ -308,7 +347,6 @@ int main(int argc, char **argv) {
     allDevicesOptions.update_interval = update_interval_option;
   allDevicesOptions.has_gpu_info_bar = allDevicesOptions.has_gpu_info_bar || show_gpu_info_bar;
 
-  gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 
@@ -318,6 +356,22 @@ int main(int argc, char **argv) {
       allDevicesOptions.show_startup_messages = false;
       save_interface_options_to_config_file(allDevCount, &allDevicesOptions);
     }
+  }
+
+  // Ensure at least 100ms has elapsed since the pre-warm metrics were taken
+  // to guarantee a valid time delta for load percent calculations.
+  nvtop_time time_before_ui;
+  nvtop_get_current_time(&time_before_ui);
+  double startup_elapsed_ms = nvtop_difftime(time_startup_refresh, time_before_ui) * 1000.0;
+
+  if (startup_elapsed_ms < 100.0) {
+    double remaining_ms = 100.0 - startup_elapsed_ms;
+#if _POSIX_C_SOURCE >= 199309L
+    struct timespec tv = {.tv_sec = 0, .tv_nsec = (long)(remaining_ms * 1000000.0)};
+    nanosleep(&tv, &tv);
+#else
+    usleep((useconds_t)(remaining_ms * 1000.0));
+#endif
   }
 
   struct nvtop_interface *interface =
