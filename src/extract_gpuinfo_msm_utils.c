@@ -21,7 +21,7 @@
 #include <stdint.h>
 
 struct msm_id_struct {
-  uint64_t id;
+  uint64_t chip_id;
   const char *name;
 };
 
@@ -92,12 +92,46 @@ static const struct msm_id_struct msm_ids[] = {
   {0x000043051401, "Adreno 750"},
 };
 
-const char * msm_parse_marketing_name(uint64_t gpu_id);
+const char * msm_parse_marketing_name(uint64_t chip_id);
 
-const char * msm_parse_marketing_name(uint64_t gpu_id) {
+const char * msm_parse_marketing_name(uint64_t chip_id) {
   for (unsigned i = 0; i < ARRAY_SIZE(msm_ids); i++) {
-    if (gpu_id == msm_ids[i].id) {
-      return msm_ids[i].name;
+    /* Reference entry from device table: */
+    const struct msm_id_struct *ref = &msm_ids[i];
+
+    /* Match on either:
+     * (a) exact match:
+     */
+    if (ref->chip_id == chip_id)
+        return ref->name;
+
+    /* (b) device table entry has 0xff wildcard patch_id and core/
+     *     major/minor match:
+     */
+    if (((ref->chip_id & 0xff) == 0xff) &&
+         ((ref->chip_id & UINT64_C(0xffffff00)) ==
+          (chip_id & UINT64_C(0xffffff00))))
+      return ref->name;
+
+  #define WILDCARD_FUSE_ID UINT64_C(0x0000ffff00000000)
+    /* If the reference id has wildcard fuse-id value (ie. bits 47..32
+     * are all ones, then try matching ignoring the device fuse-id:
+     */
+    if ((ref->chip_id & WILDCARD_FUSE_ID) == WILDCARD_FUSE_ID) {
+      uint64_t new_chip_id = chip_id | WILDCARD_FUSE_ID;
+
+      /* (c) exact match (ignoring the fuse-id from kernel):
+       */
+      if (ref->chip_id == new_chip_id)
+        return ref->name;
+
+      /* (d) device table entry has 0xff wildcard patch_id and core/
+       *     major/minor match (ignoring fuse-id from kernel):
+       */
+      if (((ref->chip_id & 0xff) == 0xff) &&
+           ((ref->chip_id & UINT64_C(0xffffff00)) ==
+            (new_chip_id & UINT64_C(0xffffff00))))
+        return ref->name;
     }
   }
 
