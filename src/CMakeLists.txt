@@ -160,6 +160,10 @@ if(ENFLAME_SUPPORT)
   target_sources(nvtop PRIVATE extract_gcuinfo_enflame.c)
 endif()
 
+if(TENSTORRENT_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_tenstorrent.c)
+endif()
+
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
