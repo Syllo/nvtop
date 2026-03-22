@@ -258,7 +258,7 @@ int main(int argc, char **argv) {
       gpuinfo_refresh_processes(&monitoredGpus);
       gpuinfo_utilisation_rate(&monitoredGpus);
       gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
-      print_snapshot(&monitoredGpus, use_fahrenheit_option);
+      print_snapshot(&monitoredGpus, use_fahrenheit_option, hide_processes_option);
     } while (loop_snapshot && !signal_exit);
 
     gpuinfo_shutdown_info_extraction(&monitoredGpus);
