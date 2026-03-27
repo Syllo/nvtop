@@ -60,7 +60,7 @@ if(ASCEND_SUPPORT)
   target_link_libraries(nvtop PRIVATE "${DCMI_LIBRARY_PATH}/libdcmi.so")
 endif()
 
-if(AMDGPU_SUPPORT OR INTEL_SUPPORT OR V3D_SUPPORT)
+if(AMDGPU_SUPPORT OR RADEON_SUPPORT OR INTEL_SUPPORT OR V3D_SUPPORT)
   if((SYSTEMD_FOUND AND UDEV_FOUND AND USE_LIBUDEV_OVER_LIBSYSTEMD) OR(NOT SYSTEMD_FOUND AND UDEV_FOUND))
     target_compile_definitions(nvtop PRIVATE USING_LIBUDEV)
     target_link_libraries(nvtop PRIVATE udev)
@@ -74,8 +74,8 @@ if(AMDGPU_SUPPORT OR INTEL_SUPPORT OR V3D_SUPPORT)
   target_sources(nvtop PRIVATE device_discovery_linux.c)
 endif()
 
-if(AMDGPU_SUPPORT OR INTEL_SUPPORT OR MSM_SUPPORT OR PANFROST_SUPPORT OR PANTHOR_SUPPORT)
-  # Search for libdrm for AMDGPU support
+if(AMDGPU_SUPPORT OR RADEON_SUPPORT OR INTEL_SUPPORT OR MSM_SUPPORT OR PANFROST_SUPPORT OR PANTHOR_SUPPORT)
+  # Search for libdrm for AMDGPU and radeon support
   find_package(Libdrm)
 
   if(Libdrm_FOUND)
@@ -90,6 +90,10 @@ endif()
 if (AMDGPU_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu.c)
   target_sources(nvtop PRIVATE extract_gpuinfo_amdgpu_utils.c)
+endif()
+
+if (RADEON_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_radeon.c)
 endif()
 
 if (MSM_SUPPORT)
