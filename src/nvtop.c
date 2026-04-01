@@ -387,6 +387,16 @@ int main(int argc, char **argv) {
     case '+':
     case '-':
     case 12: // Ctrl+L
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
       interface_key(input_char, interface);
       break;
     case 'k':

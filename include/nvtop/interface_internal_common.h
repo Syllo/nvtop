@@ -86,6 +86,8 @@ struct option_window {
   unsigned int selected_row;
   unsigned int offset;
   WINDOW *option_win;
+  bool last_key_was_number;
+  unsigned int input_number;
 };
 
 struct process_window {
