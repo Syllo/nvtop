@@ -225,6 +225,8 @@ static void alloc_process_with_option(struct nvtop_interface *interface, unsigne
   interface->process.option_window.previous_state = nvtop_option_state_sort_by;
   interface->process.option_window.offset = 0;
   interface->process.option_window.selected_row = 0;
+  interface->process.option_window.last_key_was_number = false;
+  interface->process.option_window.input_number = 0;
 }
 
 static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_position *position,
@@ -1902,6 +1904,8 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
         interface->process.option_window.state == nvtop_option_state_hidden) {
       interface->process.option_window.state = nvtop_option_state_kill;
       interface->process.option_window.selected_row = 0;
+      interface->process.option_window.last_key_was_number = false;
+      interface->process.option_window.input_number = 0;
     }
     break;
   case KEY_F(6):
@@ -1980,9 +1984,37 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
   case 12: // Ctrl+L
     update_window_size_to_terminal_size(interface);
     break;
+  case '0':
+  case '1':
+  case '2':
+  case '3':
+  case '4':
+  case '5':
+  case '6':
+  case '7':
+  case '8':
+  case '9':
+    if (interface->process.option_window.state == nvtop_option_state_kill) {
+      unsigned int val = keyId - '0';
+      if (interface->process.option_window.last_key_was_number) {
+        unsigned int new_val = interface->process.option_window.input_number * 10 + val;
+        if (new_val <= nvtop_num_signals) {
+          interface->process.option_window.input_number = new_val;
+          interface->process.option_window.selected_row = new_val;
+        } else {
+          interface->process.option_window.input_number = val;
+          interface->process.option_window.selected_row = val;
+        }
+      } else {
+        interface->process.option_window.input_number = val;
+        interface->process.option_window.selected_row = val;
+      }
+    }
+    break;
   default:
     break;
   }
+  interface->process.option_window.last_key_was_number = (keyId >= '0' && keyId <= '9');
 }
 
 bool interface_freeze_processes(struct nvtop_interface *interface) {
