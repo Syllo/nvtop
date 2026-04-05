@@ -52,6 +52,7 @@ typedef struct nvtop_interface_option_struct {
   bool has_monitored_set_changed;                   // True if the set of monitored gpu was modified through the interface
   bool has_gpu_info_bar;                            // Show info bar with additional GPU parameters
   bool hide_processes_list;                         // Hide processes list
+  unsigned char gpu_plot_color_idx[MAX_LINES_PER_PLOT]; // index into plot_color_names[] per plot slot
 } nvtop_interface_option;
 
 inline bool plot_isset_draw_info(enum plot_information check_info, plot_info_to_draw to_draw) {

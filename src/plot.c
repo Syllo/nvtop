@@ -42,6 +42,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned 
   double increment = 100. / (double)(rows);
 
   assert(num_lines <= MAX_LINES_PER_PLOT && "Cannot plot more than " EXPAND_AND_QUOTE(MAX_LINES_PER_PLOT) " lines");
+  static const short plot_line_colors[MAX_LINES_PER_PLOT] = {7, 8, 9, 10};
   unsigned lvl_before[MAX_LINES_PER_PLOT];
   for (size_t k = 0; k < num_lines; ++k)
     lvl_before[k] = data_level(rows, data[k], increment);
@@ -49,7 +50,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned 
   for (size_t i = 0; i < num_data || i < (size_t)cols; i += num_lines) {
     for (unsigned k = 0; k < num_lines; ++k) {
       unsigned lvl_now_k = data_level(rows, data[i + k], increment);
-      wcolor_set(win, k + 1, NULL);
+      wcolor_set(win, plot_line_colors[k], NULL);
       // Three cases: has increased, has decreased and remained level
       if (lvl_before[k] < lvl_now_k || lvl_before[k] > lvl_now_k) {
         // Case 1 and 2: has increased/decreased
@@ -82,9 +83,9 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned 
             else {
               // The continuation lies outside the update interval so keep the
               // color
-              wcolor_set(win, j + 1, NULL);
+              wcolor_set(win, plot_line_colors[j], NULL);
               mvwaddch(win, lvl_before[j], i + k, ACS_HLINE);
-              wcolor_set(win, k + 1, NULL);
+              wcolor_set(win, plot_line_colors[k], NULL);
             }
           }
         }
@@ -95,9 +96,9 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned 
           if (j != k) {
             if (lvl_before[j] != lvl_now_k) {
               // Add the continuation of other metric lines
-              wcolor_set(win, j + 1, NULL);
+              wcolor_set(win, plot_line_colors[j], NULL);
               mvwaddch(win, lvl_before[j], i + k, ACS_HLINE);
-              wcolor_set(win, k + 1, NULL);
+              wcolor_set(win, plot_line_colors[k], NULL);
             }
           }
         }
@@ -107,7 +108,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned 
   }
   int plot_y_position = 0;
   for (unsigned i = 0; i < num_lines && plot_y_position < rows; ++i) {
-    wcolor_set(win, i + 1, NULL);
+    wcolor_set(win, plot_line_colors[i], NULL);
     if (legend_left) {
       mvwprintw(win, plot_y_position, 0, "%.*s", cols, legend[i]);
     } else {
