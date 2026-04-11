@@ -2223,31 +2223,35 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
       // PID
       printf("%s\"pid\": \"%d\",\n", indent_level_eight, proc->pid);
 
-      printf("%s\"cmdline\": \"", indent_level_eight);
-      for (char *li = proc->cmdline; *li != '\0'; li++) {
-        // We need to escape some characters for for json strings
-        if (*li == '\n') {
-          printf("\\n");
-          continue;
-        } else if (*li == '\b') {
-          printf("\\b");
-          continue;
-        } else if (*li == '\f') {
-          printf("\\f");
-          continue;
-        } else if (*li == '\r') {
-          printf("\\r");
-          continue;
-        } else if (*li == '\t') {
-          printf("\\t");
-          continue;
+      if (GPUINFO_PROCESS_FIELD_VALID(proc, cmdline) && proc->cmdline) {
+        printf("%s\"cmdline\": \"", indent_level_eight);
+        for (char *li = proc->cmdline; *li != '\0'; li++) {
+          // We need to escape some characters for for json strings
+          if (*li == '\n') {
+            printf("\\n");
+            continue;
+          } else if (*li == '\b') {
+            printf("\\b");
+            continue;
+          } else if (*li == '\f') {
+            printf("\\f");
+            continue;
+          } else if (*li == '\r') {
+            printf("\\r");
+            continue;
+          } else if (*li == '\t') {
+            printf("\\t");
+            continue;
+          }
+          // escaping backslash and quotes
+          if (*li == '\\' || *li == '"')
+            printf("\\");
+          printf("%c", *li);
         }
-        // escaping backslash and quotes
-        if (*li == '\\' || *li == '"')
-          printf("\\");
-        printf("%c", *li);
+        printf("\",\n");
+      } else {
+        printf("%s\"cmdline\": null,\n", indent_level_eight);
       }
-      printf("\",\n");
 
       printf("%s\"kind\": ", indent_level_eight);
       if (proc->type != gpu_process_unknown) {
