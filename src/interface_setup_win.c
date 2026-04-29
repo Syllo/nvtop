@@ -68,11 +68,10 @@ static const char *setup_header_option_descriptions[setup_header_options_count] 
 // Chart Options
 
 enum setup_chart_options {
-  setup_chart_reverse = 0,
-  setup_chart_color_start = 1, // dynamic color rows: slots 0..slot_count-1
+  setup_chart_reverse,
+  setup_chart_color_start, // dynamic color rows: slots 0..slot_count-1
   // setup_chart_all_gpu      = setup_chart_color_start + slot_count     (computed)
   // setup_chart_start_gpu_list = setup_chart_color_start + slot_count+1 (computed)
-  setup_chart_options_count
 };
 
 static const char *setup_chart_reverse_description = "Reverse plot direction";
@@ -84,11 +83,8 @@ static const char *setup_chart_gpu_value_descriptions[plot_information_count] = 
     "GPU temperature",      "Power draw rate (current/max)", "Fan speed",        "GPU clock rate",
     "GPU memory clock rate", "Effective load rate"};
 
-static const char *chart_color_names[] = {
-    "Red", "Cyan", "Green", "Yellow", "Blue", "Magenta", "White"};
-static const unsigned chart_color_names_count = 7;
-
-void apply_plot_colors(const unsigned char plot_color_idx[MAX_LINES_PER_PLOT]);
+static const char *chart_color_names[] = {"Red", "Cyan", "Green", "Yellow", "Blue", "Magenta", "White"};
+static const unsigned chart_color_names_count = ARRAY_SIZE(chart_color_names);
 
 // Build labels for each active plot slot for a given GPU's to_draw mask.
 // Uses the same iteration order as populate_plot_data_from_ring_buffer.

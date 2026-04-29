@@ -401,9 +401,8 @@ static void delete_all_windows(struct nvtop_interface *dwin) {
   free(dwin->plots);
 }
 
-static const short plot_terminal_colors[] = {
-    COLOR_RED, COLOR_CYAN, COLOR_GREEN, COLOR_YELLOW,
-    COLOR_BLUE, COLOR_MAGENTA, COLOR_WHITE};
+static const NCURSES_COLOR_T plot_terminal_colors[] = {COLOR_RED,  COLOR_CYAN,    COLOR_GREEN, COLOR_YELLOW,
+                                                       COLOR_BLUE, COLOR_MAGENTA, COLOR_WHITE};
 
 static void initialize_colors(const unsigned char plot_color_idx[MAX_LINES_PER_PLOT]) {
   start_color();

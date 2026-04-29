@@ -47,10 +47,10 @@ enum interface_color {
   green_color,
   red_color,
   blue_color,
-  gpu_util_plot_color = 7,
-  gpu_mem_plot_color = 8,
-  gpu_plot_color_3 = 9,
-  gpu_plot_color_4 = 10,
+  gpu_util_plot_color,
+  gpu_mem_plot_color,
+  gpu_plot_color_3,
+  gpu_plot_color_4,
 };
 
 struct device_window {
