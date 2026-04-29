@@ -505,14 +505,6 @@ int radeon_get_drm_grbm_value(int fd, uint32_t *grbm_status)
     return radeon_get_drm_value(fd, RADEON_INFO_READ_REG, grbm_status);
 }
 
-static
-int radeon_get_drm_srbm_value(int fd, uint32_t *srbm_status)
-{
-    *srbm_status = SRBM_STATUS;
-    return radeon_get_drm_value(fd, RADEON_INFO_READ_REG, srbm_status);
-}
-
-
 
 bool gpuinfo_radeon_init(void)
 {
