@@ -401,7 +401,10 @@ static void delete_all_windows(struct nvtop_interface *dwin) {
   free(dwin->plots);
 }
 
-static void initialize_colors(void) {
+static const NCURSES_COLOR_T plot_terminal_colors[] = {COLOR_RED,  COLOR_CYAN,    COLOR_GREEN, COLOR_YELLOW,
+                                                       COLOR_BLUE, COLOR_MAGENTA, COLOR_WHITE};
+
+static void initialize_colors(const unsigned char plot_color_idx[MAX_LINES_PER_PLOT]) {
   start_color();
   short background_color;
 #ifdef NCURSES_VERSION
@@ -418,6 +421,10 @@ static void initialize_colors(void) {
   init_pair(yellow_color, COLOR_YELLOW, background_color);
   init_pair(blue_color, COLOR_BLUE, background_color);
   init_pair(magenta_color, COLOR_MAGENTA, background_color);
+  static const short gpu_plot_pairs[MAX_LINES_PER_PLOT] = {
+      gpu_util_plot_color, gpu_mem_plot_color, gpu_plot_color_3, gpu_plot_color_4};
+  for (unsigned s = 0; s < MAX_LINES_PER_PLOT; ++s)
+    init_pair(gpu_plot_pairs[s], plot_terminal_colors[plot_color_idx[s]], background_color);
 }
 
 struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devices_count, unsigned largest_device_name,
@@ -431,7 +438,7 @@ struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devic
   initscr();
   refresh();
   if (interface->options.use_color && has_colors() == TRUE) {
-    initialize_colors();
+    initialize_colors(options.gpu_plot_color_idx);
   }
   cbreak();
   noecho();
@@ -455,6 +462,10 @@ struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devic
   interface_alloc_ring_buffer(devices_count, 4, 10 * 60 * 1000, &interface->saved_data_ring);
   initialize_all_windows(interface);
   return interface;
+}
+
+void apply_plot_colors(const unsigned char plot_color_idx[MAX_LINES_PER_PLOT]) {
+  initialize_colors(plot_color_idx);
 }
 
 void clean_ncurses(struct nvtop_interface *interface) {
@@ -2037,7 +2048,8 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
     initscr();
     clear();
     refresh();
-    initialize_colors();
+    static const unsigned char default_plot_colors[MAX_LINES_PER_PLOT] = {1, 3, 2, 4};
+    initialize_colors(default_plot_colors);
     cbreak();
     noecho();
     keypad(stdscr, TRUE);

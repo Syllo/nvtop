@@ -21,6 +21,7 @@
 
 #include "nvtop/interface_setup_win.h"
 #include "nvtop/interface.h"
+#include <string.h>
 #include "nvtop/interface_internal_common.h"
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
@@ -68,18 +69,42 @@ static const char *setup_header_option_descriptions[setup_header_options_count] 
 
 enum setup_chart_options {
   setup_chart_reverse,
-  setup_chart_all_gpu,
-  setup_chart_start_gpu_list,
-  setup_chart_options_count
+  setup_chart_color_start, // dynamic color rows: slots 0..slot_count-1
+  // setup_chart_all_gpu      = setup_chart_color_start + slot_count     (computed)
+  // setup_chart_start_gpu_list = setup_chart_color_start + slot_count+1 (computed)
 };
 
-static const char *setup_chart_options_descriptions[setup_chart_options_count] = {
-    "Reverse plot direction", "Displayed all GPUs", "Displayed GPU"};
+static const char *setup_chart_reverse_description = "Reverse plot direction";
+static const char *setup_chart_all_gpu_description  = "Displayed all GPUs";
+static const char *setup_chart_gpu_description      = "Displayed GPU";
 
 static const char *setup_chart_gpu_value_descriptions[plot_information_count] = {
     "GPU utilization rate", "GPU memory utilization rate",   "GPU encoder rate", "GPU decoder rate",
     "GPU temperature",      "Power draw rate (current/max)", "Fan speed",        "GPU clock rate",
     "GPU memory clock rate", "Effective load rate"};
+
+static const char *chart_color_names[] = {"Red", "Cyan", "Green", "Yellow", "Blue", "Magenta", "White"};
+static const unsigned chart_color_names_count = ARRAY_SIZE(chart_color_names);
+
+// Build labels for each active plot slot for a given GPU's to_draw mask.
+// Uses the same iteration order as populate_plot_data_from_ring_buffer.
+static unsigned get_plot_slot_labels(plot_info_to_draw to_draw, unsigned dev_id,
+                                     const char *labels[MAX_LINES_PER_PLOT]) {
+  unsigned slot = 0;
+  for (enum plot_information info = plot_gpu_rate; info < plot_information_count && slot < MAX_LINES_PER_PLOT; ++info) {
+    if (plot_isset_draw_info(info, to_draw)) {
+      char buf[64];
+      snprintf(buf, sizeof(buf), "GPU%u %s", dev_id, setup_chart_gpu_value_descriptions[info]);
+      // store in a static table since we need stable pointers for the caller
+      static char label_storage[MAX_LINES_PER_PLOT][64];
+      snprintf(label_storage[slot], sizeof(label_storage[slot]), "GPU%u %s", dev_id,
+               setup_chart_gpu_value_descriptions[info]);
+      labels[slot] = label_storage[slot];
+      slot++;
+    }
+  }
+  return slot;
+}
 
 // Process List Options
 
@@ -297,22 +322,38 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
                                     struct nvtop_interface *interface) {
   WINDOW *option_list_win;
 
-  // Fix indices for this window
-  if (interface->setup_win.options_selected[0] > devices_count + 1)
-    interface->setup_win.options_selected[0] = devices_count + 1;
-  if (interface->setup_win.options_selected[0] > 0) {
-    if (interface->setup_win.options_selected[1] >= plot_information_count)
-      interface->setup_win.options_selected[1] = plot_information_count - 1;
-    option_list_win = interface->setup_win.split[0];
-  } else {
+  // Compute how many active plot slots exist for GPU 0 (or union across all)
+  // so we know how many color rows to show. We use the monitored count.
+  plot_info_to_draw ref_draw = 0;
+  for (unsigned j = 0; j < interface->monitored_dev_count; ++j)
+    ref_draw |= interface->options.gpu_specific_opts[j].to_draw;
+  unsigned slot_count = plot_count_draw_info(ref_draw);
+  if (slot_count == 0) slot_count = 0; // no color rows if nothing plotted
+
+  // Compute dynamic row indices
+  unsigned chart_all_gpu       = setup_chart_color_start + slot_count;
+  unsigned chart_start_gpu_list = chart_all_gpu + 1;
+
+  // Clamp selected row
+  if (interface->setup_win.options_selected[0] > chart_start_gpu_list + devices_count - 1)
+    interface->setup_win.options_selected[0] = chart_start_gpu_list + devices_count - 1;
+
+  if (interface->setup_win.options_selected[0] < chart_all_gpu) {
     if (interface->setup_win.indentation_level > 1)
       interface->setup_win.indentation_level = 1;
     option_list_win = interface->setup_win.single;
+  } else {
+    if (interface->setup_win.options_selected[1] >= plot_information_count)
+      interface->setup_win.options_selected[1] = plot_information_count - 1;
+    option_list_win = interface->setup_win.split[0];
   }
+
   werase(interface->setup_win.single);
   wnoutrefresh(interface->setup_win.single);
-  touchwin(interface->setup_win.split[0]);
-  touchwin(interface->setup_win.split[1]);
+  werase(interface->setup_win.split[0]);
+  wnoutrefresh(interface->setup_win.split[0]);
+  werase(interface->setup_win.split[1]);
+  wnoutrefresh(interface->setup_win.split[1]);
 
   wattr_set(option_list_win, A_STANDOUT, green_color, NULL);
   mvwprintw(option_list_win, 0, 0, "Chart Options");
@@ -329,49 +370,73 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
   // Reverse plot
   option_state = interface->options.plot_left_to_right;
   mvwprintw(option_list_win, setup_chart_reverse + 1, 0, "[%c] %s", option_state_char(option_state),
-            setup_chart_options_descriptions[setup_chart_reverse]);
-  if (interface->setup_win.indentation_level == 1 && interface->setup_win.options_selected[0] == setup_chart_reverse) {
+            setup_chart_reverse_description);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_chart_reverse) {
     mvwchgat(option_list_win, setup_chart_reverse + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
 
+  // Dynamic color rows — one per active plot slot
+  // Build slot labels from GPU 0's active metrics (representative)
+  const char *slot_labels[MAX_LINES_PER_PLOT];
+  plot_info_to_draw gpu0_draw = interface->monitored_dev_count > 0
+                                    ? interface->options.gpu_specific_opts[0].to_draw
+                                    : ref_draw;
+  get_plot_slot_labels(gpu0_draw, 0, slot_labels);
+
+  for (unsigned s = 0; s < slot_count && s < MAX_LINES_PER_PLOT; ++s) {
+    unsigned row = setup_chart_color_start + s;
+    char color_row_buf[256];
+    snprintf(color_row_buf, sizeof(color_row_buf), "[%s] %s",
+             chart_color_names[interface->options.gpu_plot_color_idx[s]],
+             slot_labels[s]);
+    mvwprintw(option_list_win, row + 1, 0, "%.*s", maxcols, color_row_buf);
+
+    if (interface->setup_win.indentation_level == 1 &&
+        interface->setup_win.options_selected[0] == row) {
+      mvwchgat(option_list_win, row + 1, 0,
+               (int)strlen(chart_color_names[interface->options.gpu_plot_color_idx[s]]) + 2,
+               A_STANDOUT, cyan_color, NULL);
+    }
+  }
+
   // Set for all GPUs at once
-  if (interface->setup_win.options_selected[0] == setup_chart_all_gpu) {
+  if (interface->setup_win.options_selected[0] == chart_all_gpu) {
     if (interface->setup_win.indentation_level == 1)
       wattr_set(option_list_win, A_STANDOUT, cyan_color, NULL);
     if (interface->setup_win.indentation_level == 2)
       wattr_set(option_list_win, A_BOLD, cyan_color, NULL);
   }
-  mvwaddch(option_list_win, setup_chart_all_gpu + 1, 1, ACS_HLINE);
+  mvwaddch(option_list_win, chart_all_gpu + 1, 1, ACS_HLINE);
   waddch(option_list_win, '>');
   wstandend(option_list_win);
-  wprintw(option_list_win, " %s", setup_chart_options_descriptions[setup_chart_all_gpu]);
+  wprintw(option_list_win, " %s", setup_chart_all_gpu_description);
 
   // GPUs as a list
   for (unsigned i = 0; i < devices_count; ++i) {
-    if (interface->setup_win.options_selected[0] == setup_chart_start_gpu_list + i) {
+    if (interface->setup_win.options_selected[0] == chart_start_gpu_list + i) {
       if (interface->setup_win.indentation_level == 1)
         wattr_set(option_list_win, A_STANDOUT, cyan_color, NULL);
       if (interface->setup_win.indentation_level == 2)
         wattr_set(option_list_win, A_BOLD, cyan_color, NULL);
     }
-    mvwaddch(option_list_win, setup_chart_start_gpu_list + 1 + i, 1, ACS_HLINE);
+    mvwaddch(option_list_win, chart_start_gpu_list + 1 + i, 1, ACS_HLINE);
     waddch(option_list_win, '>');
     wstandend(option_list_win);
-    wprintw(option_list_win, " %s %u", setup_chart_options_descriptions[setup_chart_start_gpu_list], i);
+    wprintw(option_list_win, " %s %u", setup_chart_gpu_description, i);
   }
   wnoutrefresh(option_list_win);
 
   // Window of list of metric to display in chart (4 maximum)
-  if (interface->setup_win.options_selected[0] >= setup_chart_all_gpu) {
+  if (interface->setup_win.options_selected[0] >= chart_all_gpu) {
     WINDOW *value_list_win = interface->setup_win.split[1];
     wattr_set(value_list_win, A_STANDOUT, green_color, NULL);
     mvwprintw(value_list_win, 0, 0, "Metric Displayed in Graph");
     getmaxyx(value_list_win, tmp, maxcols);
-    unsigned selected_gpu = interface->setup_win.options_selected[0] - setup_chart_start_gpu_list;
-    if (interface->setup_win.options_selected[0] == setup_chart_all_gpu) {
+    unsigned selected_gpu = interface->setup_win.options_selected[0] - chart_start_gpu_list;
+    if (interface->setup_win.options_selected[0] == chart_all_gpu) {
       wprintw(value_list_win, " (All GPUs)");
     } else {
-      // Get the selected device
       struct gpu_info *device;
       unsigned index = 0;
       list_for_each_entry(device, devices, list) {
@@ -393,7 +458,7 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
     wstandend(value_list_win);
 
     for (enum plot_information i = plot_gpu_rate; i < plot_information_count; ++i) {
-      if (interface->setup_win.options_selected[0] == setup_chart_all_gpu) {
+      if (interface->setup_win.options_selected[0] == chart_all_gpu) {
         plot_info_to_draw draw_union = 0, draw_intersection = 0xffff;
         for (unsigned j = 0; j < devices_count; ++j) {
           draw_union |= interface->options.gpu_specific_opts[j].to_draw;
@@ -757,15 +822,31 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
       }
       // Chart Options
       if (interface->setup_win.selected_section == setup_chart_selected) {
+        // Recompute dynamic indices (same logic as draw function)
+        plot_info_to_draw ref_draw_kp = 0;
+        for (unsigned j = 0; j < interface->monitored_dev_count; ++j)
+          ref_draw_kp |= interface->options.gpu_specific_opts[j].to_draw;
+        unsigned slot_count_kp    = plot_count_draw_info(ref_draw_kp);
+        unsigned chart_all_gpu_kp = setup_chart_color_start + slot_count_kp;
+        unsigned chart_gpu_list_kp = chart_all_gpu_kp + 1;
+
         if (interface->setup_win.indentation_level == 1) {
           if (interface->setup_win.options_selected[0] == setup_chart_reverse) {
             interface->options.plot_left_to_right = !interface->options.plot_left_to_right;
           }
-          if (interface->setup_win.options_selected[0] >= setup_chart_all_gpu) {
+          // Color rows
+          unsigned sel = interface->setup_win.options_selected[0];
+          if (sel >= setup_chart_color_start && sel < chart_all_gpu_kp) {
+            unsigned slot = sel - setup_chart_color_start;
+            interface->options.gpu_plot_color_idx[slot] =
+                (interface->options.gpu_plot_color_idx[slot] + 1) % chart_color_names_count;
+            apply_plot_colors(interface->options.gpu_plot_color_idx);
+          }
+          if (interface->setup_win.options_selected[0] >= chart_all_gpu_kp) {
             handle_setup_win_keypress(KEY_RIGHT, interface);
           }
         } else if (interface->setup_win.indentation_level == 2) {
-          if (interface->setup_win.options_selected[0] == setup_chart_all_gpu) {
+          if (interface->setup_win.options_selected[0] == chart_all_gpu_kp) {
             plot_info_to_draw draw_intersection = 0xffff;
             for (unsigned j = 0; j < interface->monitored_dev_count; ++j) {
               draw_intersection = draw_intersection & interface->options.gpu_specific_opts[j].to_draw;
@@ -784,8 +865,8 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
               }
             }
           }
-          if (interface->setup_win.options_selected[0] > setup_chart_all_gpu) {
-            unsigned selected_gpu = interface->setup_win.options_selected[0] - setup_chart_start_gpu_list;
+          if (interface->setup_win.options_selected[0] > chart_all_gpu_kp) {
+            unsigned selected_gpu = interface->setup_win.options_selected[0] - chart_gpu_list_kp;
             if (plot_isset_draw_info(interface->setup_win.options_selected[1],
                                      interface->options.gpu_specific_opts[selected_gpu].to_draw))
               interface->options.gpu_specific_opts[selected_gpu].to_draw = plot_remove_draw_info(
