@@ -2138,7 +2138,7 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
   return dontShowAgainOption;
 }
 
-void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
+void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool hide_processes_option) {
   struct gpu_info *device;
 
   printf("[\n");
@@ -2254,129 +2254,134 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option) {
       printf("%s\"%s\": null,\n", indent_level_four, mem_used_field);
     // Memory Available
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, free_memory))
-      printf("%s\"%s\": \"%llu\",\n", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
+      printf("%s\"%s\": \"%llu\"", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
     else
-      printf("%s\"%s\": null,\n", indent_level_four, mem_free_field);
+      printf("%s\"%s\": null", indent_level_four, mem_free_field);
 
     // Processes
-    printf("%s\"processes\" : [\n", indent_level_four);
-    for (unsigned i = 0; i < device->processes_count; ++i) {
-      struct gpu_process *proc = &device->processes[i];
-      printf("%s{\n", indent_level_six);
+    if (hide_processes_option) {
+      // (Notice: no comma at the end as it's the last field here)
+      printf("\n");
+    } else {
+      printf(",\n%s\"processes\" : [\n", indent_level_four);
+      for (unsigned i = 0; i < device->processes_count; ++i) {
+        struct gpu_process *proc = &device->processes[i];
+        printf("%s{\n", indent_level_six);
 
-      // PID
-      printf("%s\"pid\": \"%d\",\n", indent_level_eight, proc->pid);
+        // PID
+        printf("%s\"pid\": \"%d\",\n", indent_level_eight, proc->pid);
 
-      if (GPUINFO_PROCESS_FIELD_VALID(proc, cmdline) && proc->cmdline) {
-        printf("%s\"cmdline\": \"", indent_level_eight);
-        for (char *li = proc->cmdline; *li != '\0'; li++) {
-          // We need to escape some characters for for json strings
-          if (*li == '\n') {
-            printf("\\n");
-            continue;
-          } else if (*li == '\b') {
-            printf("\\b");
-            continue;
-          } else if (*li == '\f') {
-            printf("\\f");
-            continue;
-          } else if (*li == '\r') {
-            printf("\\r");
-            continue;
-          } else if (*li == '\t') {
-            printf("\\t");
-            continue;
+        if (GPUINFO_PROCESS_FIELD_VALID(proc, cmdline) && proc->cmdline) {
+          printf("%s\"cmdline\": \"", indent_level_eight);
+          for (char *li = proc->cmdline; *li != '\0'; li++) {
+            // We need to escape some characters for for json strings
+            if (*li == '\n') {
+              printf("\\n");
+              continue;
+            } else if (*li == '\b') {
+              printf("\\b");
+              continue;
+            } else if (*li == '\f') {
+              printf("\\f");
+              continue;
+            } else if (*li == '\r') {
+              printf("\\r");
+              continue;
+            } else if (*li == '\t') {
+              printf("\\t");
+              continue;
+            }
+            // escaping backslash and quotes
+            if (*li == '\\' || *li == '"')
+              printf("\\");
+            printf("%c", *li);
           }
-          // escaping backslash and quotes
-          if (*li == '\\' || *li == '"')
-            printf("\\");
-          printf("%c", *li);
+          printf("\",\n");
+        } else {
+          printf("%s\"cmdline\": null,\n", indent_level_eight);
         }
-        printf("\",\n");
-      } else {
-        printf("%s\"cmdline\": null,\n", indent_level_eight);
-      }
 
-      printf("%s\"kind\": ", indent_level_eight);
-      if (proc->type != gpu_process_unknown) {
-        printf("\"");
-        switch (proc->type) {
-        case gpu_process_graphical:
-          printf("graphic");
-          break;
-        case gpu_process_compute:
-          printf("compute");
-          break;
-        case gpu_process_graphical_compute:
-          printf("graphic & compute");
-          break;
-        default:
-          printf("N/A");
-          break;
+        printf("%s\"kind\": ", indent_level_eight);
+        if (proc->type != gpu_process_unknown) {
+          printf("\"");
+          switch (proc->type) {
+          case gpu_process_graphical:
+            printf("graphic");
+            break;
+          case gpu_process_compute:
+            printf("compute");
+            break;
+          case gpu_process_graphical_compute:
+            printf("graphic & compute");
+            break;
+          default:
+            printf("N/A");
+            break;
+          }
+          printf("\"");
+        } else {
+          printf("null");
         }
-        printf("\"");
-      } else {
-        printf("null");
-      }
-      printf(",\n");
+        printf(",\n");
 
-      // GPU memory usage
-      printf("%s\"user\": ", indent_level_eight);
-      if (GPUINFO_PROCESS_FIELD_VALID(proc, user_name))
-        printf("\"%s\",\n", proc->user_name);
-      else
-        printf("null,\n");
-
-      // GPU usage
-      printf("%s\"gpu_usage\": ", indent_level_eight);
-      if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_usage))
-        printf("\"%u%%\",\n", proc->gpu_usage);
-      else
-        printf("null,\n");
-
-      // GPU memory usage
-      printf("%s\"gpu_mem_bytes_alloc\": ", indent_level_eight);
-      if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_memory_usage))
-        printf("\"%llu\",\n", proc->gpu_memory_usage);
-      else
-        printf("null,\n");
-
-      // GPU memory usage
-      printf("%s\"gpu_mem_usage\": ", indent_level_eight);
-      if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_memory_percentage))
-        printf("\"%u%%\",\n", proc->gpu_memory_percentage);
-      else
-        printf("null,\n");
-
-      // Encode usage
-      if (device->static_info.encode_decode_shared) {
-        // (Notice: no comma at the end as it's the last field here)
-        printf("%s\"encode_decode\": ", indent_level_eight);
-        if (GPUINFO_PROCESS_FIELD_VALID(proc, decode_usage))
-          printf("\"%u%%\"\n", proc->decode_usage);
-        else
-          printf("null\n");
-      } else {
-        printf("%s\"encode\": ", indent_level_eight);
-        if (GPUINFO_PROCESS_FIELD_VALID(proc, encode_usage))
-          printf("\"%u%%\",\n", proc->encode_usage);
+        // GPU memory usage
+        printf("%s\"user\": ", indent_level_eight);
+        if (GPUINFO_PROCESS_FIELD_VALID(proc, user_name))
+          printf("\"%s\",\n", proc->user_name);
         else
           printf("null,\n");
-        // (Notice: no comma at the end as it's the last field here)
-        printf("%s\"decode\": ", indent_level_eight);
-        if (GPUINFO_PROCESS_FIELD_VALID(proc, decode_usage))
-          printf("\"%u%%\"\n", proc->decode_usage);
-        else
-          printf("null\n");
-      }
 
-      printf("%s}", indent_level_six);
-      if (i != device->processes_count - 1)
-        printf(",");
-      printf("\n");
+        // GPU usage
+        printf("%s\"gpu_usage\": ", indent_level_eight);
+        if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_usage))
+          printf("\"%u%%\",\n", proc->gpu_usage);
+        else
+          printf("null,\n");
+
+        // GPU memory usage
+        printf("%s\"gpu_mem_bytes_alloc\": ", indent_level_eight);
+        if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_memory_usage))
+          printf("\"%llu\",\n", proc->gpu_memory_usage);
+        else
+          printf("null,\n");
+
+        // GPU memory usage
+        printf("%s\"gpu_mem_usage\": ", indent_level_eight);
+        if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_memory_percentage))
+          printf("\"%u%%\",\n", proc->gpu_memory_percentage);
+        else
+          printf("null,\n");
+
+        // Encode usage
+        if (device->static_info.encode_decode_shared) {
+          // (Notice: no comma at the end as it's the last field here)
+          printf("%s\"encode_decode\": ", indent_level_eight);
+          if (GPUINFO_PROCESS_FIELD_VALID(proc, decode_usage))
+            printf("\"%u%%\"\n", proc->decode_usage);
+          else
+            printf("null\n");
+        } else {
+          printf("%s\"encode\": ", indent_level_eight);
+          if (GPUINFO_PROCESS_FIELD_VALID(proc, encode_usage))
+            printf("\"%u%%\",\n", proc->encode_usage);
+          else
+            printf("null,\n");
+          // (Notice: no comma at the end as it's the last field here)
+          printf("%s\"decode\": ", indent_level_eight);
+          if (GPUINFO_PROCESS_FIELD_VALID(proc, decode_usage))
+            printf("\"%u%%\"\n", proc->decode_usage);
+          else
+            printf("null\n");
+        }
+
+        printf("%s}", indent_level_six);
+        if (i != device->processes_count - 1)
+          printf(",");
+        printf("\n");
+      }
+      // (Notice: no comma at the end as it's the last field here)
+      printf("%s]\n", indent_level_four);
     }
-    // (Notice: no comma at the end as it's the last field here)
-    printf("%s]\n", indent_level_four);
 
     if (device->list.next == devices)
       printf("%s}\n", indent_level_two);
