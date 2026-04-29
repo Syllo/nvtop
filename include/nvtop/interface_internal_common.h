@@ -70,6 +70,7 @@ struct device_window {
   WINDOW *gpu_clock_info;
   WINDOW *mem_clock_info;
   WINDOW *pcie_info;
+  WINDOW *nvlink_info;
   WINDOW *shader_cores;
   WINDOW *l2_cache_size;
   WINDOW *exec_engines;
