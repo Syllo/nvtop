@@ -876,46 +876,56 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     unsigned nvlinks = nvtop_get_nvlink_info(device, &nvl_info);
     if (nvlinks > 0 && nvl_info.supported) {
       int pos = 7;
+      // Check if any link has throughput data (not available on consumer GPUs)
+      bool has_throughput = false;
+      for (unsigned link = 0; link < nvl_info.num_links; link++) {
+        if (nvl_info.links[link].throughput_tx > 0 || nvl_info.links[link].throughput_rx > 0) {
+          has_throughput = true;
+          break;
+        }
+      }
+
       for (unsigned link = 0; link < nvl_info.num_links && pos < 44; link++) {
         const struct nvlink_link_info *l = &nvl_info.links[link];
-        if (pos + 12 > 44)
-          break;
         // Link indicator: A=active, x=inactive
         wcolor_set(dev->nvlink_info, l->active ? green_color : red_color, NULL);
         mvwprintw(dev->nvlink_info, 0, pos, "L%d%c", link, l->active ? 'A' : 'x');
         wstandend(dev->nvlink_info);
         pos += 4;
-        // Throughput TX
-        if (pos + 5 > 44)
-          break;
-        if (l->throughput_tx > 0) {
-          if (l->throughput_tx > 1024) {
-            mvwprintw(dev->nvlink_info, 0, pos, "%3uM", (unsigned)(l->throughput_tx / 1024));
+        // Throughput (only shown when actually available)
+        if (has_throughput) {
+          if (pos + 10 > 44)
+            break;
+          // TX
+          if (l->throughput_tx > 0) {
+            if (l->throughput_tx > 1024) {
+              mvwprintw(dev->nvlink_info, 0, pos, "%3uM", (unsigned)(l->throughput_tx / 1024));
+            } else {
+              mvwprintw(dev->nvlink_info, 0, pos, "%3uk", (unsigned)l->throughput_tx);
+            }
           } else {
-            mvwprintw(dev->nvlink_info, 0, pos, "%3uk", (unsigned)l->throughput_tx);
+            mvwprintw(dev->nvlink_info, 0, pos, "  -");
           }
-        } else {
-          mvwprintw(dev->nvlink_info, 0, pos, "  -");
-        }
-        pos += 4;
-        // Separator
-        if (pos < 44) {
-          mvwprintw(dev->nvlink_info, 0, pos, "/");
-          pos++;
-        }
-        // Throughput RX
-        if (pos + 5 > 44)
-          break;
-        if (l->throughput_rx > 0) {
-          if (l->throughput_rx > 1024) {
-            mvwprintw(dev->nvlink_info, 0, pos, "%3uM", (unsigned)(l->throughput_rx / 1024));
+          pos += 4;
+          // Separator
+          if (pos < 44) {
+            mvwprintw(dev->nvlink_info, 0, pos, "/");
+            pos++;
+          }
+          // RX
+          if (pos + 5 > 44)
+            break;
+          if (l->throughput_rx > 0) {
+            if (l->throughput_rx > 1024) {
+              mvwprintw(dev->nvlink_info, 0, pos, "%3uM", (unsigned)(l->throughput_rx / 1024));
+            } else {
+              mvwprintw(dev->nvlink_info, 0, pos, "%3uk", (unsigned)l->throughput_rx);
+            }
           } else {
-            mvwprintw(dev->nvlink_info, 0, pos, "%3uk", (unsigned)l->throughput_rx);
+            mvwprintw(dev->nvlink_info, 0, pos, "  -");
           }
-        } else {
-          mvwprintw(dev->nvlink_info, 0, pos, "  -");
+          pos += 4;
         }
-        pos += 4;
         // Error indicator
         if (pos < 44 && (l->errors_replay || l->errors_recovery || l->errors_crc_flit || l->errors_crc_data || l->errors_ecc_data)) {
           wcolor_set(dev->nvlink_info, red_color, NULL);
