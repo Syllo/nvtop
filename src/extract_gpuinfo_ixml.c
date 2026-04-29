@@ -55,34 +55,6 @@
 #define IXML_POWER_MAX_VALID_MW 1000000
 #define IXML_POWER_W_TO_MW 1000U
 
-static const char *nvml_error_string(int error_code) {
-  switch (error_code) {
-    case NVML_SUCCESS:
-      return "Success";
-    case NVML_ERROR_UNINITIALIZED:
-      return "Uninitialized";
-    case NVML_ERROR_INVALID_ARGUMENT:
-      return "Invalid Argument";
-    case NVML_ERROR_NOT_SUPPORTED:
-      return "Not Supported";
-    case NVML_ERROR_NO_PERMISSION:
-      return "No Permission";
-    case NVML_ERROR_ALREADY_INITIALIZED:
-      return "Already Initialized";
-    case NVML_ERROR_NOT_FOUND:
-      return "Not Found";
-    case NVML_ERROR_INSUFFICIENT_SIZE:
-      return "Insufficient Size";
-    case NVML_ERROR_DRIVER_NOT_LOADED:
-      return "Driver Not Loaded";
-    case NVML_ERROR_GPU_IS_LOST:
-      return "GPU Is Lost";
-    case NVML_ERROR_UNKNOWN:
-    default:
-      return "Unknown Error";
-  }
-}
-
 typedef struct nvmlDevice *nvmlDevice_t;
 typedef int nvmlReturn_t;
 
@@ -715,7 +687,7 @@ static void gpuinfo_ixml_get_running_processes(struct gpu_info *_gpu_info) {
         unsigned long long newest_timestamp_candidate = gpu_info->last_utilization_timestamp;
         for (unsigned int process_idx = 0; process_idx < process_count; ++process_idx) {
           for (unsigned int sample_idx = 0; sample_idx < sample_count; ++sample_idx) {
-            if (_gpu_info->processes[process_idx].pid == samples[sample_idx].pid && samples[sample_idx].smUtil <= 100 &&
+            if (_gpu_info->processes[process_idx].pid == (pid_t)samples[sample_idx].pid && samples[sample_idx].smUtil <= 100 &&
                 samples[sample_idx].encUtil <= 100 && samples[sample_idx].decUtil <= 100 &&
                 samples[sample_idx].timeStamp > gpu_info->last_utilization_timestamp) {
               SET_GPUINFO_PROCESS(&_gpu_info->processes[process_idx], gpu_usage, samples[sample_idx].smUtil);
