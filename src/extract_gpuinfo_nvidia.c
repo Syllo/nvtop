@@ -655,9 +655,24 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     memory_info.version = 2;
     last_nvml_return_status = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
     if (last_nvml_return_status == NVML_SUCCESS) {
-      // Check if this is a unified memory GPU (total == 0 indicates unified memory)
       got_meminfo = true;
-      if (memory_info.total == 0) {
+      // Detect coherent UMA platforms (e.g. GB10 Grace Blackwell):
+      // NVML returns NVML_SUCCESS but total == full system MemTotal.
+      // This is not usable VRAM — treat as unified memory and use MemAvailable.
+      unsigned long long sys_mem_total = 0;
+      FILE *mf = fopen("/proc/meminfo", "r");
+      if (mf) {
+        char ml[256];
+        while (fgets(ml, sizeof(ml), mf)) {
+          if (sscanf(ml, "MemTotal: %llu kB", &sys_mem_total) == 1) {
+            sys_mem_total *= 1024;
+            break;
+          }
+        }
+        fclose(mf);
+      }
+      if (memory_info.total == 0 ||
+          (sys_mem_total > 0 && memory_info.total >= sys_mem_total * 9 / 10)) {
         has_unified_memory = true;
       } else {
         SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.total);
