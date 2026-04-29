@@ -429,10 +429,9 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       continue;
     }
 
-    bool is_radeon = false; // TODO: !strcmp(ver->name, "radeon");
     bool is_amdgpu = !strcmp(ver->name, "amdgpu");
 
-    if (!is_amdgpu && !is_radeon) {
+    if (!is_amdgpu) {
       _drmFreeVersion(ver);
       close(fd);
       continue;
@@ -440,20 +439,15 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
 
     authenticate_drm(fd);
 
-    if (is_amdgpu) {
-      if (!libdrm_amdgpu_handle || !_amdgpu_device_initialize) {
-        _drmFreeVersion(ver);
-        close(fd);
-        continue;
-      }
-
-      uint32_t drm_major, drm_minor;
-      last_libdrm_return_status =
-          _amdgpu_device_initialize(fd, &drm_major, &drm_minor, &gpu_infos[amdgpu_count].amdgpu_device);
-    } else {
-      // TODO: radeon support here
-      assert(false);
+    if (!libdrm_amdgpu_handle || !_amdgpu_device_initialize) {
+      _drmFreeVersion(ver);
+      close(fd);
+      continue;
     }
+
+    uint32_t drm_major, drm_minor;
+    last_libdrm_return_status =
+        _amdgpu_device_initialize(fd, &drm_major, &drm_minor, &gpu_infos[amdgpu_count].amdgpu_device);
 
     if (!last_libdrm_return_status) {
       gpu_infos[amdgpu_count].drmVersion = ver;

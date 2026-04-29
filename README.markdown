@@ -82,8 +82,10 @@ GPU Support
 
 ### AMD
 
-NVTOP supports AMD GPUs using the `amdgpu` driver through the exposed DRM and
+NVTOP supports AMD GPUs using the `amdgpu` driver and the legacy `radeon` driver (legacy GPUs, limited support) through the exposed DRM and
 sysfs interface.
+
+The radeon provides limited metrics compared to amdgpu.
 
 AMD introduced the fdinfo interface in kernel 5.14 ([browse kernel
 source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/gpu/drm/amd/amdgpu/amdgpu_fdinfo.c?h=linux-5.14.y)).
