@@ -128,6 +128,13 @@ else()
   set(ROCKCHIP_SUPPORT_DEFAULT OFF)
 endif()
 
+# Tenstorrent support is only available on Linux
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(TENSTORRENT_SUPPORT_DEFAULT ON)
+else()
+  set(TENSTORRENT_SUPPORT_DEFAULT OFF)
+endif()
+
 option(NVIDIA_SUPPORT "Build support for NVIDIA GPUs through libnvml" ${NVIDIA_SUPPORT_DEFAULT})
 option(AMDGPU_SUPPORT "Build support for AMD GPUs through amdgpu driver" ${AMDGPU_SUPPORT_DEFAULT})
 option(RADEON_SUPPORT "Build support for ATI/AMD GPUs through radeon driver" ${RADEON_SUPPORT_DEFAULT})
@@ -142,6 +149,7 @@ option(TPU_SUPPORT "Build support for Google TPUs through GRPC" ${TPU_SUPPORT_DE
 option(ROCKCHIP_SUPPORT "Enable support for Rockchip NPU" ${ROCKCHIP_SUPPORT_DEFAULT})
 option(METAX_SUPPORT "Build support for MetaX GPUs through libmxsml" ${METAX_SUPPORT_DEFAULT})
 option(ENFLAME_SUPPORT "Build support for Enflame GCUs through libefml" ${ENFLAME_SUPPORT_DEFAULT})
+option(TENSTORRENT_SUPPORT "Build support for Tenstorrent accelerators through tt-kmd" ${TENSTORRENT_SUPPORT_DEFAULT})
 option(IXML_SUPPORT "Build support for Iluvatar CoreX GPUs through libixml" ${IXML_SUPPORT_DEFAULT})
 
 add_subdirectory(src)

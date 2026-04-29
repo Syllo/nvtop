@@ -11,8 +11,8 @@ htop-familiar way.
 Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
 M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
 proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver),
-Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Iluvatar CoreX
-(ixML / libixml).
+Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver).
+Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Iluvatar CoreX (ixML / libixml).
 
 Because a picture is worth a thousand words:
 
@@ -37,6 +37,7 @@ Table of Contents
   - [Rockchip](#rockchip)
   - [MetaX](#metax)
   - [Enflame](#enflame)
+  - [Tenstorrent](#tenstorrent)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
@@ -172,6 +173,12 @@ For more information about GPUs please take a look at the [METAX documentation](
 NVTOP supports Enflame GCUs (testing on Enflame S60, Enflame L300 and Enflame L600) by EFML LIBRARY
 
 GCU, which refers to General Compute Unit, is a type of accelerator card that is used to perform general-purpose computing tasks just like GPGPU.
+
+### Tenstorrent
+
+NVTOP supports Tenstorrent AI accelerators (Blackhole, Wormhole, Grayskull) through the [tt-kmd](https://github.com/tenstorrent/tt-kmd) kernel driver.
+
+Supports temperature, power draw, AI clock, fan RPM, PCIe link info, and process listing. No external libraries required -- all data is read from sysfs, hwmon, and procfs.
 
 Build
 -----
