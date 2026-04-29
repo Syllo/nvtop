@@ -166,7 +166,7 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
         }
         if (needGPUMemory && GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage)) {
           if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory)) {
-            dynamic_info->used_memory += dynamic_info->used_memory + process_info->gpu_memory_usage;
+            dynamic_info->used_memory += process_info->gpu_memory_usage;
           } else {
             SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, process_info->gpu_memory_usage);
           }

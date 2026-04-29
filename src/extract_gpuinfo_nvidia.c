@@ -214,6 +214,46 @@ static char didnt_call_gpuinfo_init[] = "The NVIDIA extraction has not been init
                                         "gpuinfo_nvidia_init\n";
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
+static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_info) {
+  FILE *meminfo = fopen("/proc/meminfo", "r");
+  if (!meminfo)
+    return false;
+
+  unsigned long long total_memory_kb = 0;
+  unsigned long long available_memory_kb = 0;
+  bool total_memory_found = false;
+  bool available_memory_found = false;
+  char line[256];
+
+  while (fgets(line, sizeof(line), meminfo)) {
+    if (sscanf(line, "MemTotal: %llu kB", &total_memory_kb) == 1) {
+      total_memory_found = true;
+      continue;
+    }
+    if (sscanf(line, "MemAvailable: %llu kB", &available_memory_kb) == 1) {
+      available_memory_found = true;
+      continue;
+    }
+  }
+
+  fclose(meminfo);
+
+  if (!total_memory_found || !available_memory_found || total_memory_kb == 0 ||
+      available_memory_kb > total_memory_kb)
+    return false;
+
+  unsigned long long total_memory = total_memory_kb * 1024;
+  unsigned long long free_memory = available_memory_kb * 1024;
+  unsigned long long used_memory = total_memory - free_memory;
+
+  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
+  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, free_memory);
+  SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_memory);
+  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, used_memory * 100 / total_memory);
+
+  return true;
+}
+
 // Processes GPU Utilization
 
 typedef struct {
@@ -654,28 +694,11 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // Handle unified memory GPUs - query system memory
+  // Handle unified memory GPUs. On UMA platforms such as DGX Spark, NVML does
+  // not expose dedicated framebuffer memory, so use the Linux system memory
+  // counters recommended by NVIDIA for memory reporting.
   if (has_unified_memory) {
-    // Read MemAvailable from /proc/meminfo for available memory
-    FILE *meminfo = fopen("/proc/meminfo", "r");
-    if (meminfo) {
-      unsigned long long total_memory = 0;
-      char line[256];
-
-      while (fgets(line, sizeof(line), meminfo)) {
-        if (sscanf(line, "MemTotal: %llu kB", &total_memory) == 1) {
-          total_memory *= 1024; // Convert KB to bytes
-          break;
-        }
-      }
-      fclose(meminfo);
-
-      // The used memory will be computed from process infos as part of the
-      // fixup function gpuinfo_fix_dynamic_info_from_process_info from
-      // extract_gpuinfo.c
-      if (total_memory > 0)
-        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
-    }
+    set_unified_system_memory_info(dynamic_info);
   }
 
   // Pcie generation used by the device

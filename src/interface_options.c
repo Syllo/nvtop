@@ -129,6 +129,10 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->show_startup_messages = true;
   options->filter_nvtop_pid = true;
   options->has_gpu_info_bar = false;
+  options->gpu_plot_color_idx[0] = 1;  // Cyan
+  options->gpu_plot_color_idx[1] = 3;  // Yellow
+  options->gpu_plot_color_idx[2] = 2;  // Green
+  options->gpu_plot_color_idx[3] = 4;  // Blue
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {
@@ -174,6 +178,12 @@ static const char header_value_gpu_info_bar[] = "GPUInfoBar";
 
 static const char chart_section[] = "ChartOption";
 static const char chart_value_reverse[] = "ReverseChart";
+static const char *chart_value_gpu_plot_color[MAX_LINES_PER_PLOT] = {
+    "GpuPlotColor0", "GpuPlotColor1", "GpuPlotColor2", "GpuPlotColor3"};
+
+static const char *plot_color_names[] = {
+    "Red", "Cyan", "Green", "Yellow", "Blue", "Magenta", "White"};
+static const unsigned plot_color_names_count = 7;
 
 static const char process_list_section[] = "ProcessListOption";
 static const char process_hide_nvtop_process_list[] = "HideNvtopProcessList";
@@ -252,6 +262,14 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
       }
       if (strcmp(value, "false") == 0) {
         ini_data->options->plot_left_to_right = false;
+      }
+    }
+    for (unsigned s = 0; s < MAX_LINES_PER_PLOT; ++s) {
+      if (strcmp(name, chart_value_gpu_plot_color[s]) == 0) {
+        for (unsigned i = 0; i < plot_color_names_count; ++i) {
+          if (strcmp(value, plot_color_names[i]) == 0)
+            ini_data->options->gpu_plot_color_idx[s] = i;
+        }
       }
     }
   }
@@ -404,6 +422,9 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   // Chart Options
   fprintf(config_file, "\n[%s]\n", chart_section);
   fprintf(config_file, "%s = %s\n", chart_value_reverse, boolean_string(options->plot_left_to_right));
+  for (unsigned s = 0; s < MAX_LINES_PER_PLOT; ++s)
+    fprintf(config_file, "%s = %s\n", chart_value_gpu_plot_color[s],
+            plot_color_names[options->gpu_plot_color_idx[s]]);
 
   // Process Options
   fprintf(config_file, "\n[%s]\n", process_list_section);

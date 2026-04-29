@@ -258,7 +258,7 @@ int main(int argc, char **argv) {
       gpuinfo_refresh_processes(&monitoredGpus);
       gpuinfo_utilisation_rate(&monitoredGpus);
       gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
-      print_snapshot(&monitoredGpus, use_fahrenheit_option);
+      print_snapshot(&monitoredGpus, use_fahrenheit_option, hide_processes_option);
     } while (loop_snapshot && !signal_exit);
 
     gpuinfo_shutdown_info_extraction(&monitoredGpus);
@@ -387,6 +387,16 @@ int main(int argc, char **argv) {
     case '+':
     case '-':
     case 12: // Ctrl+L
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
       interface_key(input_char, interface);
       break;
     case 'k':

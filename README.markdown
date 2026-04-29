@@ -12,6 +12,7 @@ Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
 M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
 proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver),
 Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver).
+Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Iluvatar CoreX (ixML / libixml).
 
 Because a picture is worth a thousand words:
 
@@ -31,6 +32,7 @@ Table of Contents
   - [Adreno](#adreno)
   - [Apple](#apple)
   - [Ascend](#ascend) (only tested on 910B)
+  - [Iluvatar CoreX](#iluvatar-corex)
   - [VideoCore](#videocore)
   - [Rockchip](#rockchip)
   - [MetaX](#metax)
@@ -83,8 +85,10 @@ GPU Support
 
 ### AMD
 
-NVTOP supports AMD GPUs using the `amdgpu` driver through the exposed DRM and
+NVTOP supports AMD GPUs using the `amdgpu` driver and the legacy `radeon` driver (legacy GPUs, limited support) through the exposed DRM and
 sysfs interface.
+
+The radeon provides limited metrics compared to amdgpu.
 
 AMD introduced the fdinfo interface in kernel 5.14 ([browse kernel
 source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/gpu/drm/amd/amdgpu/amdgpu_fdinfo.c?h=linux-5.14.y)).
@@ -135,6 +139,15 @@ NVTOP supports Ascend (testing on Altas 800 (910B)) by DCMI API (version 6.0.0).
 
 Currently, the DCMI only supports limited APIs, missing PCIe generation, tx/rx throughput info, max power draw etc.
 
+### Iluvatar CoreX
+
+NVTOP supports Iluvatar CoreX GPUs through the ixML library.
+
+The backend dynamically loads `libixml.so` from `/usr/local/corex/lib`,
+`/usr/local/corex/lib64`, or the default dynamic loader search path. The ixML
+runtime exposes an NVML-compatible API surface used by NVTOP to query device,
+power, PCIe, clock, temperature, memory, and process information.
+
 ### VideoCore
 
 NVTOP supports VideoCore (testing on raspberrypi 4B).
@@ -180,6 +193,8 @@ Several libraries are required in order for NVTOP to display GPU info:
 * For METAX: the *MetaX System Management Library* (*MXSML*) which comes with the GPU driver.
   * This queries the GPU for info.
 * For Enflame: the *Enflame Management Library* (*EFML*) which comes with the GCU driver.
+* For Iluvatar CoreX: the *ixML* runtime library (`libixml.so`) which comes with the driver.
+  * This backend loads the library dynamically at runtime.
 
 ## Distribution Specific Installation Process
 

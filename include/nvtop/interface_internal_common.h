@@ -47,6 +47,10 @@ enum interface_color {
   green_color,
   red_color,
   blue_color,
+  gpu_util_plot_color,
+  gpu_mem_plot_color,
+  gpu_plot_color_3,
+  gpu_plot_color_4,
 };
 
 struct device_window {
@@ -82,6 +86,8 @@ struct option_window {
   unsigned int selected_row;
   unsigned int offset;
   WINDOW *option_win;
+  bool last_key_was_number;
+  unsigned int input_number;
 };
 
 struct process_window {
