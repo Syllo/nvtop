@@ -243,28 +243,19 @@ unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed);
 // NVLink support
 #define NVTOP_NVLINK_MAX_LINKS 18
 
-// Per-lane CRC errors (up to 64 lanes per link)
-#define NVTOP_NVLINK_MAX_LANES 64
-
-struct nvlink_link_info {
-  bool active;                        // Link is active
-  unsigned long long throughput_tx;   // TX throughput in KiB/s (rate, not cumulative)
-  unsigned long long throughput_rx;   // RX throughput in KiB/s (rate, not cumulative)
-  unsigned long long errors_replay;   // Replay error count
-  unsigned long long errors_recovery; // Recovery error count
-  unsigned long long errors_crc_flit; // CRC FLIT error count
-  unsigned long long errors_crc_data; // CRC DATA error count
-  unsigned long long errors_ecc_data; // ECC DATA error count
-  unsigned long long crc_per_lane[NVTOP_NVLINK_MAX_LANES]; // Per-lane CRC corrections
-  unsigned lanes;                     // Number of lanes on this link
-};
-
 struct nvlink_info {
   unsigned num_links;                 // Number of NVLink links on this device
+  unsigned version;                   // NVLink version (e.g. 3 for NVLink 3.0)
   bool supported;                     // NVLink is supported on this device
-  struct nvlink_link_info links[NVTOP_NVLINK_MAX_LINKS];
+  bool has_throughput;                // Whether throughput data was available this cycle
+  unsigned long long aggregate_tx;    // Aggregate TX throughput across all links (KiB/s)
+  unsigned long long aggregate_rx;    // Aggregate RX throughput across all links (KiB/s)
 };
 
 unsigned nvtop_get_nvlink_info(struct gpu_info *gpu_info, struct nvlink_info *nvlink_info);
+
+// NVLink probe — call before initialize_curses to set layout mode
+bool nvtop_probe_nvlink_list(struct list_head *devices);
+void nvtop_set_nvlink_probe(bool val);
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

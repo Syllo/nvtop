@@ -21,6 +21,7 @@
 
 #include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/time.h"
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -209,18 +210,7 @@ nvmlReturn_t (*nvmlDeviceGetMigMode)(nvmlDevice_t device, unsigned int *currentM
 
 // NVLink functions (not present in older NVML versions, gracefully handled)
 static nvmlReturn_t (*nvmlDeviceGetNvLinkState)(nvmlDevice_t device, unsigned int link, unsigned int *isActive);
-static nvmlReturn_t (*nvmlDeviceGetNvLinkErrorCounter)(nvmlDevice_t device, unsigned int link, unsigned int type,
-                                                       unsigned long long *counter);
-static nvmlReturn_t (*nvmlDeviceGetNvLinkUtilizationCounter)(nvmlDevice_t device, unsigned int link,
-                                                             unsigned int counter,
-                                                             unsigned long long *rxcounter,
-                                                             unsigned long long *txcounter);
-static nvmlReturn_t (*nvmlDeviceGetNvLinkUtilizationControl)(nvmlDevice_t device, unsigned int link,
-                                                             unsigned int counter,
-                                                             unsigned long long *domain,
-                                                             unsigned long long *unit);
-static nvmlReturn_t (*nvmlDeviceResetNvLinkUtilizationCounter)(nvmlDevice_t device, unsigned int link,
-                                                               unsigned int counter);
+static nvmlReturn_t (*nvmlDeviceGetNvLinkVersion)(nvmlDevice_t device, unsigned int link, unsigned int *version);
 
 static void *libnvidia_ml_handle;
 
@@ -292,10 +282,14 @@ struct gpu_info_nvidia {
   bool isInMigMode;
   unsigned long long last_utilization_timestamp;
 
-  // NVLink throughput tracking (for delta-based rate calculation)
-  unsigned long long nvlink_tx_counters[NVTOP_NVLINK_MAX_LINKS];
-  unsigned long long nvlink_rx_counters[NVTOP_NVLINK_MAX_LINKS];
-  unsigned long long last_nvlink_throughput_time; // time in ms for rate calculation
+  // NVLink throughput via nvidia-smi CLI (consumer GPUs like RTX 3090)
+  unsigned int device_index; // For nvidia-smi -i calls
+  bool cli_poll_active; // True once CLI fallback has been successfully initialized
+  unsigned long long nvlink_cli_tx[NVTOP_NVLINK_MAX_LINKS]; // Per-link cumulative TX from CLI
+  unsigned long long nvlink_cli_rx[NVTOP_NVLINK_MAX_LINKS]; // Per-link cumulative RX from CLI
+  nvtop_time last_nvlink_cli_time; // Timestamp of last CLI poll (uses app's existing time API)
+  unsigned long long smoothed_agg_tx; // EMA-smoothed aggregate TX for display
+  unsigned long long smoothed_agg_rx; // EMA-smoothed aggregate RX for display
 };
 
 static LIST_HEAD(allocations);
@@ -492,10 +486,7 @@ static bool gpuinfo_nvidia_init(void) {
 
   // NVLink functions (optional - not available on all drivers/hardware)
   nvmlDeviceGetNvLinkState = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkState");
-  nvmlDeviceGetNvLinkErrorCounter = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkErrorCounter");
-  nvmlDeviceGetNvLinkUtilizationCounter = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkUtilizationCounter");
-  nvmlDeviceGetNvLinkUtilizationControl = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkUtilizationControl");
-  nvmlDeviceResetNvLinkUtilizationCounter = dlsym(libnvidia_ml_handle, "nvmlDeviceResetNvLinkUtilizationCounter");
+  nvmlDeviceGetNvLinkVersion = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkVersion");
 
   last_nvml_return_status = nvmlInit();
   if (last_nvml_return_status != NVML_SUCCESS) {
@@ -565,6 +556,7 @@ static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigne
       nvmlReturn_t pciInfoRet = nvmlDeviceGetPciInfo(gpu_infos[*count].gpuhandle, &pciInfo);
       if (pciInfoRet == NVML_SUCCESS) {
         strncpy(gpu_infos[*count].base.pdev, pciInfo.busIdLegacy, PDEV_LEN);
+        gpu_infos[*count].device_index = i;
         list_add_tail(&gpu_infos[*count].base.list, devices);
         *count += 1;
       }
@@ -966,20 +958,68 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 
 // NVML NVLink enums (defined locally since we don't have nvml.h)
 #define NVML_NVLINK_MAX_LINKS_INTERNAL 18
-#define NVML_NVLINK_ERROR_DL_REPLAY 0
-#define NVML_NVLINK_ERROR_DL_RECOVERY 1
-#define NVML_NVLINK_ERROR_DL_CRC_FLIT 2
-#define NVML_NVLINK_ERROR_DL_CRC_DATA 3
-#define NVML_NVLINK_ERROR_DL_ECC_DATA 4
-#define NVML_NVLINK_STATE_ACTIVE 0x1
-#define NVML_NVLINK_UTILIZATION_COUNTER_0 0
-#define NVML_NVLINK_UTILIZATION_COUNTER_1 1
 
-#include <time.h>
+#include <stdio.h>
+#include <string.h>
 
 // Forward declaration
 struct gpu_info_nvidia;
 
+// Parse nvidia-smi nvlink --getthroughput d output
+// Returns number of links parsed (0 on failure)
+static unsigned nvlink_cli_get_throughput(int device_index, unsigned int link_count,
+                                          unsigned long long *tx_out, unsigned long long *rx_out) {
+  char cmd[256];
+  snprintf(cmd, sizeof(cmd), "nvidia-smi nvlink --getthroughput d -i %d 2>/dev/null", device_index);
+
+  FILE *fp = popen(cmd, "r");
+  if (!fp)
+    return 0;
+
+  char line[512];
+  unsigned parsed = 0;
+  memset(tx_out, 0, link_count * sizeof(unsigned long long));
+  memset(rx_out, 0, link_count * sizeof(unsigned long long));
+
+  while (fgets(line, sizeof(line), fp)) {
+    int link = -1;
+    unsigned long long val = 0;
+    char *p = line;
+    while (*p == '\t' || *p == ' ')
+      p++;
+    if (sscanf(p, "Link %u: Data Tx: %llu", &link, &val) == 2 && (unsigned)link < link_count) {
+      tx_out[link] = val;
+      parsed++;
+    } else if (sscanf(p, "Link %u: Data Rx: %llu", &link, &val) == 2 && (unsigned)link < link_count) {
+      rx_out[link] = val;
+      parsed++;
+    }
+    if (parsed >= link_count * 2)
+      break;
+  }
+
+  pclose(fp);
+  return parsed >= (unsigned)link_count * 2 ? link_count : 0;
+}
+
+// Remap raw NVML NVLink protocol version to the marketing version.
+// NVML raw values do NOT equal marketing versions (raw 5 = 3.1 -> rounds to 3).
+static unsigned int nvlink_marketing_version(unsigned int raw_version) {
+  // Raw NVML value to rounded marketing major version.
+  switch (raw_version) {
+    case 1: return 1;
+    case 2: return 2;
+    case 3: return 2;  // NVLink 2.2 -> 2
+    case 4: return 3;  // NVLink 3.0 -> 3
+    case 5: return 3;  // NVLink 3.1 -> 3
+    case 6: return 4;
+    case 7: return 5;
+    default: return raw_version;
+  }
+}
+
+// Get NVLink info (version, link count, aggregate throughput via CLI).
+// Designed for consumer GPUs (RTX 3090) where NVML utilization counters are unavailable.
 unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *nvlink_info) {
   if (!_gpu_info || !nvlink_info)
     return 0;
@@ -989,24 +1029,27 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
 
   memset(nvlink_info, 0, sizeof(*nvlink_info));
 
-  // Check if core NVLink functions are available
   if (!nvmlDeviceGetNvLinkState)
     return 0;
 
-  // Discover link count by probing each possible link (nvmlDeviceGetNvLinkLinkCount doesn't exist)
-  // We probe up to 18 links (NVML_NVLINK_MAX_LINKS_INTERNAL) and count valid ones
+  // Discover link count by probing each possible link
   unsigned int linkCount = 0;
+  unsigned int version = 0;
   for (unsigned int link = 0; link < NVML_NVLINK_MAX_LINKS_INTERNAL; link++) {
     unsigned int isActive = 0;
     nvmlReturn_t ret = nvmlDeviceGetNvLinkState(device, link, &isActive);
-    // NVML_ERROR_NOT_SUPPORTED on the link index means it doesn't exist on this device
-    // NVML_SUCCESS means it exists (active or inactive)
     if (ret == NVML_SUCCESS || ret == NVML_ERROR_NOT_SUPPORTED) {
-      // We found a valid link or hit the end of available links
-      if (ret == NVML_SUCCESS)
+      if (ret == NVML_SUCCESS) {
         linkCount = link + 1;
+        // Read version on first link only (all links share the same version)
+        if (link == 0 && nvmlDeviceGetNvLinkVersion) {
+          nvmlReturn_t vret = nvmlDeviceGetNvLinkVersion(device, 0, &version);
+          if (vret == NVML_SUCCESS)
+            version = nvlink_marketing_version(version);
+        }
+      }
     } else {
-      break; // Error or invalid link
+      break;
     }
   }
 
@@ -1015,66 +1058,46 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
 
   nvlink_info->supported = true;
   nvlink_info->num_links = linkCount;
+  nvlink_info->version = version;
 
-  // Current time for rate calculation
-  struct timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  unsigned long long current_time_ms = (unsigned long long)ts.tv_sec * 1000ULL + (unsigned long long)ts.tv_nsec / 1000000ULL;
-  unsigned long long delta_ms = 0;
+  // Throughput via nvidia-smi CLI (NVML utilization counters unavailable on consumer GPUs)
+  // Poll every 2 seconds to keep CPU overhead low
+  nvtop_time current_time;
+  nvtop_get_current_time(&current_time);
+  if (gpu_info->last_nvlink_cli_time.tv_sec == 0 ||
+      nvtop_difftime(gpu_info->last_nvlink_cli_time, current_time) >= 2.) {
 
-  if (gpu_info->last_nvlink_throughput_time > 0) {
-    delta_ms = current_time_ms - gpu_info->last_nvlink_throughput_time;
-    if (delta_ms == 0)
-      delta_ms = 1; // Avoid division by zero
-  }
+    unsigned long long cli_tx[NVTOP_NVLINK_MAX_LINKS] = {0};
+    unsigned long long cli_rx[NVTOP_NVLINK_MAX_LINKS] = {0};
 
-  for (unsigned int link = 0; link < linkCount; link++) {
-    struct nvlink_link_info *linfo = &nvlink_info->links[link];
+    if (nvlink_cli_get_throughput(gpu_info->device_index, linkCount, cli_tx, cli_rx)) {
+      gpu_info->cli_poll_active = true;
 
-    // Link state
-    if (nvmlDeviceGetNvLinkState) {
-      unsigned int isActive = 0;
-      nvmlReturn_t ret = nvmlDeviceGetNvLinkState(device, link, &isActive);
-      if (ret == NVML_SUCCESS)
-        linfo->active = (isActive == NVML_NVLINK_STATE_ACTIVE);
-    }
+      if (gpu_info->last_nvlink_cli_time.tv_sec > 0) {
+        double delta_s = nvtop_difftime(gpu_info->last_nvlink_cli_time, current_time);
+        if (delta_s <= 0.) delta_s = 1e-9;
 
-    // Throughput using nvmlDeviceGetNvLinkUtilizationCounter (returns both RX and TX)
-    // This replaces nvmlDeviceGetNvLinkThroughput which doesn't exist
-    if (nvmlDeviceGetNvLinkUtilizationCounter) {
-      unsigned long long rx_counter = 0, tx_counter = 0;
-
-      // Try counter 0 first, fall back to counter 1
-      nvmlReturn_t ret = nvmlDeviceGetNvLinkUtilizationCounter(device, link, NVML_NVLINK_UTILIZATION_COUNTER_0, &rx_counter, &tx_counter);
-      if (ret != NVML_SUCCESS) {
-        ret = nvmlDeviceGetNvLinkUtilizationCounter(device, link, NVML_NVLINK_UTILIZATION_COUNTER_1, &rx_counter, &tx_counter);
-      }
-
-      if (ret == NVML_SUCCESS) {
-        // Counters are in bytes (KiB based on NVML docs)
-        // Calculate throughput rate in KiB/s
-        if (gpu_info->last_nvlink_throughput_time > 0) {
-          unsigned long long delta_tx = tx_counter - gpu_info->nvlink_tx_counters[link];
-          unsigned long long delta_rx = rx_counter - gpu_info->nvlink_rx_counters[link];
-          linfo->throughput_tx = (delta_tx * 1000ULL) / delta_ms;
-          linfo->throughput_rx = (delta_rx * 1000ULL) / delta_ms;
+        unsigned long long total_tx = 0, total_rx = 0;
+        for (unsigned int link = 0; link < linkCount; link++) {
+          total_tx += cli_tx[link] - gpu_info->nvlink_cli_tx[link];
+          total_rx += cli_rx[link] - gpu_info->nvlink_cli_rx[link];
         }
-        gpu_info->nvlink_tx_counters[link] = tx_counter;
-        gpu_info->nvlink_rx_counters[link] = rx_counter;
+        gpu_info->smoothed_agg_tx = (unsigned long long)((double)total_tx / delta_s);
+        gpu_info->smoothed_agg_rx = (unsigned long long)((double)total_rx / delta_s);
       }
-    }
 
-    // Error counters (cumulative)
-    if (nvmlDeviceGetNvLinkErrorCounter) {
-      nvmlReturn_t ret = nvmlDeviceGetNvLinkErrorCounter(device, link, NVML_NVLINK_ERROR_DL_REPLAY, &linfo->errors_replay);
-      ret = nvmlDeviceGetNvLinkErrorCounter(device, link, NVML_NVLINK_ERROR_DL_RECOVERY, &linfo->errors_recovery);
-      ret = nvmlDeviceGetNvLinkErrorCounter(device, link, NVML_NVLINK_ERROR_DL_CRC_FLIT, &linfo->errors_crc_flit);
-      ret = nvmlDeviceGetNvLinkErrorCounter(device, link, NVML_NVLINK_ERROR_DL_CRC_DATA, &linfo->errors_crc_data);
-      ret = nvmlDeviceGetNvLinkErrorCounter(device, link, NVML_NVLINK_ERROR_DL_ECC_DATA, &linfo->errors_ecc_data);
+      memcpy(gpu_info->nvlink_cli_tx, cli_tx, linkCount * sizeof(unsigned long long));
+      memcpy(gpu_info->nvlink_cli_rx, cli_rx, linkCount * sizeof(unsigned long long));
     }
+    gpu_info->last_nvlink_cli_time = current_time;
   }
 
-  gpu_info->last_nvlink_throughput_time = current_time_ms;
+  // Aggregate throughput: EMA smoothing (alpha = 0.3) on current value
+  if (gpu_info->cli_poll_active) {
+    nvlink_info->has_throughput = true;
+    nvlink_info->aggregate_tx = gpu_info->smoothed_agg_tx;
+    nvlink_info->aggregate_rx = gpu_info->smoothed_agg_rx;
+  }
 
   return nvlink_info->num_links;
 }

@@ -48,6 +48,32 @@ static unsigned int sizeof_device_field[device_field_count] = {
     [device_l2features] = 11, [device_execengines] = 11,
 };
 
+// True if any monitored device has NVLink — set before layout is computed
+static bool any_device_has_nvlink = false;
+
+// When NVLink is present, shrink fan field from 11 to 8 to make room on line 2
+static void nvtop_adjust_field_sizes_for_nvlink(void) {
+  if (any_device_has_nvlink) {
+    sizeof_device_field[device_fan_speed] = 8;  // "FAN %3u%%" (was 11 with padding)
+  }
+}
+
+bool nvtop_probe_nvlink_list(struct list_head *devices) {
+  struct gpu_info *gpu;
+  list_for_each_entry(gpu, devices, list) {
+    struct nvlink_info nvl;
+    memset(&nvl, 0, sizeof(nvl));
+    if (nvtop_get_nvlink_info(gpu, &nvl) > 0 && nvl.supported)
+      return true;
+  }
+  return false;
+}
+
+void nvtop_set_nvlink_probe(bool val) {
+  any_device_has_nvlink = val;
+  nvtop_adjust_field_sizes_for_nvlink();
+}
+
 static unsigned int sizeof_process_field[process_field_count] = {
     [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,   [process_type] = 8,
     [process_gpu_rate] = 4,  [process_enc_rate] = 4,      [process_dec_rate] = 4,
@@ -69,35 +95,43 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
       newwin(1, sizeof_device_field[device_pcie], start_row, start_col + spacer + sizeof_device_field[device_name]);
   if (dwin->pcie_info == NULL)
     goto alloc_error;
-  dwin->nvlink_info =
-      newwin(1, sizeof_device_field[device_pcie], start_row + 1, start_col + spacer + sizeof_device_field[device_name]);
-  if (dwin->nvlink_info == NULL)
-    goto alloc_error;
 
-  // Line 2 = GPU clk | MEM clk | Temp | Fan | Power
-  dwin->gpu_clock_info = newwin(1, sizeof_device_field[device_clock], start_row + 2, start_col);
+  // Line 2 = GPU clk | MEM clk | Temp | Fan | Power | NVLink
+  dwin->gpu_clock_info = newwin(1, sizeof_device_field[device_clock], start_row + 1, start_col);
   if (dwin->gpu_clock_info == NULL)
     goto alloc_error;
-  dwin->mem_clock_info = newwin(1, sizeof_device_field[device_mem_clock], start_row + 2,
+  dwin->mem_clock_info = newwin(1, sizeof_device_field[device_mem_clock], start_row + 1,
                                 start_col + spacer + sizeof_device_field[device_clock]);
   if (dwin->mem_clock_info == NULL)
     goto alloc_error;
   dwin->temperature =
-      newwin(1, sizeof_device_field[device_temperature], start_row + 2,
+      newwin(1, sizeof_device_field[device_temperature], start_row + 1,
              start_col + spacer * 2 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock]);
   if (dwin->temperature == NULL)
     goto alloc_error;
-  dwin->fan_speed = newwin(1, sizeof_device_field[device_fan_speed], start_row + 2,
+  dwin->fan_speed = newwin(1, sizeof_device_field[device_fan_speed], start_row + 1,
                            start_col + spacer * 3 + sizeof_device_field[device_clock] +
                                sizeof_device_field[device_mem_clock] + sizeof_device_field[device_temperature]);
   if (dwin->fan_speed == NULL)
     goto alloc_error;
   dwin->power_info =
-      newwin(1, sizeof_device_field[device_power], start_row + 2,
+      newwin(1, sizeof_device_field[device_power], start_row + 1,
              start_col + spacer * 4 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed]);
   if (dwin->power_info == NULL)
     goto alloc_error;
+  // NVLink appended to power_info on the same row (start_row + 1), using remaining width
+  if (any_device_has_nvlink) {
+    dwin->nvlink_info =
+        newwin(1, sizeof_device_field[device_pcie] - sizeof_device_field[device_power] - spacer * 3, start_row + 1,
+               start_col + spacer * 4 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                   sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
+                   spacer * 2 + sizeof_device_field[device_power]);
+    if (dwin->nvlink_info == NULL)
+      goto alloc_error;
+  } else {
+    dwin->nvlink_info = NULL;
+  }
 
   // Line 3 = GPU used | MEM used | Encoder | Decoder
 
@@ -135,49 +169,49 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
     size_encode += 1;
   size_encode /= 2;
 
-  dwin->gpu_util_enc_dec = newwin(1, size_gpu, start_row + 3, start_col);
+  dwin->gpu_util_enc_dec = newwin(1, size_gpu, start_row + 2, start_col);
   if (dwin->gpu_util_enc_dec == NULL)
     goto alloc_error;
-  dwin->mem_util_enc_dec = newwin(1, size_mem, start_row + 3, start_col + spacer + size_gpu);
+  dwin->mem_util_enc_dec = newwin(1, size_mem, start_row + 2, start_col + spacer + size_gpu);
   if (dwin->mem_util_enc_dec == NULL)
     goto alloc_error;
-  dwin->encode_util = newwin(1, size_encode, start_row + 3, start_col + spacer * 2 + size_gpu + size_mem);
+  dwin->encode_util = newwin(1, size_encode, start_row + 2, start_col + spacer * 2 + size_gpu + size_mem);
   if (dwin->encode_util == NULL)
     goto alloc_error;
-  dwin->decode_util = newwin(1, size_decode, start_row + 3, start_col + spacer * 3 + size_gpu + size_mem + size_encode);
+  dwin->decode_util = newwin(1, size_decode, start_row + 2, start_col + spacer * 3 + size_gpu + size_mem + size_encode);
   if (dwin->decode_util == NULL)
     goto alloc_error;
-  dwin->encdec_util = newwin(1, size_encode * 2, start_row + 3, start_col + spacer * 2 + size_gpu + size_mem);
+  dwin->encdec_util = newwin(1, size_encode * 2, start_row + 2, start_col + spacer * 2 + size_gpu + size_mem);
   if (dwin->encdec_util == NULL)
     goto alloc_error;
   // For auto-hide encode / decode window
-  dwin->gpu_util_no_enc_or_dec = newwin(1, size_gpu + size_encode / 2 + 1, start_row + 3, start_col);
+  dwin->gpu_util_no_enc_or_dec = newwin(1, size_gpu + size_encode / 2 + 1, start_row + 2, start_col);
   if (dwin->gpu_util_no_enc_or_dec == NULL)
     goto alloc_error;
   dwin->mem_util_no_enc_or_dec =
-      newwin(1, size_mem + size_encode / 2, start_row + 3, start_col + spacer + size_gpu + size_encode / 2 + 1);
+      newwin(1, size_mem + size_encode / 2, start_row + 2, start_col + spacer + size_gpu + size_encode / 2 + 1);
   if (dwin->mem_util_no_enc_or_dec == NULL)
     goto alloc_error;
-  dwin->gpu_util_no_enc_and_dec = newwin(1, size_gpu + size_encode + 1, start_row + 3, start_col);
+  dwin->gpu_util_no_enc_and_dec = newwin(1, size_gpu + size_encode + 1, start_row + 2, start_col);
   if (dwin->gpu_util_no_enc_and_dec == NULL)
     goto alloc_error;
   dwin->mem_util_no_enc_and_dec =
-      newwin(1, size_mem + size_encode + 1, start_row + 3, start_col + spacer + size_gpu + size_encode + 1);
+      newwin(1, size_mem + size_encode + 1, start_row + 2, start_col + spacer + size_gpu + size_encode + 1);
   if (dwin->mem_util_no_enc_and_dec == NULL)
     goto alloc_error;
   dwin->enc_was_visible = false;
   dwin->dec_was_visible = false;
 
   // Line 4 = Number of shading cores | L2 Features
-  dwin->shader_cores = newwin(1, sizeof_device_field[device_shadercores], start_row + 4, start_col);
+  dwin->shader_cores = newwin(1, sizeof_device_field[device_shadercores], start_row + 3, start_col);
   if (dwin->shader_cores == NULL)
     goto alloc_error;
-  dwin->l2_cache_size = newwin(1, sizeof_device_field[device_l2features], start_row + 4,
+  dwin->l2_cache_size = newwin(1, sizeof_device_field[device_l2features], start_row + 3,
                                start_col + spacer + sizeof_device_field[device_shadercores]);
   if (dwin->l2_cache_size == NULL)
     goto alloc_error;
   dwin->exec_engines =
-      newwin(1, sizeof_device_field[device_execengines], start_row + 4,
+      newwin(1, sizeof_device_field[device_execengines], start_row + 3,
              start_col + spacer * 2 + sizeof_device_field[device_shadercores] + sizeof_device_field[device_l2features]);
   if (dwin->exec_engines == NULL)
     goto alloc_error;
@@ -206,7 +240,8 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->temperature);
   delwin(dwin->fan_speed);
   delwin(dwin->pcie_info);
-  delwin(dwin->nvlink_info);
+  if (dwin->nvlink_info != NULL)
+    delwin(dwin->nvlink_info);
 }
 
 static void alloc_process_with_option(struct nvtop_interface *interface, unsigned posX, unsigned posY, unsigned sizeX,
@@ -349,10 +384,18 @@ static void alloc_plot_window(unsigned devices_count, struct window_position *pl
 }
 
 static unsigned device_length(void) {
+  // When no NVLink anywhere, match original repo layout exactly
+  if (!any_device_has_nvlink) {
+    return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
+               sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                   sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
+                   sizeof_device_field[device_power] + 5);
+  }
+  // With NVLink: keep line 3 at original width (+3 compensates for fan 11->8, power stays 15)
   return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
              sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                 sizeof_device_field[device_power] + 5);
+                 sizeof_device_field[device_power] + 5 + 2);
 }
 
 static pid_t nvtop_pid;
@@ -369,7 +412,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position plot_positions[MAX_CHARTS];
   struct window_position setup_position;
 
-  compute_sizes_from_layout(devices_count, dwin->options.has_gpu_info_bar ? 5 : 4, device_length(), rows - 1, cols,
+  compute_sizes_from_layout(devices_count, dwin->options.has_gpu_info_bar ? 4 : 3, device_length(), rows - 1, cols,
                             dwin->options.gpu_specific_opts, dwin->options.process_fields_displayed, device_positions,
                             &dwin->num_plots, plot_positions, map_device_to_plot, &process_position, &setup_position,
                             dwin->options.hide_processes_list);
@@ -576,6 +619,8 @@ static void print_pcie_at_scale(WINDOW *win, unsigned int value) {
   wprintw(win, " %sB/s", memory_prefix[prefix_off]);
 }
 
+// Reuse existing print_pcie_at_scale for NVLink throughput (identical scale logic)
+
 static inline void werase_and_wnoutrefresh(WINDOW *w) {
   werase(w);
   wnoutrefresh(w);
@@ -779,19 +824,41 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // FAN
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed)) {
-      mvwprintw(dev->fan_speed, 0, 0, " FAN %3u%%  ",
-                device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
-      mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
+      if (any_device_has_nvlink) {
+        mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%",
+                  device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
+        mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, " FAN %3u%%  ",
+                  device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
+        mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
+      }
     } else if (device->static_info.integrated_graphics) {
-      mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
-      mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
+      if (any_device_has_nvlink) {
+        mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN");
+        mvwchgat(dev->fan_speed, 0, 0, 7, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
+        mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
+      }
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm)) {
-      mvwprintw(dev->fan_speed, 0, 0, "FAN %4uRPM",
-                device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
-      mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      if (any_device_has_nvlink) {
+        mvwprintw(dev->fan_speed, 0, 0, "FAN%3uR",
+                  device->dynamic_info.fan_rpm > 999 ? 999 : device->dynamic_info.fan_rpm);
+        mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, "FAN %4uRPM",
+                  device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
+        mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      }
     } else {
-      mvwprintw(dev->fan_speed, 0, 0, "  FAN N/A  ");
-      mvwchgat(dev->fan_speed, 0, 2, 3, 0, cyan_color, NULL);
+      if (any_device_has_nvlink) {
+        mvwprintw(dev->fan_speed, 0, 0, "FAN N/A");
+        mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, "  FAN N/A  ");
+        mvwchgat(dev->fan_speed, 0, 2, 3, 0, cyan_color, NULL);
+      }
     }
     wnoutrefresh(dev->fan_speed);
 
@@ -831,6 +898,33 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->power_info);
 
+    // NVLink info (on same row as power_info)
+    if (dev->nvlink_info != NULL) {
+      werase(dev->nvlink_info);
+      struct nvlink_info nvl_info;
+      unsigned nvlinks = nvtop_get_nvlink_info(device, &nvl_info);
+      if (nvlinks > 0 && nvl_info.supported) {
+        wcolor_set(dev->nvlink_info, cyan_color, NULL);
+        wprintw(dev->nvlink_info, "NVL");
+        wcolor_set(dev->nvlink_info, magenta_color, NULL);
+        if (nvl_info.version > 0)
+          wprintw(dev->nvlink_info, "%u", nvl_info.version);
+        else
+          wprintw(dev->nvlink_info, "?");
+        wstandend(dev->nvlink_info);
+        if (nvl_info.num_links < 10)
+          wprintw(dev->nvlink_info, " %ux ", nvl_info.num_links);
+        else
+          wprintw(dev->nvlink_info, "%ux ", nvl_info.num_links);
+
+        if (nvl_info.has_throughput) {
+          unsigned total_kib = (unsigned)(nvl_info.aggregate_tx + nvl_info.aggregate_rx);
+          print_pcie_at_scale(dev->nvlink_info, total_kib);
+        }
+      }
+      wnoutrefresh(dev->nvlink_info);
+    }
+
     // PICe throughput
     werase(dev->pcie_info);
     if (device->static_info.integrated_graphics) {
@@ -865,84 +959,6 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       wprintw(dev->pcie_info, "N/A");
 
     wnoutrefresh(dev->pcie_info);
-
-    // NVLink info
-    werase(dev->nvlink_info);
-    wcolor_set(dev->nvlink_info, cyan_color, NULL);
-    mvwprintw(dev->nvlink_info, 0, 0, "NVLink ");
-    wstandend(dev->nvlink_info);
-
-    struct nvlink_info nvl_info;
-    unsigned nvlinks = nvtop_get_nvlink_info(device, &nvl_info);
-    if (nvlinks > 0 && nvl_info.supported) {
-      int pos = 7;
-      // Check if any link has throughput data (not available on consumer GPUs)
-      bool has_throughput = false;
-      for (unsigned link = 0; link < nvl_info.num_links; link++) {
-        if (nvl_info.links[link].throughput_tx > 0 || nvl_info.links[link].throughput_rx > 0) {
-          has_throughput = true;
-          break;
-        }
-      }
-
-      for (unsigned link = 0; link < nvl_info.num_links && pos < 44; link++) {
-        const struct nvlink_link_info *l = &nvl_info.links[link];
-        // Link indicator: A=active, x=inactive
-        wcolor_set(dev->nvlink_info, l->active ? green_color : red_color, NULL);
-        mvwprintw(dev->nvlink_info, 0, pos, "L%d%c", link, l->active ? 'A' : 'x');
-        wstandend(dev->nvlink_info);
-        pos += 4;
-        // Throughput (only shown when actually available)
-        if (has_throughput) {
-          if (pos + 10 > 44)
-            break;
-          // TX
-          if (l->throughput_tx > 0) {
-            if (l->throughput_tx > 1024) {
-              mvwprintw(dev->nvlink_info, 0, pos, "%3uM", (unsigned)(l->throughput_tx / 1024));
-            } else {
-              mvwprintw(dev->nvlink_info, 0, pos, "%3uk", (unsigned)l->throughput_tx);
-            }
-          } else {
-            mvwprintw(dev->nvlink_info, 0, pos, "  -");
-          }
-          pos += 4;
-          // Separator
-          if (pos < 44) {
-            mvwprintw(dev->nvlink_info, 0, pos, "/");
-            pos++;
-          }
-          // RX
-          if (pos + 5 > 44)
-            break;
-          if (l->throughput_rx > 0) {
-            if (l->throughput_rx > 1024) {
-              mvwprintw(dev->nvlink_info, 0, pos, "%3uM", (unsigned)(l->throughput_rx / 1024));
-            } else {
-              mvwprintw(dev->nvlink_info, 0, pos, "%3uk", (unsigned)l->throughput_rx);
-            }
-          } else {
-            mvwprintw(dev->nvlink_info, 0, pos, "  -");
-          }
-          pos += 4;
-        }
-        // Error indicator
-        if (pos < 44 && (l->errors_replay || l->errors_recovery || l->errors_crc_flit || l->errors_crc_data || l->errors_ecc_data)) {
-          wcolor_set(dev->nvlink_info, red_color, NULL);
-          mvwprintw(dev->nvlink_info, 0, pos, "!");
-          wstandend(dev->nvlink_info);
-          pos++;
-        }
-        if (pos < 44) {
-          mvwprintw(dev->nvlink_info, 0, pos, " ");
-          pos++;
-        }
-      }
-    } else {
-      wprintw(dev->nvlink_info, "N/A");
-    }
-
-    wnoutrefresh(dev->nvlink_info);
 
     if (interface->options.has_gpu_info_bar) {
       // Number of shader cores
