@@ -202,6 +202,9 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->temperature);
   delwin(dwin->fan_speed);
   delwin(dwin->pcie_info);
+  delwin(dwin->shader_cores);
+  delwin(dwin->l2_cache_size);
+  delwin(dwin->exec_engines);
 }
 
 static void alloc_process_with_option(struct nvtop_interface *interface, unsigned posX, unsigned posY, unsigned sizeX,
