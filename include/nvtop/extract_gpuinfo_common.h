@@ -250,6 +250,8 @@ struct nvlink_info {
   bool has_throughput;                // Whether throughput data was available this cycle
   unsigned long long aggregate_tx;    // Aggregate TX throughput across all links (KiB/s)
   unsigned long long aggregate_rx;    // Aggregate RX throughput across all links (KiB/s)
+  unsigned long long total_errors;    // Cumulative-since-launch errors across all links
+  unsigned long long total_corrections; // Cumulative-since-launch CRC corrections across all links
 };
 
 unsigned nvtop_get_nvlink_info(struct gpu_info *gpu_info, struct nvlink_info *nvlink_info);

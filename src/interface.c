@@ -46,6 +46,7 @@ static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
     [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
     [device_l2features] = 11, [device_execengines] = 11,
+    [device_nvlink_errors] = 19,
 };
 
 // True if any monitored device has NVLink — set before layout is computed
@@ -215,6 +216,17 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
              start_col + spacer * 2 + sizeof_device_field[device_shadercores] + sizeof_device_field[device_l2features]);
   if (dwin->exec_engines == NULL)
     goto alloc_error;
+  // NVLink errors appended to exec_engines on the same row (start_row + 3), conditional on NVLink
+  if (any_device_has_nvlink) {
+    dwin->nvlink_errors =
+        newwin(1, sizeof_device_field[device_nvlink_errors], start_row + 3,
+               start_col + spacer * 3 + sizeof_device_field[device_shadercores] +
+                   sizeof_device_field[device_l2features] + sizeof_device_field[device_execengines]);
+    if (dwin->nvlink_errors == NULL)
+      goto alloc_error;
+  } else {
+    dwin->nvlink_errors = NULL;
+  }
 
   return;
 alloc_error:
@@ -242,6 +254,8 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->pcie_info);
   if (dwin->nvlink_info != NULL)
     delwin(dwin->nvlink_info);
+  if (dwin->nvlink_errors != NULL)
+    delwin(dwin->nvlink_errors);
 }
 
 static void alloc_process_with_option(struct nvtop_interface *interface, unsigned posX, unsigned posY, unsigned sizeX,
@@ -601,10 +615,10 @@ static void draw_temp_color(WINDOW *win, unsigned int temp, unsigned int temp_sl
   wnoutrefresh(win);
 }
 
-static void print_pcie_at_scale(WINDOW *win, unsigned int value) {
+static void print_data_at_scale(WINDOW *win, unsigned int value) {
   int prefix_off;
   double val_d = value;
-  for (prefix_off = 1; prefix_off < 5 && val_d >= 1000.; ++prefix_off) {
+  for (prefix_off = 1; prefix_off < 6 && val_d >= 1000.; ++prefix_off) {
     val_d = val_d / 1024.;
   }
   if (val_d >= 100.) {
@@ -619,7 +633,7 @@ static void print_pcie_at_scale(WINDOW *win, unsigned int value) {
   wprintw(win, " %sB/s", memory_prefix[prefix_off]);
 }
 
-// Reuse existing print_pcie_at_scale for NVLink throughput (identical scale logic)
+// Renamed from print_pcie_at_scale -> print_data_at_scale: reused for NVLink throughput (identical scale logic, bounds check extended to support TiB/s)
 
 static inline void werase_and_wnoutrefresh(WINDOW *w) {
   werase(w);
@@ -919,7 +933,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
         if (nvl_info.has_throughput) {
           unsigned total_kib = (unsigned)(nvl_info.aggregate_tx + nvl_info.aggregate_rx);
-          print_pcie_at_scale(dev->nvlink_info, total_kib);
+          print_data_at_scale(dev->nvlink_info, total_kib);
         }
       }
       wnoutrefresh(dev->nvlink_info);
@@ -947,14 +961,14 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     wprintw(dev->pcie_info, " RX: ");
     wstandend(dev->pcie_info);
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
-      print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
+      print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
     else
       wprintw(dev->pcie_info, "N/A");
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " TX: ");
     wstandend(dev->pcie_info);
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
-      print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
+      print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
     else
       wprintw(dev->pcie_info, "N/A");
 
@@ -996,6 +1010,28 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         wprintw(dev->exec_engines, "N/A");
 
       wnoutrefresh(dev->exec_engines);
+
+      // NVLink errors/corrections (conditional on NVLink)
+      if (dev->nvlink_errors != NULL) {
+        werase(dev->nvlink_errors);
+        struct nvlink_info nvl_info;
+        unsigned nvlinks = nvtop_get_nvlink_info(device, &nvl_info);
+        if (nvlinks > 0 && nvl_info.supported) {
+          wcolor_set(dev->nvlink_errors, cyan_color, NULL);
+          wprintw(dev->nvlink_errors, "NVL");
+          wstandend(dev->nvlink_errors);
+          wprintw(dev->nvlink_errors, " E:");
+          if (nvl_info.total_errors > 0)
+            wcolor_set(dev->nvlink_errors, red_color, NULL);
+          wprintw(dev->nvlink_errors, "%05u", (unsigned)(nvl_info.total_errors % 100000));
+          wstandend(dev->nvlink_errors);
+          wprintw(dev->nvlink_errors, " C:");
+          if (nvl_info.total_corrections > 0)
+            wcolor_set(dev->nvlink_errors, yellow_color, NULL);
+          wprintw(dev->nvlink_errors, "%05u", (unsigned)(nvl_info.total_corrections % 100000));
+        }
+        wnoutrefresh(dev->nvlink_errors);
+      }
     }
 
     dev_id++;

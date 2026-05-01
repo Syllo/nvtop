@@ -211,6 +211,8 @@ nvmlReturn_t (*nvmlDeviceGetMigMode)(nvmlDevice_t device, unsigned int *currentM
 // NVLink functions (not present in older NVML versions, gracefully handled)
 static nvmlReturn_t (*nvmlDeviceGetNvLinkState)(nvmlDevice_t device, unsigned int link, unsigned int *isActive);
 static nvmlReturn_t (*nvmlDeviceGetNvLinkVersion)(nvmlDevice_t device, unsigned int link, unsigned int *version);
+static nvmlReturn_t (*nvmlDeviceGetNvLinkErrorCounter)(nvmlDevice_t device, unsigned int counter, unsigned int link, unsigned long long *value);
+static nvmlReturn_t (*nvmlDeviceGetFieldValues)(nvmlDevice_t device, int numFields, int *fieldIds, void *fieldValues);
 
 static void *libnvidia_ml_handle;
 
@@ -290,6 +292,11 @@ struct gpu_info_nvidia {
   nvtop_time last_nvlink_cli_time; // Timestamp of last CLI poll (uses app's existing time API)
   unsigned long long smoothed_agg_tx; // EMA-smoothed aggregate TX for display
   unsigned long long smoothed_agg_rx; // EMA-smoothed aggregate RX for display
+
+  // NVLink error counter baselines (cumulative since boot, tracked per-device)
+  unsigned long long baseline_errors; // Cumulative errors at last read
+  unsigned long long baseline_corrections; // Cumulative corrections at last read
+  bool nvlink_errors_baseline_read; // True after first read establishes baseline
 };
 
 static LIST_HEAD(allocations);
@@ -487,6 +494,8 @@ static bool gpuinfo_nvidia_init(void) {
   // NVLink functions (optional - not available on all drivers/hardware)
   nvmlDeviceGetNvLinkState = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkState");
   nvmlDeviceGetNvLinkVersion = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkVersion");
+  nvmlDeviceGetNvLinkErrorCounter = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkErrorCounter");
+  nvmlDeviceGetFieldValues = dlsym(libnvidia_ml_handle, "nvmlDeviceGetFieldValues");
 
   last_nvml_return_status = nvmlInit();
   if (last_nvml_return_status != NVML_SUCCESS) {
@@ -959,11 +968,99 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 // NVML NVLink enums (defined locally since we don't have nvml.h)
 #define NVML_NVLINK_MAX_LINKS_INTERNAL 18
 
+// NVML error counter types
+#define NVML_NVLINK_ERROR_DL_REPLAY   0
+#define NVML_NVLINK_ERROR_DL_RECOVERY 1
+#define NVML_NVLINK_ERROR_DL_CRC_FLIT 2
+#define NVML_NVLINK_ERROR_DL_CRC_DATA 3
+#define NVML_NVLINK_ERROR_DL_ECC_DATA 4
+
+// nvmlFieldValue_t struct layout (no header available — offsets documented)
+// Total size: 8 bytes (fieldId:4, valueType:4, value.union:4) = 12 bytes per entry
+#define NVM_LVALUE_FIELD_ID_OFF     0
+#define NVM_LVALUE_VALUE_TYPE_OFF   4
+#define NVM_LVALUE_UINT64_OFF       8
+#define NVM_LVALUE_SIZE             12
+
 #include <stdio.h>
 #include <string.h>
 
 // Forward declaration
 struct gpu_info_nvidia;
+
+// Read NVLink error counters and CRC corrections into nvlink_info->total_errors and total_corrections.
+// Uses baseline subtraction to show only errors/corrections since nvtop launch (Option B).
+// Phase 1: nvmlDeviceGetNvLinkErrorCounter for replay, recovery, CRC errors per link.
+// Phase 2: nvmlDeviceGetFieldValues for per-lane CRC flit corrections (field IDs 32-49 for links 0-17).
+static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info, struct nvlink_info *nvlink_info) {
+  if (!nvlink_info)
+    return;
+
+  // Phase 1: error counters via nvmlDeviceGetNvLinkErrorCounter
+  unsigned long long cumulative_errors = 0;
+  if (nvmlDeviceGetNvLinkErrorCounter) {
+    for (unsigned int link = 0; link < linkCount; link++) {
+      unsigned long long val = 0;
+      nvmlReturn_t ret;
+      // Replay errors
+      ret = nvmlDeviceGetNvLinkErrorCounter(device, NVML_NVLINK_ERROR_DL_REPLAY, link, &val);
+      if (ret == NVML_SUCCESS) cumulative_errors += val;
+      // Recovery errors
+      ret = nvmlDeviceGetNvLinkErrorCounter(device, NVML_NVLINK_ERROR_DL_RECOVERY, link, &val);
+      if (ret == NVML_SUCCESS) cumulative_errors += val;
+      // CRC FLIT errors
+      ret = nvmlDeviceGetNvLinkErrorCounter(device, NVML_NVLINK_ERROR_DL_CRC_FLIT, link, &val);
+      if (ret == NVML_SUCCESS) cumulative_errors += val;
+      // CRC DATA errors
+      ret = nvmlDeviceGetNvLinkErrorCounter(device, NVML_NVLINK_ERROR_DL_CRC_DATA, link, &val);
+      if (ret == NVML_SUCCESS) cumulative_errors += val;
+    }
+  }
+
+  // Phase 2: per-lane CRC corrections via nvmlDeviceGetFieldValues
+  // Field IDs: link 0 = 32-37, link 1 = 38-43, link 2 = 44-49, etc. (6 field IDs per link for lanes 0-5)
+  unsigned long long cumulative_corrections = 0;
+  if (nvmlDeviceGetFieldValues) {
+    for (unsigned int link = 0; link < linkCount; link++) {
+      // Query 6 field IDs per link (lanes 0-5)
+      int base_field_id = 32 + link * 6;
+      int field_ids[6];
+      // Raw bytes for nvmlFieldValue_t structs (12 bytes each)
+      char raw[6 * NVM_LVALUE_SIZE];
+
+      for (int i = 0; i < 6; i++)
+        field_ids[i] = base_field_id + i;
+
+      nvmlReturn_t ret = nvmlDeviceGetFieldValues(device, 6, field_ids, raw);
+      if (ret == NVML_SUCCESS) {
+        for (int i = 0; i < 6; i++) {
+          // Read the uint64 value from the raw bytes
+          unsigned long long val = 0;
+          memcpy(&val, raw + i * NVM_LVALUE_SIZE + NVM_LVALUE_UINT64_OFF, sizeof(val));
+          cumulative_corrections += val;
+        }
+      }
+    }
+  }
+
+  // Baseline subtraction: show only errors/corrections since nvtop launch
+  if (!gpu_info->nvlink_errors_baseline_read) {
+    // First read — establish baseline, display zeros
+    gpu_info->baseline_errors = cumulative_errors;
+    gpu_info->baseline_corrections = cumulative_corrections;
+    gpu_info->nvlink_errors_baseline_read = true;
+    nvlink_info->total_errors = 0;
+    nvlink_info->total_corrections = 0;
+  } else {
+    // Subsequent reads — show delta from baseline
+    nvlink_info->total_errors = cumulative_errors > gpu_info->baseline_errors
+                                   ? cumulative_errors - gpu_info->baseline_errors
+                                   : 0;
+    nvlink_info->total_corrections = cumulative_corrections > gpu_info->baseline_corrections
+                                        ? cumulative_corrections - gpu_info->baseline_corrections
+                                        : 0;
+  }
+}
 
 // Parse nvidia-smi nvlink --getthroughput d output
 // Returns number of links parsed (0 on failure)
@@ -1098,6 +1195,9 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
     nvlink_info->aggregate_tx = gpu_info->smoothed_agg_tx;
     nvlink_info->aggregate_rx = gpu_info->smoothed_agg_rx;
   }
+
+  // Error counters and CRC corrections
+  nvlink_read_errors(device, linkCount, gpu_info, nvlink_info);
 
   return nvlink_info->num_links;
 }
