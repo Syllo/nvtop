@@ -60,6 +60,11 @@ static void nvtop_adjust_field_sizes_for_nvlink(void) {
 }
 
 bool nvtop_probe_nvlink_list(struct list_head *devices) {
+  // Skip re-probing if we already know at least one device has NVLink.
+  // NVLink support is a static hardware property that does not change at runtime.
+  if (any_device_has_nvlink)
+    return true;
+
   struct gpu_info *gpu;
   list_for_each_entry(gpu, devices, list) {
     struct nvlink_info nvl;
@@ -2203,6 +2208,10 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
     nvtop_interface_option options_copy = (*interface)->options;
     options_copy.has_monitored_set_changed = false;
     memset(&(*interface)->options, 0, sizeof(options_copy));
+    // Reset NVLink probe cache when monitored device set changes — the user
+    // may have switched from an NVLink GPU to a non-NVLink one (or vice versa).
+    // The cache will be repopulated on the next refresh cycle.
+    any_device_has_nvlink = false;
     *num_monitored_gpus =
         interface_check_and_fix_monitored_gpus(allDevCount, monitoredGpus, nonMonitoredGpus, &options_copy);
     clean_ncurses(*interface);
