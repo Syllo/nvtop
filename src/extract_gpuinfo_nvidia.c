@@ -1237,8 +1237,13 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
 
         unsigned long long total_tx = 0, total_rx = 0;
         for (unsigned int link = 0; link < linkCount; link++) {
-          total_tx += cli_tx[link] - gpu_info->nvlink_cli_tx[link];
-          total_rx += cli_rx[link] - gpu_info->nvlink_cli_rx[link];
+          // Guard against unsigned underflow if the hardware counter wraps or resets.
+          // If the new reading is less than the stored reading, skip this link to
+          // avoid a delta near ULLONG_MAX that would produce an absurd throughput spike.
+          if (cli_tx[link] >= gpu_info->nvlink_cli_tx[link])
+            total_tx += cli_tx[link] - gpu_info->nvlink_cli_tx[link];
+          if (cli_rx[link] >= gpu_info->nvlink_cli_rx[link])
+            total_rx += cli_rx[link] - gpu_info->nvlink_cli_rx[link];
         }
         // Raw rate (no smoothing — accuracy is more important than display smoothness)
         gpu_info->smoothed_agg_tx = (unsigned long long)((double)total_tx / delta_s);
