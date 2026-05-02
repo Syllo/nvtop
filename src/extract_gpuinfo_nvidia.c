@@ -1007,15 +1007,8 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 // NOTE: nvmlFieldValue_t layout varies across NVML/driver versions.
 // Always verify against the header shipped with the driver you're targeting.
 #define NVM_LVALUE_FIELD_ID_OFF     0
-#define NVM_LVALUE_VALUE_TYPE_OFF   4
 #define NVM_LVALUE_UINT64_OFF       32
 #define NVM_LVALUE_SIZE             48
-
-#include <stdio.h>
-#include <string.h>
-
-// Forward declaration
-struct gpu_info_nvidia;
 
 // Read NVLink error counters and CRC corrections, storing results in the persistent gpu_info struct.
 // Uses baseline subtraction to show only errors/corrections since nvtop launch (Option B).

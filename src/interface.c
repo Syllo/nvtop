@@ -627,7 +627,7 @@ static void draw_temp_color(WINDOW *win, unsigned int temp, unsigned int temp_sl
   wnoutrefresh(win);
 }
 
-static void print_data_at_scale(WINDOW *win, unsigned int value) {
+static void print_data_at_scale(WINDOW *win, unsigned long long value) {
   int prefix_off;
   double val_d = value;
   for (prefix_off = 1; prefix_off < 6 && val_d >= 1000.; ++prefix_off) {
@@ -645,7 +645,9 @@ static void print_data_at_scale(WINDOW *win, unsigned int value) {
   wprintw(win, " %sB/s", memory_prefix[prefix_off]);
 }
 
-// Renamed from print_pcie_at_scale -> print_data_at_scale: reused for NVLink throughput (identical scale logic, bounds check extended to support TiB/s)
+// print_data_at_scale (renamed from print_pcie_at_scale): reused for NVLink throughput
+// (identical scale logic, bounds check extended to prefix_off < 6 for TiB/s).
+// Takes unsigned long long to avoid 32-bit truncation on high-throughput hardware.
 
 static inline void werase_and_wnoutrefresh(WINDOW *w) {
   werase(w);
@@ -944,7 +946,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
           wprintw(dev->nvlink_info, "%ux ", nvl_info.num_links);
 
         if (nvl_info.has_throughput) {
-          unsigned total_kib = (unsigned)(nvl_info.aggregate_tx + nvl_info.aggregate_rx);
+          unsigned long long total_kib = nvl_info.aggregate_tx + nvl_info.aggregate_rx;
           print_data_at_scale(dev->nvlink_info, total_kib);
         }
       }
