@@ -301,6 +301,10 @@ struct gpu_info_nvidia {
   // Display-ready error/correction counts (computed in refresh_dynamic_info)
   unsigned long long display_errors; // Errors since nvtop launch
   unsigned long long display_corrections; // Corrections since nvtop launch
+
+  // Cached NVLink hardware properties (probe once, reuse forever)
+  unsigned int nvlink_cached_linkcount; // 0 = not yet probed
+  unsigned int nvlink_cached_version;   // Marketing version, 0 = not yet probed
 };
 
 static LIST_HEAD(allocations);
@@ -315,6 +319,13 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info);
 
 // Forward declaration for nvlink_read_errors (defined later, called from refresh_dynamic_info)
 static void nvlink_read_errors(struct nvmlDevice *device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info);
+
+// Remap raw NVML NVLink protocol version to the marketing version (forward declaration)
+static unsigned int nvlink_marketing_version(unsigned int raw_version);
+
+// Probe NVLink link count and version, caching results in gpu_info_nvidia to avoid
+// repeated NVML API calls on every refresh cycle. Returns cached linkCount (0 if no NVLink).
+unsigned nvlink_probe_and_cache(struct gpu_info_nvidia *gpu_info);
 
 struct gpu_vendor gpu_vendor_nvidia = {
     .init = gpuinfo_nvidia_init,
@@ -788,17 +799,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // NVLink error counters (called here, not in nvtop_get_nvlink_info, to avoid the startup probe
   // establishing the baseline early and causing non-zero counters on first display refresh)
   if (nvmlDeviceGetNvLinkErrorCounter || nvmlDeviceGetFieldValues) {
-    unsigned int linkCount = 0;
-    if (nvmlDeviceGetNvLinkState) {
-      for (unsigned int link = 0; link < 18; link++) {
-        unsigned int isActive = 0;
-        nvmlReturn_t ret = nvmlDeviceGetNvLinkState(device, link, &isActive);
-        if (ret == NVML_SUCCESS)
-          linkCount = link + 1;
-        else if (ret != NVML_ERROR_NOT_SUPPORTED)
-          break;
-      }
-    }
+    unsigned int linkCount = nvlink_probe_and_cache(gpu_info);
     if (linkCount > 0)
       nvlink_read_errors(device, linkCount, gpu_info);
   }
@@ -1010,6 +1011,44 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 #define NVM_LVALUE_UINT64_OFF       32
 #define NVM_LVALUE_SIZE             48
 
+// Probe NVLink link count and version, caching results in gpu_info_nvidia to avoid
+// repeated NVML API calls on every refresh cycle. linkCount and version are static
+// hardware properties — once discovered, they never change during the process lifetime.
+// Returns the cached linkCount (0 if no NVLink).
+unsigned nvlink_probe_and_cache(struct gpu_info_nvidia *gpu_info) {
+  // Already cached — return immediately
+  if (gpu_info->nvlink_cached_linkcount > 0)
+    return gpu_info->nvlink_cached_linkcount;
+
+  if (!nvmlDeviceGetNvLinkState)
+    return 0;
+
+  nvmlDevice_t device = gpu_info->gpuhandle;
+  unsigned int linkCount = 0;
+  unsigned int version = 0;
+  for (unsigned int link = 0; link < NVML_NVLINK_MAX_LINKS_INTERNAL; link++) {
+    unsigned int isActive = 0;
+    nvmlReturn_t ret = nvmlDeviceGetNvLinkState(device, link, &isActive);
+    if (ret == NVML_SUCCESS || ret == NVML_ERROR_NOT_SUPPORTED) {
+      if (ret == NVML_SUCCESS) {
+        linkCount = link + 1;
+        // Read version on first link only (all links share the same version)
+        if (link == 0 && nvmlDeviceGetNvLinkVersion) {
+          nvmlReturn_t vret = nvmlDeviceGetNvLinkVersion(device, 0, &version);
+          if (vret == NVML_SUCCESS)
+            version = nvlink_marketing_version(version);
+        }
+      }
+    } else {
+      break;
+    }
+  }
+  // Cache results
+  gpu_info->nvlink_cached_linkcount = linkCount;
+  gpu_info->nvlink_cached_version = version;
+  return linkCount;
+}
+
 // Read NVLink error counters and CRC corrections, storing results in the persistent gpu_info struct.
 // Uses baseline subtraction to show only errors/corrections since nvtop launch (Option B).
 // Called from refresh_dynamic_info so it does NOT run during the startup probe in nvtop_probe_nvlink_list.
@@ -1169,26 +1208,9 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
   if (!nvmlDeviceGetNvLinkState)
     return 0;
 
-  // Discover link count by probing each possible link
-  unsigned int linkCount = 0;
-  unsigned int version = 0;
-  for (unsigned int link = 0; link < NVML_NVLINK_MAX_LINKS_INTERNAL; link++) {
-    unsigned int isActive = 0;
-    nvmlReturn_t ret = nvmlDeviceGetNvLinkState(device, link, &isActive);
-    if (ret == NVML_SUCCESS || ret == NVML_ERROR_NOT_SUPPORTED) {
-      if (ret == NVML_SUCCESS) {
-        linkCount = link + 1;
-        // Read version on first link only (all links share the same version)
-        if (link == 0 && nvmlDeviceGetNvLinkVersion) {
-          nvmlReturn_t vret = nvmlDeviceGetNvLinkVersion(device, 0, &version);
-          if (vret == NVML_SUCCESS)
-            version = nvlink_marketing_version(version);
-        }
-      }
-    } else {
-      break;
-    }
-  }
+  // Use cached link count and version (probe once, reuse forever)
+  unsigned int linkCount = nvlink_probe_and_cache(gpu_info);
+  unsigned int version = gpu_info->nvlink_cached_version;
 
   if (linkCount == 0)
     return 0;
