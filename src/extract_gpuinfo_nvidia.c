@@ -1204,8 +1204,14 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
   nvlink_info->num_links = linkCount;
   nvlink_info->version = version;
 
-  // Throughput via nvidia-smi CLI (NVML utilization counters unavailable on consumer GPUs)
-  // Poll every 2 seconds to keep CPU overhead low
+  // Throughput via nvidia-smi CLI (NVML utilization counters unavailable on consumer GPUs).
+  // Poll every 2 seconds to keep CPU overhead low.
+  //
+  // TODO: On datacenter GPUs (A100, H100, etc.) that expose NVML
+  // nvmlDeviceGetNvLinkUtilizationCounter, replace this CLI path with the
+  // direct API call (zero process overhead). Keep this nvidia-smi CLI code
+  // as a conditional fallback for consumer GPUs (RTX 3090, 3080 Ti) where
+  // the NVML utilization counter is not exposed.
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
   if (gpu_info->last_nvlink_cli_time.tv_sec == 0 ||
@@ -1236,7 +1242,7 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
     gpu_info->last_nvlink_cli_time = current_time;
   }
 
-  // Aggregate throughput: EMA smoothing (alpha = 0.3) on current value
+  // Aggregate throughput output
   if (gpu_info->cli_poll_active) {
     nvlink_info->has_throughput = true;
     nvlink_info->aggregate_tx = gpu_info->smoothed_agg_tx;
