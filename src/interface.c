@@ -2212,6 +2212,11 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
     // may have switched from an NVLink GPU to a non-NVLink one (or vice versa).
     // The cache will be repopulated on the next refresh cycle.
     any_device_has_nvlink = false;
+    // Reset NVLink probes on all monitored GPUs so they get probed fresh.
+    { struct gpu_info *g;
+      list_for_each_entry(g, monitoredGpus, list)
+        nvtop_reset_nvlink_cache(g);
+    }
     *num_monitored_gpus =
         interface_check_and_fix_monitored_gpus(allDevCount, monitoredGpus, nonMonitoredGpus, &options_copy);
     clean_ncurses(*interface);

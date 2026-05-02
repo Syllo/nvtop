@@ -303,8 +303,15 @@ struct gpu_info_nvidia {
   unsigned long long display_corrections; // Corrections since nvtop launch
 
   // Cached NVLink hardware properties (probe once, reuse forever)
-  unsigned int nvlink_cached_linkcount; // 0 = not yet probed
+  bool nvlink_probed; // true after first probe, regardless of result
+  unsigned int nvlink_cached_linkcount; // 0 = no NVLink links
   unsigned int nvlink_cached_version;   // Marketing version, 0 = not yet probed
+
+  // Cached nvlink_info struct: populated during refresh_dynamic_info,
+  // returned by nvtop_get_nvlink_info in the draw path to avoid redundant
+  // NVML calls and CLI forks on every draw cycle.
+  struct nvlink_info cached_nvlink_info;
+  bool cached_nvlink_info_populated;
 };
 
 static LIST_HEAD(allocations);
@@ -319,6 +326,10 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info);
 
 // Forward declaration for nvlink_read_errors (defined later, called from refresh_dynamic_info)
 static void nvlink_read_errors(struct nvmlDevice *device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info);
+
+// Forward declaration for nvlink_refresh_cached_info (defined later, called from refresh_dynamic_info)
+// Populates gpu_info->cached_nvlink_info with throughput + error data.
+static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigned int linkCount);
 
 // Remap raw NVML NVLink protocol version to the marketing version (forward declaration)
 static unsigned int nvlink_marketing_version(unsigned int raw_version);
@@ -796,12 +807,19 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // NVLink error counters (called here, not in nvtop_get_nvlink_info, to avoid the startup probe
-  // establishing the baseline early and causing non-zero counters on first display refresh)
-  if (nvmlDeviceGetNvLinkErrorCounter || nvmlDeviceGetFieldValues) {
+  // NVLink: refresh error counters, throughput, and populate cached nvlink_info
+  // GPUs are non-hot-swappable — all NVLink probing/computation happens here
+  // (refresh path), and nvtop_get_nvlink_info() just returns the cached copy
+  // in the draw path.
+  if (nvmlDeviceGetNvLinkState) {
     unsigned int linkCount = nvlink_probe_and_cache(gpu_info);
-    if (linkCount > 0)
-      nvlink_read_errors(device, linkCount, gpu_info);
+    if (linkCount > 0) {
+      // Error counters (dynamic — must refresh every cycle)
+      if (nvmlDeviceGetNvLinkErrorCounter || nvmlDeviceGetFieldValues)
+        nvlink_read_errors(device, linkCount, gpu_info);
+      // Throughput + cached info struct
+      nvlink_refresh_cached_info(gpu_info, linkCount);
+    }
   }
 }
 
@@ -1016,12 +1034,14 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 // hardware properties — once discovered, they never change during the process lifetime.
 // Returns the cached linkCount (0 if no NVLink).
 unsigned nvlink_probe_and_cache(struct gpu_info_nvidia *gpu_info) {
-  // Already cached — return immediately
-  if (gpu_info->nvlink_cached_linkcount > 0)
+  // Already probed — return cached result (even if linkcount is 0)
+  if (gpu_info->nvlink_probed)
     return gpu_info->nvlink_cached_linkcount;
 
-  if (!nvmlDeviceGetNvLinkState)
+  if (!nvmlDeviceGetNvLinkState) {
+    gpu_info->nvlink_probed = true;
     return 0;
+  }
 
   nvmlDevice_t device = gpu_info->gpuhandle;
   unsigned int linkCount = 0;
@@ -1044,6 +1064,7 @@ unsigned nvlink_probe_and_cache(struct gpu_info_nvidia *gpu_info) {
     }
   }
   // Cache results
+  gpu_info->nvlink_probed = true;
   gpu_info->nvlink_cached_linkcount = linkCount;
   gpu_info->nvlink_cached_version = version;
   return linkCount;
@@ -1196,28 +1217,16 @@ static unsigned int nvlink_marketing_version(unsigned int raw_version) {
 
 // Get NVLink info (version, link count, aggregate throughput via CLI).
 // Designed for consumer GPUs (RTX 3090) where NVML utilization counters are unavailable.
-unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *nvlink_info) {
-  if (!_gpu_info || !nvlink_info)
-    return 0;
+// Populate cached_nvlink_info with link count, version, throughput, and error counts.
+// Called from refresh_dynamic_info on every refresh cycle (refresh path).
+// GPUs are non-hot-swappable, so all NVLink data is computed here and cached —
+// nvtop_get_nvlink_info() in the draw path just returns the cached copy.
+static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigned int linkCount) {
+  struct nvlink_info *cache = &gpu_info->cached_nvlink_info;
 
-  struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
-  nvmlDevice_t device = gpu_info->gpuhandle;
-
-  memset(nvlink_info, 0, sizeof(*nvlink_info));
-
-  if (!nvmlDeviceGetNvLinkState)
-    return 0;
-
-  // Use cached link count and version (probe once, reuse forever)
-  unsigned int linkCount = nvlink_probe_and_cache(gpu_info);
-  unsigned int version = gpu_info->nvlink_cached_version;
-
-  if (linkCount == 0)
-    return 0;
-
-  nvlink_info->supported = true;
-  nvlink_info->num_links = linkCount;
-  nvlink_info->version = version;
+  cache->supported = true;
+  cache->num_links = linkCount;
+  cache->version = gpu_info->nvlink_cached_version;
 
   // Throughput via nvidia-smi CLI (NVML utilization counters unavailable on consumer GPUs).
   // Poll every 2 seconds to keep CPU overhead low.
@@ -1271,16 +1280,66 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
     gpu_info->last_nvlink_cli_time = current_time;
   }
 
-  // Aggregate throughput: raw rate (no smoothing — accuracy over display smoothness)
+  // Aggregate throughput
   if (gpu_info->cli_poll_active) {
-    nvlink_info->has_throughput = true;
-    nvlink_info->aggregate_tx = gpu_info->smoothed_agg_tx;
-    nvlink_info->aggregate_rx = gpu_info->smoothed_agg_rx;
+    cache->has_throughput = true;
+    cache->aggregate_tx = gpu_info->smoothed_agg_tx;
+    cache->aggregate_rx = gpu_info->smoothed_agg_rx;
+  } else {
+    cache->has_throughput = false;
+    cache->aggregate_tx = 0;
+    cache->aggregate_rx = 0;
   }
 
-  // Error counters are read separately via nvlink_read_errors() called from
-  // the display loop (draw_devices). Do NOT call here to avoid the startup
-  // probe (nvtop_probe_nvlink_list) from establishing the baseline early.
+  // Error/correction counts from display-ready fields (populated by nvlink_read_errors)
+  cache->total_errors = gpu_info->display_errors;
+  cache->total_corrections = gpu_info->display_corrections;
+
+  gpu_info->cached_nvlink_info_populated = true;
+}
+
+// Return cached nvlink_info struct. Called from the draw path (draw_gpu_info_ncurses)
+// to avoid redundant NVML calls and CLI forks on every draw cycle.
+// GPUs are non-hot-swappable, so the cached struct is authoritative.
+// For the startup probe (nvtop_probe_nvlink_list) before refresh_dynamic_info has run,
+// falls back to computing on-demand.
+unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *nvlink_info) {
+  if (!_gpu_info || !nvlink_info)
+    return 0;
+
+  struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
+
+  // If cached info is available (after first refresh), just return it.
+  // This is the fast path — eliminates all NVML calls and CLI forks in the draw path.
+  if (gpu_info->cached_nvlink_info_populated) {
+    memcpy(nvlink_info, &gpu_info->cached_nvlink_info, sizeof(*nvlink_info));
+    return nvlink_info->num_links;
+  }
+
+  // Fallback for startup probe (nvtop_probe_nvlink_list) before refresh_dynamic_info ran:
+  // Populate minimal info (link count + version, no throughput) to determine if NVLink exists.
+  if (!nvmlDeviceGetNvLinkState)
+    return 0;
+
+  memset(nvlink_info, 0, sizeof(*nvlink_info));
+
+  unsigned int linkCount = nvlink_probe_and_cache(gpu_info);
+  if (linkCount == 0)
+    return 0;
+
+  nvlink_info->supported = true;
+  nvlink_info->num_links = linkCount;
+  nvlink_info->version = gpu_info->nvlink_cached_version;
 
   return nvlink_info->num_links;
+}
+
+// Reset all NVLink caches for a single GPU. Called when monitored device set changes.
+void nvtop_reset_nvlink_cache(struct gpu_info *_gpu_info) {
+  struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
+  gpu_info->nvlink_probed = false;
+  gpu_info->nvlink_cached_linkcount = 0;
+  gpu_info->nvlink_cached_version = 0;
+  gpu_info->cached_nvlink_info_populated = false;
+  memset(&gpu_info->cached_nvlink_info, 0, sizeof(gpu_info->cached_nvlink_info));
 }
