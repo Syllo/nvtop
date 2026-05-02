@@ -1209,8 +1209,9 @@ static unsigned int nvlink_marketing_version(unsigned int raw_version) {
     case 3: return 2;  // NVLink 2.2 -> 2
     case 4: return 3;  // NVLink 3.0 -> 3
     case 5: return 3;  // NVLink 3.1 -> 3
-    case 6: return 4;
-    case 7: return 5;
+    case 6: return 4;  // NVLink 4.0
+    case 7: return 5;  // NVLink 5.0
+    case 8: return 6;  // NVLink 6.0 (Rubin)
     default: return raw_version;
   }
 }
