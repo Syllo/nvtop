@@ -1107,12 +1107,14 @@ bool nvtop_get_nvlink_error_counts(struct gpu_info *_gpu_info,
   return true;
 }
 
-// Parse nvidia-smi nvlink --getthroughput d output
+// Parse nvidia-smi nvlink --getthroughput r output
+// "r" (raw) includes payload + protocol overhead — needed to show true bandwidth utilization
+// (consumer GPUs do not expose NVML nvmlDeviceGetNvLinkUtilizationCounter)
 // Returns number of links parsed (0 on failure)
 static unsigned nvlink_cli_get_throughput(int device_index, unsigned int link_count,
                                           unsigned long long *tx_out, unsigned long long *rx_out) {
   char cmd[256];
-  snprintf(cmd, sizeof(cmd), "nvidia-smi nvlink --getthroughput d -i %d 2>/dev/null", device_index);
+  snprintf(cmd, sizeof(cmd), "nvidia-smi nvlink --getthroughput r -i %d 2>/dev/null", device_index);
 
   FILE *fp = popen(cmd, "r");
   if (!fp)
@@ -1129,10 +1131,10 @@ static unsigned nvlink_cli_get_throughput(int device_index, unsigned int link_co
     char *p = line;
     while (*p == '\t' || *p == ' ')
       p++;
-    if (sscanf(p, "Link %u: Data Tx: %llu", &link, &val) == 2 && (unsigned)link < link_count) {
+    if (sscanf(p, "Link %u: Raw Tx: %llu", &link, &val) == 2 && (unsigned)link < link_count) {
       tx_out[link] = val;
       parsed++;
-    } else if (sscanf(p, "Link %u: Data Rx: %llu", &link, &val) == 2 && (unsigned)link < link_count) {
+    } else if (sscanf(p, "Link %u: Raw Rx: %llu", &link, &val) == 2 && (unsigned)link < link_count) {
       rx_out[link] = val;
       parsed++;
     }
