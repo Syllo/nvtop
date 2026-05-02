@@ -991,7 +991,7 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 }
 
 // NVML NVLink enums (defined locally since we don't have nvml.h)
-#define NVML_NVLINK_MAX_LINKS_INTERNAL 18
+#define NVML_NVLINK_MAX_LINKS_INTERNAL 36
 
 // NVML error counter types
 #define NVML_NVLINK_ERROR_DL_REPLAY   0
@@ -1021,7 +1021,7 @@ struct gpu_info_nvidia;
 // Uses baseline subtraction to show only errors/corrections since nvtop launch (Option B).
 // Called from refresh_dynamic_info so it does NOT run during the startup probe in nvtop_probe_nvlink_list.
 // Phase 1: nvmlDeviceGetNvLinkErrorCounter for replay, recovery, CRC errors per link.
-// Phase 2: nvmlDeviceGetFieldValues for per-lane CRC flit corrections (field IDs 32-49 for links 0-17).
+// Phase 2: nvmlDeviceGetFieldValues for per-lane CRC flit corrections (field IDs 32-247 for links 0-35).
 static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info) {
   // Phase 1: error counters via nvmlDeviceGetNvLinkErrorCounter
   unsigned long long cumulative_errors = 0;
@@ -1045,7 +1045,7 @@ static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, stru
   }
 
   // Phase 2: per-lane CRC corrections via nvmlDeviceGetFieldValues
-  // Field IDs: link 0 = 32-37, link 1 = 38-43, link 2 = 44-49, etc. (6 field IDs per link for lanes 0-5)
+  // Field IDs: link 0 = 32-37, link 1 = 38-43, link 2 = 44-49, etc. (6 field IDs per link for lanes 0-5, up to link 35 = 242-247)
   // The caller must populate fieldId in each nvmlFieldValue_t entry BEFORE calling;
   // the library populates the value fields on return.
   // nvmlFieldValue_t is 48 bytes: fieldId:u32(0), scopeId:u32(4), timestamp:u64(8),
@@ -1212,6 +1212,14 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
   // direct API call (zero process overhead). Keep this nvidia-smi CLI code
   // as a conditional fallback for consumer GPUs (RTX 3090, 3080 Ti) where
   // the NVML utilization counter is not exposed.
+  // Hardcoded 2-second CLI poll interval — independent of global nvtop refresh rate.
+  // nvidia-smi is a resource-heavy process (full binary fork + text parsing). This
+  // throttles the expensive popen/pclose calls to a maximum of one per 2 seconds,
+  // minimizing resource usage regardless of how fast the user sets the display refresh.
+  // A faster global refresh (e.g. 0.5s) would otherwise fork nvidia-smi far too often,
+  // degrading overall system performance. The delta-based rate computation
+  // (total_bytes / delta_s) normalizes to a per-second value, so the displayed
+  // throughput remains accurate even with a 2-second sample window.
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
   if (gpu_info->last_nvlink_cli_time.tv_sec == 0 ||

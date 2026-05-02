@@ -241,7 +241,7 @@ inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64
 unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed);
 
 // NVLink support
-#define NVTOP_NVLINK_MAX_LINKS 18
+#define NVTOP_NVLINK_MAX_LINKS 36
 
 struct nvlink_info {
   unsigned num_links;                 // Number of NVLink links on this device
