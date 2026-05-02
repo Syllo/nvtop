@@ -256,6 +256,12 @@ struct nvlink_info {
 
 unsigned nvtop_get_nvlink_info(struct gpu_info *gpu_info, struct nvlink_info *nvlink_info);
 
+// Get display-ready NVLink error/correction counts from the per-device persistent struct.
+// Returns true if baseline has been established at least once.
+bool nvtop_get_nvlink_error_counts(struct gpu_info *gpu_info,
+                                    unsigned long long *out_errors,
+                                    unsigned long long *out_corrections);
+
 // NVLink probe — call before initialize_curses to set layout mode
 bool nvtop_probe_nvlink_list(struct list_head *devices);
 void nvtop_set_nvlink_probe(bool val);

@@ -212,7 +212,7 @@ nvmlReturn_t (*nvmlDeviceGetMigMode)(nvmlDevice_t device, unsigned int *currentM
 static nvmlReturn_t (*nvmlDeviceGetNvLinkState)(nvmlDevice_t device, unsigned int link, unsigned int *isActive);
 static nvmlReturn_t (*nvmlDeviceGetNvLinkVersion)(nvmlDevice_t device, unsigned int link, unsigned int *version);
 static nvmlReturn_t (*nvmlDeviceGetNvLinkErrorCounter)(nvmlDevice_t device, unsigned int counter, unsigned int link, unsigned long long *value);
-static nvmlReturn_t (*nvmlDeviceGetFieldValues)(nvmlDevice_t device, int numFields, int *fieldIds, void *fieldValues);
+static nvmlReturn_t (*nvmlDeviceGetFieldValues)(nvmlDevice_t device, unsigned int valuesCount, void *fieldValues);
 
 static void *libnvidia_ml_handle;
 
@@ -297,6 +297,10 @@ struct gpu_info_nvidia {
   unsigned long long baseline_errors; // Cumulative errors at last read
   unsigned long long baseline_corrections; // Cumulative corrections at last read
   bool nvlink_errors_baseline_read; // True after first read establishes baseline
+
+  // Display-ready error/correction counts (computed in refresh_dynamic_info)
+  unsigned long long display_errors; // Errors since nvtop launch
+  unsigned long long display_corrections; // Corrections since nvtop launch
 };
 
 static LIST_HEAD(allocations);
@@ -308,6 +312,9 @@ static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigne
 static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info);
+
+// Forward declaration for nvlink_read_errors (defined later, called from refresh_dynamic_info)
+static void nvlink_read_errors(struct nvmlDevice *device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info);
 
 struct gpu_vendor gpu_vendor_nvidia = {
     .init = gpuinfo_nvidia_init,
@@ -777,6 +784,24 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       SET_GPUINFO_DYNAMIC(dynamic_info, multi_instance_mode, currentMode == NVML_DEVICE_MIG_ENABLE);
     }
   }
+
+  // NVLink error counters (called here, not in nvtop_get_nvlink_info, to avoid the startup probe
+  // establishing the baseline early and causing non-zero counters on first display refresh)
+  if (nvmlDeviceGetNvLinkErrorCounter || nvmlDeviceGetFieldValues) {
+    unsigned int linkCount = 0;
+    if (nvmlDeviceGetNvLinkState) {
+      for (unsigned int link = 0; link < 18; link++) {
+        unsigned int isActive = 0;
+        nvmlReturn_t ret = nvmlDeviceGetNvLinkState(device, link, &isActive);
+        if (ret == NVML_SUCCESS)
+          linkCount = link + 1;
+        else if (ret != NVML_ERROR_NOT_SUPPORTED)
+          break;
+      }
+    }
+    if (linkCount > 0)
+      nvlink_read_errors(device, linkCount, gpu_info);
+  }
 }
 
 static void gpuinfo_nvidia_get_process_utilization(struct gpu_info_nvidia *gpu_info, unsigned num_processes_recovered,
@@ -975,12 +1000,16 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 #define NVML_NVLINK_ERROR_DL_CRC_DATA 3
 #define NVML_NVLINK_ERROR_DL_ECC_DATA 4
 
-// nvmlFieldValue_t struct layout (no header available — offsets documented)
-// Total size: 8 bytes (fieldId:4, valueType:4, value.union:4) = 12 bytes per entry
+// nvmlFieldValue_t struct layout (from nvml.h — offsets may vary by driver version)
+// Total size: 48 bytes (NVML 11.515+, verified on driver 580.142)
+// Layout: fieldId:u32(0), scopeId:u32(4), timestamp:u64(8), latencyUsec:u64(16),
+//         valueType:u32(24), nvmlReturn:u32(28), value.union(32) [ullVal at offset 32],
+// NOTE: nvmlFieldValue_t layout varies across NVML/driver versions.
+// Always verify against the header shipped with the driver you're targeting.
 #define NVM_LVALUE_FIELD_ID_OFF     0
 #define NVM_LVALUE_VALUE_TYPE_OFF   4
-#define NVM_LVALUE_UINT64_OFF       8
-#define NVM_LVALUE_SIZE             12
+#define NVM_LVALUE_UINT64_OFF       32
+#define NVM_LVALUE_SIZE             48
 
 #include <stdio.h>
 #include <string.h>
@@ -988,14 +1017,12 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 // Forward declaration
 struct gpu_info_nvidia;
 
-// Read NVLink error counters and CRC corrections into nvlink_info->total_errors and total_corrections.
+// Read NVLink error counters and CRC corrections, storing results in the persistent gpu_info struct.
 // Uses baseline subtraction to show only errors/corrections since nvtop launch (Option B).
+// Called from refresh_dynamic_info so it does NOT run during the startup probe in nvtop_probe_nvlink_list.
 // Phase 1: nvmlDeviceGetNvLinkErrorCounter for replay, recovery, CRC errors per link.
 // Phase 2: nvmlDeviceGetFieldValues for per-lane CRC flit corrections (field IDs 32-49 for links 0-17).
-static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info, struct nvlink_info *nvlink_info) {
-  if (!nvlink_info)
-    return;
-
+static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info) {
   // Phase 1: error counters via nvmlDeviceGetNvLinkErrorCounter
   unsigned long long cumulative_errors = 0;
   if (nvmlDeviceGetNvLinkErrorCounter) {
@@ -1019,22 +1046,26 @@ static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, stru
 
   // Phase 2: per-lane CRC corrections via nvmlDeviceGetFieldValues
   // Field IDs: link 0 = 32-37, link 1 = 38-43, link 2 = 44-49, etc. (6 field IDs per link for lanes 0-5)
+  // The caller must populate fieldId in each nvmlFieldValue_t entry BEFORE calling;
+  // the library populates the value fields on return.
+  // nvmlFieldValue_t is 48 bytes: fieldId:u32(0), scopeId:u32(4), timestamp:u64(8),
+  // latencyUsec:u64(16), valueType:u32(24), nvmlReturn:u32(28), value.union(32).
   unsigned long long cumulative_corrections = 0;
   if (nvmlDeviceGetFieldValues) {
     for (unsigned int link = 0; link < linkCount; link++) {
-      // Query 6 field IDs per link (lanes 0-5)
       int base_field_id = 32 + link * 6;
-      int field_ids[6];
-      // Raw bytes for nvmlFieldValue_t structs (12 bytes each)
       char raw[6 * NVM_LVALUE_SIZE];
 
-      for (int i = 0; i < 6; i++)
-        field_ids[i] = base_field_id + i;
+      // Zero out the buffer, then populate fieldId in each entry (offset 0, uint32_t)
+      memset(raw, 0, sizeof(raw));
+      for (int i = 0; i < 6; i++) {
+        unsigned int fid = (unsigned int)(base_field_id + i);
+        memcpy(raw + i * NVM_LVALUE_SIZE + NVM_LVALUE_FIELD_ID_OFF, &fid, sizeof(fid));
+      }
 
-      nvmlReturn_t ret = nvmlDeviceGetFieldValues(device, 6, field_ids, raw);
+      nvmlReturn_t ret = nvmlDeviceGetFieldValues(device, 6, raw);
       if (ret == NVML_SUCCESS) {
         for (int i = 0; i < 6; i++) {
-          // Read the uint64 value from the raw bytes
           unsigned long long val = 0;
           memcpy(&val, raw + i * NVM_LVALUE_SIZE + NVM_LVALUE_UINT64_OFF, sizeof(val));
           cumulative_corrections += val;
@@ -1049,17 +1080,31 @@ static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, stru
     gpu_info->baseline_errors = cumulative_errors;
     gpu_info->baseline_corrections = cumulative_corrections;
     gpu_info->nvlink_errors_baseline_read = true;
-    nvlink_info->total_errors = 0;
-    nvlink_info->total_corrections = 0;
+    gpu_info->display_errors = 0;
+    gpu_info->display_corrections = 0;
   } else {
     // Subsequent reads — show delta from baseline
-    nvlink_info->total_errors = cumulative_errors > gpu_info->baseline_errors
-                                   ? cumulative_errors - gpu_info->baseline_errors
-                                   : 0;
-    nvlink_info->total_corrections = cumulative_corrections > gpu_info->baseline_corrections
-                                        ? cumulative_corrections - gpu_info->baseline_corrections
-                                        : 0;
+    gpu_info->display_errors = cumulative_errors > gpu_info->baseline_errors
+                                  ? cumulative_errors - gpu_info->baseline_errors
+                                  : 0;
+    gpu_info->display_corrections = cumulative_corrections > gpu_info->baseline_corrections
+                                       ? cumulative_corrections - gpu_info->baseline_corrections
+                                       : 0;
   }
+}
+
+// Public getter for display-ready error/correction counts from a struct gpu_info.
+// Returns true if data is available (errors or corrections read at least once).
+bool nvtop_get_nvlink_error_counts(struct gpu_info *_gpu_info,
+                                    unsigned long long *out_errors,
+                                    unsigned long long *out_corrections) {
+  struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
+  if (!gpu_info->nvlink_errors_baseline_read) {
+    return false;
+  }
+  *out_errors = gpu_info->display_errors;
+  *out_corrections = gpu_info->display_corrections;
+  return true;
 }
 
 // Parse nvidia-smi nvlink --getthroughput d output
@@ -1196,8 +1241,9 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
     nvlink_info->aggregate_rx = gpu_info->smoothed_agg_rx;
   }
 
-  // Error counters and CRC corrections
-  nvlink_read_errors(device, linkCount, gpu_info, nvlink_info);
+  // Error counters are read separately via nvlink_read_errors() called from
+  // the display loop (draw_devices). Do NOT call here to avoid the startup
+  // probe (nvtop_probe_nvlink_list) from establishing the baseline early.
 
   return nvlink_info->num_links;
 }

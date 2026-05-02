@@ -1014,21 +1014,20 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       // NVLink errors/corrections (conditional on NVLink)
       if (dev->nvlink_errors != NULL) {
         werase(dev->nvlink_errors);
-        struct nvlink_info nvl_info;
-        unsigned nvlinks = nvtop_get_nvlink_info(device, &nvl_info);
-        if (nvlinks > 0 && nvl_info.supported) {
+        unsigned long long err_cnt = 0, cor_cnt = 0;
+        if (nvtop_get_nvlink_error_counts(device, &err_cnt, &cor_cnt)) {
           wcolor_set(dev->nvlink_errors, cyan_color, NULL);
           wprintw(dev->nvlink_errors, "NVL");
           wstandend(dev->nvlink_errors);
           wprintw(dev->nvlink_errors, " E:");
-          if (nvl_info.total_errors > 0)
+          if (err_cnt > 0)
             wcolor_set(dev->nvlink_errors, red_color, NULL);
-          wprintw(dev->nvlink_errors, "%05u", (unsigned)(nvl_info.total_errors % 100000));
+          wprintw(dev->nvlink_errors, "%05u", (unsigned)(err_cnt % 100000));
           wstandend(dev->nvlink_errors);
           wprintw(dev->nvlink_errors, " C:");
-          if (nvl_info.total_corrections > 0)
+          if (cor_cnt > 0)
             wcolor_set(dev->nvlink_errors, yellow_color, NULL);
-          wprintw(dev->nvlink_errors, "%05u", (unsigned)(nvl_info.total_corrections % 100000));
+          wprintw(dev->nvlink_errors, "%05u", (unsigned)(cor_cnt % 100000));
         }
         wnoutrefresh(dev->nvlink_errors);
       }
