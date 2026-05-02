@@ -1232,6 +1232,7 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
           total_tx += cli_tx[link] - gpu_info->nvlink_cli_tx[link];
           total_rx += cli_rx[link] - gpu_info->nvlink_cli_rx[link];
         }
+        // Raw rate (no smoothing — accuracy is more important than display smoothness)
         gpu_info->smoothed_agg_tx = (unsigned long long)((double)total_tx / delta_s);
         gpu_info->smoothed_agg_rx = (unsigned long long)((double)total_rx / delta_s);
       }
@@ -1242,7 +1243,7 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
     gpu_info->last_nvlink_cli_time = current_time;
   }
 
-  // Aggregate throughput output
+  // Aggregate throughput: raw rate (no smoothing — accuracy over display smoothness)
   if (gpu_info->cli_poll_active) {
     nvlink_info->has_throughput = true;
     nvlink_info->aggregate_tx = gpu_info->smoothed_agg_tx;
