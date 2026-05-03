@@ -811,13 +811,15 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // GPUs are non-hot-swappable — all NVLink probing/computation happens here
   // (refresh path), and nvtop_get_nvlink_info() just returns the cached copy
   // in the draw path.
+  // "supported but no bridge" case: version is probed before link state, so
+  // cached_version > 0 means NVLink hardware exists even with linkCount == 0.
   if (nvmlDeviceGetNvLinkState) {
     unsigned int linkCount = nvlink_probe_and_cache(gpu_info);
-    if (linkCount > 0) {
-      // Error counters (dynamic — must refresh every cycle)
-      if (nvmlDeviceGetNvLinkErrorCounter || nvmlDeviceGetFieldValues)
+    if (linkCount > 0 || gpu_info->nvlink_cached_version > 0) {
+      // Error counters only make sense when links are active.
+      if (linkCount > 0 && (nvmlDeviceGetNvLinkErrorCounter || nvmlDeviceGetFieldValues))
         nvlink_read_errors(device, linkCount, gpu_info);
-      // Throughput + cached info struct
+      // Throughput + cached info struct (handles 0-link case for display)
       nvlink_refresh_cached_info(gpu_info, linkCount);
     }
   }
@@ -1046,19 +1048,24 @@ unsigned nvlink_probe_and_cache(struct gpu_info_nvidia *gpu_info) {
   nvmlDevice_t device = gpu_info->gpuhandle;
   unsigned int linkCount = 0;
   unsigned int version = 0;
+
+  // Probe NVLink version BEFORE the link state loop. This succeeds on any GPU
+  // with NVLink hardware, even when no bridge is connected (all links return
+  // NVML_ERROR_NOT_SUPPORTED from GetNvLinkState). This lets us detect
+  // "NVLink supported but no active links" vs "no NVLink hardware at all."
+  if (nvmlDeviceGetNvLinkVersion) {
+    nvmlReturn_t vret = nvmlDeviceGetNvLinkVersion(device, 0, &version);
+    if (vret == NVML_SUCCESS)
+      version = nvlink_marketing_version(version);
+  }
+
+  // Probe active links
   for (unsigned int link = 0; link < NVML_NVLINK_MAX_LINKS_INTERNAL; link++) {
     unsigned int isActive = 0;
     nvmlReturn_t ret = nvmlDeviceGetNvLinkState(device, link, &isActive);
     if (ret == NVML_SUCCESS || ret == NVML_ERROR_NOT_SUPPORTED) {
-      if (ret == NVML_SUCCESS) {
+      if (ret == NVML_SUCCESS)
         linkCount = link + 1;
-        // Read version on first link only (all links share the same version)
-        if (link == 0 && nvmlDeviceGetNvLinkVersion) {
-          nvmlReturn_t vret = nvmlDeviceGetNvLinkVersion(device, 0, &version);
-          if (vret == NVML_SUCCESS)
-            version = nvlink_marketing_version(version);
-        }
-      }
     } else {
       break;
     }
@@ -1229,6 +1236,17 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
   cache->num_links = linkCount;
   cache->version = gpu_info->nvlink_cached_version;
 
+  // Throughput: skip entirely when there are 0 links (nothing to measure).
+  if (linkCount == 0) {
+    cache->has_throughput = false;
+    cache->aggregate_tx = 0;
+    cache->aggregate_rx = 0;
+    cache->total_errors = 0;
+    cache->total_corrections = 0;
+    gpu_info->cached_nvlink_info_populated = true;
+    return;
+  }
+
   // Throughput via nvidia-smi CLI (NVML utilization counters unavailable on consumer GPUs).
   // Poll every 2 seconds to keep CPU overhead low.
   //
@@ -1319,18 +1337,21 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
 
   // Fallback for startup probe (nvtop_probe_nvlink_list) before refresh_dynamic_info ran:
   // Populate minimal info (link count + version, no throughput) to determine if NVLink exists.
+  // "supported but no bridge" case: version probed before link state, so set supported=true
+  // even when linkCount == 0 if we got a version reading.
   if (!nvmlDeviceGetNvLinkState)
     return 0;
 
   memset(nvlink_info, 0, sizeof(*nvlink_info));
 
   unsigned int linkCount = nvlink_probe_and_cache(gpu_info);
-  if (linkCount == 0)
-    return 0;
 
-  nvlink_info->supported = true;
-  nvlink_info->num_links = linkCount;
-  nvlink_info->version = gpu_info->nvlink_cached_version;
+  if (gpu_info->nvlink_cached_version > 0) {
+    // NVLink hardware detected (version read succeeded), even if no links active.
+    nvlink_info->supported = true;
+    nvlink_info->num_links = linkCount;
+    nvlink_info->version = gpu_info->nvlink_cached_version;
+  }
 
   return nvlink_info->num_links;
 }

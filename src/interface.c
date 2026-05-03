@@ -49,12 +49,19 @@ static unsigned int sizeof_device_field[device_field_count] = {
     [device_nvlink_errors] = 19,
 };
 
-// True if any monitored device has NVLink — set before layout is computed
+// True if any monitored device has NVLink hardware support (even if 0 links active).
+// Controls whether to allocate the nvlink_info window for displaying "NVL3 0x" etc.
 static bool any_device_has_nvlink = false;
+// True if any monitored device has NVLink with active links (linkCount > 0).
+// Controls layout adjustments (shrinking fan field, adjusting line 2 width)
+// and the nvlink_errors window allocation.
+static bool any_device_has_nvlink_active = false;
 
-// When NVLink is present, shrink fan field from 11 to 8 to make room on line 2
+// When NVLink has ACTIVE links, shrink fan field from 11 to 8 to make room on line 2.
+// Only done when there are actual links to show throughput for — 0-link "NVL3 0x"
+// display does not require any padding reduction.
 static void nvtop_adjust_field_sizes_for_nvlink(void) {
-  if (any_device_has_nvlink) {
+  if (any_device_has_nvlink_active) {
     sizeof_device_field[device_fan_speed] = 8;  // "FAN %3u%%" (was 11 with padding)
   }
 }
@@ -65,18 +72,33 @@ bool nvtop_probe_nvlink_list(struct list_head *devices) {
   if (any_device_has_nvlink)
     return true;
 
+  bool has_nvlink = false;
+  bool has_nvlink_active = false;
+
   struct gpu_info *gpu;
   list_for_each_entry(gpu, devices, list) {
     struct nvlink_info nvl;
     memset(&nvl, 0, sizeof(nvl));
-    if (nvtop_get_nvlink_info(gpu, &nvl) > 0 && nvl.supported)
-      return true;
+    // nvtop_get_nvlink_info returns num_links (could be 0 for "supported but no bridge").
+    // Check nvl.supported separately to catch the 0-link case.
+    nvtop_get_nvlink_info(gpu, &nvl);
+    if (nvl.supported) {
+      has_nvlink = true;
+      if (nvl.num_links > 0)
+        has_nvlink_active = true;
+    }
   }
-  return false;
+
+  any_device_has_nvlink = has_nvlink;
+  any_device_has_nvlink_active = has_nvlink_active;
+  nvtop_adjust_field_sizes_for_nvlink();
+
+  return has_nvlink;
 }
 
 void nvtop_set_nvlink_probe(bool val) {
   any_device_has_nvlink = val;
+  any_device_has_nvlink_active = val;
   nvtop_adjust_field_sizes_for_nvlink();
 }
 
@@ -222,7 +244,8 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
   if (dwin->exec_engines == NULL)
     goto alloc_error;
   // NVLink errors appended to exec_engines on the same row (start_row + 3), conditional on NVLink
-  if (any_device_has_nvlink) {
+  // Only allocate for devices with active links — 0-link devices have no error counters to show.
+  if (any_device_has_nvlink_active) {
     dwin->nvlink_errors =
         newwin(1, sizeof_device_field[device_nvlink_errors], start_row + 3,
                start_col + spacer * 3 + sizeof_device_field[device_shadercores] +
@@ -410,14 +433,16 @@ static void alloc_plot_window(unsigned devices_count, struct window_position *pl
 }
 
 static unsigned device_length(void) {
-  // When no NVLink anywhere, match original repo layout exactly
-  if (!any_device_has_nvlink) {
+  // When no NVLink with active links anywhere, match original repo layout exactly.
+  // 0-link "NVL3 0x" display doesn't need the +2 width adjustment — only throughput
+  // display with compaction needs it.
+  if (!any_device_has_nvlink_active) {
     return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
                sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                    sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
                    sizeof_device_field[device_power] + 5);
   }
-  // With NVLink: keep line 3 at original width (+3 compensates for fan 11->8, power stays 15)
+  // With NVLink active links: keep line 3 at original width (+3 compensates for fan 11->8, power stays 15)
   return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
              sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
@@ -935,8 +960,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     if (dev->nvlink_info != NULL) {
       werase(dev->nvlink_info);
       struct nvlink_info nvl_info;
-      unsigned nvlinks = nvtop_get_nvlink_info(device, &nvl_info);
-      if (nvlinks > 0 && nvl_info.supported) {
+      nvtop_get_nvlink_info(device, &nvl_info);
+      if (nvl_info.supported) {
         wcolor_set(dev->nvlink_info, cyan_color, NULL);
         wprintw(dev->nvlink_info, "NVL");
         wcolor_set(dev->nvlink_info, magenta_color, NULL);
@@ -945,14 +970,21 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         else
           wprintw(dev->nvlink_info, "?");
         wstandend(dev->nvlink_info);
-        if (nvl_info.num_links < 10)
-          wprintw(dev->nvlink_info, " %ux ", nvl_info.num_links);
-        else
-          wprintw(dev->nvlink_info, "%ux ", nvl_info.num_links);
 
-        if (nvl_info.has_throughput) {
-          unsigned long long total_kib = nvl_info.aggregate_tx + nvl_info.aggregate_rx;
-          print_data_at_scale(dev->nvlink_info, total_kib);
+        if (nvl_info.num_links > 0) {
+          // Active links: show link count and throughput
+          if (nvl_info.num_links < 10)
+            wprintw(dev->nvlink_info, " %ux ", nvl_info.num_links);
+          else
+            wprintw(dev->nvlink_info, "%ux ", nvl_info.num_links);
+
+          if (nvl_info.has_throughput) {
+            unsigned long long total_kib = nvl_info.aggregate_tx + nvl_info.aggregate_rx;
+            print_data_at_scale(dev->nvlink_info, total_kib);
+          }
+        } else {
+          // No active links (no bridge connected) — show "0x"
+          wprintw(dev->nvlink_info, " 0x");
         }
       }
       wnoutrefresh(dev->nvlink_info);
