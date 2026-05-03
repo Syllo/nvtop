@@ -53,8 +53,8 @@ static unsigned int sizeof_device_field[device_field_count] = {
 // Controls whether to allocate the nvlink_info window for displaying "NVL3 0x" etc.
 static bool any_device_has_nvlink = false;
 // True if any monitored device has NVLink with active links (linkCount > 0).
-// Controls layout adjustments (shrinking fan field, adjusting line 2 width)
-// and the nvlink_errors window allocation.
+// Controls layout adjustments (shrinking fan field) and the nvlink_errors
+// window allocation.
 static bool any_device_has_nvlink_active = false;
 
 // When NVLink has ACTIVE links, shrink fan field from 11 to 8 to make room on line 2.
@@ -63,6 +63,8 @@ static bool any_device_has_nvlink_active = false;
 static void nvtop_adjust_field_sizes_for_nvlink(void) {
   if (any_device_has_nvlink_active) {
     sizeof_device_field[device_fan_speed] = 8;  // "FAN %3u%%" (was 11 with padding)
+  } else {
+    sizeof_device_field[device_fan_speed] = 11; // Restore default padding
   }
 }
 

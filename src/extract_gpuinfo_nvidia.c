@@ -290,8 +290,8 @@ struct gpu_info_nvidia {
   unsigned long long nvlink_cli_tx[NVTOP_NVLINK_MAX_LINKS]; // Per-link cumulative TX from CLI
   unsigned long long nvlink_cli_rx[NVTOP_NVLINK_MAX_LINKS]; // Per-link cumulative RX from CLI
   nvtop_time last_nvlink_cli_time; // Timestamp of last CLI poll (uses app's existing time API)
-  unsigned long long smoothed_agg_tx; // EMA-smoothed aggregate TX for display
-  unsigned long long smoothed_agg_rx; // EMA-smoothed aggregate RX for display
+  unsigned long long cli_agg_tx; // Computed aggregate TX from CLI polling for display
+  unsigned long long cli_agg_rx; // Computed aggregate RX from CLI polling for display
 
   // NVLink error counter baselines (cumulative since boot, tracked per-device)
   unsigned long long baseline_errors; // Cumulative errors at last read
@@ -1300,8 +1300,8 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
             total_rx += cli_rx[link] - gpu_info->nvlink_cli_rx[link];
         }
         // Raw rate (no smoothing — accuracy is more important than display smoothness)
-        gpu_info->smoothed_agg_tx = (unsigned long long)((double)total_tx / delta_s);
-        gpu_info->smoothed_agg_rx = (unsigned long long)((double)total_rx / delta_s);
+        gpu_info->cli_agg_tx = (unsigned long long)((double)total_tx / delta_s);
+        gpu_info->cli_agg_rx = (unsigned long long)((double)total_rx / delta_s);
       }
 
       memcpy(gpu_info->nvlink_cli_tx, cli_tx, linkCount * sizeof(unsigned long long));
@@ -1313,8 +1313,8 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
   // Aggregate throughput
   if (gpu_info->cli_poll_active) {
     cache->has_throughput = true;
-    cache->aggregate_tx = gpu_info->smoothed_agg_tx;
-    cache->aggregate_rx = gpu_info->smoothed_agg_rx;
+    cache->aggregate_tx = gpu_info->cli_agg_tx;
+    cache->aggregate_rx = gpu_info->cli_agg_rx;
   } else {
     cache->has_throughput = false;
     cache->aggregate_tx = 0;
