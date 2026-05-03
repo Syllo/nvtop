@@ -1165,6 +1165,10 @@ static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, stru
 bool nvtop_get_nvlink_error_counts(struct gpu_info *_gpu_info,
                                     unsigned long long *out_errors,
                                     unsigned long long *out_corrections) {
+  // NVLink is an NVIDIA-only technology — skip non-NVIDIA GPUs immediately
+  if (strcmp(_gpu_info->vendor->name, "NVIDIA"))
+    return false;
+
   struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
   if (!gpu_info->nvlink_errors_baseline_read) {
     return false;
@@ -1333,6 +1337,12 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
   if (!_gpu_info || !nvlink_info)
     return 0;
 
+  // NVLink is an NVIDIA-only technology — skip non-NVIDIA GPUs immediately
+  if (strcmp(_gpu_info->vendor->name, "NVIDIA")) {
+    memset(nvlink_info, 0, sizeof(*nvlink_info));
+    return 0;
+  }
+
   struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
 
   // If cached info is available (after first refresh), just return it.
@@ -1365,6 +1375,10 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *_gpu_info, struct nvlink_info *n
 
 // Reset all NVLink caches for a single GPU. Called when monitored device set changes.
 void nvtop_reset_nvlink_cache(struct gpu_info *_gpu_info) {
+  // NVLink is an NVIDIA-only technology — skip non-NVIDIA GPUs immediately
+  if (strcmp(_gpu_info->vendor->name, "NVIDIA"))
+    return;
+
   struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
   gpu_info->nvlink_probed = false;
   gpu_info->nvlink_cached_linkcount = 0;
