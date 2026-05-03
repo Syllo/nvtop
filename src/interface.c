@@ -98,8 +98,9 @@ bool nvtop_probe_nvlink_list(struct list_head *devices) {
 
 void nvtop_set_nvlink_probe(bool val) {
   any_device_has_nvlink = val;
-  any_device_has_nvlink_active = val;
-  nvtop_adjust_field_sizes_for_nvlink();
+  // Do NOT touch any_device_has_nvlink_active — it was already set correctly
+  // inside nvtop_probe_nvlink_list() with the proper distinction between
+  // "hardware present" and "links active".
 }
 
 static unsigned int sizeof_process_field[process_field_count] = {
