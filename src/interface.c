@@ -909,7 +909,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
       }
     } else {
-      if (any_device_has_nvlink) {
+      if (any_device_has_nvlink_active) {
         mvwprintw(dev->fan_speed, 0, 0, "FAN N/A");
         mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
       } else {
@@ -2243,6 +2243,11 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
     // may have switched from an NVLink GPU to a non-NVLink one (or vice versa).
     // The cache will be repopulated on the next refresh cycle.
     any_device_has_nvlink = false;
+    any_device_has_nvlink_active = false;
+    // Reset fan field to default width — it may have been compacted to 8 for
+    // NVLink-active layout. Without this, initialize_curses() below would
+    // allocate fan_speed windows at stale width 8.
+    sizeof_device_field[device_fan_speed] = 11;
     // Reset NVLink probes on all monitored GPUs so they get probed fresh.
     { struct gpu_info *g;
       list_for_each_entry(g, monitoredGpus, list)
