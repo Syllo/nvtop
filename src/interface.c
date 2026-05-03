@@ -441,11 +441,10 @@ static unsigned device_length(void) {
                    sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
                    sizeof_device_field[device_power] + 5;
 
-  if (any_device_has_nvlink) {
-    // NVLink window appended after power field on line 2. Its right edge is:
-    // start_col + clock + mem_clock + temp + fan + pcie + 3
-    // (NVLink window starts after spacer*2 + power, width = pcie - power - spacer*3)
-    // This covers both active links (with fan compaction) and 0-link "NVL3 0x" display.
+  if (any_device_has_nvlink_active) {
+    // Only expand panel when NVLink has active links to show throughput.
+    // For 0-link case ("NVL3 0x"), the NVLink window can extend past the
+    // nominal panel edge — it won't affect line 3 bar charts.
     line2 = sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
             sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
             sizeof_device_field[device_pcie] + 3;
