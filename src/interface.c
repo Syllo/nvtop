@@ -437,18 +437,13 @@ static unsigned device_length(void) {
   unsigned line1 = sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1;
 
   // Line 2 base: clock, mem_clock, temp, fan, power + spacers (4 spacers + 1 = 5)
+  // Do NOT expand for NVLink — the NVLink window on line 2 extends past the
+  // nominal panel edge and ncurses renders it fine. Expanding it would make
+  // line 3 bar charts (GPU/MEM/Enc/Dec) too wide. This applies to both the
+  // 0-link case ("NVL3 0x") and the active-links case (with throughput).
   unsigned line2 = sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                    sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
                    sizeof_device_field[device_power] + 5;
-
-  if (any_device_has_nvlink_active) {
-    // Only expand panel when NVLink has active links to show throughput.
-    // For 0-link case ("NVL3 0x"), the NVLink window can extend past the
-    // nominal panel edge — it won't affect line 3 bar charts.
-    line2 = sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
-            sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-            sizeof_device_field[device_pcie] + 3;
-  }
 
   return max(line1, line2);
 }
