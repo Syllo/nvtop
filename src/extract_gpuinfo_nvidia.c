@@ -1059,14 +1059,21 @@ unsigned nvlink_probe_and_cache(struct gpu_info_nvidia *gpu_info) {
       version = nvlink_marketing_version(version);
   }
 
-  // Probe active links
+  // Probe links. A link is counted only if nvmlDeviceGetNvLinkState succeeds
+  // AND isActive == 1. Without a bridge, the API returns SUCCESS with isActive=0
+  // for all physical link slots — those must NOT be counted.
+  // Consume links must be contiguous from 0: we stop at the first inactive link
+  // (either isActive=0 or API error) to avoid reporting phantom counts.
   for (unsigned int link = 0; link < NVML_NVLINK_MAX_LINKS_INTERNAL; link++) {
     unsigned int isActive = 0;
     nvmlReturn_t ret = nvmlDeviceGetNvLinkState(device, link, &isActive);
-    if (ret == NVML_SUCCESS || ret == NVML_ERROR_NOT_SUPPORTED) {
-      if (ret == NVML_SUCCESS)
-        linkCount = link + 1;
+    if (ret == NVML_SUCCESS && isActive) {
+      linkCount = link + 1;
+    } else if (ret == NVML_ERROR_NOT_SUPPORTED) {
+      // This link slot does not exist on this hardware — stop probing.
+      break;
     } else {
+      // ret != SUCCESS, or isActive == 0: no more active links.
       break;
     }
   }
