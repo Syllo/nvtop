@@ -433,20 +433,24 @@ static void alloc_plot_window(unsigned devices_count, struct window_position *pl
 }
 
 static unsigned device_length(void) {
-  // When no NVLink with active links anywhere, match original repo layout exactly.
-  // 0-link "NVL3 0x" display doesn't need the +2 width adjustment — only throughput
-  // display with compaction needs it.
-  if (!any_device_has_nvlink_active) {
-    return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
-               sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+  unsigned line1 = sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1;
+
+  // Line 2 base: clock, mem_clock, temp, fan, power + spacers (4 spacers + 1 = 5)
+  unsigned line2 = sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                    sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                   sizeof_device_field[device_power] + 5);
+                   sizeof_device_field[device_power] + 5;
+
+  if (any_device_has_nvlink) {
+    // NVLink window appended after power field on line 2. Its right edge is:
+    // start_col + clock + mem_clock + temp + fan + pcie + 3
+    // (NVLink window starts after spacer*2 + power, width = pcie - power - spacer*3)
+    // This covers both active links (with fan compaction) and 0-link "NVL3 0x" display.
+    line2 = sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+            sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
+            sizeof_device_field[device_pcie] + 3;
   }
-  // With NVLink active links: keep line 3 at original width (+3 compensates for fan 11->8, power stays 15)
-  return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
-             sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
-                 sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                 sizeof_device_field[device_power] + 5 + 2);
+
+  return max(line1, line2);
 }
 
 static pid_t nvtop_pid;
