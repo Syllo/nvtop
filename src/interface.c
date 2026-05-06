@@ -283,10 +283,6 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->temperature);
   delwin(dwin->fan_speed);
   delwin(dwin->pcie_info);
-  // Upstream bug: shader_cores, l2_cache_size, exec_engines were allocated with
-  // newwin() in alloc_device_window() but never freed here. This leaks 3 WINDOW
-  // structs per device on every delete_all_windows() call (terminal resize, GPU set change).
-  // Also fixed in upstream PR #467 (fix/memory-leaks-in-free-device-windows).
   delwin(dwin->shader_cores);
   delwin(dwin->l2_cache_size);
   delwin(dwin->exec_engines);
@@ -497,10 +493,6 @@ static void delete_all_windows(struct nvtop_interface *dwin) {
   delwin(dwin->process.option_window.option_win);
   for (size_t i = 0; i < dwin->num_plots; ++i) {
     delwin(dwin->plots[i].win);
-    // Upstream bug: plot_window was allocated with newwin() in
-    // initialize_gpu_mem_plot() but never freed here. This leaks one WINDOW
-    // struct per chart on every delete_all_windows() call.
-    // Also fixed in upstream PR #468 (fix/plot-window-memory-leak).
     delwin(dwin->plots[i].plot_window);
     free(dwin->plots[i].data);
   }

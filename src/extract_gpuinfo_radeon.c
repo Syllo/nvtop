@@ -24,30 +24,21 @@
  *
  */
 
-#include "nvtop/common.h"
 #include "nvtop/device_discovery.h"
 #include "nvtop/extract_gpuinfo_common.h"
-#include "nvtop/extract_processinfo_fdinfo.h"
-#include "nvtop/time.h"
 #include <assert.h>
-
-#include <libdrm/radeon_drm.h>
-
 #include <dlfcn.h>
-
-#include <stdbool.h>
-#include <string.h>
 #include <errno.h>
-#include <limits.h>
-#include <inttypes.h>
-
-#include <sys/stat.h>
 #include <fcntl.h>
+#include <inttypes.h>
+#include <libdrm/radeon_drm.h>
+#include <limits.h>
+#include <stdbool.h>
+#include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
-
 #include <xf86drm.h>
-
-
 
 #ifndef RADEON_INFO_VRAM_USAGE
 #define RADEON_INFO_VRAM_USAGE          0x1e
@@ -596,11 +587,11 @@ void gpuinfo_radeon_shutdown(void)
         _libdrm_drmFreeVersion(gpu_info->drm_device_lib_version);
 
 
-    if (gpu_info->fanSpeedFILE)
-      fclose(gpu_info->fanSpeedFILE);
+        if (gpu_info->fanSpeedFILE)
+          fclose(gpu_info->fanSpeedFILE);
 
-    nvtop_device_unref(gpu_info->amdgpuDevice);
-    nvtop_device_unref(gpu_info->hwmonDevice);
+        nvtop_device_unref(gpu_info->amdgpuDevice);
+        nvtop_device_unref(gpu_info->hwmonDevice);
 
     }
 
@@ -748,6 +739,8 @@ bool gpuinfo_radeon_get_device_handles(struct list_head *devices, unsigned *coun
             strcmp(drm_device_driver_version->name, RADEON_DRIVER_NAME) != 0
             )
         {
+
+            _libdrm_drmFreeVersion(drm_device_driver_version);
 
             close(drm_device_node_fd);
 
