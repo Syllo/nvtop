@@ -933,6 +933,6 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
   }
   // If the GPU is in MIG mode; process utilization is not supported
   if (!(IS_VALID(gpuinfo_multi_instance_mode_valid, gpu_info->base.dynamic_info.valid) &&
-        !gpu_info->base.dynamic_info.multi_instance_mode))
+        gpu_info->base.dynamic_info.multi_instance_mode))
     gpuinfo_nvidia_get_process_utilization(gpu_info, _gpu_info->processes_count, _gpu_info->processes);
 }
