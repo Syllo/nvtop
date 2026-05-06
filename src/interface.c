@@ -79,8 +79,7 @@ bool nvtop_probe_nvlink_list(struct list_head *devices) {
 
   struct gpu_info *gpu;
   list_for_each_entry(gpu, devices, list) {
-    struct nvlink_info nvl;
-    memset(&nvl, 0, sizeof(nvl));
+    struct nvlink_info nvl = {0};
     // nvtop_get_nvlink_info returns num_links (could be 0 for "supported but no bridge").
     // Check nvl.supported separately to catch the 0-link case.
     nvtop_get_nvlink_info(gpu, &nvl);
@@ -93,16 +92,8 @@ bool nvtop_probe_nvlink_list(struct list_head *devices) {
 
   any_device_has_nvlink = has_nvlink;
   any_device_has_nvlink_active = has_nvlink_active;
-  nvtop_adjust_field_sizes_for_nvlink();
 
   return has_nvlink;
-}
-
-void nvtop_set_nvlink_probe(bool val) {
-  any_device_has_nvlink = val;
-  // Do NOT touch any_device_has_nvlink_active — it was already set correctly
-  // inside nvtop_probe_nvlink_list() with the proper distinction between
-  // "hardware present" and "links active".
 }
 
 static unsigned int sizeof_process_field[process_field_count] = {
@@ -459,6 +450,10 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position process_position;
   struct window_position plot_positions[MAX_CHARTS];
   struct window_position setup_position;
+
+  // NVLink layout adjustments must happen before panel dimensions are computed.
+  // any_device_has_nvlink_active is set by the probe that runs before this function.
+  nvtop_adjust_field_sizes_for_nvlink();
 
   compute_sizes_from_layout(devices_count, dwin->options.has_gpu_info_bar ? 4 : 3, device_length(), rows - 1, cols,
                             dwin->options.gpu_specific_opts, dwin->options.process_fields_displayed, device_positions,
@@ -2247,6 +2242,10 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
       list_for_each_entry(g, monitoredGpus, list)
         nvtop_reset_nvlink_cache(g);
     }
+    // Re-probe NVLink now that caches are cleared, so that
+    // any_device_has_nvlink_active is correct when initialize_curses()
+    // calls initialize_all_windows() for layout decisions.
+    nvtop_probe_nvlink_list(monitoredGpus);
     *num_monitored_gpus =
         interface_check_and_fix_monitored_gpus(allDevCount, monitoredGpus, nonMonitoredGpus, &options_copy);
     clean_ncurses(*interface);

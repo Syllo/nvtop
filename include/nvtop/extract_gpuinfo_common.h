@@ -264,7 +264,6 @@ bool nvtop_get_nvlink_error_counts(struct gpu_info *gpu_info,
 
 // NVLink probe — call before initialize_curses to set layout mode
 bool nvtop_probe_nvlink_list(struct list_head *devices);
-void nvtop_set_nvlink_probe(bool val);
 
 // Reset per-GPU NVLink cache (probed flag, cached linkcount/version, cached info struct).
 // Call when the monitored device set changes so newly-monitored NVLink GPUs get probed fresh.
