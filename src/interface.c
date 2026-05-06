@@ -400,6 +400,7 @@ static void delete_all_windows(struct nvtop_interface *dwin) {
   delwin(dwin->process.option_window.option_win);
   for (size_t i = 0; i < dwin->num_plots; ++i) {
     delwin(dwin->plots[i].win);
+    delwin(dwin->plots[i].plot_window);
     free(dwin->plots[i].data);
   }
   free_setup_window(&dwin->setup_win);
