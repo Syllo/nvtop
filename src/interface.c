@@ -46,7 +46,7 @@ static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
     [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
     [device_l2features] = 11, [device_execengines] = 11,
-    [device_nvlink_errors] = 19,
+    [device_nvlink_errors] = 28,
 };
 
 // True if any monitored device has NVLink hardware support (even if 0 links active).
@@ -1050,11 +1050,11 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
       wnoutrefresh(dev->exec_engines);
 
-      // NVLink errors/corrections (conditional on NVLink)
+      // NVLink errors/corrections/ECC (conditional on NVLink)
       if (dev->nvlink_errors != NULL) {
         werase(dev->nvlink_errors);
-        unsigned long long err_cnt = 0, cor_cnt = 0;
-        if (nvtop_get_nvlink_error_counts(device, &err_cnt, &cor_cnt)) {
+        unsigned long long err_cnt = 0, cor_cnt = 0, ecc_cnt = 0;
+        if (nvtop_get_nvlink_error_counts(device, &err_cnt, &cor_cnt, &ecc_cnt)) {
           wcolor_set(dev->nvlink_errors, cyan_color, NULL);
           wprintw(dev->nvlink_errors, "NVL");
           wstandend(dev->nvlink_errors);
@@ -1067,6 +1067,11 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
           if (cor_cnt > 0)
             wcolor_set(dev->nvlink_errors, yellow_color, NULL);
           wprintw(dev->nvlink_errors, "%05u", (unsigned)(cor_cnt % 100000));
+          wstandend(dev->nvlink_errors);
+          wprintw(dev->nvlink_errors, " X:");
+          if (ecc_cnt > 0)
+            wcolor_set(dev->nvlink_errors, red_color, NULL);
+          wprintw(dev->nvlink_errors, "%05u", (unsigned)(ecc_cnt % 100000));
         }
         wnoutrefresh(dev->nvlink_errors);
       }

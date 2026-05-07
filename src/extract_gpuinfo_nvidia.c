@@ -97,6 +97,9 @@ typedef struct nvmlFieldValue_st {
 #ifndef NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL 38
 #endif
+#ifndef NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL
+#define NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL 160
+#endif
 
 // Init and shutdown
 
@@ -352,11 +355,13 @@ struct gpu_info_nvidia {
   // NVLink error counter baselines (cumulative since boot, tracked per-device)
   unsigned long long baseline_errors; // Cumulative errors at last read
   unsigned long long baseline_corrections; // Cumulative corrections at last read
+  unsigned long long baseline_ecc_errors; // Cumulative ECC data errors at last read
   bool nvlink_errors_baseline_read; // True after first read establishes baseline
 
-  // Display-ready error/correction counts (computed in refresh_dynamic_info)
+  // Display-ready error/correction/ECC counts (computed in refresh_dynamic_info)
   unsigned long long display_errors; // Errors since nvtop launch
   unsigned long long display_corrections; // Corrections since nvtop launch
+  unsigned long long display_ecc_errors; // ECC data errors since nvtop launch
 
   // Cached NVLink hardware properties (probe once, reuse forever)
   bool nvlink_probed; // true after first probe, regardless of result
@@ -1152,7 +1157,7 @@ unsigned nvlink_probe_and_cache(struct gpu_info_nvidia *gpu_info) {
 // Read NVLink error counters (replay, recovery, CRC), storing results in the persistent gpu_info struct.
 // Uses baseline subtraction to show only errors since nvtop launch (Option B).
 // Called from refresh_dynamic_info so it does NOT run during the startup probe in nvtop_probe_nvlink_list.
-// Corrections are read separately in nvlink_refresh_cached_info() via NVML batched field query.
+// Corrections and ECC data errors are read separately in nvlink_refresh_cached_info() via NVML batched field query.
 static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info) {
   // Error counters via nvmlDeviceGetNvLinkErrorCounter
   unsigned long long cumulative_errors = 0;
@@ -1189,11 +1194,12 @@ static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, stru
   }
 }
 
-// Public getter for display-ready error/correction counts from a struct gpu_info.
-// Returns true if data is available (errors or corrections read at least once).
+// Public getter for display-ready error/correction/ECC counts from a struct gpu_info.
+// Returns true if baseline has been established at least once.
 bool nvtop_get_nvlink_error_counts(struct gpu_info *_gpu_info,
                                     unsigned long long *out_errors,
-                                    unsigned long long *out_corrections) {
+                                    unsigned long long *out_corrections,
+                                    unsigned long long *out_ecc) {
   // NVLink is an NVIDIA-only technology — skip non-NVIDIA GPUs immediately
   if (strcmp(_gpu_info->vendor->name, "NVIDIA"))
     return false;
@@ -1204,6 +1210,7 @@ bool nvtop_get_nvlink_error_counts(struct gpu_info *_gpu_info,
   }
   *out_errors = gpu_info->display_errors;
   *out_corrections = gpu_info->display_corrections;
+  *out_ecc = gpu_info->display_ecc_errors;
   return true;
 }
 
@@ -1243,6 +1250,7 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
     cache->aggregate_rx = 0;
     cache->total_errors = 0;
     cache->total_corrections = 0;
+    cache->total_ecc_errors = 0;
     gpu_info->cached_nvlink_info_populated = true;
     return;
   }
@@ -1258,21 +1266,23 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
                      ? nvtop_difftime(gpu_info->nvlink_last_poll_time, current_time)
                      : 0;
 
-  // Single batched nvmlDeviceGetFieldValues call for TX, RX, and corrections.
+  // Single batched nvmlDeviceGetFieldValues call for TX, RX, corrections, and ECC errors.
   // Each entry's nvmlReturn field is checked individually for validity.
-  nvmlFieldValue_t batch[3] = {0};
+  nvmlFieldValue_t batch[4] = {0};
   batch[0].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX;
   batch[0].scopeId = UINT_MAX;
   batch[1].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX;
   batch[1].scopeId = UINT_MAX;
   batch[2].fieldId = NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL;
   batch[2].scopeId = 0;
+  batch[3].fieldId = NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL;
+  batch[3].scopeId = 0;
 
-  unsigned long long new_tx = 0, new_rx = 0, new_corrections = 0;
-  bool got_tx = false, got_rx = false, got_corrections = false;
+  unsigned long long new_tx = 0, new_rx = 0, new_corrections = 0, new_ecc_errors = 0;
+  bool got_tx = false, got_rx = false, got_corrections = false, got_ecc_errors = false;
 
   if (nvmlDeviceGetFieldValues) {
-    nvmlReturn_t ret = nvmlDeviceGetFieldValues(gpu_info->gpuhandle, 3, batch);
+    nvmlReturn_t ret = nvmlDeviceGetFieldValues(gpu_info->gpuhandle, 4, batch);
     if (ret == NVML_SUCCESS) {
       if (batch[0].nvmlReturn == NVML_SUCCESS) {
         new_tx = batch[0].value.ullVal;
@@ -1285,6 +1295,10 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
       if (batch[2].nvmlReturn == NVML_SUCCESS) {
         new_corrections = batch[2].value.ullVal;
         got_corrections = true;
+      }
+      if (batch[3].nvmlReturn == NVML_SUCCESS) {
+        new_ecc_errors = batch[3].value.ullVal;
+        got_ecc_errors = true;
       }
     }
   }
@@ -1323,9 +1337,22 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
     }
   }
 
-  // Error/correction counts from display-ready fields
+  // ECC data errors -- use same baseline subtraction pattern as errors/corrections
+  if (got_ecc_errors) {
+    if (!gpu_info->nvlink_errors_baseline_read) {
+      gpu_info->baseline_ecc_errors = new_ecc_errors;
+      gpu_info->display_ecc_errors = 0;
+      gpu_info->nvlink_errors_baseline_read = true;
+    } else {
+      gpu_info->display_ecc_errors = new_ecc_errors > gpu_info->baseline_ecc_errors
+                                      ? new_ecc_errors - gpu_info->baseline_ecc_errors : 0;
+    }
+  }
+
+  // Error/correction/ECC counts from display-ready fields
   cache->total_errors = gpu_info->display_errors;
   cache->total_corrections = gpu_info->display_corrections;
+  cache->total_ecc_errors = gpu_info->display_ecc_errors;
 
   gpu_info->cached_nvlink_info_populated = true;
 }
@@ -1389,6 +1416,7 @@ void nvtop_reset_nvlink_cache(struct gpu_info *_gpu_info) {
   memset(&gpu_info->cached_nvlink_info, 0, sizeof(gpu_info->cached_nvlink_info));
   gpu_info->baseline_errors = 0;
   gpu_info->baseline_corrections = 0;
+  gpu_info->baseline_ecc_errors = 0;
   gpu_info->nvlink_errors_baseline_read = false;
   gpu_info->nvlink_last_tx = 0;
   gpu_info->nvlink_last_rx = 0;
