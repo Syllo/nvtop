@@ -947,7 +947,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     // NVLink info (on same row as power_info)
     if (dev->nvlink_info != NULL) {
       werase(dev->nvlink_info);
-      struct nvlink_info nvl_info;
+      struct nvlink_info nvl_info = {0};
       nvtop_get_nvlink_info(device, &nvl_info);
       if (nvl_info.supported) {
         wcolor_set(dev->nvlink_info, cyan_color, NULL);
