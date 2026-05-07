@@ -46,7 +46,7 @@ static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
     [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
     [device_l2features] = 11, [device_execengines] = 11,
-    [device_nvlink_errors] = 28,
+    [device_nvlink_errors] = 33,
 };
 
 // True if any monitored device has NVLink hardware support (even if 0 links active).
@@ -1058,20 +1058,23 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
           wcolor_set(dev->nvlink_errors, cyan_color, NULL);
           wprintw(dev->nvlink_errors, "NVL");
           wstandend(dev->nvlink_errors);
-          wprintw(dev->nvlink_errors, " E:");
+          // FLIT errors (field 38)
+          wprintw(dev->nvlink_errors, " FL:");
           if (err_cnt > 0)
             wcolor_set(dev->nvlink_errors, red_color, NULL);
           wprintw(dev->nvlink_errors, "%05u", (unsigned)(err_cnt % 100000));
           wstandend(dev->nvlink_errors);
-          wprintw(dev->nvlink_errors, " C:");
-          if (cor_cnt > 0)
-            wcolor_set(dev->nvlink_errors, yellow_color, NULL);
-          wprintw(dev->nvlink_errors, "%05u", (unsigned)(cor_cnt % 100000));
-          wstandend(dev->nvlink_errors);
-          wprintw(dev->nvlink_errors, " X:");
+          // ECC data errors (field 160)
+          wprintw(dev->nvlink_errors, " EE:");
           if (ecc_cnt > 0)
             wcolor_set(dev->nvlink_errors, red_color, NULL);
           wprintw(dev->nvlink_errors, "%05u", (unsigned)(ecc_cnt % 100000));
+          wstandend(dev->nvlink_errors);
+          // CRC corrections (field 38)
+          wprintw(dev->nvlink_errors, " CR:");
+          if (cor_cnt > 0)
+            wcolor_set(dev->nvlink_errors, yellow_color, NULL);
+          wprintw(dev->nvlink_errors, "%05u", (unsigned)(cor_cnt % 100000));
         }
         wnoutrefresh(dev->nvlink_errors);
       }
