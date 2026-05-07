@@ -52,19 +52,6 @@ endif()
 
 if(NVIDIA_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
-  find_path(NVML_INCLUDE_DIR nvml.h
-    PATHS /usr/local/cuda-12.8/targets/x86_64-linux/include
-          /usr/local/cuda/targets/x86_64-linux/include
-          /usr/local/cuda/include
-          /usr/lib/x86_64-linux-gnu/nvidia
-          /usr/include
-    NO_DEFAULT_PATH)
-  if (NVML_INCLUDE_DIR)
-    message(STATUS "Found nvml.h at ${NVML_INCLUDE_DIR}")
-    include_directories(${NVML_INCLUDE_DIR})
-  else()
-    message(WARNING "nvml.h not found; NVLink error counters and corrections may be unavailable")
-  endif()
 else()
   target_sources(nvtop PRIVATE nvlink_nvidia_disabled.c)
 endif()

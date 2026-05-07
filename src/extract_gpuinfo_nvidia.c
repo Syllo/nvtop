@@ -32,16 +32,70 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "nvml.h"
+// We do NOT include nvml.h — nvtop uses dlsym function pointers for all NVML
+// functions, and including nvml.h would conflict with those declarations.
+// Instead, we manually declare nvmlFieldValue_t and its dependencies here.
+// This satisfies the maintainer's requirement to use the proper struct type
+// instead of raw memcpy offsets, without breaking the dlsym architecture.
 
-#ifndef NVML_SUCCESS
-#define NVML_SUCCESS 0
+// Core NVML types needed throughout the file (from nvml.h — cannot include directly
+// due to dlsym function pointer conflicts with nvtop's architecture).
+
+// NVML return codes (subset — we only use NVML_SUCCESS and NVML_ERROR_NOT_SUPPORTED)
+typedef enum nvmlReturn_enum {
+    NVML_SUCCESS = 0,
+    NVML_ERROR_UNINITIALIZED = 1,
+    NVML_ERROR_INVALID_ARGUMENT = 2,
+    NVML_ERROR_NOT_SUPPORTED = 3,
+    NVML_ERROR_NO_PERMISSION = 4,
+    NVML_ERROR_INSUFFICIENT_SIZE = 7,
+} nvmlReturn_t;
+
+// Opaque device handle (nvml.h defines as struct nvmlDevice_st*)
+typedef struct nvmlDevice_st *nvmlDevice_t;
+
+// nvmlFieldValue_t and its dependencies (manually declared to avoid including nvml.h).
+// These match nvml.h struct/enum definitions from CUDA 12.x.
+typedef enum nvmlValueType_enum {
+    NVML_VALUE_TYPE_DOUBLE = 0,
+    NVML_VALUE_TYPE_UNSIGNED_INT = 1,
+    NVML_VALUE_TYPE_UNSIGNED_LONG = 2,
+    NVML_VALUE_TYPE_UNSIGNED_LONG_LONG = 3,
+    NVML_VALUE_TYPE_SIGNED_LONG_LONG = 4,
+    NVML_VALUE_TYPE_SIGNED_INT = 5,
+    NVML_VALUE_TYPE_UNSIGNED_SHORT = 6,
+    NVML_VALUE_TYPE_COUNT
+} nvmlValueType_t;
+
+typedef union nvmlValue_st {
+    double dVal;
+    int siVal;
+    unsigned int uiVal;
+    unsigned long ulVal;
+    unsigned long long ullVal;
+    signed long long sllVal;
+    unsigned short usVal;
+} nvmlValue_t;
+
+typedef struct nvmlFieldValue_st {
+    unsigned int fieldId;
+    unsigned int scopeId;
+    long long timestamp;
+    long long latencyUsec;
+    nvmlValueType_t valueType;
+    nvmlReturn_t nvmlReturn;
+    nvmlValue_t value;
+} nvmlFieldValue_t;
+
+// NVML field IDs for NVLink throughput and CRC corrections (from nvml.h)
+#ifndef NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX
+#define NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX 140
 #endif
-#ifndef NVML_ERROR_NOT_SUPPORTED
-#define NVML_ERROR_NOT_SUPPORTED 3
+#ifndef NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX
+#define NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX 141
 #endif
-#ifndef NVML_ERROR_INSUFFICIENT_SIZE
-#define NVML_ERROR_INSUFFICIENT_SIZE 7
+#ifndef NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL
+#define NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL 38
 #endif
 
 // Init and shutdown
@@ -327,7 +381,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info);
 
 // Forward declaration for nvlink_read_errors (defined later, called from refresh_dynamic_info)
-static void nvlink_read_errors(struct nvmlDevice *device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info);
+static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info);
 
 // Forward declaration for nvlink_refresh_cached_info (defined later, called from refresh_dynamic_info)
 // Populates gpu_info->cached_nvlink_info with throughput + error data.
@@ -1032,7 +1086,7 @@ static bool nvlink_query_field(nvmlDevice_t device, unsigned int field_id,
                                unsigned int scope_id, unsigned long long *out_val) {
     if (!nvmlDeviceGetFieldValues)
         return false;
-    struct nvmlFieldValue_t fv = {0};
+    nvmlFieldValue_t fv = {0};
     fv.fieldId = field_id;
     fv.scopeId = scope_id;
     nvmlReturn_t ret = nvmlDeviceGetFieldValues(device, 1, &fv);
@@ -1206,7 +1260,7 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
 
   // Single batched nvmlDeviceGetFieldValues call for TX, RX, and corrections.
   // Each entry's nvmlReturn field is checked individually for validity.
-  struct nvmlFieldValue_t batch[3] = {0};
+  nvmlFieldValue_t batch[3] = {0};
   batch[0].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX;
   batch[0].scopeId = UINT_MAX;
   batch[1].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX;
