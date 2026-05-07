@@ -46,7 +46,55 @@ static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
     [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
     [device_l2features] = 11, [device_execengines] = 11,
+    [device_nvlink_errors] = 33,
 };
+
+// True if any monitored device has NVLink hardware support (even if 0 links active).
+// Controls whether to allocate the nvlink_info window for displaying "NVL3 0x" etc.
+static bool any_device_has_nvlink = false;
+// True if any monitored device has NVLink with active links (linkCount > 0).
+// Controls layout adjustments (shrinking fan field) and the nvlink_errors
+// window allocation.
+static bool any_device_has_nvlink_active = false;
+
+// When NVLink has ACTIVE links, shrink fan field from 11 to 8 to make room on line 2.
+// Only done when there are actual links to show throughput for — 0-link "NVL3 0x"
+// display does not require any padding reduction.
+static void nvtop_adjust_field_sizes_for_nvlink(void) {
+  if (any_device_has_nvlink_active) {
+    sizeof_device_field[device_fan_speed] = 8;  // "FAN %3u%%" (was 11 with padding)
+  } else {
+    sizeof_device_field[device_fan_speed] = 11; // Restore default padding
+  }
+}
+
+bool nvtop_probe_nvlink_list(struct list_head *devices) {
+  // Skip re-probing if we already know at least one device has NVLink.
+  // NVLink support is a static hardware property that does not change at runtime.
+  if (any_device_has_nvlink)
+    return true;
+
+  bool has_nvlink = false;
+  bool has_nvlink_active = false;
+
+  struct gpu_info *gpu;
+  list_for_each_entry(gpu, devices, list) {
+    struct nvlink_info nvl = {0};
+    // nvtop_get_nvlink_info returns num_links (could be 0 for "supported but no bridge").
+    // Check nvl.supported separately to catch the 0-link case.
+    nvtop_get_nvlink_info(gpu, &nvl);
+    if (nvl.supported) {
+      has_nvlink = true;
+      if (nvl.num_links > 0)
+        has_nvlink_active = true;
+    }
+  }
+
+  any_device_has_nvlink = has_nvlink;
+  any_device_has_nvlink_active = has_nvlink_active;
+
+  return has_nvlink;
+}
 
 static unsigned int sizeof_process_field[process_field_count] = {
     [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,   [process_type] = 8,
@@ -70,7 +118,7 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
   if (dwin->pcie_info == NULL)
     goto alloc_error;
 
-  // Line 2 = GPU clk | MEM clk | Temp | Fan | Power
+  // Line 2 = GPU clk | MEM clk | Temp | Fan | Power | NVLink
   dwin->gpu_clock_info = newwin(1, sizeof_device_field[device_clock], start_row + 1, start_col);
   if (dwin->gpu_clock_info == NULL)
     goto alloc_error;
@@ -94,6 +142,18 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed]);
   if (dwin->power_info == NULL)
     goto alloc_error;
+  // NVLink appended to power_info on the same row (start_row + 1), using remaining width
+  if (any_device_has_nvlink) {
+    dwin->nvlink_info =
+        newwin(1, sizeof_device_field[device_pcie] - sizeof_device_field[device_power] - spacer * 3, start_row + 1,
+               start_col + spacer * 4 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                   sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
+                   spacer * 2 + sizeof_device_field[device_power]);
+    if (dwin->nvlink_info == NULL)
+      goto alloc_error;
+  } else {
+    dwin->nvlink_info = NULL;
+  }
 
   // Line 3 = GPU used | MEM used | Encoder | Decoder
 
@@ -177,6 +237,18 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
              start_col + spacer * 2 + sizeof_device_field[device_shadercores] + sizeof_device_field[device_l2features]);
   if (dwin->exec_engines == NULL)
     goto alloc_error;
+  // NVLink errors appended to exec_engines on the same row (start_row + 3), conditional on NVLink
+  // Only allocate for devices with active links — 0-link devices have no error counters to show.
+  if (any_device_has_nvlink_active) {
+    dwin->nvlink_errors =
+        newwin(1, sizeof_device_field[device_nvlink_errors], start_row + 3,
+               start_col + spacer * 3 + sizeof_device_field[device_shadercores] +
+                   sizeof_device_field[device_l2features] + sizeof_device_field[device_execengines]);
+    if (dwin->nvlink_errors == NULL)
+      goto alloc_error;
+  } else {
+    dwin->nvlink_errors = NULL;
+  }
 
   return;
 alloc_error:
@@ -205,6 +277,10 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->shader_cores);
   delwin(dwin->l2_cache_size);
   delwin(dwin->exec_engines);
+  if (dwin->nvlink_info != NULL)
+    delwin(dwin->nvlink_info);
+  if (dwin->nvlink_errors != NULL)
+    delwin(dwin->nvlink_errors);
 }
 
 static void alloc_process_with_option(struct nvtop_interface *interface, unsigned posX, unsigned posY, unsigned sizeX,
@@ -347,10 +423,18 @@ static void alloc_plot_window(unsigned devices_count, struct window_position *pl
 }
 
 static unsigned device_length(void) {
-  return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
-             sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
-                 sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                 sizeof_device_field[device_power] + 5);
+  unsigned line1 = sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1;
+
+  // Line 2 base: clock, mem_clock, temp, fan, power + spacers (4 spacers + 1 = 5)
+  // Do NOT expand for NVLink — the NVLink window on line 2 extends past the
+  // nominal panel edge and ncurses renders it fine. Expanding it would make
+  // line 3 bar charts (GPU/MEM/Enc/Dec) too wide. This applies to both the
+  // 0-link case ("NVL3 0x") and the active-links case (with throughput).
+  unsigned line2 = sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                   sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
+                   sizeof_device_field[device_power] + 5;
+
+  return max(line1, line2);
 }
 
 static pid_t nvtop_pid;
@@ -366,6 +450,10 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position process_position;
   struct window_position plot_positions[MAX_CHARTS];
   struct window_position setup_position;
+
+  // NVLink layout adjustments must happen before panel dimensions are computed.
+  // any_device_has_nvlink_active is set by the probe that runs before this function.
+  nvtop_adjust_field_sizes_for_nvlink();
 
   compute_sizes_from_layout(devices_count, dwin->options.has_gpu_info_bar ? 4 : 3, device_length(), rows - 1, cols,
                             dwin->options.gpu_specific_opts, dwin->options.process_fields_displayed, device_positions,
@@ -557,10 +645,10 @@ static void draw_temp_color(WINDOW *win, unsigned int temp, unsigned int temp_sl
   wnoutrefresh(win);
 }
 
-static void print_pcie_at_scale(WINDOW *win, unsigned int value) {
+static void print_data_at_scale(WINDOW *win, unsigned long long value) {
   int prefix_off;
   double val_d = value;
-  for (prefix_off = 1; prefix_off < 5 && val_d >= 1000.; ++prefix_off) {
+  for (prefix_off = 1; prefix_off < 6 && val_d >= 1000.; ++prefix_off) {
     val_d = val_d / 1024.;
   }
   if (val_d >= 100.) {
@@ -574,6 +662,10 @@ static void print_pcie_at_scale(WINDOW *win, unsigned int value) {
   }
   wprintw(win, " %sB/s", memory_prefix[prefix_off]);
 }
+
+// print_data_at_scale (renamed from print_pcie_at_scale): reused for NVLink throughput
+// (identical scale logic, bounds check extended to prefix_off < 6 for TiB/s).
+// Takes unsigned long long to avoid 32-bit truncation on high-throughput hardware.
 
 static inline void werase_and_wnoutrefresh(WINDOW *w) {
   werase(w);
@@ -778,19 +870,41 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // FAN
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed)) {
-      mvwprintw(dev->fan_speed, 0, 0, " FAN %3u%%  ",
-                device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
-      mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
+      if (any_device_has_nvlink_active) {
+        mvwprintw(dev->fan_speed, 0, 0, "FAN %3u%%",
+                  device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
+        mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, " FAN %3u%%  ",
+                  device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
+        mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
+      }
     } else if (device->static_info.integrated_graphics) {
-      mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
-      mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
+      if (any_device_has_nvlink_active) {
+        mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN");
+        mvwchgat(dev->fan_speed, 0, 0, 7, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
+        mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
+      }
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm)) {
-      mvwprintw(dev->fan_speed, 0, 0, "FAN %4uRPM",
-                device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
-      mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      if (any_device_has_nvlink_active) {
+        mvwprintw(dev->fan_speed, 0, 0, "FAN%3uR",
+                  device->dynamic_info.fan_rpm > 999 ? 999 : device->dynamic_info.fan_rpm);
+        mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, "FAN %4uRPM",
+                  device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
+        mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      }
     } else {
-      mvwprintw(dev->fan_speed, 0, 0, "  FAN N/A  ");
-      mvwchgat(dev->fan_speed, 0, 2, 3, 0, cyan_color, NULL);
+      if (any_device_has_nvlink_active) {
+        mvwprintw(dev->fan_speed, 0, 0, "FAN N/A");
+        mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, "  FAN N/A  ");
+        mvwchgat(dev->fan_speed, 0, 2, 3, 0, cyan_color, NULL);
+      }
     }
     wnoutrefresh(dev->fan_speed);
 
@@ -830,6 +944,40 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->power_info);
 
+    // NVLink info (on same row as power_info)
+    if (dev->nvlink_info != NULL) {
+      werase(dev->nvlink_info);
+      struct nvlink_info nvl_info = {0};
+      nvtop_get_nvlink_info(device, &nvl_info);
+      if (nvl_info.supported) {
+        wcolor_set(dev->nvlink_info, cyan_color, NULL);
+        wprintw(dev->nvlink_info, "NVL");
+        wcolor_set(dev->nvlink_info, magenta_color, NULL);
+        if (nvl_info.version > 0)
+          wprintw(dev->nvlink_info, "%u", nvl_info.version);
+        else
+          wprintw(dev->nvlink_info, "?");
+        wstandend(dev->nvlink_info);
+
+        if (nvl_info.num_links > 0) {
+          // Active links: show link count and throughput
+          if (nvl_info.num_links < 10)
+            wprintw(dev->nvlink_info, " %ux ", nvl_info.num_links);
+          else
+            wprintw(dev->nvlink_info, "%ux ", nvl_info.num_links);
+
+          if (nvl_info.has_throughput) {
+            unsigned long long total_kib = nvl_info.aggregate_tx + nvl_info.aggregate_rx;
+            print_data_at_scale(dev->nvlink_info, total_kib);
+          }
+        } else {
+          // No active links (no bridge connected) — show "0x"
+          wprintw(dev->nvlink_info, " 0x");
+        }
+      }
+      wnoutrefresh(dev->nvlink_info);
+    }
+
     // PICe throughput
     werase(dev->pcie_info);
     if (device->static_info.integrated_graphics) {
@@ -852,14 +1000,14 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     wprintw(dev->pcie_info, " RX: ");
     wstandend(dev->pcie_info);
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
-      print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
+      print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
     else
       wprintw(dev->pcie_info, "N/A");
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " TX: ");
     wstandend(dev->pcie_info);
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
-      print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
+      print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
     else
       wprintw(dev->pcie_info, "N/A");
 
@@ -901,6 +1049,35 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         wprintw(dev->exec_engines, "N/A");
 
       wnoutrefresh(dev->exec_engines);
+
+      // NVLink errors/corrections/ECC (conditional on NVLink)
+      if (dev->nvlink_errors != NULL) {
+        werase(dev->nvlink_errors);
+        unsigned long long err_cnt = 0, cor_cnt = 0, ecc_cnt = 0;
+        if (nvtop_get_nvlink_error_counts(device, &err_cnt, &cor_cnt, &ecc_cnt)) {
+          wcolor_set(dev->nvlink_errors, cyan_color, NULL);
+          wprintw(dev->nvlink_errors, "NVL");
+          wstandend(dev->nvlink_errors);
+          // FLIT errors (field 38)
+          wprintw(dev->nvlink_errors, " FL:");
+          if (err_cnt > 0)
+            wcolor_set(dev->nvlink_errors, red_color, NULL);
+          wprintw(dev->nvlink_errors, "%05u", (unsigned)(err_cnt % 100000));
+          wstandend(dev->nvlink_errors);
+          // ECC data errors (field 160)
+          wprintw(dev->nvlink_errors, " EE:");
+          if (ecc_cnt > 0)
+            wcolor_set(dev->nvlink_errors, red_color, NULL);
+          wprintw(dev->nvlink_errors, "%05u", (unsigned)(ecc_cnt % 100000));
+          wstandend(dev->nvlink_errors);
+          // CRC corrections (field 38)
+          wprintw(dev->nvlink_errors, " CR:");
+          if (cor_cnt > 0)
+            wcolor_set(dev->nvlink_errors, yellow_color, NULL);
+          wprintw(dev->nvlink_errors, "%05u", (unsigned)(cor_cnt % 100000));
+        }
+        wnoutrefresh(dev->nvlink_errors);
+      }
     }
 
     dev_id++;
@@ -2059,6 +2236,24 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
     nvtop_interface_option options_copy = (*interface)->options;
     options_copy.has_monitored_set_changed = false;
     memset(&(*interface)->options, 0, sizeof(options_copy));
+    // Reset NVLink probe cache when monitored device set changes — the user
+    // may have switched from an NVLink GPU to a non-NVLink one (or vice versa).
+    // The cache will be repopulated on the next refresh cycle.
+    any_device_has_nvlink = false;
+    any_device_has_nvlink_active = false;
+    // Reset fan field to default width — it may have been compacted to 8 for
+    // NVLink-active layout. Without this, initialize_curses() below would
+    // allocate fan_speed windows at stale width 8.
+    sizeof_device_field[device_fan_speed] = 11;
+    // Reset NVLink probes on all monitored GPUs so they get probed fresh.
+    { struct gpu_info *g;
+      list_for_each_entry(g, monitoredGpus, list)
+        nvtop_reset_nvlink_cache(g);
+    }
+    // Re-probe NVLink now that caches are cleared, so that
+    // any_device_has_nvlink_active is correct when initialize_curses()
+    // calls initialize_all_windows() for layout decisions.
+    nvtop_probe_nvlink_list(monitoredGpus);
     *num_monitored_gpus =
         interface_check_and_fix_monitored_gpus(allDevCount, monitoredGpus, nonMonitoredGpus, &options_copy);
     clean_ncurses(*interface);
