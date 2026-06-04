@@ -130,13 +130,14 @@ bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *
   if (nvtop_enumerator_new(&enumerator) < 0)
     return false;
 
+  bool ret = false;
+  unsigned num_devices = 0;
   if (nvtop_device_enumerator_add_match_subsystem(enumerator, "drm", true) < 0)
-    return false;
+    goto out;
 
   if (nvtop_device_enumerator_add_match_property(enumerator, "DEVNAME", "/dev/dri/*") < 0)
-    return false;
+    goto out;
 
-  unsigned num_devices = 0;
   for (nvtop_device *device = nvtop_enumerator_get_device_first(enumerator); device;
        device = nvtop_enumerator_get_device_next(enumerator)) {
     num_devices++;
@@ -144,7 +145,7 @@ bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *
 
   gpu_infos = calloc(num_devices, sizeof(*gpu_infos));
   if (!gpu_infos)
-    return false;
+    goto out;
 
   for (nvtop_device *device = nvtop_enumerator_get_device_first(enumerator); device;
        device = nvtop_enumerator_get_device_next(enumerator)) {
@@ -157,8 +158,10 @@ bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *
     }
   }
 
+  ret = true;
+out:
   nvtop_enumerator_unref(enumerator);
-  return true;
+  return ret;
 }
 
 void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {

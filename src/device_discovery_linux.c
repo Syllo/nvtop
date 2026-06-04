@@ -97,7 +97,7 @@ int nvtop_device_get_syspath(nvtop_device *device, const char **sysPath) {
 
 int nvtop_enumerator_new(nvtop_device_enumerator **enumerator) {
   *enumerator = calloc(1, sizeof(**enumerator));
-  if (!enumerator)
+  if (!*enumerator)
     return -1;
   (*enumerator)->refCount = 1;
   (*enumerator)->udev = udev_new();
@@ -342,16 +342,18 @@ nvtop_device *nvtop_device_get_hwmon(nvtop_device *dev) {
   int ret = nvtop_enumerator_new(&enumerator);
   if (ret < 0)
     return NULL;
+  nvtop_device *hwmon = NULL;
   ret = nvtop_device_enumerator_add_match_subsystem(enumerator, "hwmon", true);
   if (ret < 0)
-    return NULL;
+    goto out;
   ret = nvtop_device_enumerator_add_match_parent(enumerator, dev);
   if (ret < 0)
-    return NULL;
-  nvtop_device *hwmon = nvtop_enumerator_get_device_first(enumerator);
+    goto out;
+  hwmon = nvtop_enumerator_get_device_first(enumerator);
   if (!hwmon)
-    return NULL;
+    goto out;
   nvtop_device_ref(hwmon);
+out:
   nvtop_enumerator_unref(enumerator);
   return hwmon;
 }
