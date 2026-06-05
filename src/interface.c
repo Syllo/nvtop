@@ -255,65 +255,65 @@ static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_posi
     column_divisor += plot_count_draw_info(to_draw);
   }
   assert(column_divisor > 0);
-  char elapsedSeconds[5];
+  char elapsedSeconds[16];
   char *err = "err";
   char *zeroSec = "0s";
   if (options->plot_left_to_right) {
     char *toPrint = zeroSec;
     mvwprintw(plot->win, position->sizeY - 1, 4, "%s", toPrint);
 
-    int retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / 4 / column_divisor / 1000);
-    if (retval > 4)
-      toPrint = err;
-    else
-      toPrint = elapsedSeconds;
+     int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", options->update_interval * cols / 4 / column_divisor / 1000);
+     if (retval >= (int)sizeof(elapsedSeconds))
+       toPrint = err;
+     else
+       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 4 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / 2 / column_divisor / 1000);
-    if (retval > 4)
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", options->update_interval * cols / 2 / column_divisor / 1000);
+    if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 2 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols * 3 / 4 / column_divisor / 1000);
-    if (retval > 4)
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", options->update_interval * cols * 3 / 4 / column_divisor / 1000);
+    if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols * 3 / 4 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / column_divisor / 1000);
-    if (retval > 4)
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", options->update_interval * cols / column_divisor / 1000);
+    if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols - strlen(toPrint), "%s", toPrint);
   } else {
     char *toPrint;
-    int retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / column_divisor / 1000);
-    if (retval > 4)
+    int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", options->update_interval * cols / column_divisor / 1000);
+    if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols * 3 / 4 / column_divisor / 1000);
-    if (retval > 4)
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", options->update_interval * cols * 3 / 4 / column_divisor / 1000);
+    if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 4 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / 2 / column_divisor / 1000);
-    if (retval > 4)
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", options->update_interval * cols / 2 / column_divisor / 1000);
+    if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 2 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, 5, "%ds", options->update_interval * cols / 4 / column_divisor / 1000);
-    if (retval > 4)
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", options->update_interval * cols / 4 / column_divisor / 1000);
+    if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
