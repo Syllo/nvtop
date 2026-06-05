@@ -399,7 +399,12 @@ void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info) {
           ec = 1;
 
   avg_delta_secs = ((double)total_delta / gpu_info->processes_count) / 1000000000.0;
-  max_freq_hz = gpu_info->dynamic_info.gpu_clock_speed_max * 1000000;
+  max_freq_hz = (uint64_t)gpu_info->dynamic_info.gpu_clock_speed_max * 1000000;
+  // Without a known maximum frequency or a positive time delta the utilisation
+  // cannot be derived; bail out instead of dividing by zero (which yields an
+  // infinite rate and undefined behaviour when cast to unsigned).
+  if (max_freq_hz == 0 || avg_delta_secs == 0.0 || ec == 0)
+    return;
   utilisation_rate = (unsigned int)((((double)gfx_total_process_cycles) / (((double)max_freq_hz) * avg_delta_secs * ec)) * 100);
   utilisation_rate = utilisation_rate > 100 ? 100 : utilisation_rate;
 
