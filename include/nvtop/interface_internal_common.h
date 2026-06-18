@@ -73,6 +73,8 @@ struct device_window {
   WINDOW *shader_cores;
   WINDOW *l2_cache_size;
   WINDOW *exec_engines;
+  unsigned pcie_rx_peak; // Peak PCIe RX throughput observed since launch (KB/s)
+  unsigned pcie_tx_peak; // Peak PCIe TX throughput observed since launch (KB/s)
   bool enc_was_visible;
   bool dec_was_visible;
   nvtop_time last_decode_seen;
