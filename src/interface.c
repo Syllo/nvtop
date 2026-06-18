@@ -28,6 +28,7 @@
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
 #include "nvtop/interface_setup_win.h"
+#include "nvtop/pcie_utilization.h"
 #include "nvtop/plot.h"
 #include "nvtop/time.h"
 
@@ -1736,6 +1737,14 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
             data_val = device->dynamic_info.effective_load_rate;
           }
           break;
+        case plot_pcie_rx_rate:
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
+            data_val = pcie_load_percent(device->dynamic_info.pcie_rx, &device->static_info);
+          break;
+        case plot_pcie_tx_rate:
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
+            data_val = pcie_load_percent(device->dynamic_info.pcie_tx, &device->static_info);
+          break;
         case plot_information_count:
           break;
         }
@@ -1804,6 +1813,12 @@ static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface
           break;
         case plot_effective_load_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u eff. load%%", dev_id);
+          break;
+        case plot_pcie_rx_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u PCIe RX%%", dev_id);
+          break;
+        case plot_pcie_tx_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u PCIe TX%%", dev_id);
           break;
         case plot_information_count:
           break;

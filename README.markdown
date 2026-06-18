@@ -62,6 +62,10 @@ NVTOP Options and Interactive Commands
 NVTOP has a builtin setup utility that provides a way to specialize the interface to your needs.
 Simply press ``F2`` and select the options that are the best for you.
 
+In the ``Chart`` section you can choose which metrics are plotted, including GPU and memory
+utilization, temperature, power, clocks, and the **PCIe RX / TX load** (the receive and transmit
+throughput as a percentage of the maximum link bandwidth).
+
 ![NVTOP Setup Window](/screenshot/Nvtop-config.png)
 
 ### Saving Preferences

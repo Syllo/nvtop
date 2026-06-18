@@ -13,6 +13,7 @@ add_executable(nvtop
   interface_setup_win.c
   interface_ring_buffer.c
   extract_gpuinfo.c
+  pcie_utilization.c
   time.c
   plot.c
   ini.c
