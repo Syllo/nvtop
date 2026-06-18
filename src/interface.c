@@ -44,7 +44,7 @@
 
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
-    [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
+    [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 88,        [device_shadercores] = 7,
     [device_l2features] = 11, [device_execengines] = 11,
 };
 
@@ -575,6 +575,29 @@ static void print_pcie_at_scale(WINDOW *win, unsigned int value) {
   wprintw(win, " %sB/s", memory_prefix[prefix_off]);
 }
 
+// Print a labelled PCIe throughput field as "<label><current> (max <peak>)", updating
+// *peak with the running maximum. Prints "<label>N/A" when the value is not available.
+static void print_pcie_throughput_with_peak(WINDOW *win, const char *label, bool valid, unsigned value,
+                                            unsigned *peak) {
+  wcolor_set(win, magenta_color, NULL);
+  wprintw(win, "%s", label);
+  wstandend(win);
+  if (!valid) {
+    wprintw(win, "N/A");
+    return;
+  }
+  if (value > *peak)
+    *peak = value;
+  print_pcie_at_scale(win, value);
+  wcolor_set(win, magenta_color, NULL);
+  wprintw(win, " (max ");
+  wstandend(win);
+  print_pcie_at_scale(win, *peak);
+  wcolor_set(win, magenta_color, NULL);
+  wprintw(win, ")");
+  wstandend(win);
+}
+
 static inline void werase_and_wnoutrefresh(WINDOW *w) {
   werase(w);
   wnoutrefresh(w);
@@ -848,20 +871,12 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         wprintw(dev->pcie_info, "N/A");
     }
 
-    wcolor_set(dev->pcie_info, magenta_color, NULL);
-    wprintw(dev->pcie_info, " RX: ");
-    wstandend(dev->pcie_info);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
-      print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
-    else
-      wprintw(dev->pcie_info, "N/A");
-    wcolor_set(dev->pcie_info, magenta_color, NULL);
-    wprintw(dev->pcie_info, " TX: ");
-    wstandend(dev->pcie_info);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
-      print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
-    else
-      wprintw(dev->pcie_info, "N/A");
+    print_pcie_throughput_with_peak(dev->pcie_info, " RX: ",
+                                    GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx),
+                                    device->dynamic_info.pcie_rx, &dev->pcie_rx_peak);
+    print_pcie_throughput_with_peak(dev->pcie_info, " TX: ",
+                                    GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx),
+                                    device->dynamic_info.pcie_tx, &dev->pcie_tx_peak);
 
     wnoutrefresh(dev->pcie_info);
 
