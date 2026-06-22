@@ -29,6 +29,10 @@
 
 #include "list.h"
 
+// Set by the UI while SM/Tensor activity is actually being plotted, so the NVIDIA backend only samples the
+// (shared, perfmon-counter-backed) NVML GPM metrics when they are displayed.
+extern bool gpuinfo_collect_compute_activity;
+
 #define STRINGIFY(x) STRINGIFY_HELPER_(x)
 #define STRINGIFY_HELPER_(x) #x
 
@@ -107,6 +111,10 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_power_draw_max_valid,
   gpuinfo_effective_load_rate_valid,
   gpuinfo_multi_instance_mode_valid,
+  gpuinfo_sm_util_valid,
+  gpuinfo_tensor_util_valid,
+  gpuinfo_sm_occupancy_valid,
+  gpuinfo_dram_bw_util_valid,
   gpuinfo_dynamic_info_count,
 };
 
@@ -133,6 +141,10 @@ struct gpuinfo_dynamic_info {
   unsigned int power_draw;          // Power usage in milliwatts
   unsigned int power_draw_max;      // Max power usage in milliwatts
   bool multi_instance_mode;          // True if the GPU is in multi-instance mode
+  unsigned int sm_util;              // SM-active % (NVML GPM, = DCGM SM_ACTIVE)
+  unsigned int tensor_util;          // Tensor-pipe-active % (NVML GPM, = DCGM PIPE_TENSOR_ACTIVE)
+  unsigned int sm_occupancy;         // SM occupancy % (NVML GPM)
+  unsigned int dram_bw_util;         // DRAM/HBM bandwidth % (NVML GPM)
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 

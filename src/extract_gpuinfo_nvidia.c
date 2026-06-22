@@ -269,6 +269,47 @@ nvmlReturn_t (*nvmlDeviceGetProcessUtilization)(nvmlDevice_t device, nvmlProcess
                                                 unsigned int *processSamplesCount,
                                                 unsigned long long lastSeenTimeStamp);
 
+// NVML GPM (GPU Performance Monitoring) API — SM-active / Tensor-active etc. Lives inside libnvidia-ml,
+// dlsym'd like the rest (absent on drivers < R510). Struct layouts, metric ids and the version macros (==1)
+// are taken verbatim from nvml.h; metric ids are named, never bare integers.
+typedef struct nvmlGpmSample_st *nvmlGpmSample_t;
+
+typedef enum {
+  NVML_GPM_METRIC_SM_UTIL = 2,
+  NVML_GPM_METRIC_SM_OCCUPANCY = 3,
+  NVML_GPM_METRIC_ANY_TENSOR_UTIL = 5,
+  NVML_GPM_METRIC_DRAM_BW_UTIL = 10,
+} nvtop_nvmlGpmMetricId_t;
+
+#define NVML_GPM_METRIC_MAX 210
+#define NVML_GPM_METRICS_GET_VERSION 1
+
+typedef struct {
+  char *shortName;
+  char *longName;
+  char *unit;
+} nvmlGpmMetricMetricInfo_t;
+
+typedef struct {
+  unsigned int metricId;
+  nvmlReturn_t nvmlReturn;
+  double value;
+  nvmlGpmMetricMetricInfo_t metricInfo;
+} nvmlGpmMetric_t;
+
+typedef struct {
+  unsigned int version;
+  unsigned int numMetrics;
+  nvmlGpmSample_t sample1;
+  nvmlGpmSample_t sample2;
+  nvmlGpmMetric_t metrics[NVML_GPM_METRIC_MAX];
+} nvmlGpmMetricsGet_t;
+
+static nvmlReturn_t (*nvmlGpmSampleAlloc)(nvmlGpmSample_t *gpmSample);
+static nvmlReturn_t (*nvmlGpmSampleFree)(nvmlGpmSample_t gpmSample);
+static nvmlReturn_t (*nvmlGpmSampleGet)(nvmlDevice_t device, nvmlGpmSample_t gpmSample);
+static nvmlReturn_t (*nvmlGpmMetricsGet)(nvmlGpmMetricsGet_t *metricsGet);
+
 struct gpu_info_nvidia {
   struct gpu_info base;
   struct list_head allocate_list;
@@ -276,6 +317,12 @@ struct gpu_info_nvidia {
   nvmlDevice_t gpuhandle;
   bool isInMigMode;
   unsigned long long last_utilization_timestamp;
+  // GPM (SM/Tensor activity): two ping-ponged samples diffed each refresh
+  bool gpm_checked;
+  bool gpm_supported;
+  bool gpm_primed;
+  nvmlGpmSample_t gpm_prev;
+  nvmlGpmSample_t gpm_cur;
 };
 
 static LIST_HEAD(allocations);
@@ -469,6 +516,10 @@ static bool gpuinfo_nvidia_init(void) {
   // These ones might not be available
   nvmlDeviceGetProcessUtilization = dlsym(libnvidia_ml_handle, "nvmlDeviceGetProcessUtilization");
   nvmlDeviceGetMigMode = dlsym(libnvidia_ml_handle, "nvmlDeviceGetMigMode");
+  nvmlGpmSampleAlloc = dlsym(libnvidia_ml_handle, "nvmlGpmSampleAlloc");
+  nvmlGpmSampleFree = dlsym(libnvidia_ml_handle, "nvmlGpmSampleFree");
+  nvmlGpmSampleGet = dlsym(libnvidia_ml_handle, "nvmlGpmSampleGet");
+  nvmlGpmMetricsGet = dlsym(libnvidia_ml_handle, "nvmlGpmMetricsGet");
 
   last_nvml_return_status = nvmlInit();
   if (last_nvml_return_status != NVML_SUCCESS) {
@@ -485,6 +536,19 @@ init_error_clean_exit:
 }
 
 static void gpuinfo_nvidia_shutdown(void) {
+  // Free GPM samples while libnvidia-ml is still loaded (the symbol vanishes after dlclose).
+  if (nvmlGpmSampleFree) {
+    struct gpu_info_nvidia *gpm_it;
+    list_for_each_entry(gpm_it, &allocations, allocate_list) {
+      if (gpm_it->gpm_prev)
+        nvmlGpmSampleFree(gpm_it->gpm_prev);
+      if (gpm_it->gpm_cur)
+        nvmlGpmSampleFree(gpm_it->gpm_cur);
+      gpm_it->gpm_prev = NULL;
+      gpm_it->gpm_cur = NULL;
+    }
+  }
+
   if (libnvidia_ml_handle) {
     nvmlShutdown();
     dlclose(libnvidia_ml_handle);
@@ -720,6 +784,52 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetPcieThroughput(device, NVML_PCIE_UTIL_TX_BYTES, &dynamic_info->pcie_tx);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_pcie_tx_valid, dynamic_info->valid);
+
+  // SM / Tensor activity via the GPM API (two-sample diff; NVML returns 0..100 percentages directly), only
+  // while the UI is plotting them. Capability is decided by the actual nvmlGpmSampleGet return rather than
+  // nvmlGpmQueryDeviceSupport, which is unreliable (reports unsupported on Blackwell where GPM works).
+  if (gpuinfo_collect_compute_activity && nvmlGpmSampleAlloc && nvmlGpmSampleGet && nvmlGpmMetricsGet &&
+      !gpu_info->gpm_checked) {
+    gpu_info->gpm_checked = true;
+    if (nvmlGpmSampleAlloc(&gpu_info->gpm_prev) == NVML_SUCCESS &&
+        nvmlGpmSampleAlloc(&gpu_info->gpm_cur) == NVML_SUCCESS)
+      gpu_info->gpm_supported = true;
+  }
+  if (gpuinfo_collect_compute_activity && gpu_info->gpm_supported) {
+    nvmlReturn_t gpm_ret = nvmlGpmSampleGet(device, gpu_info->gpm_cur);
+    if (gpm_ret == NVML_SUCCESS) {
+      if (gpu_info->gpm_primed) {
+        nvmlGpmMetricsGet_t mg = {.version = NVML_GPM_METRICS_GET_VERSION,
+                                  .numMetrics = 4,
+                                  .sample1 = gpu_info->gpm_prev,
+                                  .sample2 = gpu_info->gpm_cur};
+        mg.metrics[0].metricId = NVML_GPM_METRIC_SM_UTIL;
+        mg.metrics[1].metricId = NVML_GPM_METRIC_ANY_TENSOR_UTIL;
+        mg.metrics[2].metricId = NVML_GPM_METRIC_SM_OCCUPANCY;
+        mg.metrics[3].metricId = NVML_GPM_METRIC_DRAM_BW_UTIL;
+        if (nvmlGpmMetricsGet(&mg) == NVML_SUCCESS) {
+          if (mg.metrics[0].nvmlReturn == NVML_SUCCESS)
+            SET_GPUINFO_DYNAMIC(dynamic_info, sm_util, (unsigned)(mg.metrics[0].value + 0.5));
+          if (mg.metrics[1].nvmlReturn == NVML_SUCCESS)
+            SET_GPUINFO_DYNAMIC(dynamic_info, tensor_util, (unsigned)(mg.metrics[1].value + 0.5));
+          if (mg.metrics[2].nvmlReturn == NVML_SUCCESS)
+            SET_GPUINFO_DYNAMIC(dynamic_info, sm_occupancy, (unsigned)(mg.metrics[2].value + 0.5));
+          if (mg.metrics[3].nvmlReturn == NVML_SUCCESS)
+            SET_GPUINFO_DYNAMIC(dynamic_info, dram_bw_util, (unsigned)(mg.metrics[3].value + 0.5));
+        }
+      }
+      nvmlGpmSample_t swap = gpu_info->gpm_prev;
+      gpu_info->gpm_prev = gpu_info->gpm_cur;
+      gpu_info->gpm_cur = swap;
+      gpu_info->gpm_primed = true;
+    } else {
+      gpu_info->gpm_primed = false; // re-prime from a fresh pair on the next round
+      if (gpm_ret == NVML_ERROR_NOT_SUPPORTED)
+        gpu_info->gpm_supported = false; // GPU genuinely lacks GPM (e.g. Ampere) — stop polling it
+    }
+  } else {
+    gpu_info->gpm_primed = false; // collection disabled: drop the prime so a later enable starts fresh
+  }
 
   // Fan speed
   last_nvml_return_status = nvmlDeviceGetFanSpeed(device, &dynamic_info->fan_speed);

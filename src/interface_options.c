@@ -202,7 +202,8 @@ static const char device_monitor[] = "Monitor";
 static const char device_shown_value[] = "ShownInfo";
 static const char *device_draw_vals[plot_information_count + 1] = {
     "gpuRate",       "gpuMemRate", "encodeRate",   "decodeRate",      "temperature",
-    "powerDrawRate", "fanSpeed",   "gpuClockRate", "gpuMemClockRate", "effectiveLoadRate", "none"};
+    "powerDrawRate", "fanSpeed",   "gpuClockRate", "gpuMemClockRate", "effectiveLoadRate",
+    "smUtil",        "tensorUtil", "none"};
 
 static int nvtop_option_ini_handler(void *user, const char *section, const char *name, const char *value) {
   struct nvtop_option_ini_data *ini_data = (struct nvtop_option_ini_data *)user;

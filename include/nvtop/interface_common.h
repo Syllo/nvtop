@@ -33,6 +33,8 @@ enum plot_information {
   plot_gpu_clock_rate,
   plot_gpu_mem_clock_rate,
   plot_effective_load_rate,
+  plot_sm_util,
+  plot_tensor_util,
   plot_information_count
 };
 

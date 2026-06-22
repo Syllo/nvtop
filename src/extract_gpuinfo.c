@@ -37,6 +37,10 @@
 const char drm_pdev[] = "drm-pdev";
 const char drm_client_id[] = "drm-client-id";
 
+// Off until the UI plots SM/Tensor activity; gates NVML GPM sampling so nvtop only touches the shared
+// perfmon counters when those series are actually shown.
+bool gpuinfo_collect_compute_activity = false;
+
 struct process_info_cache {
   pid_t pid;
   char *cmdline;

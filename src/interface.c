@@ -1736,6 +1736,14 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
             data_val = device->dynamic_info.effective_load_rate;
           }
           break;
+        case plot_sm_util:
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, sm_util))
+            data_val = device->dynamic_info.sm_util;
+          break;
+        case plot_tensor_util:
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, tensor_util))
+            data_val = device->dynamic_info.tensor_util;
+          break;
         case plot_information_count:
           break;
         }
@@ -1805,6 +1813,12 @@ static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface
         case plot_effective_load_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u eff. load%%", dev_id);
           break;
+        case plot_sm_util:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u SM%%", dev_id);
+          break;
+        case plot_tensor_util:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u tensor%%", dev_id);
+          break;
         case plot_information_count:
           break;
         }
@@ -1847,6 +1861,15 @@ static void draw_plots(struct nvtop_interface *interface) {
 }
 
 void draw_gpu_info_ncurses(unsigned devices_count, struct list_head *devices, struct nvtop_interface *interface) {
+
+  // Let the NVIDIA backend sample NVML GPM only when an SM/Tensor plot series is enabled, so an idle nvtop
+  // never arms the shared perfmon counters. Takes effect on the next refresh, which is fine.
+  gpuinfo_collect_compute_activity = false;
+  for (unsigned i = 0; !gpuinfo_collect_compute_activity && i < interface->total_dev_count; ++i) {
+    plot_info_to_draw td = interface->options.gpu_specific_opts[i].to_draw;
+    if (plot_isset_draw_info(plot_sm_util, td) || plot_isset_draw_info(plot_tensor_util, td))
+      gpuinfo_collect_compute_activity = true;
+  }
 
   draw_devices(devices, interface);
   if (!interface->setup_win.visible) {

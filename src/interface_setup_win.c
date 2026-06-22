@@ -81,7 +81,7 @@ static const char *setup_chart_gpu_description      = "Displayed GPU";
 static const char *setup_chart_gpu_value_descriptions[plot_information_count] = {
     "GPU utilization rate", "GPU memory utilization rate",   "GPU encoder rate", "GPU decoder rate",
     "GPU temperature",      "Power draw rate (current/max)", "Fan speed",        "GPU clock rate",
-    "GPU memory clock rate", "Effective load rate"};
+    "GPU memory clock rate", "Effective load rate", "SM active rate", "Tensor active rate"};
 
 static const char *chart_color_names[] = {"Red", "Cyan", "Green", "Yellow", "Blue", "Magenta", "White"};
 static const unsigned chart_color_names_count = ARRAY_SIZE(chart_color_names);
