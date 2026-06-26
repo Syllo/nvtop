@@ -44,8 +44,8 @@
 
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
-    [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
-    [device_l2features] = 11, [device_execengines] = 11,
+    [device_ecc] = 16,        [device_clock] = 11,       [device_mem_clock] = 12,   [device_pcie] = 46,
+    [device_shadercores] = 7, [device_l2features] = 11,  [device_execengines] = 11,
 };
 
 static unsigned int sizeof_process_field[process_field_count] = {
@@ -93,6 +93,13 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
              start_col + spacer * 4 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed]);
   if (dwin->power_info == NULL)
+    goto alloc_error;
+  dwin->ecc_info =
+      newwin(1, sizeof_device_field[device_ecc], start_row + 1,
+             start_col + spacer * 5 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                 sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
+                 sizeof_device_field[device_power]);
+  if (dwin->ecc_info == NULL)
     goto alloc_error;
 
   // Line 3 = GPU used | MEM used | Encoder | Decoder
@@ -199,6 +206,7 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->gpu_clock_info);
   delwin(dwin->mem_clock_info);
   delwin(dwin->power_info);
+  delwin(dwin->ecc_info);
   delwin(dwin->temperature);
   delwin(dwin->fan_speed);
   delwin(dwin->pcie_info);
@@ -350,7 +358,7 @@ static unsigned device_length(void) {
   return max(sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1,
              sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                 sizeof_device_field[device_power] + 5);
+                 sizeof_device_field[device_power] + sizeof_device_field[device_ecc] + 6);
 }
 
 static pid_t nvtop_pid;
@@ -829,6 +837,22 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       mvwprintw(dev->power_info, 0, 0, "POW N/A W");
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->power_info);
+
+    // ECC errors (professional/datacenter cards only; hidden otherwise)
+    werase(dev->ecc_info);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_corrected) ||
+        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_uncorrected)) {
+      unsigned long long corrected =
+          GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_corrected) ? device->dynamic_info.ecc_corrected : 0;
+      unsigned long long uncorrected =
+          GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_uncorrected) ? device->dynamic_info.ecc_uncorrected : 0;
+      mvwprintw(dev->ecc_info, 0, 0, "  ECC %llu/%llu", corrected, uncorrected);
+      mvwchgat(dev->ecc_info, 0, 2, 3, 0, cyan_color, NULL);
+      // Highlight a non-zero uncorrected count in red: it signals a hardware fault
+      if (uncorrected > 0)
+        mvwchgat(dev->ecc_info, 0, 6, -1, 0, red_color, NULL);
+    }
+    wnoutrefresh(dev->ecc_info);
 
     // PICe throughput
     werase(dev->pcie_info);

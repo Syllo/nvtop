@@ -107,6 +107,8 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_power_draw_max_valid,
   gpuinfo_effective_load_rate_valid,
   gpuinfo_multi_instance_mode_valid,
+  gpuinfo_ecc_corrected_valid,
+  gpuinfo_ecc_uncorrected_valid,
   gpuinfo_dynamic_info_count,
 };
 
@@ -123,6 +125,8 @@ struct gpuinfo_dynamic_info {
   unsigned long long total_memory;  // Total memory (bytes)
   unsigned long long free_memory;   // Unallocated memory (bytes)
   unsigned long long used_memory;   // Allocated memory (bytes)
+  unsigned long long ecc_corrected; // Total correctable ECC errors
+  unsigned long long ecc_uncorrected; // Total uncorrected ECC errors
   unsigned int pcie_link_gen;       // PCIe link generation used
   unsigned int pcie_link_width;     // PCIe line width used
   unsigned int pcie_rx;             // PCIe throughput in KB/s

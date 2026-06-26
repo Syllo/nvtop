@@ -67,6 +67,7 @@ struct device_window {
   WINDOW *fan_speed;
   WINDOW *temperature;
   WINDOW *power_info;
+  WINDOW *ecc_info;
   WINDOW *gpu_clock_info;
   WINDOW *mem_clock_info;
   WINDOW *pcie_info;
@@ -148,6 +149,7 @@ enum device_field {
   device_fan_speed,
   device_temperature,
   device_power,
+  device_ecc,
   device_pcie,
   device_clock,
   device_mem_clock,
