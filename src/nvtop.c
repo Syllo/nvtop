@@ -272,14 +272,18 @@ int main(int argc, char **argv) {
   nvtop_interface_option allDevicesOptions;
   alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus, &allDevicesOptions);
   load_interface_options_from_config_file(allDevCount, &allDevicesOptions);
-  for (unsigned i = 0; i < allDevCount; ++i) {
+  struct gpu_info *dev;
+  unsigned i = 0;
+  list_for_each_entry(dev, &monitoredGpus, list) {
     // Nothing specified in the file
     if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw)) {
-      allDevicesOptions.gpu_specific_opts[i].to_draw = plot_default_draw_info();
+      allDevicesOptions.gpu_specific_opts[i].to_draw =
+          dev->vendor->unit_name ? plot_npu_default_draw_info() : plot_default_draw_info();
     } else {
       allDevicesOptions.gpu_specific_opts[i].to_draw =
           plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw);
     }
+    i++;
   }
   if (!process_is_field_displayed(process_field_count, allDevicesOptions.process_fields_displayed)) {
     allDevicesOptions.process_fields_displayed = process_default_displayed_field();

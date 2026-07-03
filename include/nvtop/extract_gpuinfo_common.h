@@ -91,6 +91,8 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_mem_clock_speed_max_valid,
   gpuinfo_gpu_util_rate_valid,
   gpuinfo_mem_util_rate_valid,
+  gpuinfo_hvx_util_rate_valid,
+  gpuinfo_hmx_util_rate_valid,
   gpuinfo_encoder_rate_valid,
   gpuinfo_decoder_rate_valid,
   gpuinfo_total_memory_valid,
@@ -117,6 +119,8 @@ struct gpuinfo_dynamic_info {
   unsigned int mem_clock_speed_max; // Maximum clock speed in MHz
   unsigned int gpu_util_rate;       // GPU utilization rate in %
   unsigned int mem_util_rate;       // MEM utilization rate in %
+  unsigned int hvx_util_rate;       // Qualcomm NPU HVX utilization rate in %
+  unsigned int hmx_util_rate;       // Qualcomm NPU HMX utilization rate in %
   unsigned int effective_load_rate; // Effective load rate in %
   unsigned int encoder_rate;        // Encoder utilization rate in %
   unsigned int decoder_rate;        // Decoder utilization rate in %
@@ -208,6 +212,7 @@ struct gpu_vendor {
 
   void (*refresh_running_processes)(struct gpu_info *gpu_info);
   char *name;
+  const char *unit_name; // Short label for the compute unit (e.g. "GPU", "NPU"); NULL defaults to "GPU"
 };
 
 #define PDEV_LEN 16

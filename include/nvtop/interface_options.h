@@ -80,6 +80,10 @@ inline plot_info_to_draw plot_remove_draw_info(enum plot_information reset_info,
 
 inline plot_info_to_draw plot_default_draw_info(void) { return (1 << plot_gpu_rate) | (1 << plot_gpu_mem_rate); }
 
+static inline plot_info_to_draw plot_npu_default_draw_info(void) {
+  return plot_default_draw_info() | (1 << plot_hvx_util_rate) | (1 << plot_hmx_util_rate);
+}
+
 void alloc_interface_options_internals(char *config_file_location, unsigned num_devices, struct list_head *devices,
                                        nvtop_interface_option *options);
 

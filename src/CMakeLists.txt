@@ -99,6 +99,19 @@ endif()
 if (MSM_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_msm.c)
   target_sources(nvtop PRIVATE extract_gpuinfo_msm_utils.c)
+
+  pkg_check_modules(NPUPERF REQUIRED qcnpuperf)
+
+  target_include_directories(nvtop
+    PRIVATE
+      ${NPUPERF_INCLUDE_DIRS}
+  )
+
+  target_link_libraries(nvtop
+    PRIVATE
+      ${NPUPERF_LIBRARIES}
+  )
+  target_sources(nvtop PRIVATE extract_npuinfo_qualcomm.c)
 endif()
 
 if(INTEL_SUPPORT)
