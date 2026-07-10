@@ -806,10 +806,12 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // MEM CLOCK
     werase(dev->mem_clock_info);
+    const char *mem_label = GPUINFO_STATIC_FIELD_VALID(&device->static_info, memory_type)
+      ? device->static_info.memory_type : "MEM";
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed))
-      mvwprintw(dev->mem_clock_info, 0, 0, "MEM %uMHz", device->dynamic_info.mem_clock_speed);
+      mvwprintw(dev->mem_clock_info, 0, 0, "%s %uMHz", mem_label, device->dynamic_info.mem_clock_speed);
     else
-      mvwprintw(dev->mem_clock_info, 0, 0, "MEM N/A MHz");
+      mvwprintw(dev->mem_clock_info, 0, 0, "%s N/A MHz", mem_label);
     mvwchgat(dev->mem_clock_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->mem_clock_info);
 
@@ -2171,6 +2173,12 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": \"%s\",\n", indent_level_four, device_name_field, device->static_info.device_name);
     else
       printf("%s\"%s\": null,\n", indent_level_four, device_name_field);
+
+    // Memory Type
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, memory_type))
+      printf("%s\"memory_type\": \"%s\",\n", indent_level_four, device->static_info.memory_type);
+    else
+      printf("%s\"memory_type\": null,\n", indent_level_four);
 
     // GPU Clock Speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed))
