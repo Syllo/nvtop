@@ -600,6 +600,104 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
     }
   }
 
+  if (info_query_success) {
+    const char *arch_name = NULL;
+    switch (info.family_id) {
+#ifdef AMDGPU_FAMILY_SI
+    case AMDGPU_FAMILY_SI:
+      arch_name = "GCN 1";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_CI
+    case AMDGPU_FAMILY_CI:
+      arch_name = "GCN 2";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_KV
+    case AMDGPU_FAMILY_KV:
+      arch_name = "GCN 2";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_VI
+    case AMDGPU_FAMILY_VI:
+      arch_name = "GCN 3";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_CZ
+    case AMDGPU_FAMILY_CZ:
+      arch_name = "GCN 3";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_AI
+    case AMDGPU_FAMILY_AI:
+      arch_name = "GCN 5 (Vega)";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_RV
+    case AMDGPU_FAMILY_RV:
+      arch_name = "GCN 5 (Vega)";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_NV
+    case AMDGPU_FAMILY_NV:
+      arch_name = "RDNA";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_VGH
+    case AMDGPU_FAMILY_VGH:
+      arch_name = "RDNA 2";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_YC
+    case AMDGPU_FAMILY_YC:
+      arch_name = "RDNA 2";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_GC_10_3_6
+    case AMDGPU_FAMILY_GC_10_3_6:
+      arch_name = "RDNA 2";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_GC_10_3_7
+    case AMDGPU_FAMILY_GC_10_3_7:
+      arch_name = "RDNA 2";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_GC_11_0_0
+    case AMDGPU_FAMILY_GC_11_0_0:
+      arch_name = "RDNA 3";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_GC_11_0_1
+    case AMDGPU_FAMILY_GC_11_0_1:
+      arch_name = "RDNA 3";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_GC_11_5_0
+    case AMDGPU_FAMILY_GC_11_5_0:
+      arch_name = "RDNA 3.5";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_GC_12_0_0
+    case AMDGPU_FAMILY_GC_12_0_0:
+      arch_name = "RDNA 4";
+      break;
+#endif
+#ifdef AMDGPU_FAMILY_GC_12_0_1
+    case AMDGPU_FAMILY_GC_12_0_1:
+      arch_name = "RDNA 4";
+      break;
+#endif
+    default:
+      break;
+    }
+    if (arch_name) {
+      strncpy(static_info->device_architecture, arch_name, MAX_DEVICE_NAME - 1);
+      static_info->device_architecture[MAX_DEVICE_NAME - 1] = '\0';
+      SET_VALID(gpuinfo_device_architecture_valid, static_info->valid);
+    }
+  }
+
   // Retrieve infos from sysfs.
 
   // 1) Fan

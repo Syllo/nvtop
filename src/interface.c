@@ -2153,6 +2153,7 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     const char *indent_level_eight = "       ";
 
     const char *device_name_field = "device_name";
+    const char *device_architecture_field = "device_architecture";
     const char *gpu_clock_field = "gpu_clock";
     const char *mem_clock_field = "mem_clock";
     const char *temp_field = "temp";
@@ -2171,6 +2172,12 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": \"%s\",\n", indent_level_four, device_name_field, device->static_info.device_name);
     else
       printf("%s\"%s\": null,\n", indent_level_four, device_name_field);
+
+    // Device Architecture
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_architecture))
+      printf("%s\"%s\": \"%s\",\n", indent_level_four, device_architecture_field, device->static_info.device_architecture);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, device_architecture_field);
 
     // GPU Clock Speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed))
