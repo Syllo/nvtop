@@ -289,6 +289,10 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     for (unsigned i = 0; i < (is_xe ? 2 : 1); i++) {
       // Max Power
       if (hwmon_power_max == NULL || hwmon_power_max[0] == '0') {
+        // Some Battlemage (xe) cards use power*_cap as a custom power limit
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "power1_cap" : "power2_cap", &hwmon_power_max);
+      }
+      if (hwmon_power_max == NULL || hwmon_power_max[0] == '0') {
         // power1 is for i915 and `card` on supported cards on xe, power2 is `pkg` on xe
         nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "power1_max" : "power2_max", &hwmon_power_max);
       }
