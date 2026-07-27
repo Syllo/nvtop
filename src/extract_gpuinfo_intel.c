@@ -31,6 +31,7 @@
 #include <linux/perf_event.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 #include <uthash.h>
@@ -47,24 +48,21 @@ static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu
   return syscall(SYS_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
 
-static bool measure_perf_event(uint32_t type, uint64_t config, uint64_t *count) {
+static bool get_perf_event(uint32_t type, uint64_t config, int *fd) {
   struct perf_event_attr attr = {
       .type = type,
       .size = sizeof(attr),
       .config = config,
   };
 
-  int fd = perf_event_open(&attr, -1, 0, -1, 0);
-  if (fd < 0)
+  *fd = perf_event_open(&attr, -1, 0, -1, 0);
+  if (*fd < 0)
     return false;
-
-  read(fd, count, sizeof(*count));
-  close(fd);
 
   return true;
 }
 
-static bool measure_perf_event_by_name(const char *pmu_name, const char *event_name, uint64_t *count) {
+static bool measure_perf_event_by_name(const char *pmu_name, const char *event_name, int *fd) {
   char type_path[128];
   FILE *type_file;
   uint32_t type;
@@ -91,18 +89,18 @@ static bool measure_perf_event_by_name(const char *pmu_name, const char *event_n
   }
   fclose(type_file);
 
-  return measure_perf_event(type, config, count);
+  return get_perf_event(type, config, fd);
 }
 
-static bool measure_perf_event_by_gpu_info(const struct gpu_info_intel *gpu_info, const char *event_name,
-                                           uint64_t *count) {
+static bool get_perf_event_by_gpu_info(const struct gpu_info_intel *gpu_info, const char *event_name,
+                                           int *fd) {
   char pmu_name[32];
   snprintf(pmu_name, sizeof(pmu_name), gpu_info->driver == DRIVER_XE ? "xe_%s" : "i915_%s", gpu_info->base.pdev);
   for (char *ch = pmu_name; *ch; ++ch) {
     if (*ch == ':')
       *ch = '_';
   }
-  return measure_perf_event_by_name(pmu_name, event_name, count);
+  return measure_perf_event_by_name(pmu_name, event_name, fd);
 }
 
 struct gpu_vendor gpu_vendor_intel = {
@@ -136,6 +134,10 @@ void gpuinfo_intel_shutdown(void) {
     struct gpu_info_intel *current = &gpu_infos[i];
     if (current->card_fd)
       close(current->card_fd);
+    if (current->perf_event_fd >= 0) {
+      ioctl(current->perf_event_fd, PERF_EVENT_IOC_DISABLE, 0);
+      close(current->perf_event_fd);
+    }
     nvtop_device_unref(current->card_device);
     nvtop_device_unref(current->driver_device);
   }
@@ -286,6 +288,16 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   bool is_xe = gpu_info->driver == DRIVER_XE;
 
+  if (gpu_info->perf_event_fd == 0) {
+    if (get_perf_event_by_gpu_info(gpu_info, is_xe ? "gt-actual-frequency" : "actual-frequency",
+                                   &gpu_info->perf_event_fd)) {
+      ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_RESET, 0);
+      ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_ENABLE, 0);
+    } else {
+      gpu_info->perf_event_fd = -1;
+    }
+  }
+
   RESET_ALL(dynamic_info->valid);
 
   // We are creating new devices because the device_get_sysattr_value caches its queries
@@ -311,10 +323,16 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   nvtop_device *clock_device = is_xe ? driver_dev_noncached : card_dev_noncached;
   // GPU clock
-  if (measure_perf_event_by_gpu_info(gpu_info, is_xe ? "gt-actual-frequency" : "actual-frequency",
-                                     (uint64_t *)&dynamic_info->gpu_clock_speed)) {
-    SET_VALID(gpuinfo_gpu_clock_speed_valid, dynamic_info->valid);
-  } else {
+  if (gpu_info->perf_event_fd >= 0) {
+    ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_DISABLE, 0);
+    uint64_t actual_freq = 0;
+    if (read(gpu_info->perf_event_fd, &actual_freq, sizeof(actual_freq)) == sizeof(actual_freq)) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, actual_freq);
+    }
+    ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_ENABLE, 0);
+  }
+  if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_clock_speed)) {
     const char *gt_act_freq;
     const char *gt_act_freq_sysattr = is_xe ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
     if (nvtop_device_get_sysattr_value(clock_device, gt_act_freq_sysattr, &gt_act_freq) >= 0) {
