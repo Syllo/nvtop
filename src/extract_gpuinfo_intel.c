@@ -259,6 +259,13 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     unsigned val = strtoul(gt_max_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
   }
+  // GPU memory clock
+  const char *mem_max_freq;
+  const char *mem_max_freq_sysattr = is_xe ? "tile0/memory/freq0/max_freq" : "gt/gt0/mem_RP0_freq_mhz";
+  if (nvtop_device_get_sysattr_value(clock_device, mem_max_freq_sysattr, &mem_max_freq) >= 0) {
+    unsigned val = strtoul(mem_max_freq, NULL, 10);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed, val);
+  }
 
   if (!static_info->integrated_graphics) {
     nvtop_pcie_link curr_link_characteristics;
