@@ -30,6 +30,38 @@
 #include <limits.h>
 #include <string.h>
 
+static bool gpuinfo_apple_get_unsigned_number(id value, uint64_t *number) {
+  if (![value isKindOfClass:[NSNumber class]] || [value longLongValue] < 0)
+    return false;
+
+  *number = [value unsignedLongLongValue];
+  return true;
+}
+
+bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
+                                            struct gpuinfo_apple_performance_sample *sample) {
+  memset(sample, 0, sizeof(*sample));
+  if (!properties || CFGetTypeID(properties) != CFDictionaryGetTypeID())
+    return false;
+
+  NSDictionary *gpu_properties = (__bridge NSDictionary *)properties;
+  id performance_statistics = [gpu_properties objectForKey:@"PerformanceStatistics"];
+  if (![performance_statistics isKindOfClass:[NSDictionary class]])
+    return false;
+
+  uint64_t number;
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Device Utilization %"], &number)) {
+    sample->gpu_util_rate = number > 100 ? 100 : (unsigned)number;
+    sample->gpu_util_rate_valid = true;
+  }
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Alloc system memory"], &number)) {
+    sample->allocated_system_memory = number;
+    sample->allocated_system_memory_valid = true;
+  }
+
+  return true;
+}
+
 bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuinfo_apple_process_sample *sample) {
   memset(sample, 0, sizeof(*sample));
   if (!properties || CFGetTypeID(properties) != CFDictionaryGetTypeID())
@@ -56,11 +88,10 @@ bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuin
     if (![app_info isKindOfClass:[NSDictionary class]])
       continue;
 
-    id accumulated_gpu_time = [app_info objectForKey:@"accumulatedGPUTime"];
-    if (![accumulated_gpu_time isKindOfClass:[NSNumber class]] || [accumulated_gpu_time longLongValue] < 0)
+    uint64_t gpu_time;
+    if (!gpuinfo_apple_get_unsigned_number([app_info objectForKey:@"accumulatedGPUTime"], &gpu_time))
       continue;
 
-    const uint64_t gpu_time = [accumulated_gpu_time unsignedLongLongValue];
     if (UINT64_MAX - total_gpu_time < gpu_time) {
       sample->gpu_time_valid = false;
       return true;

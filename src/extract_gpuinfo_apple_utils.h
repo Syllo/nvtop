@@ -38,6 +38,16 @@ struct gpuinfo_apple_process_sample {
   bool gpu_time_valid;
 };
 
+struct gpuinfo_apple_performance_sample {
+  unsigned gpu_util_rate;
+  uint64_t allocated_system_memory;
+  bool gpu_util_rate_valid;
+  bool allocated_system_memory_valid;
+};
+
+bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
+                                            struct gpuinfo_apple_performance_sample *sample);
+
 bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuinfo_apple_process_sample *sample);
 
 bool gpuinfo_apple_calculate_gpu_usage(uint64_t previous_gpu_time, uint64_t current_gpu_time, uint64_t time_elapsed,

@@ -25,6 +25,60 @@
 #include <gtest/gtest.h>
 #include <stdlib.h>
 
+TEST(AppleDynamicInfo, ParsesPerformanceStatistics) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"PerformanceStatistics" : @{
+        @"Device Utilization %" : @42,
+        @"Alloc system memory" : @123456,
+      },
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_TRUE(sample.gpu_util_rate_valid);
+    EXPECT_EQ(sample.gpu_util_rate, 42u);
+    EXPECT_TRUE(sample.allocated_system_memory_valid);
+    EXPECT_EQ(sample.allocated_system_memory, 123456u);
+  }
+}
+
+TEST(AppleDynamicInfo, RejectsMissingOrMalformedStatistics) {
+  @autoreleasepool {
+    NSArray *invalid_properties = @[
+      @{},
+      @{@"PerformanceStatistics" : @42},
+    ];
+    struct gpuinfo_apple_performance_sample sample;
+
+    for (NSDictionary *properties in invalid_properties)
+      EXPECT_FALSE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)properties, &sample));
+  }
+}
+
+TEST(AppleDynamicInfo, IgnoresMalformedValuesAndCapsUtilization) {
+  @autoreleasepool {
+    NSDictionary *malformed_values = @{
+      @"PerformanceStatistics" : @{
+        @"Device Utilization %" : @"not a number",
+        @"Alloc system memory" : @(-1),
+      },
+    };
+    NSDictionary *excessive_utilization = @{
+      @"PerformanceStatistics" : @{@"Device Utilization %" : @125},
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)malformed_values, &sample));
+    EXPECT_FALSE(sample.gpu_util_rate_valid);
+    EXPECT_FALSE(sample.allocated_system_memory_valid);
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)excessive_utilization, &sample));
+    EXPECT_TRUE(sample.gpu_util_rate_valid);
+    EXPECT_EQ(sample.gpu_util_rate, 100u);
+  }
+}
+
 TEST(AppleProcessInfo, ParsesAndSumsAppUsage) {
   @autoreleasepool {
     NSDictionary *properties = @{
