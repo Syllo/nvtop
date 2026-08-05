@@ -118,6 +118,42 @@ bool gpuinfo_apple_calculate_gpu_usage(uint64_t previous_gpu_time, uint64_t curr
   return true;
 }
 
+bool gpuinfo_apple_energy_to_nanojoules(int64_t energy, const char *unit, uint64_t *energy_nanojoules) {
+  if (energy < 0 || !unit || !energy_nanojoules)
+    return false;
+
+  uint64_t multiplier;
+  if (strcmp(unit, "nJ") == 0)
+    multiplier = UINT64_C(1);
+  else if (strcmp(unit, "uJ") == 0)
+    multiplier = UINT64_C(1000);
+  else if (strcmp(unit, "mJ") == 0)
+    multiplier = UINT64_C(1000000);
+  else if (strcmp(unit, "J") == 0)
+    multiplier = UINT64_C(1000000000);
+  else
+    return false;
+
+  if ((uint64_t)energy > UINT64_MAX / multiplier)
+    return false;
+
+  *energy_nanojoules = (uint64_t)energy * multiplier;
+  return true;
+}
+
+bool gpuinfo_apple_calculate_power_draw(uint64_t energy_nanojoules, uint64_t time_elapsed, unsigned *power_draw) {
+  if (!time_elapsed || !power_draw)
+    return false;
+
+  const long double milliwatts =
+      (long double)energy_nanojoules * 1000.0L / (long double)time_elapsed;
+  if (milliwatts > UINT_MAX)
+    return false;
+
+  *power_draw = (unsigned)(milliwatts + 0.5L);
+  return true;
+}
+
 void gpuinfo_apple_add_process(struct gpu_info *gpu_info, pid_t pid, bool gpu_usage_valid, unsigned gpu_usage) {
   struct gpu_process *process = NULL;
   for (unsigned i = 0; i < gpu_info->processes_count; ++i) {

@@ -53,6 +53,10 @@ bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuin
 bool gpuinfo_apple_calculate_gpu_usage(uint64_t previous_gpu_time, uint64_t current_gpu_time, uint64_t time_elapsed,
                                        unsigned *gpu_usage);
 
+bool gpuinfo_apple_energy_to_nanojoules(int64_t energy, const char *unit, uint64_t *energy_nanojoules);
+
+bool gpuinfo_apple_calculate_power_draw(uint64_t energy_nanojoules, uint64_t time_elapsed, unsigned *power_draw);
+
 void gpuinfo_apple_add_process(struct gpu_info *gpu_info, pid_t pid, bool gpu_usage_valid, unsigned gpu_usage);
 
 #ifdef __cplusplus

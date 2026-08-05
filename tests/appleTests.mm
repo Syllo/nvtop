@@ -24,6 +24,7 @@
 
 #include <Foundation/Foundation.h>
 #include <gtest/gtest.h>
+#include <limits.h>
 #include <stdlib.h>
 
 TEST(AppleProcessCpuInfo, ConvertsNativeMachTicksToSeconds) {
@@ -102,6 +103,48 @@ TEST(AppleDynamicInfo, IgnoresMalformedValuesAndCapsUtilization) {
     EXPECT_TRUE(sample.gpu_util_rate_valid);
     EXPECT_EQ(sample.gpu_util_rate, 100u);
   }
+}
+
+TEST(ApplePowerInfo, ConvertsEnergyUnitsToNanojoules) {
+  uint64_t energy;
+
+  ASSERT_TRUE(gpuinfo_apple_energy_to_nanojoules(42, "nJ", &energy));
+  EXPECT_EQ(energy, 42u);
+  ASSERT_TRUE(gpuinfo_apple_energy_to_nanojoules(42, "uJ", &energy));
+  EXPECT_EQ(energy, 42000u);
+  ASSERT_TRUE(gpuinfo_apple_energy_to_nanojoules(42, "mJ", &energy));
+  EXPECT_EQ(energy, 42000000u);
+  ASSERT_TRUE(gpuinfo_apple_energy_to_nanojoules(42, "J", &energy));
+  EXPECT_EQ(energy, 42000000000u);
+}
+
+TEST(ApplePowerInfo, RejectsInvalidEnergyValues) {
+  uint64_t energy;
+
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(-1, "nJ", &energy));
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(1, "watts", &energy));
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(INT64_MAX, "J", &energy));
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(1, NULL, &energy));
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(1, "nJ", NULL));
+}
+
+TEST(ApplePowerInfo, CalculatesPowerDrawFromEnergyDelta) {
+  unsigned power_draw;
+
+  ASSERT_TRUE(gpuinfo_apple_calculate_power_draw(5000000, 1000000000, &power_draw));
+  EXPECT_EQ(power_draw, 5u);
+  ASSERT_TRUE(gpuinfo_apple_calculate_power_draw(1500000, 1000000000, &power_draw));
+  EXPECT_EQ(power_draw, 2u);
+  ASSERT_TRUE(gpuinfo_apple_calculate_power_draw(0, 1000000000, &power_draw));
+  EXPECT_EQ(power_draw, 0u);
+}
+
+TEST(ApplePowerInfo, RejectsInvalidPowerSamples) {
+  unsigned power_draw;
+
+  EXPECT_FALSE(gpuinfo_apple_calculate_power_draw(1, 0, &power_draw));
+  EXPECT_FALSE(gpuinfo_apple_calculate_power_draw(UINT64_MAX, 1, &power_draw));
+  EXPECT_FALSE(gpuinfo_apple_calculate_power_draw(1, 1, NULL));
 }
 
 TEST(AppleProcessInfo, ParsesAndSumsAppUsage) {
