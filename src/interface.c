@@ -1767,12 +1767,21 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
       pcie_tx = device->dynamic_info.pcie_tx;
     interface_ring_buffer_push(&interface->pcie_ring, dev_id, 0, pcie_rx);
     interface_ring_buffer_push(&interface->pcie_ring, dev_id, 1, pcie_tx);
+    // Static max_pcie_gen/max_pcie_link_width report device or slot capability, not the
+    // negotiated link, so scaling tracks the highest negotiated (dynamic) value seen
+    // instead. The static value is only used as a fallback for a backend that never
+    // reports a dynamic reading.
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen) &&
         device->dynamic_info.pcie_link_gen > interface->pcie_max_gen[dev_id])
       interface->pcie_max_gen[dev_id] = device->dynamic_info.pcie_link_gen;
+    else if (interface->pcie_max_gen[dev_id] == 0 && GPUINFO_STATIC_FIELD_VALID(&device->static_info, max_pcie_gen))
+      interface->pcie_max_gen[dev_id] = device->static_info.max_pcie_gen;
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_width) &&
         device->dynamic_info.pcie_link_width > interface->pcie_max_width[dev_id])
       interface->pcie_max_width[dev_id] = device->dynamic_info.pcie_link_width;
+    else if (interface->pcie_max_width[dev_id] == 0 &&
+             GPUINFO_STATIC_FIELD_VALID(&device->static_info, max_pcie_link_width))
+      interface->pcie_max_width[dev_id] = device->static_info.max_pcie_link_width;
 
     dev_id++;
   }
@@ -1861,15 +1870,17 @@ static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface
 
 // Fill one fraction-per-column array from the PCIe ring buffer, replicating each
 // sample across columns_per_sample columns so the bars line up in time with the
-// line plot above them. Returns the mean utilization over the samples drawn.
+// line plot above them. Returns the most recent (current) sample's fraction, the
+// same instant the top-of-screen RX/TX readout and the rest of nvtop's live
+// percentages reflect: a mean over the whole visible window would stay low while
+// a spike confined to the last few samples is still clearly visible in the bars.
 static double populate_pcie_bar_data(const struct nvtop_interface *interface, unsigned dev_id, unsigned which,
                                      unsigned link_kbs, unsigned columns_per_sample, size_t num_columns,
                                      double *fraction) {
   memset(fraction, 0, num_columns * sizeof(*fraction));
   unsigned max_samples = num_columns / columns_per_sample;
   unsigned stored = interface_ring_buffer_data_stored(&interface->pcie_ring, dev_id, which);
-  double sum = 0.;
-  unsigned counted = 0;
+  double current = 0.;
 
   for (unsigned j = 0; j < stored && j < max_samples; ++j) {
     unsigned value = interface_ring_buffer_get(&interface->pcie_ring, dev_id, which, stored - j - 1);
@@ -1880,10 +1891,10 @@ static double populate_pcie_bar_data(const struct nvtop_interface *interface, un
       if (col < num_columns)
         fraction[col] = f;
     }
-    sum += f > 1. ? 1. : f;
-    counted++;
+    if (j == 0)
+      current = f > 1. ? 1. : f;
   }
-  return counted ? sum / (double)counted : 0.;
+  return current;
 }
 
 // Shade the plot background with the rx/tx link utilization, scaled to the
@@ -1906,22 +1917,30 @@ static void draw_pcie_overlay(const struct nvtop_interface *interface, const str
     return;
 
   // Ring slot 0 is rx, slot 1 is tx.
-  double mean[PCIE_DIRECTION_COUNT];
+  static const short direction_color[PCIE_DIRECTION_COUNT] = {green_color, magenta_color};
+  static const char *const direction_name[PCIE_DIRECTION_COUNT] = {"rx", "tx"};
+  double current[PCIE_DIRECTION_COUNT];
   for (unsigned which = 0; which < PCIE_DIRECTION_COUNT; ++which)
-    mean[which] = populate_pcie_bar_data(interface, dev_id, which, link_kbs, num_lines, num_columns,
-                                         fraction + which * num_columns);
-  nvtop_bandwidth_overlay(plot->plot_window, num_columns, fraction, fraction + num_columns, green_color, magenta_color);
+    current[which] = populate_pcie_bar_data(interface, dev_id, which, link_kbs, num_lines, num_columns,
+                                            fraction + which * num_columns);
+  nvtop_bandwidth_overlay(plot->plot_window, num_columns, fraction, fraction + num_columns, direction_color[0],
+                          direction_color[1]);
   free(fraction);
 
-  // A full height column means the link is saturated, so the scale has to be
-  // visible for the shading to mean anything. The percentages are the mean
-  // utilization over the samples on screen.
-  char scale[PLOT_MAX_LEGEND_SIZE];
-  int len =
-      snprintf(scale, sizeof(scale), "PCIe %u@%ux rx%3.0f%% tx%3.0f%%", gen, width, mean[0] * 100., mean[1] * 100.);
-  if (len > 0 && len <= (int)plot_cols && num_lines < plot_rows) {
-    wcolor_set(plot->plot_window, cyan_color, NULL);
-    mvwprintw(plot->plot_window, num_lines, legend_left ? 0 : (int)plot_cols - len, "%s", scale);
+  // Continue the plot legend in the shading colors, so each color still names
+  // what it stands for. The percentage is the current utilization of the link,
+  // the same instant the top-of-screen RX/TX readout reflects.
+  for (unsigned which = 0; which < PCIE_DIRECTION_COUNT; ++which) {
+    unsigned row = num_lines + which;
+    if (row >= plot_rows)
+      break;
+    char legend[PLOT_MAX_LEGEND_SIZE];
+    int len = snprintf(legend, sizeof(legend), "GPU%u pcie %s%3.0f%%", dev_id, direction_name[which],
+                       current[which] * 100.);
+    if (len <= 0 || len > (int)plot_cols)
+      continue;
+    wcolor_set(plot->plot_window, direction_color[which], NULL);
+    mvwprintw(plot->plot_window, row, legend_left ? 0 : (int)plot_cols - len, "%s", legend);
   }
 }
 
