@@ -1902,7 +1902,7 @@ static double populate_pcie_bar_data(const struct nvtop_interface *interface, un
 // device drawn in this window; extend the loop if you want one per device.
 static void draw_pcie_overlay(const struct nvtop_interface *interface, const struct plot_window *plot,
                               unsigned num_lines, unsigned plot_rows, unsigned plot_cols, bool legend_left) {
-  if (plot->num_devices_to_plot == 0 || num_lines == 0)
+  if (!interface->options.show_pcie_overlay || plot->num_devices_to_plot == 0 || num_lines == 0)
     return;
   unsigned dev_id = plot->devices_ids[0];
   unsigned gen = interface->pcie_max_gen[dev_id];
