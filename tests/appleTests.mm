@@ -43,6 +43,21 @@ TEST(AppleDynamicInfo, ParsesPerformanceStatistics) {
   }
 }
 
+TEST(AppleDynamicInfo, DoesNotSubstituteInUseMemoryCounters) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"PerformanceStatistics" : @{
+        @"In use system memory" : @654321,
+        @"In use system memory (driver)" : @111111,
+      },
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_FALSE(sample.allocated_system_memory_valid);
+  }
+}
+
 TEST(AppleDynamicInfo, RejectsMissingOrMalformedStatistics) {
   @autoreleasepool {
     NSArray *invalid_properties = @[

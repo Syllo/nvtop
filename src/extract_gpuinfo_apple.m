@@ -209,7 +209,8 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (sample.allocated_system_memory_valid)
       SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, sample.allocated_system_memory);
 
-    // Memory is unified, so query the amount of system memory instead.
+    // Unified-memory GPUs share the system's physical memory with the CPU. The Metal
+    // recommendedMaxWorkingSetSize is a performance budget, not the memory capacity.
     mach_msg_type_number_t host_size = HOST_BASIC_INFO_COUNT;
     host_basic_info_data_t info;
     const mach_port_t host = mach_host_self();
