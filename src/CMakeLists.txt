@@ -46,6 +46,7 @@ if(UNIX AND NOT APPLE)
 elseif(APPLE)
   target_sources(nvtop PRIVATE
     get_process_info_mac.c
+    get_process_info_mac_utils.c
     extract_processinfo_mac.c
     info_messages_mac.c)
 endif()

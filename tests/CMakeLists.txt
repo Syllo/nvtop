@@ -33,6 +33,7 @@ if (BUILD_TESTING AND GTest_FOUND)
       appleTests
       appleTests.mm
       ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo_apple_utils.m
+      ${PROJECT_SOURCE_DIR}/src/get_process_info_mac_utils.c
     )
     target_include_directories(appleTests PRIVATE
       ${PROJECT_SOURCE_DIR}/include

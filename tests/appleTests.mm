@@ -20,10 +20,20 @@
  */
 
 #include "extract_gpuinfo_apple_utils.h"
+#include "get_process_info_mac_utils.h"
 
 #include <Foundation/Foundation.h>
 #include <gtest/gtest.h>
 #include <stdlib.h>
+
+TEST(AppleProcessCpuInfo, ConvertsNativeMachTicksToSeconds) {
+  EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(1000000000, false, 1, 1), 1.0);
+  EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(24000000, false, 125, 3), 1.0);
+}
+
+TEST(AppleProcessCpuInfo, UsesNativeTimebaseUnderRosetta) {
+  EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(24000000, true, 1, 1), 1.0);
+}
 
 TEST(AppleDynamicInfo, ParsesPerformanceStatistics) {
   @autoreleasepool {
