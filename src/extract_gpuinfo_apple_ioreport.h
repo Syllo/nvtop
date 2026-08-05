@@ -29,5 +29,7 @@ struct gpuinfo_apple_ioreport;
 bool gpuinfo_apple_ioreport_init(struct gpuinfo_apple_ioreport **ioreport);
 void gpuinfo_apple_ioreport_shutdown(struct gpuinfo_apple_ioreport *ioreport);
 bool gpuinfo_apple_ioreport_get_power_draw(struct gpuinfo_apple_ioreport *ioreport, unsigned *power_draw);
+bool gpuinfo_apple_ioreport_get_gpu_clock_speed(struct gpuinfo_apple_ioreport *ioreport, unsigned *clock_speed,
+                                               unsigned *max_clock_speed);
 
 #endif // EXTRACT_GPUINFO_APPLE_IOREPORT_H_

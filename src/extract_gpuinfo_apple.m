@@ -198,6 +198,12 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (gpuinfo_apple_ioreport_get_power_draw(gpu_info->ioreport, &power_draw))
     SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, power_draw);
 
+  unsigned clock_speed, max_clock_speed;
+  if (gpuinfo_apple_ioreport_get_gpu_clock_speed(gpu_info->ioreport, &clock_speed, &max_clock_speed)) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, clock_speed);
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, max_clock_speed);
+  }
+
   CFMutableDictionaryRef cf_props;
   if (IORegistryEntryCreateCFProperties(gpu_info->gpu_service, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
     return;

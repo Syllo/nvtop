@@ -26,6 +26,7 @@
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -56,6 +57,12 @@ bool gpuinfo_apple_calculate_gpu_usage(uint64_t previous_gpu_time, uint64_t curr
 bool gpuinfo_apple_energy_to_nanojoules(int64_t energy, const char *unit, uint64_t *energy_nanojoules);
 
 bool gpuinfo_apple_calculate_power_draw(uint64_t energy_nanojoules, uint64_t time_elapsed, unsigned *power_draw);
+
+bool gpuinfo_apple_parse_gpu_frequency_states(const uint8_t *data, size_t data_size, unsigned *frequencies,
+                                              size_t frequencies_size, size_t *frequency_count);
+
+bool gpuinfo_apple_calculate_gpu_clock_speed(const uint64_t *residencies, const unsigned *frequencies,
+                                             size_t frequency_count, unsigned *clock_speed);
 
 void gpuinfo_apple_add_process(struct gpu_info *gpu_info, pid_t pid, bool gpu_usage_valid, unsigned gpu_usage);
 

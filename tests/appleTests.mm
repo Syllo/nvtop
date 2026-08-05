@@ -147,6 +147,72 @@ TEST(ApplePowerInfo, RejectsInvalidPowerSamples) {
   EXPECT_FALSE(gpuinfo_apple_calculate_power_draw(1, 1, NULL));
 }
 
+TEST(AppleClockInfo, ParsesGpuFrequencyStates) {
+  const uint8_t voltage_states[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0x00, 0x65, 0xcd, 0x1d, 0xbc, 0x02, 0x00, 0x00,
+      0x00, 0xca, 0x9a, 0x3b, 0x84, 0x03, 0x00, 0x00,
+      0x00, 0x2f, 0x68, 0x59, 0x4c, 0x04, 0x00, 0x00,
+  };
+  unsigned frequencies[4];
+  size_t frequency_count;
+
+  ASSERT_TRUE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states), frequencies, 4, &frequency_count));
+  ASSERT_EQ(frequency_count, 4u);
+  EXPECT_EQ(frequencies[0], 0u);
+  EXPECT_EQ(frequencies[1], 500u);
+  EXPECT_EQ(frequencies[2], 1000u);
+  EXPECT_EQ(frequencies[3], 1500u);
+}
+
+TEST(AppleClockInfo, RejectsMalformedGpuFrequencyStates) {
+  const uint8_t voltage_states[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0x00, 0x65, 0xcd, 0x1d, 0xbc, 0x02, 0x00, 0x00,
+  };
+  unsigned frequencies[2];
+  size_t frequency_count;
+
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states) - 1, frequencies, 2, &frequency_count));
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states), frequencies, 1, &frequency_count));
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states), frequencies, 2, NULL));
+}
+
+TEST(AppleClockInfo, CalculatesActiveResidencyWeightedClockSpeed) {
+  const unsigned frequencies[] = {0, 500, 1000, 1500};
+  const uint64_t residencies[] = {1000, 100, 300, 600};
+  unsigned clock_speed;
+
+  ASSERT_TRUE(gpuinfo_apple_calculate_gpu_clock_speed(
+      residencies, frequencies, 4, &clock_speed));
+  EXPECT_EQ(clock_speed, 1250u);
+}
+
+TEST(AppleClockInfo, ReportsZeroWhenGpuRemainsOff) {
+  const unsigned frequencies[] = {0, 500, 1000};
+  const uint64_t residencies[] = {1000, 0, 0};
+  unsigned clock_speed;
+
+  ASSERT_TRUE(gpuinfo_apple_calculate_gpu_clock_speed(
+      residencies, frequencies, 3, &clock_speed));
+  EXPECT_EQ(clock_speed, 0u);
+}
+
+TEST(AppleClockInfo, RejectsInvalidResidencyTables) {
+  const unsigned frequencies[] = {0, 500};
+  const uint64_t residencies[] = {1000, 100};
+  unsigned clock_speed;
+
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(NULL, frequencies, 2, &clock_speed));
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, NULL, 2, &clock_speed));
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, frequencies, 1, &clock_speed));
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, frequencies, 2, NULL));
+}
+
 TEST(AppleProcessInfo, ParsesAndSumsAppUsage) {
   @autoreleasepool {
     NSDictionary *properties = @{
