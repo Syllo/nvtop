@@ -466,6 +466,17 @@ struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devic
   }
 
   interface_alloc_ring_buffer(devices_count, 4, 10 * 60 * 1000, &interface->saved_data_ring);
+  interface_alloc_ring_buffer(devices_count, PCIE_DIRECTION_COUNT, 10 * 60 * 1000, &interface->pcie_ring);
+  interface->pcie_max_gen = calloc(devices_count, sizeof(*interface->pcie_max_gen));
+  if (!interface->pcie_max_gen) {
+    perror("Cannot allocate memory: ");
+    exit(EXIT_FAILURE);
+  }
+  interface->pcie_max_width = calloc(devices_count, sizeof(*interface->pcie_max_width));
+  if (!interface->pcie_max_width) {
+    perror("Cannot allocate memory: ");
+    exit(EXIT_FAILURE);
+  }
   initialize_all_windows(interface);
   return interface;
 }
@@ -481,6 +492,9 @@ void clean_ncurses(struct nvtop_interface *interface) {
   free(interface->options.config_file_location);
   free(interface->devices_win);
   interface_free_ring_buffer(&interface->saved_data_ring);
+  interface_free_ring_buffer(&interface->pcie_ring);
+  free(interface->pcie_max_gen);
+  free(interface->pcie_max_width);
   free(interface);
 }
 
@@ -1744,6 +1758,22 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
       }
     }
 
+    // PCIe throughput is recorded unconditionally: it is an overlay, not one of
+    // the user-selectable plot lines.
+    unsigned pcie_rx = 0, pcie_tx = 0;
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
+      pcie_rx = device->dynamic_info.pcie_rx;
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
+      pcie_tx = device->dynamic_info.pcie_tx;
+    interface_ring_buffer_push(&interface->pcie_ring, dev_id, 0, pcie_rx);
+    interface_ring_buffer_push(&interface->pcie_ring, dev_id, 1, pcie_tx);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen) &&
+        device->dynamic_info.pcie_link_gen > interface->pcie_max_gen[dev_id])
+      interface->pcie_max_gen[dev_id] = device->dynamic_info.pcie_link_gen;
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_width) &&
+        device->dynamic_info.pcie_link_width > interface->pcie_max_width[dev_id])
+      interface->pcie_max_width[dev_id] = device->dynamic_info.pcie_link_width;
+
     dev_id++;
   }
 }
@@ -1829,6 +1859,72 @@ static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface
   return total_to_draw;
 }
 
+// Fill one fraction-per-column array from the PCIe ring buffer, replicating each
+// sample across columns_per_sample columns so the bars line up in time with the
+// line plot above them. Returns the mean utilization over the samples drawn.
+static double populate_pcie_bar_data(const struct nvtop_interface *interface, unsigned dev_id, unsigned which,
+                                     unsigned link_kbs, unsigned columns_per_sample, size_t num_columns,
+                                     double *fraction) {
+  memset(fraction, 0, num_columns * sizeof(*fraction));
+  unsigned max_samples = num_columns / columns_per_sample;
+  unsigned stored = interface_ring_buffer_data_stored(&interface->pcie_ring, dev_id, which);
+  double sum = 0.;
+  unsigned counted = 0;
+
+  for (unsigned j = 0; j < stored && j < max_samples; ++j) {
+    unsigned value = interface_ring_buffer_get(&interface->pcie_ring, dev_id, which, stored - j - 1);
+    double f = (double)value / (double)link_kbs;
+    unsigned slot = interface->options.plot_left_to_right ? j : max_samples - j - 1;
+    for (unsigned c = 0; c < columns_per_sample; ++c) {
+      size_t col = (size_t)slot * columns_per_sample + c;
+      if (col < num_columns)
+        fraction[col] = f;
+    }
+    sum += f > 1. ? 1. : f;
+    counted++;
+  }
+  return counted ? sum / (double)counted : 0.;
+}
+
+// Shade the plot background with the rx/tx link utilization, scaled to the
+// fastest link the device has been seen running at. The overlay tracks the first
+// device drawn in this window; extend the loop if you want one per device.
+static void draw_pcie_overlay(const struct nvtop_interface *interface, const struct plot_window *plot,
+                              unsigned num_lines, unsigned plot_rows, unsigned plot_cols, bool legend_left) {
+  if (plot->num_devices_to_plot == 0 || num_lines == 0)
+    return;
+  unsigned dev_id = plot->devices_ids[0];
+  unsigned gen = interface->pcie_max_gen[dev_id];
+  unsigned width = interface->pcie_max_width[dev_id];
+  unsigned link_kbs = nvtop_pcie_link_max_kbs(gen, width);
+  if (link_kbs == 0)
+    return;
+
+  size_t num_columns = plot->num_data;
+  double *fraction = malloc(PCIE_DIRECTION_COUNT * num_columns * sizeof(*fraction));
+  if (!fraction)
+    return;
+
+  // Ring slot 0 is rx, slot 1 is tx.
+  double mean[PCIE_DIRECTION_COUNT];
+  for (unsigned which = 0; which < PCIE_DIRECTION_COUNT; ++which)
+    mean[which] = populate_pcie_bar_data(interface, dev_id, which, link_kbs, num_lines, num_columns,
+                                         fraction + which * num_columns);
+  nvtop_bandwidth_overlay(plot->plot_window, num_columns, fraction, fraction + num_columns, green_color, magenta_color);
+  free(fraction);
+
+  // A full height column means the link is saturated, so the scale has to be
+  // visible for the shading to mean anything. The percentages are the mean
+  // utilization over the samples on screen.
+  char scale[PLOT_MAX_LEGEND_SIZE];
+  int len =
+      snprintf(scale, sizeof(scale), "PCIe %u@%ux rx%3.0f%% tx%3.0f%%", gen, width, mean[0] * 100., mean[1] * 100.);
+  if (len > 0 && len <= (int)plot_cols && num_lines < plot_rows) {
+    wcolor_set(plot->plot_window, cyan_color, NULL);
+    mvwprintw(plot->plot_window, num_lines, legend_left ? 0 : (int)plot_cols - len, "%s", scale);
+  }
+}
+
 static void draw_plots(struct nvtop_interface *interface) {
   for (unsigned plot_id = 0; plot_id < interface->num_plots; ++plot_id) {
     werase(interface->plots[plot_id].plot_window);
@@ -1839,8 +1935,14 @@ static void draw_plots(struct nvtop_interface *interface) {
         populate_plot_data_from_ring_buffer(interface, &interface->plots[plot_id], interface->plots[plot_id].num_data,
                                             interface->plots[plot_id].data, plot_legend);
 
+    int plot_rows, plot_cols;
+    getmaxyx(interface->plots[plot_id].plot_window, plot_rows, plot_cols);
+    bool legend_left = !interface->options.plot_left_to_right;
+
     nvtop_line_plot(interface->plots[plot_id].plot_window, interface->plots[plot_id].num_data,
-                    interface->plots[plot_id].data, num_lines, !interface->options.plot_left_to_right, plot_legend);
+                    interface->plots[plot_id].data, num_lines, legend_left, plot_legend);
+
+    draw_pcie_overlay(interface, &interface->plots[plot_id], num_lines, plot_rows, plot_cols, legend_left);
 
     wnoutrefresh(interface->plots[plot_id].plot_window);
   }

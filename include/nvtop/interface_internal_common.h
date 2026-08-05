@@ -140,6 +140,16 @@ struct nvtop_interface {
   unsigned num_plots;
   struct plot_window *plots;
   interface_ring_buffer saved_data_ring;
+  // PCIe throughput history, kept separately from saved_data_ring so it is not
+  // subject to the MAX_LINES_PER_PLOT budget. Slot 0 is rx, slot 1 is tx, both
+  // in KB/s as reported by the vendor backend.
+  interface_ring_buffer pcie_ring;
+  // Scale of the PCIe overlay: the generation and width of the negotiated link.
+  // The per-sample link the backends report trains down to Gen1 while the GPU is
+  // idle, so these keep the maximum instead. See save_current_data_to_ring for
+  // where each comes from.
+  unsigned *pcie_max_gen;
+  unsigned *pcie_max_width;
   struct setup_window setup_win;
 };
 
