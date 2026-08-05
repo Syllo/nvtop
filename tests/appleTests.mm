@@ -25,6 +25,7 @@
 #include <Foundation/Foundation.h>
 #include <gtest/gtest.h>
 #include <limits.h>
+#include <math.h>
 #include <stdlib.h>
 
 TEST(AppleProcessCpuInfo, ConvertsNativeMachTicksToSeconds) {
@@ -211,6 +212,43 @@ TEST(AppleClockInfo, RejectsInvalidResidencyTables) {
   EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, NULL, 2, &clock_speed));
   EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, frequencies, 1, &clock_speed));
   EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, frequencies, 2, NULL));
+}
+
+TEST(AppleTemperatureInfo, DecodesSmcFloat) {
+  const uint8_t encoded_temperature[] = {0x00, 0x00, 0x43, 0x42};
+  float temperature;
+
+  ASSERT_TRUE(gpuinfo_apple_decode_smc_float(encoded_temperature, sizeof(encoded_temperature), &temperature));
+  EXPECT_FLOAT_EQ(temperature, 48.75f);
+}
+
+TEST(AppleTemperatureInfo, RejectsMalformedSmcFloat) {
+  const uint8_t encoded_temperature[] = {0x00, 0x00, 0x43, 0x42};
+  float temperature;
+
+  EXPECT_FALSE(gpuinfo_apple_decode_smc_float(NULL, sizeof(encoded_temperature), &temperature));
+  EXPECT_FALSE(gpuinfo_apple_decode_smc_float(encoded_temperature, sizeof(encoded_temperature) - 1, &temperature));
+  EXPECT_FALSE(gpuinfo_apple_decode_smc_float(encoded_temperature, sizeof(encoded_temperature), NULL));
+}
+
+TEST(AppleTemperatureInfo, AveragesValidGpuSensors) {
+  const float temperatures[] = {46.25f, 47.25f, 0.0f, -1.0f, 151.0f, NAN, INFINITY};
+  unsigned average_temperature;
+
+  ASSERT_TRUE(gpuinfo_apple_average_temperatures(
+      temperatures, sizeof(temperatures) / sizeof(temperatures[0]), &average_temperature));
+  EXPECT_EQ(average_temperature, 47u);
+}
+
+TEST(AppleTemperatureInfo, RejectsMissingValidGpuSensors) {
+  const float invalid_temperatures[] = {0.0f, -1.0f, 151.0f, NAN, INFINITY};
+  unsigned average_temperature;
+
+  EXPECT_FALSE(gpuinfo_apple_average_temperatures(
+      invalid_temperatures, sizeof(invalid_temperatures) / sizeof(invalid_temperatures[0]), &average_temperature));
+  EXPECT_FALSE(gpuinfo_apple_average_temperatures(NULL, 1, &average_temperature));
+  EXPECT_FALSE(gpuinfo_apple_average_temperatures(invalid_temperatures, 0, &average_temperature));
+  EXPECT_FALSE(gpuinfo_apple_average_temperatures(invalid_temperatures, 1, NULL));
 }
 
 TEST(AppleProcessInfo, ParsesAndSumsAppUsage) {

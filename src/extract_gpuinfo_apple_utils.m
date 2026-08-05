@@ -28,6 +28,7 @@
 
 #include <Foundation/Foundation.h>
 #include <limits.h>
+#include <math.h>
 #include <string.h>
 
 static bool gpuinfo_apple_get_unsigned_number(id value, uint64_t *number) {
@@ -208,6 +209,36 @@ bool gpuinfo_apple_calculate_gpu_clock_speed(const uint64_t *residencies, const 
     return false;
 
   *clock_speed = (unsigned)(average_frequency + 0.5L);
+  return true;
+}
+
+bool gpuinfo_apple_decode_smc_float(const uint8_t *data, size_t data_size, float *value) {
+  if (!data || data_size != sizeof(float) || !value)
+    return false;
+
+  const uint32_t bits = (uint32_t)data[0] | (uint32_t)data[1] << 8 | (uint32_t)data[2] << 16 |
+                        (uint32_t)data[3] << 24;
+  memcpy(value, &bits, sizeof(*value));
+  return true;
+}
+
+bool gpuinfo_apple_average_temperatures(const float *temperatures, size_t temperature_count,
+                                        unsigned *average_temperature) {
+  if (!temperatures || !temperature_count || !average_temperature)
+    return false;
+
+  long double sum = 0;
+  size_t valid_count = 0;
+  for (size_t i = 0; i < temperature_count; ++i) {
+    if (!isfinite(temperatures[i]) || temperatures[i] <= 0 || temperatures[i] > 150)
+      continue;
+    sum += (long double)temperatures[i];
+    ++valid_count;
+  }
+  if (!valid_count)
+    return false;
+
+  *average_temperature = (unsigned)(sum / valid_count + 0.5L);
   return true;
 }
 

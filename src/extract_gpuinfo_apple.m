@@ -22,6 +22,7 @@
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/time.h"
 #include "extract_gpuinfo_apple_ioreport.h"
+#include "extract_gpuinfo_apple_smc.h"
 #include "extract_gpuinfo_apple_utils.h"
 #include "uthash.h"
 
@@ -63,6 +64,7 @@ struct gpu_info_apple {
   id<MTLDevice> device;
   io_service_t gpu_service;
   struct gpuinfo_apple_ioreport *ioreport;
+  struct gpuinfo_apple_smc *smc;
   struct apple_process_info_cache *last_update_process_cache, *current_update_process_cache;
 };
 
@@ -117,6 +119,7 @@ static void gpuinfo_apple_shutdown(void) {
     gpuinfo_apple_free_process_cache(&gpu_info->last_update_process_cache);
     gpuinfo_apple_free_process_cache(&gpu_info->current_update_process_cache);
     gpuinfo_apple_ioreport_shutdown(gpu_info->ioreport);
+    gpuinfo_apple_smc_shutdown(gpu_info->smc);
     [gpu_info->device release];
     IOObjectRelease(gpu_info->gpu_service);
   }
@@ -161,8 +164,10 @@ static bool gpuinfo_apple_get_device_handles(struct list_head *devices, unsigned
     gpu_info->base.vendor = &gpu_vendor_apple;
     gpu_info->device = [dev retain];
     gpu_info->gpu_service = gpu_service;
-    if ([dev hasUnifiedMemory] && [dev location] == MTLDeviceLocationBuiltIn)
+    if ([dev hasUnifiedMemory] && [dev location] == MTLDeviceLocationBuiltIn) {
       gpuinfo_apple_ioreport_init(&gpu_info->ioreport);
+      gpuinfo_apple_smc_init(&gpu_info->smc);
+    }
     list_add_tail(&gpu_info->base.list, devices);
     ++apple_gpu_count;
   }
@@ -203,6 +208,10 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, clock_speed);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, max_clock_speed);
   }
+
+  unsigned temperature;
+  if (gpuinfo_apple_smc_get_gpu_temperature(gpu_info->smc, &temperature))
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, temperature);
 
   CFMutableDictionaryRef cf_props;
   if (IORegistryEntryCreateCFProperties(gpu_info->gpu_service, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
