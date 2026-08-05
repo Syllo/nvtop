@@ -28,6 +28,21 @@ if (BUILD_TESTING AND GTest_FOUND)
   target_link_libraries(interfaceTests PRIVATE testLib GTest::gtest_main)
   gtest_discover_tests(interfaceTests)
 
+  if(APPLE)
+    add_executable(
+      appleTests
+      appleTests.mm
+      ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo_apple_utils.m
+    )
+    target_include_directories(appleTests PRIVATE
+      ${PROJECT_SOURCE_DIR}/include
+      ${PROJECT_SOURCE_DIR}/src
+      ${PROJECT_BINARY_DIR}/include)
+    target_link_libraries(appleTests PRIVATE GTest::gtest_main
+      "-framework Foundation")
+    gtest_discover_tests(appleTests)
+  endif()
+
   if (THOROUGH_TESTING)
     target_compile_definitions(interfaceTests PRIVATE THOROUGH_TESTING)
   endif()

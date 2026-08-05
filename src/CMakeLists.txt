@@ -113,7 +113,9 @@ if(V3D_SUPPORT)
 endif()
 
 if(APPLE_SUPPORT)
-  target_sources(nvtop PRIVATE extract_gpuinfo_apple.m)
+  target_sources(nvtop PRIVATE
+    extract_gpuinfo_apple.m
+    extract_gpuinfo_apple_utils.m)
   target_link_libraries(nvtop PRIVATE
     "-framework Metal"
     "-framework AppKit"

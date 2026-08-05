@@ -18,20 +18,48 @@
  *
  */
 
-#include "nvtop/common.h"
 #include "nvtop/device_discovery.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/time.h"
+#include "extract_gpuinfo_apple_utils.h"
+#include "uthash.h"
 
 #include <assert.h>
 #include <Metal/Metal.h>
 #include <IOKit/IOKitLib.h>
 #include <QuartzCore/QuartzCore.h>
 
+#define HASH_FIND_CLIENT(head, key_ptr, out_ptr)                                                                    \
+  HASH_FIND(hh, head, key_ptr, sizeof(struct apple_process_cache_id), out_ptr)
+#define HASH_ADD_CLIENT(head, in_ptr)                                                                               \
+  HASH_ADD(hh, head, client_id, sizeof(struct apple_process_cache_id), in_ptr)
+
+#define SET_APPLE_CACHE(cachePtr, field, value) SET_VALUE(cachePtr, field, value, apple_cache_)
+#define APPLE_CACHE_FIELD_VALID(cachePtr, field) VALUE_IS_VALID(cachePtr, field, apple_cache_)
+
+enum apple_process_info_cache_valid {
+  apple_cache_gpu_time_valid = 0,
+  apple_cache_process_info_cache_valid_count
+};
+
+struct __attribute__((__packed__)) apple_process_cache_id {
+  uint64_t registry_entry_id;
+  pid_t pid;
+};
+
+struct apple_process_info_cache {
+  struct apple_process_cache_id client_id;
+  uint64_t gpu_time;
+  nvtop_time last_measurement_tstamp;
+  unsigned char valid[(apple_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
+  UT_hash_handle hh;
+};
+
 struct gpu_info_apple {
   struct gpu_info base;
   id<MTLDevice> device;
   io_service_t gpu_service;
+  struct apple_process_info_cache *last_update_process_cache, *current_update_process_cache;
 };
 
 static bool gpuinfo_apple_init(void);
@@ -64,9 +92,26 @@ static bool gpuinfo_apple_init(void) {
   return true;
 }
 
+static void gpuinfo_apple_free_process_cache(struct apple_process_info_cache **process_cache) {
+  struct apple_process_info_cache *cache_entry, *tmp;
+  HASH_ITER(hh, *process_cache, cache_entry, tmp) {
+    HASH_DEL(*process_cache, cache_entry);
+    free(cache_entry);
+  }
+  *process_cache = NULL;
+}
+
+static void gpuinfo_apple_swap_process_cache_for_next_update(struct gpu_info_apple *gpu_info) {
+  gpuinfo_apple_free_process_cache(&gpu_info->last_update_process_cache);
+  gpu_info->last_update_process_cache = gpu_info->current_update_process_cache;
+  gpu_info->current_update_process_cache = NULL;
+}
+
 static void gpuinfo_apple_shutdown(void) {
   for (unsigned i = 0; i < apple_gpu_count; ++i) {
     struct gpu_info_apple *gpu_info = &gpu_infos[i];
+    gpuinfo_apple_free_process_cache(&gpu_info->last_update_process_cache);
+    gpuinfo_apple_free_process_cache(&gpu_info->current_update_process_cache);
     [gpu_info->device release];
     IOObjectRelease(gpu_info->gpu_service);
   }
@@ -174,35 +219,10 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 }
 
-static bool gpuinfo_apple_get_process_info(struct gpu_process* process, io_object_t user_client) {
-  RESET_ALL(process->valid);
-  process->type = gpu_process_graphical_compute;
-
-  CFMutableDictionaryRef cf_props;
-  if (IORegistryEntryCreateCFProperties(user_client, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
-    return false;
-  }
-  NSDictionary* user_client_info = (__bridge NSDictionary*) cf_props;
-
-  id client_creator_info = [user_client_info objectForKey:@"IOUserClientCreator"];
-  if (client_creator_info == nil) {
-    return false;
-  }
-
-  const char* client_creator = [client_creator_info UTF8String];
-  // Client creator is in form: pid <pid>, <name>
-  if (sscanf(client_creator, "pid %u,", &process->pid) < 1) {
-    return false;
-  }
-
-  CFRelease(cf_props);
-
-  return true;
-}
-
 static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
   struct gpu_info_apple *gpu_info = container_of(_gpu_info, struct gpu_info_apple, base);
   _gpu_info->processes_count = 0;
+  gpuinfo_apple_swap_process_cache_for_next_update(gpu_info);
 
   // We can find out which processes are running on a particular GPU using the IO Registry. The
   // IOService associated to the MTLDevice has "AGXDeviceUserClient" child nodes, which hold some
@@ -213,30 +233,55 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
     return;
   }
 
-  unsigned int count = 0;
+  nvtop_time current_time;
+  nvtop_get_current_time(&current_time);
   for (io_object_t child = IOIteratorNext(iterator); child; child = IOIteratorNext(iterator)) {
     io_name_t class_name;
-    if (IOObjectGetClass(child, class_name) != kIOReturnSuccess) {
-      continue;
-    } else if (strncmp(class_name, "AGXDeviceUserClient", sizeof(class_name)) != 0) {
-      continue;
-    }
+    if (IOObjectGetClass(child, class_name) == kIOReturnSuccess &&
+        strncmp(class_name, "AGXDeviceUserClient", sizeof(class_name)) == 0) {
+      CFMutableDictionaryRef cf_props;
+      if (IORegistryEntryCreateCFProperties(child, &cf_props, kCFAllocatorDefault, kNilOptions) == kIOReturnSuccess) {
+        struct gpuinfo_apple_process_sample sample = {0};
+        if (gpuinfo_apple_parse_process_sample(cf_props, &sample)) {
+          bool gpu_usage_valid = false;
+          unsigned gpu_usage = 0;
+          uint64_t registry_entry_id;
+          if (IORegistryEntryGetRegistryEntryID(child, &registry_entry_id) == kIOReturnSuccess) {
+            const struct apple_process_cache_id client_id = {.registry_entry_id = registry_entry_id,
+                                                              .pid = sample.pid};
+            struct apple_process_info_cache *cache_entry;
+            HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &client_id, cache_entry);
+            if (cache_entry) {
+              HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
+              if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time)) {
+                const uint64_t time_elapsed =
+                    nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
+                gpu_usage_valid = gpuinfo_apple_calculate_gpu_usage(cache_entry->gpu_time, sample.gpu_time,
+                                                                    time_elapsed, &gpu_usage);
+              }
+            } else {
+              cache_entry = calloc(1, sizeof(*cache_entry));
+              if (cache_entry)
+                cache_entry->client_id = client_id;
+            }
 
-    if (_gpu_info->processes_array_size < count + 1) {
-      _gpu_info->processes_array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
-      _gpu_info->processes = reallocarray(_gpu_info->processes, _gpu_info->processes_array_size, sizeof(*_gpu_info->processes));
-      if (!_gpu_info->processes) {
-        perror("Could not allocate memory: ");
-        exit(EXIT_FAILURE);
+            if (cache_entry) {
+              RESET_ALL(cache_entry->valid);
+              if (sample.gpu_time_valid)
+                SET_APPLE_CACHE(cache_entry, gpu_time, sample.gpu_time);
+              cache_entry->last_measurement_tstamp = current_time;
+              HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
+            }
+          }
+
+          gpuinfo_apple_add_process(_gpu_info, sample.pid, gpu_usage_valid, gpu_usage);
+        }
+        CFRelease(cf_props);
       }
-    }
-
-    if (gpuinfo_apple_get_process_info(&_gpu_info->processes[count], child)) {
-      ++count;
     }
 
     IOObjectRelease(child);
   }
 
-  _gpu_info->processes_count = count;
+  IOObjectRelease(iterator);
 }
