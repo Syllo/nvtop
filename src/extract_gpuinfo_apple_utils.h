@@ -69,6 +69,8 @@ bool gpuinfo_apple_decode_smc_float(const uint8_t *data, size_t data_size, float
 bool gpuinfo_apple_average_temperatures(const float *temperatures, size_t temperature_count,
                                         unsigned *average_temperature);
 
+bool gpuinfo_apple_max_fan_rpm(const float *fan_speeds, size_t fan_count, unsigned *fan_rpm);
+
 void gpuinfo_apple_add_process(struct gpu_info *gpu_info, pid_t pid, bool gpu_usage_valid, unsigned gpu_usage);
 
 #ifdef __cplusplus

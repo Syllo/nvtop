@@ -242,6 +242,27 @@ bool gpuinfo_apple_average_temperatures(const float *temperatures, size_t temper
   return true;
 }
 
+bool gpuinfo_apple_max_fan_rpm(const float *fan_speeds, size_t fan_count, unsigned *fan_rpm) {
+  if (!fan_speeds || !fan_count || !fan_rpm)
+    return false;
+
+  const float maximum_plausible_fan_rpm = 100000.0f;
+  float maximum_speed = 0;
+  bool valid_speed = false;
+  for (size_t i = 0; i < fan_count; ++i) {
+    if (!isfinite(fan_speeds[i]) || fan_speeds[i] < 0 || fan_speeds[i] > maximum_plausible_fan_rpm)
+      continue;
+    if (!valid_speed || fan_speeds[i] > maximum_speed)
+      maximum_speed = fan_speeds[i];
+    valid_speed = true;
+  }
+  if (!valid_speed)
+    return false;
+
+  *fan_rpm = (unsigned)(maximum_speed + 0.5f);
+  return true;
+}
+
 void gpuinfo_apple_add_process(struct gpu_info *gpu_info, pid_t pid, bool gpu_usage_valid, unsigned gpu_usage) {
   struct gpu_process *process = NULL;
   for (unsigned i = 0; i < gpu_info->processes_count; ++i) {

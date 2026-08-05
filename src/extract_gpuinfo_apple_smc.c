@@ -32,7 +32,7 @@
 #include <string.h>
 
 // AppleSMC has no public user-space protocol. Keep its wire structures and commands isolated
-// here so changes make temperature unavailable without affecting the other Apple metrics.
+// here so changes make SMC metrics unavailable without affecting the other Apple metrics.
 struct apple_smc_version {
   uint8_t major;
   uint8_t minor;
@@ -74,20 +74,27 @@ _Static_assert(offsetof(struct apple_smc_key_data, bytes) == 48, "Unexpected App
 _Static_assert(sizeof(struct apple_smc_key_data) == 80, "Unexpected AppleSMC payload size");
 _Static_assert(sizeof(float) == 4, "Unexpected AppleSMC float size");
 
-struct apple_smc_temperature_key {
+struct apple_smc_sensor_key {
   uint32_t key;
   struct apple_smc_key_info info;
 };
 
 struct gpuinfo_apple_smc {
   io_connect_t connection;
-  struct apple_smc_temperature_key *temperature_keys;
+  struct apple_smc_sensor_key *temperature_keys;
   size_t temperature_key_count;
   float *temperature_samples;
-  nvtop_time last_sample_time;
+  struct apple_smc_sensor_key *fan_keys;
+  size_t fan_key_count;
+  float *fan_samples;
+  nvtop_time last_temperature_sample_time;
+  nvtop_time last_fan_sample_time;
   unsigned last_temperature;
-  bool sample_attempted;
+  unsigned last_fan_rpm;
+  bool temperature_sample_attempted;
+  bool fan_sample_attempted;
   bool last_temperature_valid;
+  bool last_fan_rpm_valid;
 };
 
 enum apple_smc_command {
@@ -201,11 +208,7 @@ static bool gpuinfo_apple_smc_open(struct gpuinfo_apple_smc *smc) {
   return MACH_PORT_VALID(smc->connection);
 }
 
-static bool gpuinfo_apple_smc_discover_temperature_keys(struct gpuinfo_apple_smc *smc) {
-  uint32_t key_count;
-  if (!gpuinfo_apple_smc_read_key_count(smc, &key_count))
-    return false;
-
+static bool gpuinfo_apple_smc_discover_temperature_keys(struct gpuinfo_apple_smc *smc, uint32_t key_count) {
   // SMC enumerates keys in lexicographic FourCC order. Locate only the lowercase Tg range
   // instead of scanning thousands of keys, then validate that ordering while caching the range.
   const uint32_t first_gpu_temperature_key = gpuinfo_apple_smc_key_id("Tg\0\0");
@@ -217,7 +220,7 @@ static bool gpuinfo_apple_smc_discover_temperature_keys(struct gpuinfo_apple_smc
     return false;
 
   const size_t maximum_key_count = end_index - first_index;
-  struct apple_smc_temperature_key *keys = calloc(maximum_key_count, sizeof(*keys));
+  struct apple_smc_sensor_key *keys = calloc(maximum_key_count, sizeof(*keys));
   if (!keys)
     return false;
 
@@ -237,7 +240,7 @@ static bool gpuinfo_apple_smc_discover_temperature_keys(struct gpuinfo_apple_smc
     if (!gpuinfo_apple_smc_read_key_info(smc, key, &info) || info.data_size != sizeof(float) ||
         info.data_type != float_type)
       continue;
-    keys[valid_key_count++] = (struct apple_smc_temperature_key){.key = key, .info = info};
+    keys[valid_key_count++] = (struct apple_smc_sensor_key){.key = key, .info = info};
   }
 
   if (!valid_key_count) {
@@ -245,11 +248,69 @@ static bool gpuinfo_apple_smc_discover_temperature_keys(struct gpuinfo_apple_smc
     return false;
   }
 
+  float *samples = calloc(valid_key_count, sizeof(*samples));
+  if (!samples) {
+    free(keys);
+    return false;
+  }
+
   smc->temperature_keys = keys;
   smc->temperature_key_count = valid_key_count;
-  smc->temperature_samples = calloc(valid_key_count, sizeof(*smc->temperature_samples));
-  if (!smc->temperature_samples)
+  smc->temperature_samples = samples;
+  return true;
+}
+
+static bool gpuinfo_apple_smc_discover_fan_keys(struct gpuinfo_apple_smc *smc, uint32_t key_count) {
+  // Current fan speeds use F?Ac keys. Search the complete F range, then retain only
+  // matching float sensors so unrelated fan limits and metadata are ignored.
+  const uint32_t first_fan_key = gpuinfo_apple_smc_key_id("F\0\0\0");
+  const uint32_t end_fan_key = gpuinfo_apple_smc_key_id("G\0\0\0");
+  uint32_t first_index, end_index;
+  if (!gpuinfo_apple_smc_lower_bound(smc, key_count, first_fan_key, &first_index) ||
+      !gpuinfo_apple_smc_lower_bound(smc, key_count, end_fan_key, &end_index) ||
+      first_index >= end_index)
     return false;
+
+  const size_t maximum_key_count = end_index - first_index;
+  struct apple_smc_sensor_key *keys = calloc(maximum_key_count, sizeof(*keys));
+  if (!keys)
+    return false;
+
+  uint32_t previous_key = 0;
+  size_t valid_key_count = 0;
+  const uint32_t fan_key_pattern = gpuinfo_apple_smc_key_id("F\0Ac");
+  const uint32_t fan_key_mask = UINT32_C(0xff00ffff);
+  const uint32_t float_type = gpuinfo_apple_smc_key_id("flt ");
+  for (uint32_t index = first_index; index < end_index; ++index) {
+    uint32_t key;
+    if (!gpuinfo_apple_smc_read_key_by_index(smc, index, &key) || key < first_fan_key ||
+        key >= end_fan_key || (index != first_index && key <= previous_key)) {
+      free(keys);
+      return false;
+    }
+    previous_key = key;
+
+    struct apple_smc_key_info info;
+    if ((key & fan_key_mask) != fan_key_pattern || !gpuinfo_apple_smc_read_key_info(smc, key, &info) ||
+        info.data_size != sizeof(float) || info.data_type != float_type)
+      continue;
+    keys[valid_key_count++] = (struct apple_smc_sensor_key){.key = key, .info = info};
+  }
+
+  if (!valid_key_count) {
+    free(keys);
+    return false;
+  }
+
+  float *samples = calloc(valid_key_count, sizeof(*samples));
+  if (!samples) {
+    free(keys);
+    return false;
+  }
+
+  smc->fan_keys = keys;
+  smc->fan_key_count = valid_key_count;
+  smc->fan_samples = samples;
   return true;
 }
 
@@ -262,7 +323,15 @@ bool gpuinfo_apple_smc_init(struct gpuinfo_apple_smc **smc) {
   if (!new_smc)
     return false;
 
-  if (!gpuinfo_apple_smc_open(new_smc) || !gpuinfo_apple_smc_discover_temperature_keys(new_smc)) {
+  uint32_t key_count;
+  if (!gpuinfo_apple_smc_open(new_smc) || !gpuinfo_apple_smc_read_key_count(new_smc, &key_count)) {
+    gpuinfo_apple_smc_shutdown(new_smc);
+    return false;
+  }
+
+  const bool temperature_keys_valid = gpuinfo_apple_smc_discover_temperature_keys(new_smc, key_count);
+  const bool fan_keys_valid = gpuinfo_apple_smc_discover_fan_keys(new_smc, key_count);
+  if (!temperature_keys_valid && !fan_keys_valid) {
     gpuinfo_apple_smc_shutdown(new_smc);
     return false;
   }
@@ -277,25 +346,27 @@ void gpuinfo_apple_smc_shutdown(struct gpuinfo_apple_smc *smc) {
 
   if (MACH_PORT_VALID(smc->connection))
     IOServiceClose(smc->connection);
+  free(smc->fan_samples);
+  free(smc->fan_keys);
   free(smc->temperature_samples);
   free(smc->temperature_keys);
   free(smc);
 }
 
 bool gpuinfo_apple_smc_get_gpu_temperature(struct gpuinfo_apple_smc *smc, unsigned *temperature) {
-  if (!smc || !temperature)
+  if (!smc || !temperature || !smc->temperature_key_count)
     return false;
 
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
-  if (smc->sample_attempted &&
-      nvtop_difftime_u64(smc->last_sample_time, current_time) < apple_smc_minimum_sample_interval) {
+  if (smc->temperature_sample_attempted &&
+      nvtop_difftime_u64(smc->last_temperature_sample_time, current_time) < apple_smc_minimum_sample_interval) {
     if (smc->last_temperature_valid)
       *temperature = smc->last_temperature;
     return smc->last_temperature_valid;
   }
-  smc->last_sample_time = current_time;
-  smc->sample_attempted = true;
+  smc->last_temperature_sample_time = current_time;
+  smc->temperature_sample_attempted = true;
 
   size_t sample_count = 0;
   for (size_t i = 0; i < smc->temperature_key_count; ++i) {
@@ -315,5 +386,41 @@ bool gpuinfo_apple_smc_get_gpu_temperature(struct gpuinfo_apple_smc *smc, unsign
   smc->last_temperature = average_temperature;
   smc->last_temperature_valid = true;
   *temperature = average_temperature;
+  return true;
+}
+
+bool gpuinfo_apple_smc_get_fan_rpm(struct gpuinfo_apple_smc *smc, unsigned *fan_rpm) {
+  if (!smc || !fan_rpm || !smc->fan_key_count)
+    return false;
+
+  nvtop_time current_time;
+  nvtop_get_current_time(&current_time);
+  if (smc->fan_sample_attempted &&
+      nvtop_difftime_u64(smc->last_fan_sample_time, current_time) < apple_smc_minimum_sample_interval) {
+    if (smc->last_fan_rpm_valid)
+      *fan_rpm = smc->last_fan_rpm;
+    return smc->last_fan_rpm_valid;
+  }
+  smc->last_fan_sample_time = current_time;
+  smc->fan_sample_attempted = true;
+
+  size_t sample_count = 0;
+  for (size_t i = 0; i < smc->fan_key_count; ++i) {
+    uint8_t bytes[32];
+    float sample;
+    if (gpuinfo_apple_smc_read_key(smc, smc->fan_keys[i].key, &smc->fan_keys[i].info, bytes) &&
+        gpuinfo_apple_decode_smc_float(bytes, smc->fan_keys[i].info.data_size, &sample))
+      smc->fan_samples[sample_count++] = sample;
+  }
+
+  unsigned maximum_fan_rpm;
+  if (!gpuinfo_apple_max_fan_rpm(smc->fan_samples, sample_count, &maximum_fan_rpm)) {
+    smc->last_fan_rpm_valid = false;
+    return false;
+  }
+
+  smc->last_fan_rpm = maximum_fan_rpm;
+  smc->last_fan_rpm_valid = true;
+  *fan_rpm = maximum_fan_rpm;
   return true;
 }

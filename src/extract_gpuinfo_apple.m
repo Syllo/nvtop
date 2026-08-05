@@ -213,6 +213,10 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (gpuinfo_apple_smc_get_gpu_temperature(gpu_info->smc, &temperature))
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, temperature);
 
+  unsigned fan_rpm;
+  if (gpuinfo_apple_smc_get_fan_rpm(gpu_info->smc, &fan_rpm))
+    SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, fan_rpm);
+
   CFMutableDictionaryRef cf_props;
   if (IORegistryEntryCreateCFProperties(gpu_info->gpu_service, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
     return;

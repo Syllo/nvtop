@@ -29,5 +29,6 @@ struct gpuinfo_apple_smc;
 bool gpuinfo_apple_smc_init(struct gpuinfo_apple_smc **smc);
 void gpuinfo_apple_smc_shutdown(struct gpuinfo_apple_smc *smc);
 bool gpuinfo_apple_smc_get_gpu_temperature(struct gpuinfo_apple_smc *smc, unsigned *temperature);
+bool gpuinfo_apple_smc_get_fan_rpm(struct gpuinfo_apple_smc *smc, unsigned *fan_rpm);
 
 #endif // EXTRACT_GPUINFO_APPLE_SMC_H_

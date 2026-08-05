@@ -251,6 +251,33 @@ TEST(AppleTemperatureInfo, RejectsMissingValidGpuSensors) {
   EXPECT_FALSE(gpuinfo_apple_average_temperatures(invalid_temperatures, 1, NULL));
 }
 
+TEST(AppleFanInfo, SelectsHighestValidFanSpeed) {
+  const float fan_speeds[] = {1200.25f, 1350.75f, 0.0f, -1.0f, NAN, INFINITY};
+  unsigned fan_rpm;
+
+  ASSERT_TRUE(gpuinfo_apple_max_fan_rpm(fan_speeds, sizeof(fan_speeds) / sizeof(fan_speeds[0]), &fan_rpm));
+  EXPECT_EQ(fan_rpm, 1351u);
+}
+
+TEST(AppleFanInfo, AcceptsStoppedFans) {
+  const float fan_speeds[] = {0.0f, -1.0f, NAN};
+  unsigned fan_rpm;
+
+  ASSERT_TRUE(gpuinfo_apple_max_fan_rpm(fan_speeds, sizeof(fan_speeds) / sizeof(fan_speeds[0]), &fan_rpm));
+  EXPECT_EQ(fan_rpm, 0u);
+}
+
+TEST(AppleFanInfo, RejectsMissingValidFanSpeeds) {
+  const float invalid_fan_speeds[] = {-1.0f, 100001.0f, NAN, INFINITY};
+  unsigned fan_rpm;
+
+  EXPECT_FALSE(gpuinfo_apple_max_fan_rpm(
+      invalid_fan_speeds, sizeof(invalid_fan_speeds) / sizeof(invalid_fan_speeds[0]), &fan_rpm));
+  EXPECT_FALSE(gpuinfo_apple_max_fan_rpm(NULL, 1, &fan_rpm));
+  EXPECT_FALSE(gpuinfo_apple_max_fan_rpm(invalid_fan_speeds, 0, &fan_rpm));
+  EXPECT_FALSE(gpuinfo_apple_max_fan_rpm(invalid_fan_speeds, 1, NULL));
+}
+
 TEST(AppleProcessInfo, ParsesAndSumsAppUsage) {
   @autoreleasepool {
     NSDictionary *properties = @{
