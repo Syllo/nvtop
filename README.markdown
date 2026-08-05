@@ -133,6 +133,8 @@ NVTOP includes some initial support for Apple using Metal. This is only supporte
 
 **APPLE SUPPORT STATUS**
 - Apple support is still being worked on. Some bugs and limitations may apply.
+- On unified-memory systems, the memory meter compares global Metal resource allocations with total physical shared
+  memory. It does not represent dedicated VRAM or overall system memory pressure.
 
 ### Ascend
 

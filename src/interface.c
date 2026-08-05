@@ -781,13 +781,13 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       mvwprintw(dev->fan_speed, 0, 0, " FAN %3u%%  ",
                 device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
       mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
-    } else if (device->static_info.integrated_graphics) {
-      mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
-      mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm)) {
       mvwprintw(dev->fan_speed, 0, 0, "FAN %4uRPM",
                 device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
       mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+    } else if (device->static_info.integrated_graphics) {
+      mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
+      mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
     } else {
       mvwprintw(dev->fan_speed, 0, 0, "  FAN N/A  ");
       mvwchgat(dev->fan_speed, 0, 2, 3, 0, cyan_color, NULL);
@@ -821,7 +821,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
                 device->dynamic_info.power_draw_max / 1000);
     else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
              !GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
-      mvwprintw(dev->power_info, 0, 0, "POW %3u W", device->dynamic_info.power_draw / 1000);
+      mvwprintw(dev->power_info, 0, 0, "POW %5.1f W", device->dynamic_info.power_draw / 1000.0);
     else if (!GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
       mvwprintw(dev->power_info, 0, 0, "POW N/A / %3u W", device->dynamic_info.power_draw_max / 1000);
@@ -2211,7 +2211,8 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
 
     // Power draw
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw))
-      printf("%s\"%s\": \"%uW\",\n", indent_level_four, power_field, device->dynamic_info.power_draw / 1000);
+      printf("%s\"%s\": \"%.1fW\",\n", indent_level_four, power_field,
+             device->dynamic_info.power_draw / 1000.0);
     else
       printf("%s\"%s\": null,\n", indent_level_four, power_field);
 

@@ -18,20 +18,54 @@
  *
  */
 
-#include "nvtop/common.h"
 #include "nvtop/device_discovery.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/time.h"
+#include "extract_gpuinfo_apple_ioreport.h"
+#include "extract_gpuinfo_apple_smc.h"
+#include "extract_gpuinfo_apple_utils.h"
+#include "uthash.h"
 
-#include <assert.h>
 #include <Metal/Metal.h>
 #include <IOKit/IOKitLib.h>
 #include <QuartzCore/QuartzCore.h>
+#include <mach/mach.h>
+#include <stdlib.h>
+#include <string.h>
+
+#define HASH_FIND_CLIENT(head, key_ptr, out_ptr)                                                                    \
+  HASH_FIND(hh, head, key_ptr, sizeof(struct apple_process_cache_id), out_ptr)
+#define HASH_ADD_CLIENT(head, in_ptr)                                                                               \
+  HASH_ADD(hh, head, client_id, sizeof(struct apple_process_cache_id), in_ptr)
+
+#define SET_APPLE_CACHE(cachePtr, field, value) SET_VALUE(cachePtr, field, value, apple_cache_)
+#define APPLE_CACHE_FIELD_VALID(cachePtr, field) VALUE_IS_VALID(cachePtr, field, apple_cache_)
+
+enum apple_process_info_cache_valid {
+  apple_cache_gpu_time_valid = 0,
+  apple_cache_process_info_cache_valid_count
+};
+
+struct __attribute__((__packed__)) apple_process_cache_id {
+  uint64_t registry_entry_id;
+  pid_t pid;
+};
+
+struct apple_process_info_cache {
+  struct apple_process_cache_id client_id;
+  uint64_t gpu_time;
+  nvtop_time last_measurement_tstamp;
+  unsigned char valid[(apple_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
+  UT_hash_handle hh;
+};
 
 struct gpu_info_apple {
   struct gpu_info base;
   id<MTLDevice> device;
   io_service_t gpu_service;
+  struct gpuinfo_apple_ioreport *ioreport;
+  struct gpuinfo_apple_smc *smc;
+  struct apple_process_info_cache *last_update_process_cache, *current_update_process_cache;
 };
 
 static bool gpuinfo_apple_init(void);
@@ -64,9 +98,28 @@ static bool gpuinfo_apple_init(void) {
   return true;
 }
 
+static void gpuinfo_apple_free_process_cache(struct apple_process_info_cache **process_cache) {
+  struct apple_process_info_cache *cache_entry, *tmp;
+  HASH_ITER(hh, *process_cache, cache_entry, tmp) {
+    HASH_DEL(*process_cache, cache_entry);
+    free(cache_entry);
+  }
+  *process_cache = NULL;
+}
+
+static void gpuinfo_apple_swap_process_cache_for_next_update(struct gpu_info_apple *gpu_info) {
+  gpuinfo_apple_free_process_cache(&gpu_info->last_update_process_cache);
+  gpu_info->last_update_process_cache = gpu_info->current_update_process_cache;
+  gpu_info->current_update_process_cache = NULL;
+}
+
 static void gpuinfo_apple_shutdown(void) {
   for (unsigned i = 0; i < apple_gpu_count; ++i) {
     struct gpu_info_apple *gpu_info = &gpu_infos[i];
+    gpuinfo_apple_free_process_cache(&gpu_info->last_update_process_cache);
+    gpuinfo_apple_free_process_cache(&gpu_info->current_update_process_cache);
+    gpuinfo_apple_ioreport_shutdown(gpu_info->ioreport);
+    gpuinfo_apple_smc_shutdown(gpu_info->smc);
     [gpu_info->device release];
     IOObjectRelease(gpu_info->gpu_service);
   }
@@ -82,20 +135,40 @@ static const char *gpuinfo_apple_last_error_string(void) {
 }
 
 static bool gpuinfo_apple_get_device_handles(struct list_head *devices, unsigned *count) {
+  *count = 0;
   NSArray<id<MTLDevice>> *mtl_devices = MTLCopyAllDevices();
+  if (!mtl_devices)
+    return false;
 
   const unsigned mtl_count = [mtl_devices count];
-  gpu_infos = calloc(mtl_count, sizeof(*gpu_infos));
+  if (mtl_count) {
+    gpu_infos = calloc(mtl_count, sizeof(*gpu_infos));
+    if (!gpu_infos) {
+      [mtl_devices release];
+      return false;
+    }
+  }
+
   for (unsigned int i = 0; i < mtl_count; ++i) {
     id<MTLDevice> dev = mtl_devices[i];
     const uint64_t registry_id = [dev registryID];
-    const io_service_t gpu_service = IOServiceGetMatchingService(kIOMainPortDefault, IORegistryEntryIDMatching(registry_id));
-    assert(MACH_PORT_VALID(gpu_service));
+    CFMutableDictionaryRef matching_service = IORegistryEntryIDMatching(registry_id);
+    if (!matching_service)
+      continue;
 
-    gpu_infos[apple_gpu_count].base.vendor = &gpu_vendor_apple;
-    gpu_infos[apple_gpu_count].device = dev;
-    gpu_infos[i].gpu_service = gpu_service;
-    list_add_tail(&gpu_infos[apple_gpu_count].base.list, devices);
+    const io_service_t gpu_service = IOServiceGetMatchingService(kIOMainPortDefault, matching_service);
+    if (!MACH_PORT_VALID(gpu_service))
+      continue;
+
+    struct gpu_info_apple *gpu_info = &gpu_infos[apple_gpu_count];
+    gpu_info->base.vendor = &gpu_vendor_apple;
+    gpu_info->device = [dev retain];
+    gpu_info->gpu_service = gpu_service;
+    if ([dev hasUnifiedMemory] && [dev location] == MTLDeviceLocationBuiltIn) {
+      gpuinfo_apple_ioreport_init(&gpu_info->ioreport);
+      gpuinfo_apple_smc_init(&gpu_info->smc);
+    }
+    list_add_tail(&gpu_info->base.list, devices);
     ++apple_gpu_count;
   }
 
@@ -111,8 +184,11 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
   RESET_ALL(static_info->valid);
 
   const char *name = [[gpu_info->device name] UTF8String];
-  strncpy(static_info->device_name, name, sizeof(static_info->device_name));
-  SET_VALID(gpuinfo_device_name_valid, static_info->valid);
+  if (name) {
+    strncpy(static_info->device_name, name, sizeof(static_info->device_name) - 1);
+    static_info->device_name[sizeof(static_info->device_name) - 1] = '\0';
+    SET_VALID(gpuinfo_device_name_valid, static_info->valid);
+  }
 
   static_info->integrated_graphics = [gpu_info->device location] == MTLDeviceLocationBuiltIn;
   static_info->encode_decode_shared = true;
@@ -123,38 +199,53 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   RESET_ALL(dynamic_info->valid);
 
+  unsigned power_draw;
+  if (gpuinfo_apple_ioreport_get_power_draw(gpu_info->ioreport, &power_draw))
+    SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, power_draw);
+
+  unsigned clock_speed, max_clock_speed;
+  if (gpuinfo_apple_ioreport_get_gpu_clock_speed(gpu_info->ioreport, &clock_speed, &max_clock_speed)) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, clock_speed);
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, max_clock_speed);
+  }
+
+  unsigned temperature;
+  if (gpuinfo_apple_smc_get_gpu_temperature(gpu_info->smc, &temperature))
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, temperature);
+
+  unsigned fan_rpm;
+  if (gpuinfo_apple_smc_get_fan_rpm(gpu_info->smc, &fan_rpm))
+    SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, fan_rpm);
+
   CFMutableDictionaryRef cf_props;
   if (IORegistryEntryCreateCFProperties(gpu_info->gpu_service, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
     return;
   }
-  NSDictionary *props = (__bridge NSDictionary*) cf_props;
-  NSDictionary *performance_statistics = [props objectForKey:@"PerformanceStatistics"];
-  if (!performance_statistics) {
+  struct gpuinfo_apple_performance_sample sample;
+  const bool sample_valid = gpuinfo_apple_parse_performance_sample(cf_props, &sample);
+  CFRelease(cf_props);
+  if (!sample_valid)
     return;
-  }
 
-  id device_utilization_info = [performance_statistics objectForKey:@"Device Utilization %"];
-  if (device_utilization_info != nil) {
-    const uint64_t gpu_util_rate = [device_utilization_info integerValue];
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, gpu_util_rate);
-  }
+  if (sample.gpu_util_rate_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, sample.gpu_util_rate);
 
   if ([gpu_info->device hasUnifiedMemory]) {
     // [gpu_info->device currentAllocatedSize] returns the amount of memory allocated by this process, not
     // as allocated on the GPU globally. The performance statistics dictionary has the real value that we
     // are interested in, the amount of system memory allocated by the GPU.
-    id system_memory_info = [performance_statistics objectForKey:@"Alloc system memory"];
-    if (system_memory_info != nil) {
-      const uint64_t mem_used = [system_memory_info integerValue];
-      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mem_used);
-    }
+    if (sample.allocated_system_memory_valid)
+      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, sample.allocated_system_memory);
 
-    // Memory is unified, so query the amount of system memory instead.
+    // Unified-memory GPUs share the system's physical memory with the CPU. The Metal
+    // recommendedMaxWorkingSetSize is a performance budget, not the memory capacity.
     mach_msg_type_number_t host_size = HOST_BASIC_INFO_COUNT;
     host_basic_info_data_t info;
-    if (host_info(mach_host_self(), HOST_BASIC_INFO, (host_info_t) &info, &host_size) == KERN_SUCCESS) {
+    const mach_port_t host = mach_host_self();
+    const kern_return_t host_info_status = host_info(host, HOST_BASIC_INFO, (host_info_t)&info, &host_size);
+    mach_port_deallocate(mach_task_self(), host);
+    if (host_info_status == KERN_SUCCESS)
       SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, info.max_mem);
-    }
   } else {
     // TODO: Figure out how to get used memory for this case.
 
@@ -164,9 +255,9 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mem_total);
   }
 
-  CFRelease(props);
-
-  if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) && GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory)) {
+  if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) &&
+      GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory) && dynamic_info->total_memory &&
+      dynamic_info->used_memory <= dynamic_info->total_memory) {
     SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, dynamic_info->total_memory - dynamic_info->used_memory);
     SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
                         (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
@@ -174,35 +265,10 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 }
 
-static bool gpuinfo_apple_get_process_info(struct gpu_process* process, io_object_t user_client) {
-  RESET_ALL(process->valid);
-  process->type = gpu_process_graphical_compute;
-
-  CFMutableDictionaryRef cf_props;
-  if (IORegistryEntryCreateCFProperties(user_client, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
-    return false;
-  }
-  NSDictionary* user_client_info = (__bridge NSDictionary*) cf_props;
-
-  id client_creator_info = [user_client_info objectForKey:@"IOUserClientCreator"];
-  if (client_creator_info == nil) {
-    return false;
-  }
-
-  const char* client_creator = [client_creator_info UTF8String];
-  // Client creator is in form: pid <pid>, <name>
-  if (sscanf(client_creator, "pid %u,", &process->pid) < 1) {
-    return false;
-  }
-
-  CFRelease(cf_props);
-
-  return true;
-}
-
 static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
   struct gpu_info_apple *gpu_info = container_of(_gpu_info, struct gpu_info_apple, base);
   _gpu_info->processes_count = 0;
+  gpuinfo_apple_swap_process_cache_for_next_update(gpu_info);
 
   // We can find out which processes are running on a particular GPU using the IO Registry. The
   // IOService associated to the MTLDevice has "AGXDeviceUserClient" child nodes, which hold some
@@ -213,30 +279,55 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
     return;
   }
 
-  unsigned int count = 0;
+  nvtop_time current_time;
+  nvtop_get_current_time(&current_time);
   for (io_object_t child = IOIteratorNext(iterator); child; child = IOIteratorNext(iterator)) {
     io_name_t class_name;
-    if (IOObjectGetClass(child, class_name) != kIOReturnSuccess) {
-      continue;
-    } else if (strncmp(class_name, "AGXDeviceUserClient", sizeof(class_name)) != 0) {
-      continue;
-    }
+    if (IOObjectGetClass(child, class_name) == kIOReturnSuccess &&
+        strncmp(class_name, "AGXDeviceUserClient", sizeof(class_name)) == 0) {
+      CFMutableDictionaryRef cf_props;
+      if (IORegistryEntryCreateCFProperties(child, &cf_props, kCFAllocatorDefault, kNilOptions) == kIOReturnSuccess) {
+        struct gpuinfo_apple_process_sample sample = {0};
+        if (gpuinfo_apple_parse_process_sample(cf_props, &sample)) {
+          bool gpu_usage_valid = false;
+          unsigned gpu_usage = 0;
+          uint64_t registry_entry_id = 0;
+          if (IORegistryEntryGetRegistryEntryID(child, &registry_entry_id) == kIOReturnSuccess) {
+            const struct apple_process_cache_id client_id = {.registry_entry_id = registry_entry_id,
+                                                              .pid = sample.pid};
+            struct apple_process_info_cache *cache_entry;
+            HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &client_id, cache_entry);
+            if (cache_entry) {
+              HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
+              if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time)) {
+                const uint64_t time_elapsed =
+                    nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
+                gpu_usage_valid = gpuinfo_apple_calculate_gpu_usage(cache_entry->gpu_time, sample.gpu_time,
+                                                                    time_elapsed, &gpu_usage);
+              }
+            } else {
+              cache_entry = calloc(1, sizeof(*cache_entry));
+              if (cache_entry)
+                cache_entry->client_id = client_id;
+            }
 
-    if (_gpu_info->processes_array_size < count + 1) {
-      _gpu_info->processes_array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
-      _gpu_info->processes = reallocarray(_gpu_info->processes, _gpu_info->processes_array_size, sizeof(*_gpu_info->processes));
-      if (!_gpu_info->processes) {
-        perror("Could not allocate memory: ");
-        exit(EXIT_FAILURE);
+            if (cache_entry) {
+              RESET_ALL(cache_entry->valid);
+              if (sample.gpu_time_valid)
+                SET_APPLE_CACHE(cache_entry, gpu_time, sample.gpu_time);
+              cache_entry->last_measurement_tstamp = current_time;
+              HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
+            }
+          }
+
+          gpuinfo_apple_add_process(_gpu_info, sample.pid, gpu_usage_valid, gpu_usage);
+        }
+        CFRelease(cf_props);
       }
-    }
-
-    if (gpuinfo_apple_get_process_info(&_gpu_info->processes[count], child)) {
-      ++count;
     }
 
     IOObjectRelease(child);
   }
 
-  _gpu_info->processes_count = count;
+  IOObjectRelease(iterator);
 }

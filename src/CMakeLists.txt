@@ -46,6 +46,7 @@ if(UNIX AND NOT APPLE)
 elseif(APPLE)
   target_sources(nvtop PRIVATE
     get_process_info_mac.c
+    get_process_info_mac_utils.c
     extract_processinfo_mac.c
     info_messages_mac.c)
 endif()
@@ -113,10 +114,15 @@ if(V3D_SUPPORT)
 endif()
 
 if(APPLE_SUPPORT)
-  target_sources(nvtop PRIVATE extract_gpuinfo_apple.m)
+  target_sources(nvtop PRIVATE
+    extract_gpuinfo_apple.m
+    extract_gpuinfo_apple_ioreport.c
+    extract_gpuinfo_apple_smc.c
+    extract_gpuinfo_apple_utils.m)
   target_link_libraries(nvtop PRIVATE
     "-framework Metal"
     "-framework AppKit"
+    "-framework CoreFoundation"
     "-framework Foundation"
     "-framework QuartzCore"
     "-framework IOKit")

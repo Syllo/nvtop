@@ -1,4 +1,4 @@
-name: Compile Ubuntu
+name: Compile
 
 on:
   - push
@@ -38,3 +38,24 @@ jobs:
       with:
         name: nvtop ${{ matrix.os }}
         path: ${{ env.BUILD_DIR }}/install
+
+  build-macos:
+    runs-on: macos-latest
+
+    env:
+      BUILD_DIR: build
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: brew install googletest
+
+    - name: Configure CMake
+      run: cmake -S . -B $BUILD_DIR -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTING=ON -DCMAKE_PREFIX_PATH="$(brew --prefix googletest)"
+
+    - name: Build
+      run: cmake --build $BUILD_DIR --parallel
+
+    - name: Test
+      run: ctest --test-dir $BUILD_DIR --output-on-failure --no-tests=error

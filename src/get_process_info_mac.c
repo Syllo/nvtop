@@ -21,6 +21,8 @@
 
 #include "nvtop/get_process_info.h"
 
+#include "get_process_info_mac_utils.h"
+
 #include <libproc.h>
 #include <sys/sysctl.h>
 #include <pwd.h>
@@ -28,6 +30,33 @@
 
 #include <string.h>
 #include <stdio.h>
+
+static bool processinfo_mac_is_translated(void) {
+#ifdef __x86_64__
+  int translated = 0;
+  size_t size = sizeof(translated);
+  if (sysctlbyname("sysctl.proc_translated", &translated, &size, NULL, 0) == 0)
+    return translated == 1;
+#endif
+  return false;
+}
+
+static double processinfo_mac_cpu_time_to_seconds(uint64_t mach_ticks) {
+  static mach_timebase_info_data_t timebase;
+  static bool translated;
+  static bool initialized;
+
+  if (!initialized) {
+    if (mach_timebase_info(&timebase) != KERN_SUCCESS) {
+      timebase.numer = 1;
+      timebase.denom = 1;
+    }
+    translated = processinfo_mac_is_translated();
+    initialized = true;
+  }
+
+  return processinfo_mac_time_to_seconds(mach_ticks, translated, timebase.numer, timebase.denom);
+}
 
 void get_username_from_pid(pid_t pid, char **buffer) {
   struct proc_bsdshortinfo proc;
@@ -123,14 +152,8 @@ bool get_process_info(pid_t pid, struct process_cpu_usage *usage) {
 
   nvtop_get_current_time(&usage->timestamp);
 
-  // TODO: Should we implement this workaround?
-  // https://github.com/htop-dev/htop/blob/main/darwin/PlatformHelpers.c#L98
-  mach_timebase_info_data_t info;
-  mach_timebase_info(&info);
-  const double nanoseconds_per_tick = (double)info.numer / (double)info.denom;
-
-  usage->total_user_time = (proc.pti_total_user * nanoseconds_per_tick) / 1000000000.0;
-  usage->total_kernel_time = (proc.pti_total_system * nanoseconds_per_tick) / 1000000000.0;
+  usage->total_user_time = processinfo_mac_cpu_time_to_seconds(proc.pti_total_user);
+  usage->total_kernel_time = processinfo_mac_cpu_time_to_seconds(proc.pti_total_system);
   usage->virtual_memory = proc.pti_virtual_size;
   usage->resident_memory = proc.pti_resident_size;
   return true;

@@ -1,0 +1,398 @@
+/*
+ *
+ * Copyright (C) 2026 NVTOP contributors
+ *
+ * This file is part of Nvtop.
+ *
+ * Nvtop is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Nvtop is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with nvtop.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ */
+
+#include "extract_gpuinfo_apple_utils.h"
+#include "get_process_info_mac_utils.h"
+
+#include <Foundation/Foundation.h>
+#include <gtest/gtest.h>
+#include <limits.h>
+#include <math.h>
+#include <stdlib.h>
+
+TEST(AppleProcessCpuInfo, ConvertsNativeMachTicksToSeconds) {
+  EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(1000000000, false, 1, 1), 1.0);
+  EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(24000000, false, 125, 3), 1.0);
+}
+
+TEST(AppleProcessCpuInfo, UsesNativeTimebaseUnderRosetta) {
+  EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(24000000, true, 1, 1), 1.0);
+}
+
+TEST(AppleDynamicInfo, ParsesPerformanceStatistics) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"PerformanceStatistics" : @{
+        @"Device Utilization %" : @42,
+        @"Alloc system memory" : @123456,
+      },
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_TRUE(sample.gpu_util_rate_valid);
+    EXPECT_EQ(sample.gpu_util_rate, 42u);
+    EXPECT_TRUE(sample.allocated_system_memory_valid);
+    EXPECT_EQ(sample.allocated_system_memory, 123456u);
+  }
+}
+
+TEST(AppleDynamicInfo, DoesNotSubstituteInUseMemoryCounters) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"PerformanceStatistics" : @{
+        @"In use system memory" : @654321,
+        @"In use system memory (driver)" : @111111,
+      },
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_FALSE(sample.allocated_system_memory_valid);
+  }
+}
+
+TEST(AppleDynamicInfo, RejectsMissingOrMalformedStatistics) {
+  @autoreleasepool {
+    NSArray *invalid_properties = @[
+      @{},
+      @{@"PerformanceStatistics" : @42},
+    ];
+    struct gpuinfo_apple_performance_sample sample;
+
+    for (NSDictionary *properties in invalid_properties)
+      EXPECT_FALSE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)properties, &sample));
+  }
+}
+
+TEST(AppleDynamicInfo, IgnoresMalformedValuesAndCapsUtilization) {
+  @autoreleasepool {
+    NSDictionary *malformed_values = @{
+      @"PerformanceStatistics" : @{
+        @"Device Utilization %" : @"not a number",
+        @"Alloc system memory" : @(-1),
+      },
+    };
+    NSDictionary *excessive_utilization = @{
+      @"PerformanceStatistics" : @{@"Device Utilization %" : @125},
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)malformed_values, &sample));
+    EXPECT_FALSE(sample.gpu_util_rate_valid);
+    EXPECT_FALSE(sample.allocated_system_memory_valid);
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)excessive_utilization, &sample));
+    EXPECT_TRUE(sample.gpu_util_rate_valid);
+    EXPECT_EQ(sample.gpu_util_rate, 100u);
+  }
+}
+
+TEST(ApplePowerInfo, ConvertsEnergyUnitsToNanojoules) {
+  uint64_t energy;
+
+  ASSERT_TRUE(gpuinfo_apple_energy_to_nanojoules(42, "nJ", &energy));
+  EXPECT_EQ(energy, 42u);
+  ASSERT_TRUE(gpuinfo_apple_energy_to_nanojoules(42, "uJ", &energy));
+  EXPECT_EQ(energy, 42000u);
+  ASSERT_TRUE(gpuinfo_apple_energy_to_nanojoules(42, "mJ", &energy));
+  EXPECT_EQ(energy, 42000000u);
+  ASSERT_TRUE(gpuinfo_apple_energy_to_nanojoules(42, "J", &energy));
+  EXPECT_EQ(energy, 42000000000u);
+}
+
+TEST(ApplePowerInfo, RejectsInvalidEnergyValues) {
+  uint64_t energy;
+
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(-1, "nJ", &energy));
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(1, "watts", &energy));
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(INT64_MAX, "J", &energy));
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(1, NULL, &energy));
+  EXPECT_FALSE(gpuinfo_apple_energy_to_nanojoules(1, "nJ", NULL));
+}
+
+TEST(ApplePowerInfo, CalculatesPowerDrawFromEnergyDelta) {
+  unsigned power_draw;
+
+  ASSERT_TRUE(gpuinfo_apple_calculate_power_draw(5000000, 1000000000, &power_draw));
+  EXPECT_EQ(power_draw, 5u);
+  ASSERT_TRUE(gpuinfo_apple_calculate_power_draw(1500000, 1000000000, &power_draw));
+  EXPECT_EQ(power_draw, 2u);
+  ASSERT_TRUE(gpuinfo_apple_calculate_power_draw(0, 1000000000, &power_draw));
+  EXPECT_EQ(power_draw, 0u);
+}
+
+TEST(ApplePowerInfo, RejectsInvalidPowerSamples) {
+  unsigned power_draw;
+
+  EXPECT_FALSE(gpuinfo_apple_calculate_power_draw(1, 0, &power_draw));
+  EXPECT_FALSE(gpuinfo_apple_calculate_power_draw(UINT64_MAX, 1, &power_draw));
+  EXPECT_FALSE(gpuinfo_apple_calculate_power_draw(1, 1, NULL));
+}
+
+TEST(AppleClockInfo, ParsesGpuFrequencyStates) {
+  const uint8_t voltage_states[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0x00, 0x65, 0xcd, 0x1d, 0xbc, 0x02, 0x00, 0x00,
+      0x00, 0xca, 0x9a, 0x3b, 0x84, 0x03, 0x00, 0x00,
+      0x00, 0x2f, 0x68, 0x59, 0x4c, 0x04, 0x00, 0x00,
+  };
+  unsigned frequencies[4];
+  size_t frequency_count;
+
+  ASSERT_TRUE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states), frequencies, 4, &frequency_count));
+  ASSERT_EQ(frequency_count, 4u);
+  EXPECT_EQ(frequencies[0], 0u);
+  EXPECT_EQ(frequencies[1], 500u);
+  EXPECT_EQ(frequencies[2], 1000u);
+  EXPECT_EQ(frequencies[3], 1500u);
+}
+
+TEST(AppleClockInfo, RejectsMalformedGpuFrequencyStates) {
+  const uint8_t voltage_states[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0x00, 0x65, 0xcd, 0x1d, 0xbc, 0x02, 0x00, 0x00,
+  };
+  unsigned frequencies[2];
+  size_t frequency_count;
+
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states) - 1, frequencies, 2, &frequency_count));
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states), frequencies, 1, &frequency_count));
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states), frequencies, 2, NULL));
+}
+
+TEST(AppleClockInfo, CalculatesActiveResidencyWeightedClockSpeed) {
+  const unsigned frequencies[] = {0, 500, 1000, 1500};
+  const uint64_t residencies[] = {1000, 100, 300, 600};
+  unsigned clock_speed;
+
+  ASSERT_TRUE(gpuinfo_apple_calculate_gpu_clock_speed(
+      residencies, frequencies, 4, &clock_speed));
+  EXPECT_EQ(clock_speed, 1250u);
+}
+
+TEST(AppleClockInfo, ReportsZeroWhenGpuRemainsOff) {
+  const unsigned frequencies[] = {0, 500, 1000};
+  const uint64_t residencies[] = {1000, 0, 0};
+  unsigned clock_speed;
+
+  ASSERT_TRUE(gpuinfo_apple_calculate_gpu_clock_speed(
+      residencies, frequencies, 3, &clock_speed));
+  EXPECT_EQ(clock_speed, 0u);
+}
+
+TEST(AppleClockInfo, RejectsInvalidResidencyTables) {
+  const unsigned frequencies[] = {0, 500};
+  const uint64_t residencies[] = {1000, 100};
+  unsigned clock_speed;
+
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(NULL, frequencies, 2, &clock_speed));
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, NULL, 2, &clock_speed));
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, frequencies, 1, &clock_speed));
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, frequencies, 2, NULL));
+}
+
+TEST(AppleTemperatureInfo, DecodesSmcFloat) {
+  const uint8_t encoded_temperature[] = {0x00, 0x00, 0x43, 0x42};
+  float temperature;
+
+  ASSERT_TRUE(gpuinfo_apple_decode_smc_float(encoded_temperature, sizeof(encoded_temperature), &temperature));
+  EXPECT_FLOAT_EQ(temperature, 48.75f);
+}
+
+TEST(AppleTemperatureInfo, RejectsMalformedSmcFloat) {
+  const uint8_t encoded_temperature[] = {0x00, 0x00, 0x43, 0x42};
+  float temperature;
+
+  EXPECT_FALSE(gpuinfo_apple_decode_smc_float(NULL, sizeof(encoded_temperature), &temperature));
+  EXPECT_FALSE(gpuinfo_apple_decode_smc_float(encoded_temperature, sizeof(encoded_temperature) - 1, &temperature));
+  EXPECT_FALSE(gpuinfo_apple_decode_smc_float(encoded_temperature, sizeof(encoded_temperature), NULL));
+}
+
+TEST(AppleTemperatureInfo, AveragesValidGpuSensors) {
+  const float temperatures[] = {46.25f, 47.25f, 0.0f, -1.0f, 151.0f, NAN, INFINITY};
+  unsigned average_temperature;
+
+  ASSERT_TRUE(gpuinfo_apple_average_temperatures(
+      temperatures, sizeof(temperatures) / sizeof(temperatures[0]), &average_temperature));
+  EXPECT_EQ(average_temperature, 47u);
+}
+
+TEST(AppleTemperatureInfo, RejectsMissingValidGpuSensors) {
+  const float invalid_temperatures[] = {0.0f, -1.0f, 151.0f, NAN, INFINITY};
+  unsigned average_temperature;
+
+  EXPECT_FALSE(gpuinfo_apple_average_temperatures(
+      invalid_temperatures, sizeof(invalid_temperatures) / sizeof(invalid_temperatures[0]), &average_temperature));
+  EXPECT_FALSE(gpuinfo_apple_average_temperatures(NULL, 1, &average_temperature));
+  EXPECT_FALSE(gpuinfo_apple_average_temperatures(invalid_temperatures, 0, &average_temperature));
+  EXPECT_FALSE(gpuinfo_apple_average_temperatures(invalid_temperatures, 1, NULL));
+}
+
+TEST(AppleFanInfo, SelectsHighestValidFanSpeed) {
+  const float fan_speeds[] = {1200.25f, 1350.75f, 0.0f, -1.0f, NAN, INFINITY};
+  unsigned fan_rpm;
+
+  ASSERT_TRUE(gpuinfo_apple_max_fan_rpm(fan_speeds, sizeof(fan_speeds) / sizeof(fan_speeds[0]), &fan_rpm));
+  EXPECT_EQ(fan_rpm, 1351u);
+}
+
+TEST(AppleFanInfo, AcceptsStoppedFans) {
+  const float fan_speeds[] = {0.0f, -1.0f, NAN};
+  unsigned fan_rpm;
+
+  ASSERT_TRUE(gpuinfo_apple_max_fan_rpm(fan_speeds, sizeof(fan_speeds) / sizeof(fan_speeds[0]), &fan_rpm));
+  EXPECT_EQ(fan_rpm, 0u);
+}
+
+TEST(AppleFanInfo, RejectsMissingValidFanSpeeds) {
+  const float invalid_fan_speeds[] = {-1.0f, 100001.0f, NAN, INFINITY};
+  unsigned fan_rpm;
+
+  EXPECT_FALSE(gpuinfo_apple_max_fan_rpm(
+      invalid_fan_speeds, sizeof(invalid_fan_speeds) / sizeof(invalid_fan_speeds[0]), &fan_rpm));
+  EXPECT_FALSE(gpuinfo_apple_max_fan_rpm(NULL, 1, &fan_rpm));
+  EXPECT_FALSE(gpuinfo_apple_max_fan_rpm(invalid_fan_speeds, 0, &fan_rpm));
+  EXPECT_FALSE(gpuinfo_apple_max_fan_rpm(invalid_fan_speeds, 1, NULL));
+}
+
+TEST(AppleProcessInfo, ParsesAndSumsAppUsage) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"IOUserClientCreator" : @"pid 42, test",
+      @"AppUsage" : @[
+        @{@"API" : @"Metal", @"accumulatedGPUTime" : @125},
+        @{@"API" : @"GL/CL", @"accumulatedGPUTime" : @75},
+        @{@"API" : @"Metal", @"accumulatedGPUTime" : @0},
+      ],
+    };
+    struct gpuinfo_apple_process_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_EQ(sample.pid, 42);
+    EXPECT_TRUE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time, 200u);
+  }
+}
+
+TEST(AppleProcessInfo, PreservesPidWhenAppUsageIsUnavailable) {
+  @autoreleasepool {
+    NSDictionary *missing_usage = @{@"IOUserClientCreator" : @"pid 7, test"};
+    NSDictionary *empty_usage = @{@"IOUserClientCreator" : @"pid 8, test", @"AppUsage" : @[]};
+    struct gpuinfo_apple_process_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)missing_usage, &sample));
+    EXPECT_EQ(sample.pid, 7);
+    EXPECT_FALSE(sample.gpu_time_valid);
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)empty_usage, &sample));
+    EXPECT_EQ(sample.pid, 8);
+    EXPECT_FALSE(sample.gpu_time_valid);
+  }
+}
+
+TEST(AppleProcessInfo, IgnoresMalformedAppUsageEntries) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"IOUserClientCreator" : @"pid 42, test",
+      @"AppUsage" : @[
+        @"not a dictionary",
+        @{@"accumulatedGPUTime" : @"not a number"},
+        @{@"accumulatedGPUTime" : @(-1)},
+        @{@"accumulatedGPUTime" : @25},
+      ],
+    };
+    struct gpuinfo_apple_process_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_TRUE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time, 25u);
+  }
+}
+
+TEST(AppleProcessInfo, RejectsMalformedCreator) {
+  @autoreleasepool {
+    NSArray *invalid_properties = @[
+      @{},
+      @{@"IOUserClientCreator" : @42},
+      @{@"IOUserClientCreator" : @"test"},
+      @{@"IOUserClientCreator" : @"pid -1, test"},
+    ];
+    struct gpuinfo_apple_process_sample sample;
+
+    for (NSDictionary *properties in invalid_properties)
+      EXPECT_FALSE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+  }
+}
+
+TEST(AppleProcessInfo, CalculatesGpuUsageFromCounterDelta) {
+  unsigned gpu_usage;
+
+  ASSERT_TRUE(gpuinfo_apple_calculate_gpu_usage(100, 350, 1000, &gpu_usage));
+  EXPECT_EQ(gpu_usage, 25u);
+
+  ASSERT_TRUE(gpuinfo_apple_calculate_gpu_usage(350, 350, 1000, &gpu_usage));
+  EXPECT_EQ(gpu_usage, 0u);
+
+  ASSERT_TRUE(gpuinfo_apple_calculate_gpu_usage(100, 1200, 1000, &gpu_usage));
+  EXPECT_EQ(gpu_usage, 100u);
+}
+
+TEST(AppleProcessInfo, RejectsInvalidCounterDeltas) {
+  unsigned gpu_usage;
+
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_usage(350, 100, 1000, &gpu_usage));
+  EXPECT_FALSE(gpuinfo_apple_calculate_gpu_usage(100, 350, 0, &gpu_usage));
+}
+
+TEST(AppleProcessInfo, AggregatesClientsByPid) {
+  struct gpu_info gpu_info = {};
+
+  gpuinfo_apple_add_process(&gpu_info, 42, true, 25);
+  gpuinfo_apple_add_process(&gpu_info, 42, true, 35);
+  gpuinfo_apple_add_process(&gpu_info, 7, false, 0);
+
+  ASSERT_EQ(gpu_info.processes_count, 2u);
+  EXPECT_EQ(gpu_info.processes[0].pid, 42);
+  EXPECT_EQ(gpu_info.processes[0].type, gpu_process_graphical_compute);
+  EXPECT_TRUE(GPUINFO_PROCESS_FIELD_VALID(&gpu_info.processes[0], gpu_usage));
+  EXPECT_EQ(gpu_info.processes[0].gpu_usage, 60u);
+  EXPECT_EQ(gpu_info.processes[1].pid, 7);
+  EXPECT_FALSE(GPUINFO_PROCESS_FIELD_VALID(&gpu_info.processes[1], gpu_usage));
+
+  free(gpu_info.processes);
+}
+
+TEST(AppleProcessInfo, CapsAggregatedUsageAtOneHundredPercent) {
+  struct gpu_info gpu_info = {};
+
+  gpuinfo_apple_add_process(&gpu_info, 42, true, 75);
+  gpuinfo_apple_add_process(&gpu_info, 42, true, 50);
+
+  ASSERT_EQ(gpu_info.processes_count, 1u);
+  EXPECT_EQ(gpu_info.processes[0].gpu_usage, 100u);
+
+  free(gpu_info.processes);
+}
