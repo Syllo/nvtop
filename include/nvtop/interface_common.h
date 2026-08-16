@@ -51,6 +51,16 @@ enum process_field {
   process_cpu_mem_usage,
   process_command,
   process_field_count,
+  // Sentinel used to represent "no sorting field" (e.g. no secondary sort key)
+  process_none = process_field_count,
+};
+
+// Filter applied to the displayed process list based on their workload type
+enum process_type_filter {
+  process_type_filter_all = 0,       // Show every process
+  process_type_filter_compute_only,  // Show compute (and compute+graphical) processes only
+  process_type_filter_graphical_only,// Show graphical (and compute+graphical) processes only
+  process_type_filter_count,
 };
 
 typedef int process_field_displayed;
