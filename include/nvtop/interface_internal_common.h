@@ -88,6 +88,7 @@ struct option_window {
   WINDOW *option_win;
   bool last_key_was_number;
   unsigned int input_number;
+  bool sort_by_secondary_active; // F6 sort window: editing the secondary sort key
 };
 
 struct process_window {

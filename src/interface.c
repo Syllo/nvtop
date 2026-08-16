@@ -947,224 +947,95 @@ static all_processes all_processes_array(struct list_head *devices) {
   return merged_devices_processes;
 }
 
-static int compare_pid_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  return p1->process->pid >= p2->process->pid ? -1 : 1;
-}
-
-static int compare_pid_asc(const void *pp1, const void *pp2) { return compare_pid_desc(pp2, pp1); }
-
-static int compare_username_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, user_name) && GPUINFO_PROCESS_FIELD_VALID(p2->process, user_name))
-    return -strcmp(p1->process->user_name, p2->process->user_name);
-  else
+// Lexicographic comparison helpers used for multi-field sorting (#473).
+// Each returns <0, 0, >0 so multiple sort keys can be chained together.
+static int compare_process_field(const struct gpuid_and_process *p1, const struct gpuid_and_process *p2,
+                                 enum process_field field) {
+  switch (field) {
+  case process_pid:
+    return (p1->process->pid > p2->process->pid) - (p1->process->pid < p2->process->pid);
+  case process_user:
+    if (GPUINFO_PROCESS_FIELD_VALID(p1->process, user_name) && GPUINFO_PROCESS_FIELD_VALID(p2->process, user_name))
+      return strcmp(p1->process->user_name, p2->process->user_name);
     return 0;
-}
-
-static int compare_username_asc(const void *pp1, const void *pp2) { return compare_username_desc(pp2, pp1); }
-
-static int compare_process_name_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, cmdline) && GPUINFO_PROCESS_FIELD_VALID(p2->process, cmdline))
-    return -strcmp(p1->process->cmdline, p2->process->cmdline);
-  else
+  case process_gpu_id:
+    return (p1->gpu_id > p2->gpu_id) - (p1->gpu_id < p2->gpu_id);
+  case process_type:
+    // Graphical processes are shown before compute ones.
+    return (int)(p1->process->type > p2->process->type) - (int)(p1->process->type < p2->process->type);
+  case process_gpu_rate: {
+    unsigned v1 = GPUINFO_PROCESS_FIELD_VALID(p1->process, gpu_usage) ? p1->process->gpu_usage : 0;
+    unsigned v2 = GPUINFO_PROCESS_FIELD_VALID(p2->process, gpu_usage) ? p2->process->gpu_usage : 0;
+    return (v1 > v2) - (v1 < v2);
+  }
+  case process_enc_rate: {
+    unsigned v1 = GPUINFO_PROCESS_FIELD_VALID(p1->process, encode_usage) ? p1->process->encode_usage : 0;
+    unsigned v2 = GPUINFO_PROCESS_FIELD_VALID(p2->process, encode_usage) ? p2->process->encode_usage : 0;
+    return (v1 > v2) - (v1 < v2);
+  }
+  case process_dec_rate: {
+    unsigned v1 = GPUINFO_PROCESS_FIELD_VALID(p1->process, decode_usage) ? p1->process->decode_usage : 0;
+    unsigned v2 = GPUINFO_PROCESS_FIELD_VALID(p2->process, decode_usage) ? p2->process->decode_usage : 0;
+    return (v1 > v2) - (v1 < v2);
+  }
+  case process_memory: {
+    unsigned long long v1 =
+        GPUINFO_PROCESS_FIELD_VALID(p1->process, gpu_memory_usage) ? p1->process->gpu_memory_usage : 0;
+    unsigned long long v2 =
+        GPUINFO_PROCESS_FIELD_VALID(p2->process, gpu_memory_usage) ? p2->process->gpu_memory_usage : 0;
+    return (v1 > v2) - (v1 < v2);
+  }
+  case process_cpu_usage: {
+    unsigned v1 = GPUINFO_PROCESS_FIELD_VALID(p1->process, cpu_usage) ? p1->process->cpu_usage : 0;
+    unsigned v2 = GPUINFO_PROCESS_FIELD_VALID(p2->process, cpu_usage) ? p2->process->cpu_usage : 0;
+    return (v1 > v2) - (v1 < v2);
+  }
+  case process_cpu_mem_usage: {
+    unsigned long long v1 = GPUINFO_PROCESS_FIELD_VALID(p1->process, cpu_memory_res) ? p1->process->cpu_memory_res : 0;
+    unsigned long long v2 = GPUINFO_PROCESS_FIELD_VALID(p2->process, cpu_memory_res) ? p2->process->cpu_memory_res : 0;
+    return (v1 > v2) - (v1 < v2);
+  }
+  case process_command:
+    if (GPUINFO_PROCESS_FIELD_VALID(p1->process, cmdline) && GPUINFO_PROCESS_FIELD_VALID(p2->process, cmdline))
+      return strcmp(p1->process->cmdline, p2->process->cmdline);
     return 0;
-}
-
-static int compare_process_name_asc(const void *pp1, const void *pp2) { return compare_process_name_desc(pp2, pp1); }
-
-static int compare_mem_usage_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, gpu_memory_usage) &&
-      GPUINFO_PROCESS_FIELD_VALID(p2->process, gpu_memory_usage))
-    return p1->process->gpu_memory_usage >= p2->process->gpu_memory_usage ? -1 : 1;
-  else
+  case process_none:
+  default:
     return 0;
-}
-
-static int compare_mem_usage_asc(const void *pp1, const void *pp2) { return compare_mem_usage_desc(pp2, pp1); }
-
-static int compare_cpu_usage_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, cpu_usage) && GPUINFO_PROCESS_FIELD_VALID(p2->process, cpu_usage))
-    return p1->process->cpu_usage >= p2->process->cpu_usage ? -1 : 1;
-  else
-    return 0;
-}
-
-static int compare_cpu_usage_asc(const void *pp1, const void *pp2) { return compare_cpu_usage_desc(pp2, pp1); }
-
-static int compare_cpu_mem_usage_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, cpu_memory_res) &&
-      GPUINFO_PROCESS_FIELD_VALID(p2->process, cpu_memory_res))
-    return p1->process->cpu_memory_res >= p2->process->cpu_memory_res ? -1 : 1;
-  else
-    return 0;
-}
-
-static int compare_cpu_mem_usage_asc(const void *pp1, const void *pp2) { return compare_cpu_mem_usage_desc(pp2, pp1); }
-
-static int compare_gpu_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  return p1->gpu_id >= p2->gpu_id ? -1 : 1;
-}
-
-static int compare_gpu_asc(const void *pp1, const void *pp2) { return -compare_gpu_desc(pp1, pp2); }
-
-static int compare_process_type_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  return (p1->process->type == gpu_process_graphical) != (p2->process->type == gpu_process_graphical);
-}
-
-static int compare_process_type_asc(const void *pp1, const void *pp2) { return -compare_process_name_desc(pp1, pp2); }
-
-static int compare_process_gpu_rate_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, gpu_usage) && GPUINFO_PROCESS_FIELD_VALID(p2->process, gpu_usage)) {
-    return p1->process->gpu_usage > p2->process->gpu_usage ? -1 : 1;
-  } else {
-    if (GPUINFO_PROCESS_FIELD_VALID(p1->process, gpu_usage)) {
-      return p1->process->gpu_usage > 0 ? -1 : 0;
-    } else if (GPUINFO_PROCESS_FIELD_VALID(p2->process, gpu_usage)) {
-      return p2->process->gpu_usage > 0 ? 1 : 0;
-    } else {
-      return 0;
-    }
   }
 }
 
-static int compare_process_gpu_rate_asc(const void *pp1, const void *pp2) {
-  return -compare_process_gpu_rate_desc(pp1, pp2);
-}
+#define MAX_SORT_FIELDS 2
+// Sort context, set right before qsort() since qsort's comparator has no user data.
+static enum process_field sort_context_fields[MAX_SORT_FIELDS];
+static unsigned sort_context_field_count;
+static bool sort_context_ascending;
 
-static int compare_process_enc_rate_desc(const void *pp1, const void *pp2) {
+static int compare_process_multi(const void *pp1, const void *pp2) {
   const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
   const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, encode_usage) &&
-      GPUINFO_PROCESS_FIELD_VALID(p2->process, encode_usage)) {
-    return p1->process->encode_usage >= p2->process->encode_usage ? -1 : 1;
-  } else {
-    if (GPUINFO_PROCESS_FIELD_VALID(p1->process, encode_usage)) {
-      return p1->process->encode_usage > 0 ? -1 : 0;
-    } else if (GPUINFO_PROCESS_FIELD_VALID(p2->process, encode_usage)) {
-      return p2->process->encode_usage > 0 ? 1 : 0;
-    } else {
-      return 0;
-    }
+  for (unsigned i = 0; i < sort_context_field_count; ++i) {
+    int cmp = compare_process_field(p1, p2, sort_context_fields[i]);
+    if (cmp != 0)
+      return sort_context_ascending ? cmp : -cmp;
   }
+  return 0;
 }
 
-static int compare_process_enc_rate_asc(const void *pp1, const void *pp2) {
-  return -compare_process_enc_rate_desc(pp1, pp2);
-}
-
-static int compare_process_dec_rate_desc(const void *pp1, const void *pp2) {
-  const struct gpuid_and_process *p1 = (const struct gpuid_and_process *)pp1;
-  const struct gpuid_and_process *p2 = (const struct gpuid_and_process *)pp2;
-  if (GPUINFO_PROCESS_FIELD_VALID(p1->process, decode_usage) &&
-      GPUINFO_PROCESS_FIELD_VALID(p2->process, decode_usage)) {
-    return p1->process->decode_usage >= p2->process->decode_usage ? -1 : 1;
-  } else {
-    if (GPUINFO_PROCESS_FIELD_VALID(p1->process, decode_usage)) {
-      return p1->process->decode_usage > 0 ? -1 : 0;
-    } else if (GPUINFO_PROCESS_FIELD_VALID(p2->process, decode_usage)) {
-      return p2->process->decode_usage > 0 ? 1 : 0;
-    } else {
-      return 0;
-    }
-  }
-}
-static int compare_process_dec_rate_asc(const void *pp1, const void *pp2) {
-  return -compare_process_dec_rate_desc(pp1, pp2);
-}
-
-static void sort_process(all_processes all_procs, enum process_field criterion, bool asc_sort) {
+static void sort_process(all_processes all_procs, enum process_field criterion, enum process_field secondary,
+                         bool asc_sort) {
   if (all_procs.processes_count == 0 || !all_procs.processes)
     return;
-  int (*sort_fun)(const void *, const void *);
-  switch (criterion) {
-  case process_pid:
-    if (asc_sort)
-      sort_fun = compare_pid_asc;
-    else
-      sort_fun = compare_pid_desc;
-    break;
-  case process_user:
-    if (asc_sort)
-      sort_fun = compare_username_asc;
-    else
-      sort_fun = compare_username_desc;
-    break;
-  case process_gpu_id:
-    if (asc_sort)
-      sort_fun = compare_gpu_asc;
-    else
-      sort_fun = compare_gpu_desc;
-    break;
-  case process_type:
-    if (asc_sort)
-      sort_fun = compare_process_type_asc;
-    else
-      sort_fun = compare_process_type_desc;
-    break;
-  case process_memory:
-    if (asc_sort)
-      sort_fun = compare_mem_usage_asc;
-    else
-      sort_fun = compare_mem_usage_desc;
-    break;
-  case process_command:
-    if (asc_sort)
-      sort_fun = compare_process_name_asc;
-    else
-      sort_fun = compare_process_name_desc;
-    break;
-  case process_cpu_usage:
-    if (asc_sort)
-      sort_fun = compare_cpu_usage_asc;
-    else
-      sort_fun = compare_cpu_usage_desc;
-    break;
-  case process_cpu_mem_usage:
-    if (asc_sort)
-      sort_fun = compare_cpu_mem_usage_asc;
-    else
-      sort_fun = compare_cpu_mem_usage_desc;
-    break;
-  case process_gpu_rate:
-    if (asc_sort)
-      sort_fun = compare_process_gpu_rate_asc;
-    else
-      sort_fun = compare_process_gpu_rate_desc;
-    break;
-  case process_enc_rate:
-    if (asc_sort)
-      sort_fun = compare_process_enc_rate_asc;
-    else
-      sort_fun = compare_process_enc_rate_desc;
-    break;
-  case process_dec_rate:
-    if (asc_sort)
-      sort_fun = compare_process_dec_rate_asc;
-    else
-      sort_fun = compare_process_dec_rate_desc;
-    break;
-  case process_field_count:
-    return;
-  }
-  qsort(all_procs.processes, all_procs.processes_count, sizeof(*all_procs.processes), sort_fun);
+
+  sort_context_field_count = 0;
+  sort_context_fields[sort_context_field_count++] = criterion;
+  if (secondary != process_none && secondary != criterion && sort_context_field_count < MAX_SORT_FIELDS)
+    sort_context_fields[sort_context_field_count++] = secondary;
+  sort_context_ascending = asc_sort;
+
+  qsort(all_procs.processes, all_procs.processes_count, sizeof(*all_procs.processes), compare_process_multi);
 }
+
 
 static void filter_out_nvtop_pid(all_processes *all_procs, struct nvtop_interface *interface) {
   if (interface->options.filter_nvtop_pid) {
@@ -1177,6 +1048,25 @@ static void filter_out_nvtop_pid(all_processes *all_procs, struct nvtop_interfac
       }
     }
   }
+}
+
+// Removes processes that do not match the selected workload type filter (#294).
+static void filter_out_proc_type(all_processes *all_procs, enum process_type_filter filter) {
+  if (filter == process_type_filter_all)
+    return;
+  unsigned keep = 0;
+  for (unsigned procId = 0; procId < all_procs->processes_count; ++procId) {
+    enum gpu_process_type type = all_procs->processes[procId].process->type;
+    // Compute-only keeps compute (and compute+graphical); unknown processes are kept
+    // so useful entries are not hidden when the type cannot be determined.
+    bool is_compute = type == gpu_process_compute || type == gpu_process_graphical_compute ||
+                      type == gpu_process_unknown;
+    bool is_graphical = type == gpu_process_graphical || type == gpu_process_graphical_compute;
+    bool keep_proc = (filter == process_type_filter_compute_only) ? is_compute : is_graphical;
+    if (keep_proc)
+      all_procs->processes[keep++] = all_procs->processes[procId];
+  }
+  all_procs->processes_count = keep;
 }
 
 static const char *columnName[process_field_count] = {
@@ -1436,7 +1326,9 @@ static void draw_processes(struct list_head *devices, struct nvtop_interface *in
 
   all_processes all_procs = all_processes_array(devices);
   filter_out_nvtop_pid(&all_procs, interface);
-  sort_process(all_procs, interface->options.sort_processes_by, !interface->options.sort_descending_order);
+  filter_out_proc_type(&all_procs, interface->options.process_type_filter);
+  sort_process(all_procs, interface->options.sort_processes_by, interface->options.sort_processes_by_secondary,
+               !interface->options.sort_descending_order);
 
   if (all_procs.processes_count > 0) {
     if (interface->process.selected_row >= all_procs.processes_count)
@@ -1514,7 +1406,10 @@ static void draw_kill_option(struct nvtop_interface *interface) {
 static void draw_sort_option(struct nvtop_interface *interface) {
   WINDOW *win = interface->process.option_window.option_win;
   wattr_set(win, A_REVERSE, green_color, NULL);
-  mvwprintw(win, 0, 0, "Sort by     ");
+  if (interface->process.option_window.sort_by_secondary_active)
+    mvwprintw(win, 0, 0, "Then by    ");
+  else
+    mvwprintw(win, 0, 0, "Sort by     ");
   wstandend(win);
   wprintw(win, " ");
   int rows, cols;
@@ -1545,7 +1440,10 @@ static void draw_sort_option(struct nvtop_interface *interface) {
         if (option_index + 1 == interface->process.option_window.selected_row) {
           wattr_set(win, A_STANDOUT, cyan_color, NULL);
         }
-        wprintw(win, "%s", columnName[field]);
+        bool is_current = interface->process.option_window.sort_by_secondary_active
+                              ? (field == interface->options.sort_processes_by_secondary)
+                              : (field == interface->options.sort_processes_by);
+        wprintw(win, "%s%s", is_current ? "*" : " ", columnName[field]);
         getyx(win, rows, cols);
         for (unsigned int j = cols; j < option_window_size; ++j)
           wprintw(win, " ");
@@ -1607,6 +1505,7 @@ static const char *option_selection_sort[][2] = {
     {"ESC", "Cancel"},
     {"+", "Ascending"},
     {"-", "Descending"},
+    {"Tab", "Primary/Secondary"},
 };
 
 static const char *option_selection_kill[][2] = {
@@ -1892,7 +1791,10 @@ static void option_change_sort(struct nvtop_interface *interface) {
   for (enum process_field i = process_pid; i < process_field_count; ++i) {
     if (process_is_field_displayed(i, interface->options.process_fields_displayed)) {
       if (index == interface->process.option_window.selected_row - 1) {
-        interface->options.sort_processes_by = i;
+        if (interface->process.option_window.sort_by_secondary_active)
+          interface->options.sort_processes_by_secondary = i;
+        else
+          interface->options.sort_processes_by = i;
         return;
       }
       index++;
@@ -1928,7 +1830,13 @@ void interface_key(int keyId, struct nvtop_interface *interface) {
         interface->process.option_window.state == nvtop_option_state_hidden) {
       interface->process.option_window.state = nvtop_option_state_sort_by;
       interface->process.option_window.selected_row = 0;
+      interface->process.option_window.sort_by_secondary_active = false;
     }
+    break;
+  case '\t':
+    if (interface->process.option_window.state == nvtop_option_state_sort_by)
+      interface->process.option_window.sort_by_secondary_active =
+          !interface->process.option_window.sort_by_secondary_active;
     break;
   case 'l':
   case KEY_RIGHT:

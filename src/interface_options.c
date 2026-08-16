@@ -122,7 +122,9 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->temperature_in_fahrenheit = false;
   options->config_file_location = NULL;
   options->sort_processes_by = process_memory;
+  options->sort_processes_by_secondary = process_none;
   options->sort_descending_order = true;
+  options->process_type_filter = process_type_filter_all;
   options->update_interval = 1000;
   options->process_fields_displayed = 0;
   options->has_monitored_set_changed = false;
@@ -189,12 +191,16 @@ static const char process_list_section[] = "ProcessListOption";
 static const char process_hide_nvtop_process_list[] = "HideNvtopProcessList";
 static const char process_hide_nvtop_process[] = "HideNvtopProcess";
 static const char process_value_sortby[] = "SortBy";
+static const char process_value_sortby_secondary[] = "SortBySecondary";
+static const char process_value_process_type_filter[] = "ProcessTypeFilter";
 static const char process_value_display_field[] = "DisplayField";
 static const char *process_sortby_vals[process_field_count + 1] = {
     "pId", "user", "gpuId", "type", "gpuRate", "encRate", "decRate", "memory", "cpuUsage", "cpuMem", "cmdline", "none"};
 static const char process_value_sort_order[] = "SortOrder";
 static const char process_sort_descending[] = "descending";
 static const char process_sort_ascending[] = "ascending";
+
+static const char *process_type_filter_vals[process_type_filter_count] = {"all", "compute", "graphical"};
 
 static const char device_section[] = "Device";
 static const char device_pdev[] = "Pdev";
@@ -295,6 +301,20 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
       for (enum process_field i = process_pid; i < process_field_count; ++i) {
         if (strcmp(value, process_sortby_vals[i]) == 0) {
           ini_data->options->sort_processes_by = i;
+        }
+      }
+    }
+    if (strcmp(name, process_value_sortby_secondary) == 0) {
+      for (enum process_field i = process_pid; i < process_field_count + 1; ++i) {
+        if (strcmp(value, process_sortby_vals[i]) == 0) {
+          ini_data->options->sort_processes_by_secondary = i;
+        }
+      }
+    }
+    if (strcmp(name, process_value_process_type_filter) == 0) {
+      for (enum process_type_filter i = process_type_filter_all; i < process_type_filter_count; ++i) {
+        if (strcmp(value, process_type_filter_vals[i]) == 0) {
+          ini_data->options->process_type_filter = i;
         }
       }
     }
@@ -433,6 +453,10 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   fprintf(config_file, "%s = %s\n", process_value_sort_order,
           options->sort_descending_order ? process_sort_descending : process_sort_ascending);
   fprintf(config_file, "%s = %s\n", process_value_sortby, process_sortby_vals[options->sort_processes_by]);
+  fprintf(config_file, "%s = %s\n", process_value_sortby_secondary,
+          process_sortby_vals[options->sort_processes_by_secondary]);
+  fprintf(config_file, "%s = %s\n", process_value_process_type_filter,
+          process_type_filter_vals[options->process_type_filter]);
   bool display_any_field = false;
   for (enum process_field field = process_pid; field < process_field_count; ++field) {
     if (process_is_field_displayed(field, options->process_fields_displayed)) {
