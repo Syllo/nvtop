@@ -8,7 +8,7 @@ nvtop \- interactive GPU process viewer
 
 .SH SYNOPSIS
 .B nvtop
-\fR[\fB\-hvCfpPris\fR]
+\fR[\fB\-hvCfpPrisxX\fR]
 \fR[\fB\-d\fR \fIdelay\fR]
 \fR[\fB\-c\fR \fIconfig-file\fR]
 \fR[\fB\-E\fR \fIseconds\fR]
@@ -39,6 +39,12 @@ Reverse abscissa: switch the plot data order from "old --- recent" (default) to 
 .BR \-p ", " \-\-no\-plot
 Show only one bar plot corresponding to the maximum of all GPUs.
 .TP
+.BR \-x ", " \-\-extra\-clocks
+Show a bar with the clock domains a GPU exposes besides the graphics and memory ones. On NVIDIA these are XBAR, SYS and NVD, and reading them needs the NvAPI library the driver installs. The bar takes no room on a GPU that reports no such domain.
+.TP
+.BR \-X ", " \-\-all\-clocks
+Extend that bar with the secondary clock domains, the ones that sit at a fixed frequency most of the time. On NVIDIA these are HUB, HOST, DISP, MSD and UTILS.
+.TP
 .BR \-v ", " \-\-version
 Print the version and exit.
 
@@ -50,7 +56,7 @@ You can enter the setup utility by pressing \fBF2\fR to view and modify the foll
 This section deals with general interface options. \fBColor support\fR and \fBinterface update interval\fR can be modified.
 .TP
 .I Devices
-This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR and \fBset the encoder/decoder hiding timer\fR.
+This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR, \fBset the encoder/decoder hiding timer\fR, \fBdisplay the extra GPU info bar\fR, \fBdisplay the extra clock domains\fR and \fBinclude the secondary ones among them\fR.
 .TP
 .I Chart
 This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR.

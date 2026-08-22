@@ -51,6 +51,8 @@ typedef struct nvtop_interface_option_struct {
   bool filter_nvtop_pid;                            // Do not show nvtop pid in the processes list
   bool has_monitored_set_changed;                   // True if the set of monitored gpu was modified through the interface
   bool has_gpu_info_bar;                            // Show info bar with additional GPU parameters
+  bool has_extra_clocks_bar;                        // Show bar with the clock domains besides graphics and memory
+  bool has_all_clocks_bar;                          // Extend that bar with the secondary clock domains
   bool hide_processes_list;                         // Hide processes list
   unsigned char gpu_plot_color_idx[MAX_LINES_PER_PLOT]; // index into plot_color_names[] per plot slot
 } nvtop_interface_option;
