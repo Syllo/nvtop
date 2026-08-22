@@ -42,10 +42,13 @@
 #include <tgmath.h>
 #include <unistd.h>
 
+// A device box is device_length() columns wide, which fits this many clock fields
+#define EXTRA_CLOCKS_PER_ROW 4
+
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
     [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
-    [device_l2features] = 11, [device_execengines] = 11,
+    [device_l2features] = 11, [device_execengines] = 11, [device_extra_clock] = 15,
 };
 
 static unsigned int sizeof_process_field[process_field_count] = {
@@ -56,9 +59,14 @@ static unsigned int sizeof_process_field[process_field_count] = {
 };
 
 static void alloc_device_window(unsigned int start_row, unsigned int start_col, unsigned int totalcol,
+                                const nvtop_interface_option *options, unsigned int extra_clock_rows,
                                 struct device_window *dwin) {
 
   const unsigned int spacer = 1;
+
+  // Not every clock domain slot gets a window, so the unused ones have to read
+  // as absent rather than as leftovers of the previous layout
+  memset(dwin->extra_clocks, 0, sizeof(dwin->extra_clocks));
 
   // Line 1 = Name | PCIe info
 
@@ -178,6 +186,19 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
   if (dwin->exec_engines == NULL)
     goto alloc_error;
 
+  // Clock domains besides the graphics and memory ones, on the rows following
+  // the GPU info bar when that one is displayed. Only the domains the reserved
+  // rows have room for get a window; the rest stay NULL.
+  unsigned int extra_clocks_row = start_row + 3 + (options->has_gpu_info_bar ? 1 : 0);
+  unsigned int extra_clocks_shown = min(extra_clock_rows * EXTRA_CLOCKS_PER_ROW, MAX_EXTRA_CLOCK_DOMAINS);
+  for (unsigned int i = 0; i < extra_clocks_shown; ++i) {
+    dwin->extra_clocks[i] =
+        newwin(1, sizeof_device_field[device_extra_clock], extra_clocks_row + i / EXTRA_CLOCKS_PER_ROW,
+               start_col + (i % EXTRA_CLOCKS_PER_ROW) * (sizeof_device_field[device_extra_clock] + spacer));
+    if (dwin->extra_clocks[i] == NULL)
+      goto alloc_error;
+  }
+
   return;
 alloc_error:
   endwin();
@@ -205,6 +226,10 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->shader_cores);
   delwin(dwin->l2_cache_size);
   delwin(dwin->exec_engines);
+  for (unsigned int i = 0; i < MAX_EXTRA_CLOCK_DOMAINS; ++i) {
+    if (dwin->extra_clocks[i])
+      delwin(dwin->extra_clocks[i]);
+  }
 }
 
 static void alloc_process_with_option(struct nvtop_interface *interface, unsigned posX, unsigned posY, unsigned sizeX,
@@ -367,7 +392,8 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   struct window_position plot_positions[MAX_CHARTS];
   struct window_position setup_position;
 
-  compute_sizes_from_layout(devices_count, dwin->options.has_gpu_info_bar ? 4 : 3, device_length(), rows - 1, cols,
+  unsigned int device_rows = 3 + (dwin->options.has_gpu_info_bar ? 1 : 0) + dwin->extra_clock_rows;
+  compute_sizes_from_layout(devices_count, device_rows, device_length(), rows - 1, cols,
                             dwin->options.gpu_specific_opts, dwin->options.process_fields_displayed, device_positions,
                             &dwin->num_plots, plot_positions, map_device_to_plot, &process_position, &setup_position,
                             dwin->options.hide_processes_list);
@@ -375,8 +401,8 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   alloc_plot_window(devices_count, plot_positions, map_device_to_plot, dwin);
 
   for (unsigned int i = 0; i < devices_count; ++i) {
-    alloc_device_window(device_positions[i].posY, device_positions[i].posX, device_positions[i].sizeX,
-                        &dwin->devices_win[i]);
+    alloc_device_window(device_positions[i].posY, device_positions[i].posX, device_positions[i].sizeX, &dwin->options,
+                        dwin->extra_clock_rows, &dwin->devices_win[i]);
   }
 
   alloc_process_with_option(dwin, process_position.posX, process_position.posY, process_position.sizeX,
@@ -657,6 +683,60 @@ static void encode_decode_show_select(struct device_window *dev, bool encode_val
   }
 }
 
+static bool extra_clock_is_shown(const struct gpuinfo_extra_clock *clock, const nvtop_interface_option *options) {
+  if (clock->secondary)
+    return options->has_all_clocks_bar;
+  return options->has_extra_clocks_bar || options->has_all_clocks_bar;
+}
+
+static unsigned extra_clocks_visible(const struct gpuinfo_dynamic_info *dynamic_info,
+                                     const nvtop_interface_option *options) {
+  if (!IS_VALID(gpuinfo_extra_clocks_valid, dynamic_info->valid))
+    return 0;
+
+  unsigned count = 0;
+  for (unsigned i = 0; i < dynamic_info->extra_clock_count; ++i) {
+    if (extra_clock_is_shown(&dynamic_info->extra_clocks[i], options))
+      count++;
+  }
+  return count;
+}
+
+// How many clock domains a device reports is only known once it has been
+// refreshed at least once, which happens after the windows are first laid out,
+// so the reserved rows are revisited on every draw. A device that reports none
+// costs no row at all, which is the usual case outside NVIDIA.
+static void update_extra_clock_rows(struct list_head *devices, struct nvtop_interface *interface) {
+  unsigned rows_needed = 0;
+
+  if (interface->options.has_extra_clocks_bar || interface->options.has_all_clocks_bar) {
+    struct gpu_info *device;
+    unsigned most_clocks = 0;
+    list_for_each_entry(device, devices, list) {
+      unsigned visible = extra_clocks_visible(&device->dynamic_info, &interface->options);
+      most_clocks = max(most_clocks, visible);
+    }
+    rows_needed = (most_clocks + EXTRA_CLOCKS_PER_ROW - 1) / EXTRA_CLOCKS_PER_ROW;
+    // A driver that fails one read should not make the whole interface jump, so
+    // rows are only ever given back when the options change
+    rows_needed = max(rows_needed, interface->extra_clock_rows);
+  }
+
+  if (rows_needed == interface->extra_clock_rows)
+    return;
+
+  // Laying the windows out again closes the setup window, so a change made from
+  // there only takes effect once the user is done with it
+  if (interface->setup_win.visible)
+    return;
+
+  interface->extra_clock_rows = rows_needed;
+  erase();
+  refresh();
+  delete_all_windows(interface);
+  initialize_all_windows(interface);
+}
+
 static void draw_devices(struct list_head *devices, struct nvtop_interface *interface) {
   struct gpu_info *device;
   unsigned dev_id = 0;
@@ -901,6 +981,29 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         wprintw(dev->exec_engines, "N/A");
 
       wnoutrefresh(dev->exec_engines);
+    }
+
+    // EXTRA CLOCK DOMAINS
+    // Every slot the layout did not reserve is a NULL window, so nothing is
+    // drawn at all while both options are off
+    unsigned extra_clock_slot = 0;
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, extra_clocks)) {
+      for (unsigned i = 0; i < device->dynamic_info.extra_clock_count; ++i) {
+        const struct gpuinfo_extra_clock *clock = &device->dynamic_info.extra_clocks[i];
+        if (!extra_clock_is_shown(clock, &interface->options))
+          continue;
+        if (extra_clock_slot >= MAX_EXTRA_CLOCK_DOMAINS || !dev->extra_clocks[extra_clock_slot])
+          break;
+        werase(dev->extra_clocks[extra_clock_slot]);
+        mvwprintw(dev->extra_clocks[extra_clock_slot], 0, 0, "%s %uMHz", clock->name, clock->speed);
+        mvwchgat(dev->extra_clocks[extra_clock_slot], 0, 0, (int)strlen(clock->name), 0, cyan_color, NULL);
+        wnoutrefresh(dev->extra_clocks[extra_clock_slot]);
+        extra_clock_slot++;
+      }
+    }
+    for (; extra_clock_slot < MAX_EXTRA_CLOCK_DOMAINS && dev->extra_clocks[extra_clock_slot]; ++extra_clock_slot) {
+      werase(dev->extra_clocks[extra_clock_slot]);
+      wnoutrefresh(dev->extra_clocks[extra_clock_slot]);
     }
 
     dev_id++;
@@ -1848,6 +1951,7 @@ static void draw_plots(struct nvtop_interface *interface) {
 
 void draw_gpu_info_ncurses(unsigned devices_count, struct list_head *devices, struct nvtop_interface *interface) {
 
+  update_extra_clock_rows(devices, interface);
   draw_devices(devices, interface);
   if (!interface->setup_win.visible) {
     draw_plots(interface);
@@ -2183,6 +2287,14 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": \"%uMHz\",\n", indent_level_four, mem_clock_field, device->dynamic_info.mem_clock_speed);
     else
       printf("%s\"%s\": null,\n", indent_level_four, mem_clock_field);
+
+    // Vendor specific clock domains, keyed by the name the vendor gives them
+    unsigned extra_clock_count =
+        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, extra_clocks) ? device->dynamic_info.extra_clock_count : 0;
+    for (unsigned i = 0; i < extra_clock_count; ++i) {
+      const struct gpuinfo_extra_clock *clock = &device->dynamic_info.extra_clocks[i];
+      printf("%s\"%s_clock\": \"%uMHz\",\n", indent_level_four, clock->name, clock->speed);
+    }
 
     // GPU Temperature
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {

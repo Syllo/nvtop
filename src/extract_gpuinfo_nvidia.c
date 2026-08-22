@@ -207,6 +207,165 @@ static nvmlReturn_t (*nvmlDeviceGetMPSComputeRunningProcesses[4])(nvmlDevice_t d
 #define NVML_DEVICE_MIG_ENABLE 0x1
 nvmlReturn_t (*nvmlDeviceGetMigMode)(nvmlDevice_t device, unsigned int *currentMode, unsigned int *pendingMode);
 
+// NvAPI is a second, undocumented entry point into the driver. It is used here
+// for one thing only: the clock domains that NVML does not report, such as the
+// XBAR clock the memory subsystem runs at. Everything is resolved through
+// nvapi_QueryInterface, so a driver without the library, or without these
+// particular entry points, simply reports no extra clocks.
+
+#define NVAPI_OK 0
+#define NVAPI_MAX_PHYSICAL_GPUS 64
+#define NVAPI_MAX_CLOCK_DOMAINS 32
+
+#define NVAPI_QUERY_INITIALIZE 0x0150e828u
+#define NVAPI_QUERY_UNLOAD 0xd22bdd7eu
+#define NVAPI_QUERY_ENUM_PHYSICAL_GPUS 0xe5ac921fu
+#define NVAPI_QUERY_GPU_GET_BUS_ID 0x1be0b8e5u
+#define NVAPI_QUERY_GPU_GET_ALL_CLOCKS 0x1bd69f49u
+
+typedef void *NvPhysicalGpuHandle;
+typedef int NvAPI_Status;
+
+typedef struct {
+  unsigned int frequency; // In kHz
+  unsigned int bitfield;  // Bit 0 tells whether the domain is present
+} nvapiClockDomain_t;
+
+typedef struct {
+  unsigned int effective_frequency;
+  unsigned int ratio_domain;
+  unsigned int ratio;
+  unsigned int reserved[4];
+} nvapiClockDomainExtended_t;
+
+typedef struct {
+  unsigned int version; // Structure size in the low half, version in the high one
+  nvapiClockDomain_t domain[NVAPI_MAX_CLOCK_DOMAINS];
+  nvapiClockDomainExtended_t extended[NVAPI_MAX_CLOCK_DOMAINS];
+} nvapiAllClocks_t;
+
+// The clock domains reported next to the graphics and memory ones. Domain 0 is
+// the graphics clock and domain 4 the memory clock, both of which NVML already
+// reports, so they are deliberately left out. So is domain 31, which carries the
+// PCIe link generation rather than a frequency.
+//
+// The first three are the ones that move with a workload and explain what the
+// GPU is doing under a power limit; the rest are secondary, sitting at a fixed
+// frequency most of the time.
+//
+// Domain 20 is named NVD after measurement rather than after any header: giving
+// it a frequency offset raises NVENC throughput by the same proportion, which a
+// power management clock would not do.
+static const struct {
+  unsigned int id;
+  const char *name;
+  bool secondary;
+} nvapi_extra_clock_domains[] = {
+    {1, "XBAR", false},  {2, "SYS", false},  {20, "NVD", false}, {3, "HUB", true},
+    {5, "HOST", true},   {6, "DISP", true},  {21, "MSD", true},  {22, "UTILS", true},
+};
+
+static void *libnvidia_api_handle;
+
+static void *(*nvapi_QueryInterface)(unsigned int id);
+static NvAPI_Status (*nvapi_Initialize)(void);
+static NvAPI_Status (*nvapi_Unload)(void);
+static NvAPI_Status (*nvapi_EnumPhysicalGPUs)(NvPhysicalGpuHandle handles[NVAPI_MAX_PHYSICAL_GPUS],
+                                              unsigned int *count);
+static NvAPI_Status (*nvapi_GPU_GetBusId)(NvPhysicalGpuHandle handle, unsigned int *busId);
+static NvAPI_Status (*nvapi_GPU_GetAllClocks)(NvPhysicalGpuHandle handle, nvapiAllClocks_t *clocks);
+
+static NvPhysicalGpuHandle nvapi_handles[NVAPI_MAX_PHYSICAL_GPUS];
+static unsigned int nvapi_bus_ids[NVAPI_MAX_PHYSICAL_GPUS];
+static unsigned int nvapi_handle_count;
+static bool nvapi_initialized;
+
+static void gpuinfo_nvidia_nvapi_shutdown(void) {
+  if (!libnvidia_api_handle)
+    return;
+  if (nvapi_initialized && nvapi_Unload)
+    nvapi_Unload();
+  dlclose(libnvidia_api_handle);
+  libnvidia_api_handle = NULL;
+  nvapi_initialized = false;
+  nvapi_handle_count = 0;
+}
+
+// Optional: a failure here only costs the extra clock domains, so it never
+// fails the NVIDIA extraction as a whole.
+static void gpuinfo_nvidia_nvapi_init(void) {
+  libnvidia_api_handle = dlopen("libnvidia-api.so.1", RTLD_LAZY);
+  if (!libnvidia_api_handle)
+    return;
+
+  nvapi_QueryInterface = dlsym(libnvidia_api_handle, "nvapi_QueryInterface");
+  if (!nvapi_QueryInterface)
+    goto clean_exit;
+
+  nvapi_Initialize = nvapi_QueryInterface(NVAPI_QUERY_INITIALIZE);
+  nvapi_Unload = nvapi_QueryInterface(NVAPI_QUERY_UNLOAD);
+  nvapi_EnumPhysicalGPUs = nvapi_QueryInterface(NVAPI_QUERY_ENUM_PHYSICAL_GPUS);
+  nvapi_GPU_GetBusId = nvapi_QueryInterface(NVAPI_QUERY_GPU_GET_BUS_ID);
+  nvapi_GPU_GetAllClocks = nvapi_QueryInterface(NVAPI_QUERY_GPU_GET_ALL_CLOCKS);
+  if (!nvapi_Initialize || !nvapi_EnumPhysicalGPUs || !nvapi_GPU_GetBusId || !nvapi_GPU_GetAllClocks)
+    goto clean_exit;
+
+  if (nvapi_Initialize() != NVAPI_OK)
+    goto clean_exit;
+  nvapi_initialized = true;
+
+  unsigned int count = 0;
+  if (nvapi_EnumPhysicalGPUs(nvapi_handles, &count) != NVAPI_OK)
+    goto clean_exit;
+
+  for (unsigned int i = 0; i < count && i < NVAPI_MAX_PHYSICAL_GPUS; ++i) {
+    if (nvapi_GPU_GetBusId(nvapi_handles[i], &nvapi_bus_ids[nvapi_handle_count]) != NVAPI_OK)
+      continue;
+    nvapi_handles[nvapi_handle_count] = nvapi_handles[i];
+    nvapi_handle_count++;
+  }
+  return;
+
+clean_exit:
+  gpuinfo_nvidia_nvapi_shutdown();
+}
+
+// NvAPI identifies a GPU by its PCI bus number alone, so a machine with several
+// PCI domains could in principle have two GPUs answer to the same number. Such
+// a pair is left unmatched instead of guessing.
+static NvPhysicalGpuHandle gpuinfo_nvidia_nvapi_handle(unsigned int bus) {
+  NvPhysicalGpuHandle found = NULL;
+
+  for (unsigned int i = 0; i < nvapi_handle_count; ++i) {
+    if (nvapi_bus_ids[i] != bus)
+      continue;
+    if (found)
+      return NULL;
+    found = nvapi_handles[i];
+  }
+  return found;
+}
+
+static void gpuinfo_nvidia_refresh_extra_clocks(NvPhysicalGpuHandle handle,
+                                                struct gpuinfo_dynamic_info *dynamic_info) {
+  if (!handle)
+    return;
+
+  nvapiAllClocks_t clocks;
+  memset(&clocks, 0, sizeof(clocks));
+  clocks.version = (unsigned int)(sizeof(clocks) | (2u << 16));
+  if (nvapi_GPU_GetAllClocks(handle, &clocks) != NVAPI_OK)
+    return;
+
+  for (size_t i = 0; i < sizeof(nvapi_extra_clock_domains) / sizeof(*nvapi_extra_clock_domains); ++i) {
+    const nvapiClockDomain_t *domain = &clocks.domain[nvapi_extra_clock_domains[i].id];
+    if (!(domain->bitfield & 1) || !domain->frequency)
+      continue;
+    gpuinfo_add_extra_clock(dynamic_info, nvapi_extra_clock_domains[i].name, domain->frequency / 1000,
+                            nvapi_extra_clock_domains[i].secondary);
+  }
+}
+
 static void *libnvidia_ml_handle;
 
 static nvmlReturn_t last_nvml_return_status = NVML_SUCCESS;
@@ -274,6 +433,7 @@ struct gpu_info_nvidia {
   struct list_head allocate_list;
 
   nvmlDevice_t gpuhandle;
+  NvPhysicalGpuHandle nvapihandle; // NULL unless NvAPI resolved this same GPU
   bool isInMigMode;
   unsigned long long last_utilization_timestamp;
 };
@@ -476,6 +636,8 @@ static bool gpuinfo_nvidia_init(void) {
   }
   local_error_string = NULL;
 
+  gpuinfo_nvidia_nvapi_init();
+
   return true;
 
 init_error_clean_exit:
@@ -485,6 +647,8 @@ init_error_clean_exit:
 }
 
 static void gpuinfo_nvidia_shutdown(void) {
+  gpuinfo_nvidia_nvapi_shutdown();
+
   if (libnvidia_ml_handle) {
     nvmlShutdown();
     dlclose(libnvidia_ml_handle);
@@ -538,6 +702,7 @@ static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigne
       nvmlReturn_t pciInfoRet = nvmlDeviceGetPciInfo(gpu_infos[*count].gpuhandle, &pciInfo);
       if (pciInfoRet == NVML_SUCCESS) {
         strncpy(gpu_infos[*count].base.pdev, pciInfo.busIdLegacy, PDEV_LEN);
+        gpu_infos[*count].nvapihandle = gpuinfo_nvidia_nvapi_handle(pciInfo.bus);
         list_add_tail(&gpu_infos[*count].base.list, devices);
         *count += 1;
       }
@@ -627,6 +792,9 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetMaxClockInfo(device, NVML_CLOCK_MEM, &dynamic_info->mem_clock_speed_max);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_mem_clock_speed_max_valid, dynamic_info->valid);
+
+  // Clock domains NVML does not report, such as XBAR
+  gpuinfo_nvidia_refresh_extra_clocks(gpu_info->nvapihandle, dynamic_info);
 
   // CPU and Memory utilization rates
   nvmlUtilization_t utilization_percentages;
