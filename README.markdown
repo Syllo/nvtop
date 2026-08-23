@@ -136,9 +136,12 @@ NVTOP includes some initial support for Apple using Metal. This is only supporte
 
 ### Ascend
 
-NVTOP supports Ascend (testing on Altas 800 (910B)) by DCMI API (version 6.0.0).
-
-Currently, the DCMI only supports limited APIs, missing PCIe generation, tx/rx throughput info, max power draw etc.
+NVTOP supports Ascend through the DCMI API (tested on 910B3 hardware). It
+uses the logical-device API when available and falls back to the legacy
+card/device API. Read-only telemetry is reported when supported by the
+installed driver; unavailable values remain unset. Enable it with
+`-DASCEND_SUPPORT=ON`, and set `-DASCEND_ROOT=/path/to/Ascend` when CANN is
+installed outside the standard locations.
 
 ### Iluvatar CoreX
 
