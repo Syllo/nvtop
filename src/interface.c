@@ -55,6 +55,46 @@ static unsigned int sizeof_process_field[process_field_count] = {
     [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9, [process_command] = 0,
 };
 
+static void print_json_string(const char *value) {
+  if (value == NULL) {
+    fputs("null", stdout);
+    return;
+  }
+  putchar('"');
+  for (const unsigned char *cursor = (const unsigned char *)value; *cursor != '\0'; ++cursor) {
+    switch (*cursor) {
+    case '"':
+      fputs("\\\"", stdout);
+      break;
+    case '\\':
+      fputs("\\\\", stdout);
+      break;
+    case '\b':
+      fputs("\\b", stdout);
+      break;
+    case '\f':
+      fputs("\\f", stdout);
+      break;
+    case '\n':
+      fputs("\\n", stdout);
+      break;
+    case '\r':
+      fputs("\\r", stdout);
+      break;
+    case '\t':
+      fputs("\\t", stdout);
+      break;
+    default:
+      if (*cursor < 0x20)
+        printf("\\u%04x", (unsigned)*cursor);
+      else
+        putchar(*cursor);
+      break;
+    }
+  }
+  putchar('"');
+}
+
 static void alloc_device_window(unsigned int start_row, unsigned int start_col, unsigned int totalcol,
                                 struct device_window *dwin) {
 
@@ -806,10 +846,12 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // MEM CLOCK
     werase(dev->mem_clock_info);
+    const char *mem_label =
+        GPUINFO_STATIC_FIELD_VALID(&device->static_info, memory_type) ? device->static_info.memory_type : "MEM";
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed))
-      mvwprintw(dev->mem_clock_info, 0, 0, "MEM %uMHz", device->dynamic_info.mem_clock_speed);
+      mvwprintw(dev->mem_clock_info, 0, 0, "%s %uMHz", mem_label, device->dynamic_info.mem_clock_speed);
     else
-      mvwprintw(dev->mem_clock_info, 0, 0, "MEM N/A MHz");
+      mvwprintw(dev->mem_clock_info, 0, 0, "%s N/A MHz", mem_label);
     mvwchgat(dev->mem_clock_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->mem_clock_info);
 
@@ -2164,25 +2206,209 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     const char *mem_used_field = "mem_used";
     const char *mem_free_field = "mem_free";
 
+#define SNAPSHOT_STATIC_STRING(json_name, field_name)                                                                  \
+  do {                                                                                                                 \
+    printf("%s\"%s\": ", indent_level_four, json_name);                                                                \
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, field_name))                                                  \
+      print_json_string(device->static_info.field_name);                                                               \
+    else                                                                                                               \
+      fputs("null", stdout);                                                                                           \
+    fputs(",\n", stdout);                                                                                              \
+  } while (0)
+
     printf("%s{\n", indent_level_two);
 
     // Device Name
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name))
-      printf("%s\"%s\": \"%s\",\n", indent_level_four, device_name_field, device->static_info.device_name);
+    SNAPSHOT_STATIC_STRING(device_name_field, device_name);
+
+    // Stable device identifier (PCI BDF when DCMI exposes it, otherwise the
+    // physical card/device tuple or logical-device fallback).
+    printf("%s\"pdev\": ", indent_level_four);
+    if (device->pdev[0] != '\0')
+      print_json_string(device->pdev);
     else
-      printf("%s\"%s\": null,\n", indent_level_four, device_name_field);
+      fputs("null", stdout);
+    fputs(",\n", stdout);
+
+    // Memory Type
+    SNAPSHOT_STATIC_STRING("memory_type", memory_type);
+
+    // Chip and board metadata
+    SNAPSHOT_STATIC_STRING("chip_type", chip_type);
+    SNAPSHOT_STATIC_STRING("chip_version", chip_version);
+    SNAPSHOT_STATIC_STRING("npu_name", npu_name);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, board_id))
+      printf("%s\"board_id\": %u,\n", indent_level_four, device->static_info.board_id);
+    else
+      printf("%s\"board_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, pcb_id))
+      printf("%s\"pcb_id\": %u,\n", indent_level_four, device->static_info.pcb_id);
+    else
+      printf("%s\"pcb_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, bom_id))
+      printf("%s\"bom_id\": %u,\n", indent_level_four, device->static_info.bom_id);
+    else
+      printf("%s\"bom_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, slot_id))
+      printf("%s\"slot_id\": %u,\n", indent_level_four, device->static_info.slot_id);
+    else
+      printf("%s\"slot_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, mainboard_id))
+      printf("%s\"mainboard_id\": %u,\n", indent_level_four, device->static_info.mainboard_id);
+    else
+      printf("%s\"mainboard_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, pcie_slot_id))
+      printf("%s\"pcie_slot_id\": %u,\n", indent_level_four, device->static_info.pcie_slot_id);
+    else
+      printf("%s\"pcie_slot_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, ub_slot_id))
+      printf("%s\"ub_slot_id\": %u,\n", indent_level_four, device->static_info.ub_slot_id);
+    else
+      printf("%s\"ub_slot_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, ub_device_id))
+      printf("%s\"ub_device_id\": %u,\n", indent_level_four, device->static_info.ub_device_id);
+    else
+      printf("%s\"ub_device_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, ub_vendor_id))
+      printf("%s\"ub_vendor_id\": %u,\n", indent_level_four, device->static_info.ub_vendor_id);
+    else
+      printf("%s\"ub_vendor_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, ub_module_vendor_id))
+      printf("%s\"ub_module_vendor_id\": %u,\n", indent_level_four, device->static_info.ub_module_vendor_id);
+    else
+      printf("%s\"ub_module_vendor_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, ub_module_id))
+      printf("%s\"ub_module_id\": %u,\n", indent_level_four, device->static_info.ub_module_id);
+    else
+      printf("%s\"ub_module_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, chip_id))
+      printf("%s\"chip_id\": %u,\n", indent_level_four, device->static_info.chip_id);
+    else
+      printf("%s\"chip_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, chip_slot))
+      printf("%s\"chip_slot\": %u,\n", indent_level_four, device->static_info.chip_slot);
+    else
+      printf("%s\"chip_slot\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, group_intra_id))
+      printf("%s\"group_intra_id\": %u,\n", indent_level_four, device->static_info.group_intra_id);
+    else
+      printf("%s\"group_intra_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, first_power_on_date))
+      printf("%s\"first_power_on_date\": %u,\n", indent_level_four, device->static_info.first_power_on_date);
+    else
+      printf("%s\"first_power_on_date\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, aicpu_count))
+      printf("%s\"aicpu_count\": %u,\n", indent_level_four, device->static_info.aicpu_count);
+    else
+      printf("%s\"aicpu_count\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, cpu_config_aicpu))
+      printf("%s\"cpu_config_aicpu\": %u,\n", indent_level_four, device->static_info.cpu_config_aicpu);
+    else
+      printf("%s\"cpu_config_aicpu\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, cpu_config_ctrlcpu))
+      printf("%s\"cpu_config_ctrlcpu\": %u,\n", indent_level_four, device->static_info.cpu_config_ctrlcpu);
+    else
+      printf("%s\"cpu_config_ctrlcpu\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, cpu_config_datacpu))
+      printf("%s\"cpu_config_datacpu\": %u,\n", indent_level_four, device->static_info.cpu_config_datacpu);
+    else
+      printf("%s\"cpu_config_datacpu\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, cpu_freq_mode))
+      printf("%s\"cpu_freq_mode\": %u,\n", indent_level_four, device->static_info.cpu_freq_mode);
+    else
+      printf("%s\"cpu_freq_mode\": null,\n", indent_level_four);
+    SNAPSHOT_STATIC_STRING("driver_version", driver_version);
+    SNAPSHOT_STATIC_STRING("dcmi_version", dcmi_version);
+    SNAPSHOT_STATIC_STRING("firmware_version", firmware_version);
+    SNAPSHOT_STATIC_STRING("elabel_product_name", elabel_product_name);
+    SNAPSHOT_STATIC_STRING("elabel_model", elabel_model);
+    SNAPSHOT_STATIC_STRING("elabel_manufacturer", elabel_manufacturer);
+    SNAPSHOT_STATIC_STRING("elabel_manufacturer_date", elabel_manufacturer_date);
+    SNAPSHOT_STATIC_STRING("elabel_serial_number", elabel_serial_number);
+    SNAPSHOT_STATIC_STRING("die_id", die_id);
+    SNAPSHOT_STATIC_STRING("vrd_version", vrd_version);
+    SNAPSHOT_STATIC_STRING("affinity_cpu", affinity_cpu);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, flash_inventory)) {
+      unsigned flash_inventory_count = device->static_info.flash_inventory_count > GPUINFO_MAX_FLASHES
+                                           ? GPUINFO_MAX_FLASHES
+                                           : device->static_info.flash_inventory_count;
+      printf("%s\"flash_count\": %u,\n", indent_level_four, device->static_info.flash_count);
+      printf("%s\"flash_inventory\": [", indent_level_four);
+      for (unsigned i = 0; i < flash_inventory_count; ++i) {
+        const struct gpuinfo_flash_info *flash = &device->static_info.flashes[i];
+        if (i > 0)
+          fputs(", ", stdout);
+        printf("{\"flash_id\": %llu, \"device_id\": %u, \"vendor\": %u, \"state\": %u, "
+               "\"size\": %llu, \"sector_count\": %u, \"manufacturer_id\": %u}",
+               flash->flash_id, flash->device_id, flash->vendor, flash->state, flash->size, flash->sector_count,
+               flash->manufacturer_id);
+      }
+      fputs("],\n", stdout);
+    } else {
+      printf("%s\"flash_count\": null,\n", indent_level_four);
+      printf("%s\"flash_inventory\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, netdev_names)) {
+      unsigned count = device->static_info.netdev_count > GPUINFO_MAX_NETDEVS ? GPUINFO_MAX_NETDEVS
+                                                                              : device->static_info.netdev_count;
+      printf("%s\"netdev_count\": %u,\n", indent_level_four, device->static_info.netdev_count);
+      printf("%s\"netdev_names\": [", indent_level_four);
+      for (unsigned i = 0; i < count; ++i) {
+        if (i > 0)
+          fputs(", ", stdout);
+        print_json_string(device->static_info.netdev_names[i]);
+      }
+      fputs("],\n", stdout);
+    } else {
+      printf("%s\"netdev_count\": null,\n", indent_level_four);
+      printf("%s\"netdev_names\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, hbm_manufacturer_id))
+      printf("%s\"hbm_manufacturer_id\": %u,\n", indent_level_four, device->static_info.hbm_manufacturer_id);
+    else
+      printf("%s\"hbm_manufacturer_id\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, max_pcie_gen))
+      printf("%s\"max_pcie_gen\": %u,\n", indent_level_four, device->static_info.max_pcie_gen);
+    else
+      printf("%s\"max_pcie_gen\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, max_pcie_link_width))
+      printf("%s\"max_pcie_width\": %u,\n", indent_level_four, device->static_info.max_pcie_link_width);
+    else
+      printf("%s\"max_pcie_width\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, n_shared_cores))
+      printf("%s\"shared_cores\": %u,\n", indent_level_four, device->static_info.n_shared_cores);
+    else
+      printf("%s\"shared_cores\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_slowdown_threshold))
+      printf("%s\"temperature_slowdown_threshold\": \"%uC\",\n", indent_level_four,
+             device->static_info.temperature_slowdown_threshold);
+    else
+      printf("%s\"temperature_slowdown_threshold\": null,\n", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_shutdown_threshold))
+      printf("%s\"temperature_shutdown_threshold\": \"%uC\",\n", indent_level_four,
+             device->static_info.temperature_shutdown_threshold);
+    else
+      printf("%s\"temperature_shutdown_threshold\": null,\n", indent_level_four);
 
     // GPU Clock Speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed))
       printf("%s\"%s\": \"%uMHz\",\n", indent_level_four, gpu_clock_field, device->dynamic_info.gpu_clock_speed);
     else
       printf("%s\"%s\": null,\n", indent_level_four, gpu_clock_field);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed_max))
+      printf("%s\"gpu_clock_max\": \"%uMHz\",\n", indent_level_four, device->dynamic_info.gpu_clock_speed_max);
+    else
+      printf("%s\"gpu_clock_max\": null,\n", indent_level_four);
 
     // MEM Clock Speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed))
       printf("%s\"%s\": \"%uMHz\",\n", indent_level_four, mem_clock_field, device->dynamic_info.mem_clock_speed);
     else
       printf("%s\"%s\": null,\n", indent_level_four, mem_clock_field);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed_max))
+      printf("%s\"mem_clock_max\": \"%uMHz\",\n", indent_level_four, device->dynamic_info.mem_clock_speed_max);
+    else
+      printf("%s\"mem_clock_max\": null,\n", indent_level_four);
 
     // GPU Temperature
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
@@ -2214,6 +2440,10 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": \"%uW\",\n", indent_level_four, power_field, device->dynamic_info.power_draw / 1000);
     else
       printf("%s\"%s\": null,\n", indent_level_four, power_field);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
+      printf("%s\"power_draw_max\": \"%uW\",\n", indent_level_four, device->dynamic_info.power_draw_max / 1000);
+    else
+      printf("%s\"power_draw_max\": null,\n", indent_level_four);
 
     // GPU Utilization
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate))
@@ -2258,9 +2488,348 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": null,\n", indent_level_four, mem_used_field);
     // Memory Available
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, free_memory))
-      printf("%s\"%s\": \"%llu\"", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
+      printf("%s\"%s\": \"%llu\",\n", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
     else
-      printf("%s\"%s\": null", indent_level_four, mem_free_field);
+      printf("%s\"%s\": null,\n", indent_level_four, mem_free_field);
+
+#define SNAPSHOT_PERCENT(json_name, field_name)                                                                        \
+  do {                                                                                                                 \
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, field_name))                                                \
+      printf("%s\"%s\": \"%u%%\",\n", indent_level_four, json_name, device->dynamic_info.field_name);                  \
+    else                                                                                                               \
+      printf("%s\"%s\": null,\n", indent_level_four, json_name);                                                       \
+  } while (0)
+#define SNAPSHOT_MHZ(json_name, field_name)                                                                            \
+  do {                                                                                                                 \
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, field_name))                                                \
+      printf("%s\"%s\": \"%uMHz\",\n", indent_level_four, json_name, device->dynamic_info.field_name);                 \
+    else                                                                                                               \
+      printf("%s\"%s\": null,\n", indent_level_four, json_name);                                                       \
+  } while (0)
+#define SNAPSHOT_TEMP(json_name, field_name)                                                                           \
+  do {                                                                                                                 \
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, field_name))                                                \
+      printf("%s\"%s\": \"%uC\",\n", indent_level_four, json_name, device->dynamic_info.field_name);                   \
+    else                                                                                                               \
+      printf("%s\"%s\": null,\n", indent_level_four, json_name);                                                       \
+  } while (0)
+#define SNAPSHOT_COUNT(json_name, field_name)                                                                          \
+  do {                                                                                                                 \
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, field_name))                                                \
+      printf("%s\"%s\": %u,\n", indent_level_four, json_name, device->dynamic_info.field_name);                        \
+    else                                                                                                               \
+      printf("%s\"%s\": null,\n", indent_level_four, json_name);                                                       \
+  } while (0)
+
+    // Additional Ascend telemetry
+    SNAPSHOT_MHZ("aicpu_clock", aicpu_clock_speed);
+    SNAPSHOT_MHZ("aicpu_clock_max", aicpu_clock_speed_max);
+    SNAPSHOT_PERCENT("aicpu_util", aicpu_util_rate);
+    SNAPSHOT_PERCENT("ctrlcpu_util", ctrlcpu_util_rate);
+    SNAPSHOT_PERCENT("vector_util", vector_util_rate);
+    SNAPSHOT_PERCENT("aicube_util", aicube_util_rate);
+    SNAPSHOT_PERCENT("npu_util", npu_util_rate);
+    SNAPSHOT_PERCENT("mem_bandwidth_util", mem_bandwidth_util_rate);
+    SNAPSHOT_TEMP("mem_temp", mem_temp);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen))
+      printf("%s\"pcie_link_gen\": %u,\n", indent_level_four, device->dynamic_info.pcie_link_gen);
+    else
+      printf("%s\"pcie_link_gen\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_width))
+      printf("%s\"pcie_link_width\": %u,\n", indent_level_four, device->dynamic_info.pcie_link_width);
+    else
+      printf("%s\"pcie_link_width\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
+      printf("%s\"pcie_rx\": \"%uKB/s\",\n", indent_level_four, device->dynamic_info.pcie_rx);
+    else
+      printf("%s\"pcie_rx\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
+      printf("%s\"pcie_tx\": \"%uKB/s\",\n", indent_level_four, device->dynamic_info.pcie_tx);
+    else
+      printf("%s\"pcie_tx\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, voltage))
+      printf("%s\"voltage\": \"%umV\",\n", indent_level_four, device->dynamic_info.voltage);
+    else
+      printf("%s\"voltage\": null,\n", indent_level_four);
+
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, health)) {
+      static const char *const health_names[] = {"OK", "WARNING", "MAJOR", "CRITICAL"};
+      unsigned health = device->dynamic_info.health;
+      printf("%s\"health\": \"%s\",\n", indent_level_four,
+             health < sizeof(health_names) / sizeof(health_names[0]) ? health_names[health] : "UNKNOWN");
+      printf("%s\"health_code\": %u,\n", indent_level_four, health);
+    } else {
+      printf("%s\"health\": null,\n", indent_level_four);
+      printf("%s\"health_code\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, driver_health)) {
+      static const char *const driver_health_names[] = {"OK", "WARNING", "MAJOR", "CRITICAL"};
+      unsigned driver_health = device->dynamic_info.driver_health;
+      printf("%s\"driver_health\": \"%s\",\n", indent_level_four,
+             driver_health < sizeof(driver_health_names) / sizeof(driver_health_names[0])
+                 ? driver_health_names[driver_health]
+                 : "UNKNOWN");
+      printf("%s\"driver_health_code\": %u,\n", indent_level_four, driver_health);
+    } else {
+      printf("%s\"driver_health\": null,\n", indent_level_four);
+      printf("%s\"driver_health_code\": null,\n", indent_level_four);
+    }
+
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, boot_status)) {
+      static const char *const boot_status_names[] = {"UNINIT", "BIOS", "OS", "FINISH"};
+      unsigned boot_status = device->dynamic_info.boot_status;
+      const char *name = boot_status == 16u ? "SYSTEM_START_FINISH"
+                                            : (boot_status < sizeof(boot_status_names) / sizeof(boot_status_names[0])
+                                                   ? boot_status_names[boot_status]
+                                                   : "UNKNOWN");
+      printf("%s\"boot_status\": \"%s\",\n", indent_level_four, name);
+      printf("%s\"boot_status_code\": %u,\n", indent_level_four, boot_status);
+    } else {
+      printf("%s\"boot_status\": null,\n", indent_level_four);
+      printf("%s\"boot_status_code\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, compatibility)) {
+      static const char *const compatibility_names[] = {"UNKNOWN", "OK", "NOK", "UNKNOWN"};
+      unsigned compatibility = device->dynamic_info.compatibility;
+      const char *name = compatibility < sizeof(compatibility_names) / sizeof(compatibility_names[0])
+                             ? compatibility_names[compatibility]
+                             : "UNKNOWN";
+      printf("%s\"compatibility\": \"%s\",\n", indent_level_four, name);
+      printf("%s\"compatibility_code\": %u,\n", indent_level_four, compatibility);
+    } else {
+      printf("%s\"compatibility\": null,\n", indent_level_four);
+      printf("%s\"compatibility_code\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, network_health)) {
+      static const char *const network_health_names[] = {
+          "OK", "SOCKET_FAIL", "RECV_TIMEOUT", "UNREACH", "TIME_EXCEEDED", "FAULT", "INIT", "THREAD_ERR", "IP_SET"};
+      unsigned network_health = device->dynamic_info.network_health;
+      const char *name = network_health < sizeof(network_health_names) / sizeof(network_health_names[0])
+                             ? network_health_names[network_health]
+                             : "UNKNOWN";
+      printf("%s\"network_health\": \"%s\",\n", indent_level_four, name);
+      printf("%s\"network_health_code\": %u,\n", indent_level_four, network_health);
+    } else {
+      printf("%s\"network_health\": null,\n", indent_level_four);
+      printf("%s\"network_health_code\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, outband_channel_state)) {
+      unsigned outband_state = device->dynamic_info.outband_channel_state;
+      printf("%s\"outband_channel_state\": %u,\n", indent_level_four, outband_state);
+    } else {
+      printf("%s\"outband_channel_state\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, device_share_enabled))
+      printf("%s\"device_share_enabled\": %s,\n", indent_level_four,
+             device->dynamic_info.device_share_enabled ? "true" : "false");
+    else
+      printf("%s\"device_share_enabled\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, p2p_enabled))
+      printf("%s\"p2p_enabled\": %s,\n", indent_level_four, device->dynamic_info.p2p_enabled ? "true" : "false");
+    else
+      printf("%s\"p2p_enabled\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, cgroup_memory_limit))
+      printf("%s\"cgroup_memory_limit\": %llu,\n", indent_level_four, device->dynamic_info.cgroup_memory_limit);
+    else
+      printf("%s\"cgroup_memory_limit\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, cgroup_memory_usage))
+      printf("%s\"cgroup_memory_usage\": %llu,\n", indent_level_four, device->dynamic_info.cgroup_memory_usage);
+    else
+      printf("%s\"cgroup_memory_usage\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, cgroup_memory_max_usage))
+      printf("%s\"cgroup_memory_max_usage\": %llu,\n", indent_level_four, device->dynamic_info.cgroup_memory_max_usage);
+    else
+      printf("%s\"cgroup_memory_max_usage\": null,\n", indent_level_four);
+    SNAPSHOT_PERCENT("llc_read_hit_rate", llc_read_hit_rate);
+    SNAPSHOT_PERCENT("llc_write_hit_rate", llc_write_hit_rate);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, llc_throughput))
+      printf("%s\"llc_throughput\": %u,\n", indent_level_four, device->dynamic_info.llc_throughput);
+    else
+      printf("%s\"llc_throughput\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, error_codes)) {
+      printf("%s\"error_codes\": [", indent_level_four);
+      for (unsigned i = 0; i < device->dynamic_info.error_code_count; ++i) {
+        if (i > 0)
+          printf(", ");
+        printf("%u", device->dynamic_info.error_codes[i]);
+      }
+      printf("],\n");
+    } else {
+      printf("%s\"error_codes\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, driver_error_codes)) {
+      printf("%s\"driver_error_codes\": [", indent_level_four);
+      for (unsigned i = 0; i < device->dynamic_info.driver_error_code_count; ++i) {
+        if (i > 0)
+          printf(", ");
+        printf("%u", device->dynamic_info.driver_error_codes[i]);
+      }
+      printf("],\n");
+    } else {
+      printf("%s\"driver_error_codes\": null,\n", indent_level_four);
+    }
+    SNAPSHOT_COUNT("ecc_hbm_single_bit", ecc_hbm_single_bit_errors);
+    SNAPSHOT_COUNT("ecc_hbm_double_bit", ecc_hbm_double_bit_errors);
+    SNAPSHOT_COUNT("ecc_hbm_total_single_bit", ecc_hbm_total_single_bit_errors);
+    SNAPSHOT_COUNT("ecc_hbm_total_double_bit", ecc_hbm_total_double_bit_errors);
+    SNAPSHOT_COUNT("ecc_hbm_single_bit_isolated_pages", ecc_hbm_single_bit_isolated_pages);
+    SNAPSHOT_COUNT("ecc_hbm_double_bit_isolated_pages", ecc_hbm_double_bit_isolated_pages);
+    SNAPSHOT_COUNT("ecc_ddr_single_bit", ecc_ddr_single_bit_errors);
+    SNAPSHOT_COUNT("ecc_ddr_double_bit", ecc_ddr_double_bit_errors);
+    SNAPSHOT_COUNT("ecc_ddr_total_single_bit", ecc_ddr_total_single_bit_errors);
+    SNAPSHOT_COUNT("ecc_ddr_total_double_bit", ecc_ddr_total_double_bit_errors);
+    SNAPSHOT_COUNT("ecc_ddr_single_bit_isolated_pages", ecc_ddr_single_bit_isolated_pages);
+    SNAPSHOT_COUNT("ecc_ddr_double_bit_isolated_pages", ecc_ddr_double_bit_isolated_pages);
+    SNAPSHOT_COUNT("pcie_pcs_rx_errors", pcie_pcs_rx_error_count);
+    SNAPSHOT_COUNT("pcie_phy_lane_errors", pcie_phy_lane_error_count);
+    SNAPSHOT_COUNT("pcie_symbol_unlock_errors", pcie_symbol_unlock_error_count);
+    SNAPSHOT_COUNT("pcie_lcrc_errors", pcie_lcrc_error_count);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_dcrc_error_count))
+      printf("%s\"pcie_dcrc_errors\": %u,\n", indent_level_four, device->dynamic_info.pcie_dcrc_error_count);
+    else
+      printf("%s\"pcie_dcrc_errors\": null,\n", indent_level_four);
+    SNAPSHOT_COUNT("pcie_link_tx_errors", pcie_link_tx_error_count);
+    SNAPSHOT_COUNT("pcie_link_rx_errors", pcie_link_rx_error_count);
+    SNAPSHOT_COUNT("pcie_link_lcrc_errors", pcie_link_lcrc_error_count);
+    SNAPSHOT_COUNT("pcie_link_ecrc_errors", pcie_link_ecrc_error_count);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_retry_count))
+      printf("%s\"pcie_link_retries\": %u,\n", indent_level_four, device->dynamic_info.pcie_link_retry_count);
+    else
+      printf("%s\"pcie_link_retries\": null,\n", indent_level_four);
+
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, hccs_tx_bandwidth))
+      printf("%s\"hccs_tx_bandwidth\": \"%.3fGB/s\",\n", indent_level_four, device->dynamic_info.hccs_tx_bandwidth);
+    else
+      printf("%s\"hccs_tx_bandwidth\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, hccs_rx_bandwidth))
+      printf("%s\"hccs_rx_bandwidth\": \"%.3fGB/s\",\n", indent_level_four, device->dynamic_info.hccs_rx_bandwidth);
+    else
+      printf("%s\"hccs_rx_bandwidth\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ub_link_status)) {
+      static const char *const ub_status_names[] = {"NO_LINK", "LINK", "PARTIAL", "NO_NEED_LINK"};
+      unsigned ub_status = device->dynamic_info.ub_link_status;
+      printf("%s\"ub_link_status\": \"%s\",\n", indent_level_four,
+             ub_status < sizeof(ub_status_names) / sizeof(ub_status_names[0]) ? ub_status_names[ub_status] : "UNKNOWN");
+      printf("%s\"ub_link_status_code\": %u,\n", indent_level_four, ub_status);
+    } else {
+      printf("%s\"ub_link_status\": null,\n", indent_level_four);
+      printf("%s\"ub_link_status_code\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ub_tx_bandwidth))
+      printf("%s\"ub_tx_bandwidth\": \"%.3fMB/s\",\n", indent_level_four, device->dynamic_info.ub_tx_bandwidth);
+    else
+      printf("%s\"ub_tx_bandwidth\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ub_rx_bandwidth))
+      printf("%s\"ub_rx_bandwidth\": \"%.3fMB/s\",\n", indent_level_four, device->dynamic_info.ub_rx_bandwidth);
+    else
+      printf("%s\"ub_rx_bandwidth\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, rdma_tx_bandwidth))
+      printf("%s\"rdma_tx_bandwidth\": \"%uMB/s\",\n", indent_level_four, device->dynamic_info.rdma_tx_bandwidth);
+    else
+      printf("%s\"rdma_tx_bandwidth\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, rdma_rx_bandwidth))
+      printf("%s\"rdma_rx_bandwidth\": \"%uMB/s\",\n", indent_level_four, device->dynamic_info.rdma_rx_bandwidth);
+    else
+      printf("%s\"rdma_rx_bandwidth\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, network_tx_packets))
+      printf("%s\"network_tx_packets\": %llu,\n", indent_level_four, device->dynamic_info.network_tx_packets);
+    else
+      printf("%s\"network_tx_packets\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, network_rx_packets))
+      printf("%s\"network_rx_packets\": %llu,\n", indent_level_four, device->dynamic_info.network_rx_packets);
+    else
+      printf("%s\"network_rx_packets\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, network_tx_bytes))
+      printf("%s\"network_tx_bytes\": %llu,\n", indent_level_four, device->dynamic_info.network_tx_bytes);
+    else
+      printf("%s\"network_tx_bytes\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, network_rx_bytes))
+      printf("%s\"network_rx_bytes\": %llu,\n", indent_level_four, device->dynamic_info.network_rx_bytes);
+    else
+      printf("%s\"network_rx_bytes\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, network_tx_errors))
+      printf("%s\"network_tx_errors\": %llu,\n", indent_level_four, device->dynamic_info.network_tx_errors);
+    else
+      printf("%s\"network_tx_errors\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, network_rx_errors))
+      printf("%s\"network_rx_errors\": %llu,\n", indent_level_four, device->dynamic_info.network_rx_errors);
+    else
+      printf("%s\"network_rx_errors\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, network_rx_fcs_errors))
+      printf("%s\"network_rx_fcs_errors\": %llu,\n", indent_level_four, device->dynamic_info.network_rx_fcs_errors);
+    else
+      printf("%s\"network_rx_fcs_errors\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, device_system_time))
+      printf("%s\"device_system_time\": %u,\n", indent_level_four, device->dynamic_info.device_system_time);
+    else
+      printf("%s\"device_system_time\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_hbm_history_count)) {
+      printf("%s\"ecc_hbm_history_count\": %u,\n", indent_level_four, device->dynamic_info.ecc_hbm_history_count);
+      printf("%s\"ecc_hbm_last_error_time\": %u,\n", indent_level_four, device->dynamic_info.ecc_hbm_last_error_time);
+    } else {
+      printf("%s\"ecc_hbm_history_count\": null,\n", indent_level_four);
+      printf("%s\"ecc_hbm_last_error_time\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_ddr_history_count)) {
+      printf("%s\"ecc_ddr_history_count\": %u,\n", indent_level_four, device->dynamic_info.ecc_ddr_history_count);
+      printf("%s\"ecc_ddr_last_error_time\": %u,\n", indent_level_four, device->dynamic_info.ecc_ddr_last_error_time);
+    } else {
+      printf("%s\"ecc_ddr_history_count\": null,\n", indent_level_four);
+      printf("%s\"ecc_ddr_last_error_time\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ub_port_id)) {
+      printf("%s\"ub_port_id\": %u,\n", indent_level_four, device->dynamic_info.ub_port_id);
+      printf("%s\"ub_port_tx_packets\": %llu,\n", indent_level_four, device->dynamic_info.ub_port_tx_packets);
+      printf("%s\"ub_port_rx_packets\": %llu,\n", indent_level_four, device->dynamic_info.ub_port_rx_packets);
+      printf("%s\"ub_port_tx_errors\": %llu,\n", indent_level_four, device->dynamic_info.ub_port_tx_errors);
+      printf("%s\"ub_port_rx_errors\": %llu,\n", indent_level_four, device->dynamic_info.ub_port_rx_errors);
+      printf("%s\"ub_port_crc_errors\": %llu,\n", indent_level_four, device->dynamic_info.ub_port_crc_errors);
+    } else {
+      printf("%s\"ub_port_id\": null,\n", indent_level_four);
+      printf("%s\"ub_port_tx_packets\": null,\n", indent_level_four);
+      printf("%s\"ub_port_rx_packets\": null,\n", indent_level_four);
+      printf("%s\"ub_port_tx_errors\": null,\n", indent_level_four);
+      printf("%s\"ub_port_rx_errors\": null,\n", indent_level_four);
+      printf("%s\"ub_port_crc_errors\": null,\n", indent_level_four);
+    }
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, network_tc_stats)) {
+      printf("%s\"network_tc_tx_packets\": %llu,\n", indent_level_four, device->dynamic_info.network_tc_tx_packets);
+      printf("%s\"network_tc_rx_packets\": %llu,\n", indent_level_four, device->dynamic_info.network_tc_rx_packets);
+    } else {
+      printf("%s\"network_tc_tx_packets\": null,\n", indent_level_four);
+      printf("%s\"network_tc_rx_packets\": null,\n", indent_level_four);
+    }
+    unsigned snapshot_fault_event_count = device->dynamic_info.fault_event_count > GPUINFO_MAX_FAULT_EVENTS
+                                              ? GPUINFO_MAX_FAULT_EVENTS
+                                              : device->dynamic_info.fault_event_count;
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fault_events)) {
+      printf("%s\"fault_events\": [", indent_level_four);
+      for (unsigned i = 0; i < snapshot_fault_event_count; ++i) {
+        if (i > 0)
+          fputs(", ", stdout);
+        printf("{\"event_id\": %u, \"severity\": %u, \"assertion\": %u, \"alarm_raised_time\": %llu, \"event_name\": ",
+               device->dynamic_info.fault_events[i].event_id, device->dynamic_info.fault_events[i].severity,
+               device->dynamic_info.fault_events[i].assertion, device->dynamic_info.fault_events[i].alarm_raised_time);
+        print_json_string(device->dynamic_info.fault_events[i].event_name);
+        fputs(", \"additional_info\": ", stdout);
+        print_json_string(device->dynamic_info.fault_events[i].additional_info);
+        fputs("}", stdout);
+      }
+      fputs("],\n", stdout);
+    } else {
+      printf("%s\"fault_events\": null,\n", indent_level_four);
+    }
+    printf("%s\"fault_event_count\": ", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fault_events))
+      printf("%u\n", snapshot_fault_event_count);
+    else
+      fputs("null\n", stdout);
+
+#undef SNAPSHOT_PERCENT
+#undef SNAPSHOT_MHZ
+#undef SNAPSHOT_TEMP
+#undef SNAPSHOT_COUNT
+#undef SNAPSHOT_STATIC_STRING
 
     // Processes
     if (hide_processes_option) {
@@ -2276,31 +2845,9 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
         printf("%s\"pid\": \"%d\",\n", indent_level_eight, proc->pid);
 
         if (GPUINFO_PROCESS_FIELD_VALID(proc, cmdline) && proc->cmdline) {
-          printf("%s\"cmdline\": \"", indent_level_eight);
-          for (char *li = proc->cmdline; *li != '\0'; li++) {
-            // We need to escape some characters for for json strings
-            if (*li == '\n') {
-              printf("\\n");
-              continue;
-            } else if (*li == '\b') {
-              printf("\\b");
-              continue;
-            } else if (*li == '\f') {
-              printf("\\f");
-              continue;
-            } else if (*li == '\r') {
-              printf("\\r");
-              continue;
-            } else if (*li == '\t') {
-              printf("\\t");
-              continue;
-            }
-            // escaping backslash and quotes
-            if (*li == '\\' || *li == '"')
-              printf("\\");
-            printf("%c", *li);
-          }
-          printf("\",\n");
+          printf("%s\"cmdline\": ", indent_level_eight);
+          print_json_string(proc->cmdline);
+          fputs(",\n", stdout);
         } else {
           printf("%s\"cmdline\": null,\n", indent_level_eight);
         }
@@ -2331,9 +2878,10 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
         // GPU memory usage
         printf("%s\"user\": ", indent_level_eight);
         if (GPUINFO_PROCESS_FIELD_VALID(proc, user_name))
-          printf("\"%s\",\n", proc->user_name);
+          print_json_string(proc->user_name);
         else
-          printf("null,\n");
+          fputs("null", stdout);
+        fputs(",\n", stdout);
 
         // GPU usage
         printf("%s\"gpu_usage\": ", indent_level_eight);

@@ -53,6 +53,7 @@
 #define GPUINFO_STATIC_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_)
 enum gpuinfo_static_info_valid {
   gpuinfo_device_name_valid = 0,
+  gpuinfo_memory_type_valid,
   gpuinfo_max_pcie_gen_valid,
   gpuinfo_max_pcie_link_width_valid,
   gpuinfo_temperature_shutdown_threshold_valid,
@@ -61,13 +62,118 @@ enum gpuinfo_static_info_valid {
   gpuinfo_l2cache_size_valid,
   gpuinfo_n_exec_engines_valid,
   gpuinfo_engine_count_valid,
+  gpuinfo_chip_type_valid,
+  gpuinfo_chip_version_valid,
+  gpuinfo_npu_name_valid,
+  gpuinfo_board_id_valid,
+  gpuinfo_pcb_id_valid,
+  gpuinfo_bom_id_valid,
+  gpuinfo_slot_id_valid,
+  gpuinfo_mainboard_id_valid,
+  gpuinfo_pcie_slot_id_valid,
+  gpuinfo_ub_slot_id_valid,
+  gpuinfo_ub_device_id_valid,
+  gpuinfo_ub_vendor_id_valid,
+  gpuinfo_ub_module_vendor_id_valid,
+  gpuinfo_ub_module_id_valid,
+  gpuinfo_chip_id_valid,
+  gpuinfo_chip_slot_valid,
+  gpuinfo_group_intra_id_valid,
+  gpuinfo_first_power_on_date_valid,
+  gpuinfo_aicpu_count_valid,
+  gpuinfo_cpu_config_aicpu_valid,
+  gpuinfo_cpu_config_ctrlcpu_valid,
+  gpuinfo_cpu_config_datacpu_valid,
+  gpuinfo_cpu_freq_mode_valid,
+  gpuinfo_driver_version_valid,
+  gpuinfo_dcmi_version_valid,
+  gpuinfo_firmware_version_valid,
+  gpuinfo_hbm_manufacturer_id_valid,
+  gpuinfo_elabel_product_name_valid,
+  gpuinfo_elabel_model_valid,
+  gpuinfo_elabel_manufacturer_valid,
+  gpuinfo_elabel_manufacturer_date_valid,
+  gpuinfo_elabel_serial_number_valid,
+  gpuinfo_die_id_valid,
+  gpuinfo_vrd_version_valid,
+  gpuinfo_affinity_cpu_valid,
+  gpuinfo_flash_inventory_valid,
+  gpuinfo_netdev_names_valid,
   gpuinfo_static_info_count,
 };
 
 #define MAX_DEVICE_NAME 128
+#define MAX_DEVICE_METADATA 32
+#define MAX_VERSION_STRING 256
+#define GPUINFO_MAX_ERROR_CODES 16
+#define GPUINFO_MAX_FAULT_EVENTS 8
+#define GPUINFO_MAX_FLASHES 8
+#define GPUINFO_MAX_NETDEVS 8
+#define GPUINFO_NETDEV_NAME_LEN 16
+#define GPUINFO_MAX_ECC_RECORDS 64
+
+struct gpuinfo_fault_event {
+  unsigned int event_id;
+  unsigned int severity;
+  unsigned int assertion;
+  unsigned long long alarm_raised_time;
+  char event_name[MAX_VERSION_STRING];
+  char additional_info[64];
+};
+
+struct gpuinfo_flash_info {
+  unsigned long long flash_id;
+  unsigned short device_id;
+  unsigned short vendor;
+  unsigned int state;
+  unsigned long long size;
+  unsigned int sector_count;
+  unsigned short manufacturer_id;
+};
 
 struct gpuinfo_static_info {
   char device_name[MAX_DEVICE_NAME];
+  char memory_type[8];
+  char chip_type[MAX_DEVICE_METADATA];
+  char chip_version[MAX_DEVICE_METADATA];
+  char npu_name[MAX_DEVICE_METADATA];
+  char driver_version[MAX_VERSION_STRING];
+  char dcmi_version[MAX_VERSION_STRING];
+  char firmware_version[MAX_VERSION_STRING];
+  char elabel_product_name[MAX_VERSION_STRING];
+  char elabel_model[MAX_VERSION_STRING];
+  char elabel_manufacturer[MAX_VERSION_STRING];
+  char elabel_manufacturer_date[MAX_VERSION_STRING];
+  char elabel_serial_number[MAX_VERSION_STRING];
+  char die_id[MAX_VERSION_STRING];
+  char vrd_version[MAX_VERSION_STRING];
+  char affinity_cpu[MAX_VERSION_STRING];
+  unsigned board_id;
+  unsigned pcb_id;
+  unsigned bom_id;
+  unsigned slot_id;
+  unsigned mainboard_id;
+  unsigned pcie_slot_id;
+  unsigned ub_slot_id;
+  unsigned ub_device_id;
+  unsigned ub_vendor_id;
+  unsigned ub_module_vendor_id;
+  unsigned ub_module_id;
+  unsigned chip_id;
+  unsigned chip_slot;
+  unsigned group_intra_id;
+  unsigned first_power_on_date;
+  unsigned aicpu_count;
+  unsigned cpu_config_aicpu;
+  unsigned cpu_config_ctrlcpu;
+  unsigned cpu_config_datacpu;
+  unsigned cpu_freq_mode;
+  unsigned hbm_manufacturer_id;
+  unsigned flash_count;
+  unsigned flash_inventory_count;
+  struct gpuinfo_flash_info flashes[GPUINFO_MAX_FLASHES];
+  unsigned netdev_count;
+  char netdev_names[GPUINFO_MAX_NETDEVS][GPUINFO_NETDEV_NAME_LEN];
   unsigned max_pcie_gen;
   unsigned max_pcie_link_width;
   unsigned temperature_shutdown_threshold;
@@ -107,6 +213,74 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_power_draw_max_valid,
   gpuinfo_effective_load_rate_valid,
   gpuinfo_multi_instance_mode_valid,
+  gpuinfo_aicpu_clock_speed_valid,
+  gpuinfo_aicpu_clock_speed_max_valid,
+  gpuinfo_aicpu_util_rate_valid,
+  gpuinfo_ctrlcpu_util_rate_valid,
+  gpuinfo_vector_util_rate_valid,
+  gpuinfo_aicube_util_rate_valid,
+  gpuinfo_npu_util_rate_valid,
+  gpuinfo_mem_bandwidth_util_rate_valid,
+  gpuinfo_mem_temp_valid,
+  gpuinfo_voltage_valid,
+  gpuinfo_health_valid,
+  gpuinfo_driver_health_valid,
+  gpuinfo_boot_status_valid,
+  gpuinfo_compatibility_valid,
+  gpuinfo_network_health_valid,
+  gpuinfo_outband_channel_state_valid,
+  gpuinfo_device_share_enabled_valid,
+  gpuinfo_p2p_enabled_valid,
+  gpuinfo_cgroup_memory_limit_valid,
+  gpuinfo_cgroup_memory_usage_valid,
+  gpuinfo_cgroup_memory_max_usage_valid,
+  gpuinfo_llc_read_hit_rate_valid,
+  gpuinfo_llc_write_hit_rate_valid,
+  gpuinfo_llc_throughput_valid,
+  gpuinfo_error_codes_valid,
+  gpuinfo_driver_error_codes_valid,
+  gpuinfo_ecc_hbm_single_bit_errors_valid,
+  gpuinfo_ecc_hbm_double_bit_errors_valid,
+  gpuinfo_ecc_hbm_total_single_bit_errors_valid,
+  gpuinfo_ecc_hbm_total_double_bit_errors_valid,
+  gpuinfo_ecc_hbm_single_bit_isolated_pages_valid,
+  gpuinfo_ecc_hbm_double_bit_isolated_pages_valid,
+  gpuinfo_ecc_ddr_single_bit_errors_valid,
+  gpuinfo_ecc_ddr_double_bit_errors_valid,
+  gpuinfo_ecc_ddr_total_single_bit_errors_valid,
+  gpuinfo_ecc_ddr_total_double_bit_errors_valid,
+  gpuinfo_ecc_ddr_single_bit_isolated_pages_valid,
+  gpuinfo_ecc_ddr_double_bit_isolated_pages_valid,
+  gpuinfo_pcie_pcs_rx_error_count_valid,
+  gpuinfo_pcie_phy_lane_error_count_valid,
+  gpuinfo_pcie_symbol_unlock_error_count_valid,
+  gpuinfo_pcie_lcrc_error_count_valid,
+  gpuinfo_pcie_dcrc_error_count_valid,
+  gpuinfo_pcie_link_tx_error_count_valid,
+  gpuinfo_pcie_link_rx_error_count_valid,
+  gpuinfo_pcie_link_lcrc_error_count_valid,
+  gpuinfo_pcie_link_ecrc_error_count_valid,
+  gpuinfo_pcie_link_retry_count_valid,
+  gpuinfo_hccs_tx_bandwidth_valid,
+  gpuinfo_hccs_rx_bandwidth_valid,
+  gpuinfo_ub_link_status_valid,
+  gpuinfo_ub_tx_bandwidth_valid,
+  gpuinfo_ub_rx_bandwidth_valid,
+  gpuinfo_rdma_tx_bandwidth_valid,
+  gpuinfo_rdma_rx_bandwidth_valid,
+  gpuinfo_network_tx_packets_valid,
+  gpuinfo_network_rx_packets_valid,
+  gpuinfo_network_tx_bytes_valid,
+  gpuinfo_network_rx_bytes_valid,
+  gpuinfo_network_tx_errors_valid,
+  gpuinfo_network_rx_errors_valid,
+  gpuinfo_network_rx_fcs_errors_valid,
+  gpuinfo_device_system_time_valid,
+  gpuinfo_ecc_hbm_history_count_valid,
+  gpuinfo_ecc_ddr_history_count_valid,
+  gpuinfo_ub_port_id_valid,
+  gpuinfo_network_tc_stats_valid,
+  gpuinfo_fault_events_valid,
   gpuinfo_dynamic_info_count,
 };
 
@@ -133,6 +307,85 @@ struct gpuinfo_dynamic_info {
   unsigned int power_draw;          // Power usage in milliwatts
   unsigned int power_draw_max;      // Max power usage in milliwatts
   bool multi_instance_mode;          // True if the GPU is in multi-instance mode
+  unsigned int aicpu_clock_speed;    // AICPU current clock speed in MHz
+  unsigned int aicpu_clock_speed_max;         // AICPU maximum clock speed in MHz
+  unsigned int aicpu_util_rate;               // AICPU utilization rate in %
+  unsigned int ctrlcpu_util_rate;             // Control CPU utilization rate in %
+  unsigned int vector_util_rate;              // VectorCore utilization rate in %
+  unsigned int aicube_util_rate;              // AICube utilization rate in %
+  unsigned int npu_util_rate;                 // Aggregate NPU utilization rate in %
+  unsigned int mem_bandwidth_util_rate;       // Memory bandwidth utilization rate in %
+  unsigned int mem_temp;                      // HBM/memory temperature in Celsius
+  unsigned int voltage;                       // Device voltage in millivolts
+  unsigned int health;                        // DCMI health level: 0 normal, 1 warning, 2 major, 3 critical
+  unsigned int driver_health;                 // DCMI driver health level
+  unsigned int boot_status;                   // DCMI device boot state
+  unsigned int compatibility;                 // DCMI driver/firmware compatibility state
+  unsigned int network_health;                // DCMI network health result
+  unsigned int outband_channel_state;         // DCMI out-of-band channel state
+  bool device_share_enabled;                  // DCMI container/device sharing flag
+  bool p2p_enabled;                           // DCMI flash P2P enable flag
+  unsigned long long cgroup_memory_limit;     // cgroup memory limit (bytes)
+  unsigned long long cgroup_memory_usage;     // cgroup memory usage (bytes)
+  unsigned long long cgroup_memory_max_usage; // cgroup peak memory usage (bytes)
+  unsigned int llc_read_hit_rate;             // LLC read hit rate (%)
+  unsigned int llc_write_hit_rate;            // LLC write hit rate (%)
+  unsigned int llc_throughput;                // LLC throughput (KB/s)
+  unsigned int error_code_count;
+  unsigned int error_codes[GPUINFO_MAX_ERROR_CODES];
+  unsigned int driver_error_code_count;
+  unsigned int driver_error_codes[GPUINFO_MAX_ERROR_CODES];
+  unsigned int ecc_hbm_single_bit_errors;
+  unsigned int ecc_hbm_double_bit_errors;
+  unsigned int ecc_hbm_total_single_bit_errors;
+  unsigned int ecc_hbm_total_double_bit_errors;
+  unsigned int ecc_hbm_single_bit_isolated_pages;
+  unsigned int ecc_hbm_double_bit_isolated_pages;
+  unsigned int ecc_ddr_single_bit_errors;
+  unsigned int ecc_ddr_double_bit_errors;
+  unsigned int ecc_ddr_total_single_bit_errors;
+  unsigned int ecc_ddr_total_double_bit_errors;
+  unsigned int ecc_ddr_single_bit_isolated_pages;
+  unsigned int ecc_ddr_double_bit_isolated_pages;
+  unsigned int pcie_pcs_rx_error_count;
+  unsigned int pcie_phy_lane_error_count;
+  unsigned int pcie_symbol_unlock_error_count;
+  unsigned int pcie_lcrc_error_count;
+  unsigned int pcie_dcrc_error_count;
+  unsigned int pcie_link_tx_error_count;
+  unsigned int pcie_link_rx_error_count;
+  unsigned int pcie_link_lcrc_error_count;
+  unsigned int pcie_link_ecrc_error_count;
+  unsigned int pcie_link_retry_count;
+  double hccs_tx_bandwidth;       // HCCS aggregate transmit bandwidth in GB/s
+  double hccs_rx_bandwidth;       // HCCS aggregate receive bandwidth in GB/s
+  unsigned int ub_link_status;    // DCMI UB whole-chip link state
+  double ub_tx_bandwidth;         // Aggregate UB transmit bandwidth in MB/s
+  double ub_rx_bandwidth;         // Aggregate UB receive bandwidth in MB/s
+  unsigned int rdma_tx_bandwidth; // RDMA transmit bandwidth in MB/s
+  unsigned int rdma_rx_bandwidth; // RDMA receive bandwidth in MB/s
+  unsigned long long network_tx_packets;
+  unsigned long long network_rx_packets;
+  unsigned long long network_tx_bytes;
+  unsigned long long network_rx_bytes;
+  unsigned long long network_tx_errors;
+  unsigned long long network_rx_errors;
+  unsigned long long network_rx_fcs_errors;
+  unsigned int device_system_time;
+  unsigned int ecc_hbm_history_count;
+  unsigned int ecc_hbm_last_error_time;
+  unsigned int ecc_ddr_history_count;
+  unsigned int ecc_ddr_last_error_time;
+  unsigned int ub_port_id;
+  unsigned long long ub_port_tx_packets;
+  unsigned long long ub_port_rx_packets;
+  unsigned long long ub_port_tx_errors;
+  unsigned long long ub_port_rx_errors;
+  unsigned long long ub_port_crc_errors;
+  unsigned long long network_tc_tx_packets;
+  unsigned long long network_tc_rx_packets;
+  unsigned int fault_event_count;
+  struct gpuinfo_fault_event fault_events[GPUINFO_MAX_FAULT_EVENTS];
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
