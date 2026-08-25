@@ -310,11 +310,9 @@ __attribute__((constructor)) static void init_extract_gpuinfo_nvidia(void) { reg
  * function gpuinfo_nvidia_last_error_string.
  *
  */
-static bool gpuinfo_nvidia_init(void) {
+static bool gpuinfo_nvidia_init_with_lib(const char *libname) {
 
-  libnvidia_ml_handle = dlopen("libnvidia-ml.so", RTLD_LAZY);
-  if (!libnvidia_ml_handle)
-    libnvidia_ml_handle = dlopen("libnvidia-ml.so.1", RTLD_LAZY);
+  libnvidia_ml_handle = dlopen(libname, RTLD_LAZY);
   if (!libnvidia_ml_handle) {
     local_error_string = dlerror();
     return false;
@@ -472,7 +470,8 @@ static bool gpuinfo_nvidia_init(void) {
 
   last_nvml_return_status = nvmlInit();
   if (last_nvml_return_status != NVML_SUCCESS) {
-    return false;
+    local_error_string = nvmlErrorString(last_nvml_return_status);
+    goto init_error_clean_exit;
   }
   local_error_string = NULL;
 
@@ -481,6 +480,26 @@ static bool gpuinfo_nvidia_init(void) {
 init_error_clean_exit:
   dlclose(libnvidia_ml_handle);
   libnvidia_ml_handle = NULL;
+  return false;
+}
+
+/*
+ *
+ * Try the NVML libraries in turn. The SONAME (libnvidia-ml.so.1) comes first
+ * because it is the name the runtime driver always installs, while the
+ * unversioned libnvidia-ml.so is a development symlink that may point at a
+ * library unusable on this system (e.g. the native driver package installed
+ * inside WSL, where only the WSL-provided libnvidia-ml.so.1 can talk to the
+ * host GPU).
+ *
+ */
+static bool gpuinfo_nvidia_init(void) {
+  static const char *const nvml_libs[] = {"libnvidia-ml.so.1", "libnvidia-ml.so"};
+
+  for (size_t i = 0; i < sizeof(nvml_libs) / sizeof(*nvml_libs); ++i) {
+    if (gpuinfo_nvidia_init_with_lib(nvml_libs[i]))
+      return true;
+  }
   return false;
 }
 
