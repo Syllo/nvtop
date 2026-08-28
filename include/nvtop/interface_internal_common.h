@@ -157,6 +157,9 @@ enum device_field {
   device_field_count,
 };
 
+// Draw the hostname right-aligned in the shortcut bar, if there is room left for it
+void draw_shortcut_bar_hostname(WINDOW *win);
+
 inline void set_attribute_between(WINDOW *win, int startY, int startX, int endX, attr_t attr, short pair) {
   int rows, cols;
   getmaxyx(win, rows, cols);

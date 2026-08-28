@@ -48,6 +48,40 @@ static unsigned int sizeof_device_field[device_field_count] = {
     [device_l2features] = 11, [device_execengines] = 11,
 };
 
+// Hostname shown at the right end of the shortcut bar, '@' prefixed. Resolved once, on first draw.
+static char nvtop_hostname[257];
+static bool nvtop_hostname_resolved = false;
+
+void draw_shortcut_bar_hostname(WINDOW *win) {
+  if (!nvtop_hostname_resolved) {
+    nvtop_hostname[0] = '@';
+    if (gethostname(nvtop_hostname + 1, sizeof(nvtop_hostname) - 1) != 0)
+      nvtop_hostname[1] = '\0';
+    // gethostname is allowed to truncate without terminating the string
+    nvtop_hostname[sizeof(nvtop_hostname) - 1] = '\0';
+    nvtop_hostname_resolved = true;
+  }
+  if (nvtop_hostname[1] == '\0')
+    return;
+  int rows, cols;
+  getmaxyx(win, rows, cols);
+  (void)rows;
+  int cur_row, cur_col;
+  getyx(win, cur_row, cur_col);
+  (void)cur_row;
+  // Two blank columns on each side. The trailing ones also keep the write away from the
+  // bottom-right corner, where ncurses cannot place a character.
+  int start_col = cols - (int)strlen(nvtop_hostname) - 2;
+  // Drop the hostname entirely rather than overwrite the shortcuts
+  if (start_col - 2 < cur_col)
+    return;
+  // Clear the bar highlight from the hostname and its padding, then draw over it
+  set_attribute_between(win, 0, start_col - 2, cols, A_NORMAL, 0);
+  wattr_set(win, A_NORMAL, magenta_color, NULL);
+  mvwprintw(win, 0, start_col, "%s", nvtop_hostname);
+  wstandend(win);
+}
+
 static unsigned int sizeof_process_field[process_field_count] = {
     [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,   [process_type] = 8,
     [process_gpu_rate] = 4,  [process_enc_rate] = 4,      [process_dec_rate] = 4,
@@ -1661,6 +1695,7 @@ static void draw_process_shortcuts(struct nvtop_interface *interface) {
   (void)tmp;
   getyx(win, tmp, cur_col);
   mvwchgat(win, 0, cur_col, -1, A_STANDOUT, cyan_color, NULL);
+  draw_shortcut_bar_hostname(win);
   wnoutrefresh(win);
   interface->process.option_window.previous_state = current_state;
 }

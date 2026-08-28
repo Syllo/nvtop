@@ -666,6 +666,7 @@ void draw_setup_window_shortcuts(struct nvtop_interface *interface) {
   (void)tmp;
   getyx(window, tmp, cur_col);
   mvwchgat(window, 0, cur_col, -1, A_STANDOUT, cyan_color, NULL);
+  draw_shortcut_bar_hostname(window);
   wnoutrefresh(window);
 }
 
