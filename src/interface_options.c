@@ -442,8 +442,7 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   fprintf(config_file, "\n[%s]\n", process_list_section);
   fprintf(config_file, "%s = %s\n", process_hide_nvtop_process_list, boolean_string(options->hide_processes_list));
   fprintf(config_file, "%s = %s\n", process_hide_nvtop_process, boolean_string(options->filter_nvtop_pid));
-  fprintf(config_file, "%s = %s\n", process_value_dynamic_memory_units,
-          boolean_string(options->dynamic_memory_units));
+  fprintf(config_file, "%s = %s\n", process_value_dynamic_memory_units, boolean_string(options->dynamic_memory_units));
   fprintf(config_file, "%s = %s\n", process_value_sort_order,
           options->sort_descending_order ? process_sort_descending : process_sort_ascending);
   fprintf(config_file, "%s = %s\n", process_value_sortby, process_sortby_vals[options->sort_processes_by]);

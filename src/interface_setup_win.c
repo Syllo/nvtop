@@ -125,8 +125,12 @@ enum setup_proc_list_options {
 };
 
 static const char *setup_proc_list_option_description[setup_proc_list_options_count] = {
-    "Don't display the process list", "Hide nvtop in the process list", "Dynamic memory units", "Sort Ascending",
-    "Sort by", "Field Displayed"};
+    "Don't display the process list",
+    "Hide nvtop in the process list",
+    "Dynamic memory units",
+    "Sort Ascending",
+    "Sort by",
+    "Field Displayed"};
 
 static const char *setup_proc_list_value_descriptions[process_field_count] = {
     "Process Id",    "User name",        "Device Id", "Workload type",    "GPU usage", "Encoder usage",
