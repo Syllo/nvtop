@@ -129,6 +129,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->show_startup_messages = true;
   options->filter_nvtop_pid = true;
   options->has_gpu_info_bar = false;
+  options->dynamic_memory_units = false;
   options->gpu_plot_color_idx[0] = 1;  // Cyan
   options->gpu_plot_color_idx[1] = 3;  // Yellow
   options->gpu_plot_color_idx[2] = 2;  // Green
@@ -188,6 +189,7 @@ static const unsigned plot_color_names_count = 7;
 static const char process_list_section[] = "ProcessListOption";
 static const char process_hide_nvtop_process_list[] = "HideNvtopProcessList";
 static const char process_hide_nvtop_process[] = "HideNvtopProcess";
+static const char process_value_dynamic_memory_units[] = "DynamicMemoryUnits";
 static const char process_value_sortby[] = "SortBy";
 static const char process_value_display_field[] = "DisplayField";
 static const char *process_sortby_vals[process_field_count + 1] = {
@@ -289,6 +291,14 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
       }
       if (strcmp(value, "false") == 0) {
         ini_data->options->filter_nvtop_pid = false;
+      }
+    }
+    if (strcmp(name, process_value_dynamic_memory_units) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->dynamic_memory_units = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->dynamic_memory_units = false;
       }
     }
     if (strcmp(name, process_value_sortby) == 0) {
@@ -430,6 +440,7 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   fprintf(config_file, "\n[%s]\n", process_list_section);
   fprintf(config_file, "%s = %s\n", process_hide_nvtop_process_list, boolean_string(options->hide_processes_list));
   fprintf(config_file, "%s = %s\n", process_hide_nvtop_process, boolean_string(options->filter_nvtop_pid));
+  fprintf(config_file, "%s = %s\n", process_value_dynamic_memory_units, boolean_string(options->dynamic_memory_units));
   fprintf(config_file, "%s = %s\n", process_value_sort_order,
           options->sort_descending_order ? process_sort_descending : process_sort_ascending);
   fprintf(config_file, "%s = %s\n", process_value_sortby, process_sortby_vals[options->sort_processes_by]);

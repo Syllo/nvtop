@@ -529,6 +529,23 @@ static void draw_percentage_meter_with_yellow_highlight(WINDOW *win, const char 
 
 static const char *memory_prefix[] = {" B", "Ki", "Mi", "Gi", "Ti", "Pi"};
 
+static void format_bytes(char *buffer, size_t size, uint64_t bytes) {
+  double value = bytes;
+  size_t unit = 0;
+  while (unit < sizeof(memory_prefix) / sizeof(*memory_prefix) - 1 && value >= 1000.) {
+    value /= 1024.;
+    ++unit;
+  }
+  const char *suffix = unit ? "B" : "";
+
+  if (unit == 0 || value >= 100.)
+    snprintf(buffer, size, "%.0f%s%s", value, memory_prefix[unit], suffix);
+  else if (value >= 10.)
+    snprintf(buffer, size, "%.1f%s%s", value, memory_prefix[unit], suffix);
+  else
+    snprintf(buffer, size, "%.2f%s%s", value, memory_prefix[unit], suffix);
+}
+
 static void draw_temp_color(WINDOW *win, unsigned int temp, unsigned int temp_slowdown, bool celsius) {
   unsigned int temp_convert;
   if (celsius)
@@ -1206,7 +1223,8 @@ static void update_selected_offset_with_window_size(unsigned int *selected_row, 
 static char process_print_buffer[process_buffer_line_size];
 
 static void print_processes_on_screen(all_processes all_procs, struct process_window *process,
-                                      enum process_field sort_criterion, process_field_displayed fields_to_display) {
+                                      enum process_field sort_criterion, process_field_displayed fields_to_display,
+                                      bool dynamic_memory_units) {
   WINDOW *win = process->option_window.state == nvtop_option_state_hidden ? process->process_win
                                                                           : process->process_with_option_win;
   struct gpuid_and_process *processes = all_procs.processes;
@@ -1337,7 +1355,15 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
 
     if (process_is_field_displayed(process_memory, fields_to_display)) {
       if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_usage)) {
-        if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_percentage)) {
+        if (dynamic_memory_units) {
+          char formatted_memory[sizeof(memory)];
+          format_bytes(formatted_memory, sizeof(formatted_memory), processes[i].process->gpu_memory_usage);
+          if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_percentage)) {
+            snprintf(memory, sizeof(memory), "%s %3u%%", formatted_memory, processes[i].process->gpu_memory_percentage);
+          } else {
+            snprintf(memory, sizeof(memory), "%s", formatted_memory);
+          }
+        } else if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_percentage)) {
           snprintf(memory, 9 + 1, "%6uMiB", (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
           snprintf(memory + 9, sizeof_process_field[process_memory] - 9 + 1, " %3u%%",
                    processes[i].process->gpu_memory_percentage);
@@ -1362,11 +1388,15 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
     }
 
     if (process_is_field_displayed(process_cpu_mem_usage, fields_to_display)) {
-      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, cpu_memory_res))
-        snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "%zuMiB",
-                 processes[i].process->cpu_memory_res / 1048576);
-      else
+      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, cpu_memory_res)) {
+        if (dynamic_memory_units)
+          format_bytes(cpu_mem, sizeof(cpu_mem), processes[i].process->cpu_memory_res);
+        else
+          snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "%zuMiB",
+                   processes[i].process->cpu_memory_res / 1048576);
+      } else {
         snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "N/A");
+      }
       printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
                           sizeof_process_field[process_cpu_mem_usage], cpu_mem);
     }
@@ -1458,7 +1488,7 @@ static void draw_processes(struct list_head *devices, struct nvtop_interface *in
   sizeof_process_field[process_user] = largest_username;
 
   print_processes_on_screen(all_procs, &interface->process, interface->options.sort_processes_by,
-                            interface->options.process_fields_displayed);
+                            interface->options.process_fields_displayed, interface->options.dynamic_memory_units);
   free(all_procs.processes);
 }
 
