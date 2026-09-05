@@ -687,13 +687,13 @@ static const char *memory_prefix[] = {" B", "Ki", "Mi", "Gi", "Ti", "Pi"};
 static void format_bytes(char *buffer, size_t size, uint64_t bytes) {
   double value = bytes;
   size_t unit = 0;
-  while (unit < sizeof(memory_prefix) / sizeof(*memory_prefix) - 1 && value >= 1024.) {
+  while (unit < sizeof(memory_prefix) / sizeof(*memory_prefix) - 1 && value >= 1000.) {
     value /= 1024.;
     ++unit;
   }
   const char *suffix = unit ? "B" : "";
 
-  if (value >= 100.)
+  if (unit == 0 || value >= 100.)
     snprintf(buffer, size, "%.0f%s%s", value, memory_prefix[unit], suffix);
   else if (value >= 10.)
     snprintf(buffer, size, "%.1f%s%s", value, memory_prefix[unit], suffix);
@@ -1636,8 +1636,7 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
           char formatted_memory[sizeof(memory)];
           format_bytes(formatted_memory, sizeof(formatted_memory), processes[i].process->gpu_memory_usage);
           if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_percentage)) {
-            snprintf(memory, sizeof(memory), "%s %3u%%", formatted_memory,
-                     processes[i].process->gpu_memory_percentage);
+            snprintf(memory, sizeof(memory), "%s %3u%%", formatted_memory, processes[i].process->gpu_memory_percentage);
           } else {
             snprintf(memory, sizeof(memory), "%s", formatted_memory);
           }
@@ -1766,7 +1765,7 @@ static void draw_processes(struct list_head *devices, struct nvtop_interface *in
   sizeof_process_field[process_user] = largest_username;
 
   print_processes_on_screen(all_procs, &interface->process, interface->options.sort_processes_by,
-                             interface->options.process_fields_displayed, interface->options.dynamic_memory_units);
+                            interface->options.process_fields_displayed, interface->options.dynamic_memory_units);
   free(all_procs.processes);
 }
 
