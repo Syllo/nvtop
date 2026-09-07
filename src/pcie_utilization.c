@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2024 Maxime Schmitt <maxime.schmitt91@gmail.com>
+ * Copyright (C) 2026 Basavaraja Mattihalli <basavaraja.ms7@gmail.com>
  *
  * This file is part of Nvtop.
  *
