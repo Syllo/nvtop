@@ -1248,7 +1248,8 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
   // Field 38 (CRC corrections) is per-link (all lanes of one link, selected by scopeId),
   // so it is queried once per active link and summed for the per-device total.
   // Field 160 (ECC errors) is already a per-device aggregate across all links.
-  // Poll every 2 seconds to keep API call frequency reasonable.
+  // A single batched NVML call runs on every refresh; the delta to the previous
+  // poll yields the per-second rate regardless of the refresh interval.
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
   double delta_s = (gpu_info->nvlink_last_poll_time.tv_sec > 0)
