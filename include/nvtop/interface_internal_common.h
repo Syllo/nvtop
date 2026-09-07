@@ -70,9 +70,11 @@ struct device_window {
   WINDOW *gpu_clock_info;
   WINDOW *mem_clock_info;
   WINDOW *pcie_info;
+  WINDOW *nvlink_info;
   WINDOW *shader_cores;
   WINDOW *l2_cache_size;
   WINDOW *exec_engines;
+  WINDOW *nvlink_errors;
   bool enc_was_visible;
   bool dec_was_visible;
   nvtop_time last_decode_seen;
@@ -154,6 +156,7 @@ enum device_field {
   device_shadercores,
   device_l2features,
   device_execengines,
+  device_nvlink_errors,
   device_field_count,
 };
 
