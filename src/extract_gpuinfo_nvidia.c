@@ -1087,22 +1087,6 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 #define NVML_NVLINK_ERROR_DL_ECC_DATA 4
 #endif
 
-// Helper: Query a single NVML field value via nvmlDeviceGetFieldValues.
-// Returns true if the field was successfully read into *out_val.
-static bool nvlink_query_field(nvmlDevice_t device, unsigned int field_id,
-                               unsigned int scope_id, unsigned long long *out_val) {
-    if (!nvmlDeviceGetFieldValues)
-        return false;
-    nvmlFieldValue_t fv = {0};
-    fv.fieldId = field_id;
-    fv.scopeId = scope_id;
-    nvmlReturn_t ret = nvmlDeviceGetFieldValues(device, 1, &fv);
-    if (ret != NVML_SUCCESS || fv.nvmlReturn != NVML_SUCCESS)
-        return false;
-    *out_val = fv.value.ullVal;
-    return true;
-}
-
 // Probe NVLink link count and version, caching results in gpu_info_nvidia to avoid
 // repeated NVML API calls on every refresh cycle. linkCount and version are static
 // hardware properties — once discovered, they never change during the process lifetime.
