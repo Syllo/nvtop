@@ -1070,7 +1070,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
             wcolor_set(dev->nvlink_errors, red_color, NULL);
           wprintw(dev->nvlink_errors, "%05u", (unsigned)(ecc_cnt % 100000));
           wstandend(dev->nvlink_errors);
-          // CRC corrections (field 38)
+          // CRC data errors (field 45)
           wprintw(dev->nvlink_errors, " CR:");
           if (cor_cnt > 0)
             wcolor_set(dev->nvlink_errors, yellow_color, NULL);

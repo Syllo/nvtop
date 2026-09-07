@@ -97,6 +97,9 @@ typedef struct nvmlFieldValue_st {
 #ifndef NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL 38
 #endif
+#ifndef NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL
+#define NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL 45
+#endif
 #ifndef NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL 160
 #endif
@@ -274,7 +277,6 @@ nvmlReturn_t (*nvmlDeviceGetMigMode)(nvmlDevice_t device, unsigned int *currentM
 // NVLink functions (not present in older NVML versions, gracefully handled)
 static nvmlReturn_t (*nvmlDeviceGetNvLinkState)(nvmlDevice_t device, unsigned int link, unsigned int *isActive);
 static nvmlReturn_t (*nvmlDeviceGetNvLinkVersion)(nvmlDevice_t device, unsigned int link, unsigned int *version);
-static nvmlReturn_t (*nvmlDeviceGetNvLinkErrorCounter)(nvmlDevice_t device, unsigned int counter, unsigned int link, unsigned long long *value);
 static nvmlReturn_t (*nvmlDeviceGetFieldValues)(nvmlDevice_t, unsigned int, nvmlFieldValue_t *);
 
 static void *libnvidia_ml_handle;
@@ -352,17 +354,19 @@ struct gpu_info_nvidia {
   unsigned long long nvlink_last_rx;       // Cumulative aggregate RX for delta computation
   nvtop_time nvlink_last_poll_time;        // Timestamp for poll throttling
 
-  // NVLink error counter baselines (cumulative since boot, tracked per-device)
-  unsigned long long baseline_errors; // Cumulative errors at last read
-  unsigned long long baseline_corrections; // Cumulative corrections at last read
+  // NVLink CRC/ECC error baselines (cumulative since boot, tracked per-device).
+  // All values come from nvmlDeviceGetFieldValues: flit CRC (field 38) and
+  // data CRC (field 45) are summed per link, ECC (field 160) is a device aggregate.
+  unsigned long long baseline_errors; // Cumulative flit CRC errors at last read
+  unsigned long long baseline_corrections; // Cumulative CRC data errors at last read
   unsigned long long baseline_ecc_errors; // Cumulative ECC data errors at last read
-  bool baseline_errors_read; // True after first read establishes the errors baseline
-  bool baseline_corrections_read; // True after first read establishes the corrections baseline
+  bool baseline_errors_read; // True after first read establishes the flit CRC baseline
+  bool baseline_corrections_read; // True after first read establishes the CRC data baseline
   bool baseline_ecc_errors_read; // True after first read establishes the ECC baseline
 
-  // Display-ready error/correction/ECC counts (computed in refresh_dynamic_info)
-  unsigned long long display_errors; // Errors since nvtop launch
-  unsigned long long display_corrections; // Corrections since nvtop launch
+  // Display-ready CRC/ECC counts (computed in refresh_dynamic_info)
+  unsigned long long display_errors; // Flit CRC errors since nvtop launch
+  unsigned long long display_corrections; // CRC data errors since nvtop launch
   unsigned long long display_ecc_errors; // ECC data errors since nvtop launch
 
   // Cached NVLink hardware properties (probe once, reuse forever)
@@ -386,9 +390,6 @@ static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigne
 static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info);
-
-// Forward declaration for nvlink_read_errors (defined later, called from refresh_dynamic_info)
-static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info);
 
 // Forward declaration for nvlink_refresh_cached_info (defined later, called from refresh_dynamic_info)
 // Populates gpu_info->cached_nvlink_info with throughput + error data.
@@ -586,7 +587,6 @@ static bool gpuinfo_nvidia_init(void) {
   // NVLink functions (optional - not available on all drivers/hardware)
   nvmlDeviceGetNvLinkState = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkState");
   nvmlDeviceGetNvLinkVersion = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkVersion");
-  nvmlDeviceGetNvLinkErrorCounter = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkErrorCounter");
   nvmlDeviceGetFieldValues = dlsym(libnvidia_ml_handle, "nvmlDeviceGetFieldValues");
 
   last_nvml_return_status = nvmlInit();
@@ -878,9 +878,6 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (nvmlDeviceGetNvLinkState) {
     unsigned int linkCount = nvlink_probe_and_cache(gpu_info);
     if (linkCount > 0 || gpu_info->nvlink_cached_version > 0) {
-      // Error counters only make sense when links are active.
-      if (linkCount > 0 && (nvmlDeviceGetNvLinkErrorCounter || nvmlDeviceGetFieldValues))
-        nvlink_read_errors(device, linkCount, gpu_info);
       // Throughput + cached info struct (handles 0-link case for display)
       nvlink_refresh_cached_info(gpu_info, linkCount);
     }
@@ -1078,15 +1075,6 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
 #define NVML_NVLINK_MAX_LINKS_INTERNAL 36
 #endif
 
-#ifndef NVML_NVLINK_ERROR_DL_REPLAY
-// NVML error counter types
-#define NVML_NVLINK_ERROR_DL_REPLAY   0
-#define NVML_NVLINK_ERROR_DL_RECOVERY 1
-#define NVML_NVLINK_ERROR_DL_CRC_FLIT 2
-#define NVML_NVLINK_ERROR_DL_CRC_DATA 3
-#define NVML_NVLINK_ERROR_DL_ECC_DATA 4
-#endif
-
 // Probe NVLink link count and version, caching results in gpu_info_nvidia to avoid
 // repeated NVML API calls on every refresh cycle. linkCount and version are static
 // hardware properties — once discovered, they never change during the process lifetime.
@@ -1140,47 +1128,7 @@ unsigned nvlink_probe_and_cache(struct gpu_info_nvidia *gpu_info) {
   return linkCount;
 }
 
-// Read NVLink error counters (replay, recovery, CRC), storing results in the persistent gpu_info struct.
-// Uses baseline subtraction to show only errors since nvtop launch (Option B).
-// Called from refresh_dynamic_info so it does NOT run during the startup probe in nvtop_probe_nvlink_list.
-// Corrections and ECC data errors are read separately in nvlink_refresh_cached_info() via NVML batched field query.
-static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, struct gpu_info_nvidia *gpu_info) {
-  // Error counters via nvmlDeviceGetNvLinkErrorCounter
-  unsigned long long cumulative_errors = 0;
-  if (nvmlDeviceGetNvLinkErrorCounter) {
-    for (unsigned int link = 0; link < linkCount; link++) {
-      unsigned long long val = 0;
-      nvmlReturn_t ret;
-      // Replay errors
-      ret = nvmlDeviceGetNvLinkErrorCounter(device, NVML_NVLINK_ERROR_DL_REPLAY, link, &val);
-      if (ret == NVML_SUCCESS) cumulative_errors += val;
-      // Recovery errors
-      ret = nvmlDeviceGetNvLinkErrorCounter(device, NVML_NVLINK_ERROR_DL_RECOVERY, link, &val);
-      if (ret == NVML_SUCCESS) cumulative_errors += val;
-      // CRC FLIT errors
-      ret = nvmlDeviceGetNvLinkErrorCounter(device, NVML_NVLINK_ERROR_DL_CRC_FLIT, link, &val);
-      if (ret == NVML_SUCCESS) cumulative_errors += val;
-      // CRC DATA errors
-      ret = nvmlDeviceGetNvLinkErrorCounter(device, NVML_NVLINK_ERROR_DL_CRC_DATA, link, &val);
-      if (ret == NVML_SUCCESS) cumulative_errors += val;
-    }
-  }
-
-  // Baseline subtraction: show only errors since nvtop launch
-  if (!gpu_info->baseline_errors_read) {
-    // First read — establish baseline, display zeros
-    gpu_info->baseline_errors = cumulative_errors;
-    gpu_info->baseline_errors_read = true;
-    gpu_info->display_errors = 0;
-  } else {
-    // Subsequent reads — show delta from baseline
-    gpu_info->display_errors = cumulative_errors > gpu_info->baseline_errors
-                                  ? cumulative_errors - gpu_info->baseline_errors
-                                  : 0;
-  }
-}
-
-// Public getter for display-ready error/correction/ECC counts from a struct gpu_info.
+// Public getter for display-ready flit CRC / CRC data / ECC counts from a struct gpu_info.
 // Returns true if baseline has been established at least once.
 bool nvtop_get_nvlink_error_counts(struct gpu_info *_gpu_info,
                                     unsigned long long *out_errors,
@@ -1219,7 +1167,8 @@ static unsigned int nvlink_marketing_version(unsigned int raw_version) {
 }
 
 // Get NVLink info (version, link count, aggregate throughput via NVML API).
-// Populate cached_nvlink_info with link count, version, throughput, and error/correction counts.
+// Populate cached_nvlink_info with link count, version, throughput, and
+// flit CRC / CRC data / ECC counts.
 // Called from refresh_dynamic_info on every refresh cycle (refresh path).
 // GPUs are non-hot-swappable, so all NVLink data is computed here and cached —
 // nvtop_get_nvlink_info() in the draw path just returns the cached copy.
@@ -1242,13 +1191,13 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
     return;
   }
 
-  // Throughput and corrections via NVML API in a single batched call.
+  // Throughput, CRC errors and ECC errors via NVML API in a single batched call.
   // DATA fields (138/139) report payload throughput (data only); RAW fields
   // (140/141) would include protocol overhead. scopeId=UINT_MAX aggregates
   // across all links, as documented for these throughput fields.
-  // Field 38 (CRC corrections) is per-link (all lanes of one link, selected by scopeId),
-  // so it is queried once per active link and summed for the per-device total.
-  // Field 160 (ECC errors) is already a per-device aggregate across all links.
+  // CRC error fields (38 = flit, 45 = data) are per-link (all lanes of one link,
+  // selected by scopeId), so each is queried once per active link and summed for
+  // the per-device total. Field 160 (ECC) is already a per-device all-links aggregate.
   // A single batched NVML call runs on every refresh; the delta to the previous
   // poll yields the per-second rate regardless of the refresh interval.
   nvtop_time current_time;
@@ -1257,26 +1206,29 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
                      ? nvtop_difftime(gpu_info->nvlink_last_poll_time, current_time)
                      : 0;
 
-  // Single batched nvmlDeviceGetFieldValues call for TX, RX, per-link corrections,
-  // and ECC errors. Each entry's nvmlReturn field is checked individually for validity.
-  nvmlFieldValue_t batch[linkCount + 3];
+  // Single batched nvmlDeviceGetFieldValues call for TX, RX, per-link flit/data
+  // CRC errors, and ECC errors. Each entry's nvmlReturn field is checked
+  // individually for validity.
+  nvmlFieldValue_t batch[2 * linkCount + 3];
   memset(batch, 0, sizeof(batch));
   batch[0].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX;
   batch[0].scopeId = UINT_MAX;
   batch[1].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX;
   batch[1].scopeId = UINT_MAX;
   for (unsigned int link = 0; link < linkCount; link++) {
-    batch[2 + link].fieldId = NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL;
-    batch[2 + link].scopeId = link;
+    batch[2 + 2 * link].fieldId = NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL;
+    batch[2 + 2 * link].scopeId = link;
+    batch[3 + 2 * link].fieldId = NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL;
+    batch[3 + 2 * link].scopeId = link;
   }
-  batch[2 + linkCount].fieldId = NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL;
-  batch[2 + linkCount].scopeId = 0;
+  batch[2 + 2 * linkCount].fieldId = NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL;
+  batch[2 + 2 * linkCount].scopeId = 0;
 
-  unsigned long long new_tx = 0, new_rx = 0, new_corrections = 0, new_ecc_errors = 0;
-  bool got_tx = false, got_rx = false, got_corrections = false, got_ecc_errors = false;
+  unsigned long long new_tx = 0, new_rx = 0, new_flit_errors = 0, new_data_crc_errors = 0, new_ecc_errors = 0;
+  bool got_tx = false, got_rx = false, got_flit_errors = false, got_data_crc_errors = false, got_ecc_errors = false;
 
   if (nvmlDeviceGetFieldValues) {
-    nvmlReturn_t ret = nvmlDeviceGetFieldValues(gpu_info->gpuhandle, linkCount + 3, batch);
+    nvmlReturn_t ret = nvmlDeviceGetFieldValues(gpu_info->gpuhandle, 2 * linkCount + 3, batch);
     if (ret == NVML_SUCCESS) {
       if (batch[0].nvmlReturn == NVML_SUCCESS) {
         new_tx = batch[0].value.ullVal;
@@ -1286,18 +1238,23 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
         new_rx = batch[1].value.ullVal;
         got_rx = true;
       }
-      // Sum the per-link CRC corrections. Only report a per-device total when
+      // Sum the per-link CRC error totals. Only report a per-device total when
       // every active link answered, to avoid presenting a partial count.
-      unsigned int corrections_read = 0;
+      unsigned int flit_read = 0, crc_data_read = 0;
       for (unsigned int link = 0; link < linkCount; link++) {
-        if (batch[2 + link].nvmlReturn == NVML_SUCCESS) {
-          new_corrections += batch[2 + link].value.ullVal;
-          corrections_read++;
+        if (batch[2 + 2 * link].nvmlReturn == NVML_SUCCESS) {
+          new_flit_errors += batch[2 + 2 * link].value.ullVal;
+          flit_read++;
+        }
+        if (batch[3 + 2 * link].nvmlReturn == NVML_SUCCESS) {
+          new_data_crc_errors += batch[3 + 2 * link].value.ullVal;
+          crc_data_read++;
         }
       }
-      got_corrections = corrections_read == linkCount;
-      if (batch[2 + linkCount].nvmlReturn == NVML_SUCCESS) {
-        new_ecc_errors = batch[2 + linkCount].value.ullVal;
+      got_flit_errors = flit_read == linkCount;
+      got_data_crc_errors = crc_data_read == linkCount;
+      if (batch[2 + 2 * linkCount].nvmlReturn == NVML_SUCCESS) {
+        new_ecc_errors = batch[2 + 2 * linkCount].value.ullVal;
         got_ecc_errors = true;
       }
     }
@@ -1325,19 +1282,31 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
   }
   gpu_info->nvlink_last_poll_time = current_time;
 
-  // Corrections -- use same baseline subtraction pattern as errors
-  if (got_corrections) {
-    if (!gpu_info->baseline_corrections_read) {
-      gpu_info->baseline_corrections = new_corrections;
-      gpu_info->display_corrections = 0;
-      gpu_info->baseline_corrections_read = true;
+  // Flit CRC errors (field 38) -- baseline subtraction shows errors since launch
+  if (got_flit_errors) {
+    if (!gpu_info->baseline_errors_read) {
+      gpu_info->baseline_errors = new_flit_errors;
+      gpu_info->display_errors = 0;
+      gpu_info->baseline_errors_read = true;
     } else {
-      gpu_info->display_corrections = new_corrections > gpu_info->baseline_corrections
-                                        ? new_corrections - gpu_info->baseline_corrections : 0;
+      gpu_info->display_errors = new_flit_errors > gpu_info->baseline_errors
+                                    ? new_flit_errors - gpu_info->baseline_errors : 0;
     }
   }
 
-  // ECC data errors -- use same baseline subtraction pattern as errors/corrections
+  // CRC data errors (field 45) -- same baseline subtraction pattern
+  if (got_data_crc_errors) {
+    if (!gpu_info->baseline_corrections_read) {
+      gpu_info->baseline_corrections = new_data_crc_errors;
+      gpu_info->display_corrections = 0;
+      gpu_info->baseline_corrections_read = true;
+    } else {
+      gpu_info->display_corrections = new_data_crc_errors > gpu_info->baseline_corrections
+                                        ? new_data_crc_errors - gpu_info->baseline_corrections : 0;
+    }
+  }
+
+  // ECC data errors (field 160) -- same baseline subtraction pattern
   if (got_ecc_errors) {
     if (!gpu_info->baseline_ecc_errors_read) {
       gpu_info->baseline_ecc_errors = new_ecc_errors;
@@ -1349,7 +1318,7 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
     }
   }
 
-  // Error/correction/ECC counts from display-ready fields
+  // Flit CRC / CRC data / ECC counts from display-ready fields
   cache->total_errors = gpu_info->display_errors;
   cache->total_corrections = gpu_info->display_corrections;
   cache->total_ecc_errors = gpu_info->display_ecc_errors;
