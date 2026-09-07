@@ -1261,7 +1261,9 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
   // Throughput and corrections via NVML API in a single batched call.
   // RAW fields (140/141) include protocol overhead; DATA fields (138/139) return
   // identical TX/RX on consumer GPUs with aggregate scopeId, yielding zero throughput.
-  // Field 38 (CRC corrections) is already per-device aggregate -- scopeId=0.
+  // Field 38 (CRC corrections) is per-link (all lanes of one link, selected by scopeId),
+  // so it is queried once per active link and summed for the per-device total.
+  // Field 160 (ECC errors) is already a per-device aggregate across all links.
   // Poll every 2 seconds to keep API call frequency reasonable.
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
@@ -1269,23 +1271,26 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
                      ? nvtop_difftime(gpu_info->nvlink_last_poll_time, current_time)
                      : 0;
 
-  // Single batched nvmlDeviceGetFieldValues call for TX, RX, corrections, and ECC errors.
-  // Each entry's nvmlReturn field is checked individually for validity.
-  nvmlFieldValue_t batch[4] = {0};
+  // Single batched nvmlDeviceGetFieldValues call for TX, RX, per-link corrections,
+  // and ECC errors. Each entry's nvmlReturn field is checked individually for validity.
+  nvmlFieldValue_t batch[linkCount + 3];
+  memset(batch, 0, sizeof(batch));
   batch[0].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX;
   batch[0].scopeId = UINT_MAX;
   batch[1].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX;
   batch[1].scopeId = UINT_MAX;
-  batch[2].fieldId = NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL;
-  batch[2].scopeId = 0;
-  batch[3].fieldId = NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL;
-  batch[3].scopeId = 0;
+  for (unsigned int link = 0; link < linkCount; link++) {
+    batch[2 + link].fieldId = NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL;
+    batch[2 + link].scopeId = link;
+  }
+  batch[2 + linkCount].fieldId = NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL;
+  batch[2 + linkCount].scopeId = 0;
 
   unsigned long long new_tx = 0, new_rx = 0, new_corrections = 0, new_ecc_errors = 0;
   bool got_tx = false, got_rx = false, got_corrections = false, got_ecc_errors = false;
 
   if (nvmlDeviceGetFieldValues) {
-    nvmlReturn_t ret = nvmlDeviceGetFieldValues(gpu_info->gpuhandle, 4, batch);
+    nvmlReturn_t ret = nvmlDeviceGetFieldValues(gpu_info->gpuhandle, linkCount + 3, batch);
     if (ret == NVML_SUCCESS) {
       if (batch[0].nvmlReturn == NVML_SUCCESS) {
         new_tx = batch[0].value.ullVal;
@@ -1295,12 +1300,18 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
         new_rx = batch[1].value.ullVal;
         got_rx = true;
       }
-      if (batch[2].nvmlReturn == NVML_SUCCESS) {
-        new_corrections = batch[2].value.ullVal;
-        got_corrections = true;
+      // Sum the per-link CRC corrections. Only report a per-device total when
+      // every active link answered, to avoid presenting a partial count.
+      unsigned int corrections_read = 0;
+      for (unsigned int link = 0; link < linkCount; link++) {
+        if (batch[2 + link].nvmlReturn == NVML_SUCCESS) {
+          new_corrections += batch[2 + link].value.ullVal;
+          corrections_read++;
+        }
       }
-      if (batch[3].nvmlReturn == NVML_SUCCESS) {
-        new_ecc_errors = batch[3].value.ullVal;
+      got_corrections = corrections_read == linkCount;
+      if (batch[2 + linkCount].nvmlReturn == NVML_SUCCESS) {
+        new_ecc_errors = batch[2 + linkCount].value.ullVal;
         got_ecc_errors = true;
       }
     }
