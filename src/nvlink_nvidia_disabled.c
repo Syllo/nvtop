@@ -23,11 +23,6 @@ bool nvtop_get_nvlink_error_counts(struct gpu_info *gpu_info,
   return false;
 }
 
-bool nvtop_probe_nvlink_list(struct list_head *devices) {
-  (void)devices;
-  return false;
-}
-
 void nvtop_reset_nvlink_cache(struct gpu_info *gpu_info) {
   (void)gpu_info;
 }
