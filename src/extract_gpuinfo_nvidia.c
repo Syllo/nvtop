@@ -356,7 +356,9 @@ struct gpu_info_nvidia {
   unsigned long long baseline_errors; // Cumulative errors at last read
   unsigned long long baseline_corrections; // Cumulative corrections at last read
   unsigned long long baseline_ecc_errors; // Cumulative ECC data errors at last read
-  bool nvlink_errors_baseline_read; // True after first read establishes baseline
+  bool baseline_errors_read; // True after first read establishes the errors baseline
+  bool baseline_corrections_read; // True after first read establishes the corrections baseline
+  bool baseline_ecc_errors_read; // True after first read establishes the ECC baseline
 
   // Display-ready error/correction/ECC counts (computed in refresh_dynamic_info)
   unsigned long long display_errors; // Errors since nvtop launch
@@ -1181,10 +1183,10 @@ static void nvlink_read_errors(nvmlDevice_t device, unsigned int linkCount, stru
   }
 
   // Baseline subtraction: show only errors since nvtop launch
-  if (!gpu_info->nvlink_errors_baseline_read) {
+  if (!gpu_info->baseline_errors_read) {
     // First read — establish baseline, display zeros
     gpu_info->baseline_errors = cumulative_errors;
-    gpu_info->nvlink_errors_baseline_read = true;
+    gpu_info->baseline_errors_read = true;
     gpu_info->display_errors = 0;
   } else {
     // Subsequent reads — show delta from baseline
@@ -1205,7 +1207,8 @@ bool nvtop_get_nvlink_error_counts(struct gpu_info *_gpu_info,
     return false;
 
   struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
-  if (!gpu_info->nvlink_errors_baseline_read) {
+  if (!gpu_info->baseline_errors_read && !gpu_info->baseline_corrections_read &&
+      !gpu_info->baseline_ecc_errors_read) {
     return false;
   }
   *out_errors = gpu_info->display_errors;
@@ -1327,10 +1330,10 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
 
   // Corrections -- use same baseline subtraction pattern as errors
   if (got_corrections) {
-    if (!gpu_info->nvlink_errors_baseline_read) {
+    if (!gpu_info->baseline_corrections_read) {
       gpu_info->baseline_corrections = new_corrections;
       gpu_info->display_corrections = 0;
-      gpu_info->nvlink_errors_baseline_read = true;
+      gpu_info->baseline_corrections_read = true;
     } else {
       gpu_info->display_corrections = new_corrections > gpu_info->baseline_corrections
                                         ? new_corrections - gpu_info->baseline_corrections : 0;
@@ -1339,10 +1342,10 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
 
   // ECC data errors -- use same baseline subtraction pattern as errors/corrections
   if (got_ecc_errors) {
-    if (!gpu_info->nvlink_errors_baseline_read) {
+    if (!gpu_info->baseline_ecc_errors_read) {
       gpu_info->baseline_ecc_errors = new_ecc_errors;
       gpu_info->display_ecc_errors = 0;
-      gpu_info->nvlink_errors_baseline_read = true;
+      gpu_info->baseline_ecc_errors_read = true;
     } else {
       gpu_info->display_ecc_errors = new_ecc_errors > gpu_info->baseline_ecc_errors
                                       ? new_ecc_errors - gpu_info->baseline_ecc_errors : 0;
@@ -1417,7 +1420,12 @@ void nvtop_reset_nvlink_cache(struct gpu_info *_gpu_info) {
   gpu_info->baseline_errors = 0;
   gpu_info->baseline_corrections = 0;
   gpu_info->baseline_ecc_errors = 0;
-  gpu_info->nvlink_errors_baseline_read = false;
+  gpu_info->display_errors = 0;
+  gpu_info->display_corrections = 0;
+  gpu_info->display_ecc_errors = 0;
+  gpu_info->baseline_errors_read = false;
+  gpu_info->baseline_corrections_read = false;
+  gpu_info->baseline_ecc_errors_read = false;
   gpu_info->nvlink_last_tx = 0;
   gpu_info->nvlink_last_rx = 0;
   gpu_info->nvlink_last_poll_time = (struct timespec){0};
