@@ -28,8 +28,11 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <linux/perf_event.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #include <uthash.h>
 
@@ -40,6 +43,65 @@ static bool gpuinfo_intel_get_device_handles(struct list_head *devices, unsigned
 static void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_intel_get_running_processes(struct gpu_info *_gpu_info);
+
+static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
+  return syscall(SYS_perf_event_open, hw_event, pid, cpu, group_fd, flags);
+}
+
+static bool get_perf_event(uint32_t type, uint64_t config, int *fd) {
+  struct perf_event_attr attr = {
+      .type = type,
+      .size = sizeof(attr),
+      .config = config,
+  };
+
+  *fd = perf_event_open(&attr, -1, 0, -1, 0);
+  if (*fd < 0)
+    return false;
+
+  return true;
+}
+
+static bool measure_perf_event_by_name(const char *pmu_name, const char *event_name, int *fd) {
+  char type_path[128];
+  FILE *type_file;
+  uint32_t type;
+  uint64_t config = 0;
+
+  snprintf(type_path, sizeof(type_path), "/sys/bus/event_source/devices/%s/type", pmu_name);
+  type_file = fopen(type_path, "r");
+  if (!type_file)
+    return false;
+
+  if (fscanf(type_file, "%u", &type) != 1) {
+    fclose(type_file);
+    return false;
+  }
+  fclose(type_file);
+
+  snprintf(type_path, sizeof(type_path), "/sys/bus/event_source/devices/%s/events/%s", pmu_name, event_name);
+  type_file = fopen(type_path, "r");
+  if (!type_file)
+    return false;
+  if (fscanf(type_file, "event=0x%lx", &config) != 1) {
+    fclose(type_file);
+    return false;
+  }
+  fclose(type_file);
+
+  return get_perf_event(type, config, fd);
+}
+
+static bool get_perf_event_by_gpu_info(const struct gpu_info_intel *gpu_info, const char *event_name,
+                                           int *fd) {
+  char pmu_name[32];
+  snprintf(pmu_name, sizeof(pmu_name), gpu_info->driver == DRIVER_XE ? "xe_%s" : "i915_%s", gpu_info->base.pdev);
+  for (char *ch = pmu_name; *ch; ++ch) {
+    if (*ch == ':')
+      *ch = '_';
+  }
+  return measure_perf_event_by_name(pmu_name, event_name, fd);
+}
 
 struct gpu_vendor gpu_vendor_intel = {
     .init = gpuinfo_intel_init,
@@ -72,6 +134,10 @@ void gpuinfo_intel_shutdown(void) {
     struct gpu_info_intel *current = &gpu_infos[i];
     if (current->card_fd)
       close(current->card_fd);
+    if (current->perf_event_fd >= 0) {
+      ioctl(current->perf_event_fd, PERF_EVENT_IOC_DISABLE, 0);
+      close(current->perf_event_fd);
+    }
     nvtop_device_unref(current->card_device);
     nvtop_device_unref(current->driver_device);
   }
@@ -222,6 +288,16 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   bool is_xe = gpu_info->driver == DRIVER_XE;
 
+  if (gpu_info->perf_event_fd == 0) {
+    if (get_perf_event_by_gpu_info(gpu_info, is_xe ? "gt-actual-frequency" : "actual-frequency",
+                                   &gpu_info->perf_event_fd)) {
+      ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_RESET, 0);
+      ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_ENABLE, 0);
+    } else {
+      gpu_info->perf_event_fd = -1;
+    }
+  }
+
   RESET_ALL(dynamic_info->valid);
 
   // We are creating new devices because the device_get_sysattr_value caches its queries
@@ -247,17 +323,35 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   nvtop_device *clock_device = is_xe ? driver_dev_noncached : card_dev_noncached;
   // GPU clock
-  const char *gt_cur_freq;
-  const char *gt_cur_freq_sysattr = is_xe ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
-  if (nvtop_device_get_sysattr_value(clock_device, gt_cur_freq_sysattr, &gt_cur_freq) >= 0) {
-    unsigned val = strtoul(gt_cur_freq, NULL, 10);
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
+  if (gpu_info->perf_event_fd >= 0) {
+    ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_DISABLE, 0);
+    uint64_t actual_freq = 0;
+    if (read(gpu_info->perf_event_fd, &actual_freq, sizeof(actual_freq)) == sizeof(actual_freq)) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, actual_freq);
+    }
+    ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_RESET, 0);
+    ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_ENABLE, 0);
+  }
+  if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_clock_speed)) {
+    const char *gt_act_freq;
+    const char *gt_act_freq_sysattr = is_xe ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
+    if (nvtop_device_get_sysattr_value(clock_device, gt_act_freq_sysattr, &gt_act_freq) >= 0) {
+      unsigned val = strtoul(gt_act_freq, NULL, 10);
+      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
+    }
   }
   const char *gt_max_freq;
   const char *gt_max_freq_sysattr = is_xe ? "tile0/gt0/freq0/max_freq" : "gt_max_freq_mhz";
   if (nvtop_device_get_sysattr_value(clock_device, gt_max_freq_sysattr, &gt_max_freq) >= 0) {
     unsigned val = strtoul(gt_max_freq, NULL, 10);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, val);
+  }
+  // GPU memory clock
+  const char *mem_max_freq;
+  const char *mem_max_freq_sysattr = is_xe ? "tile0/memory/freq0/max_freq" : "gt/gt0/mem_RP0_freq_mhz";
+  if (nvtop_device_get_sysattr_value(clock_device, mem_max_freq_sysattr, &mem_max_freq) >= 0) {
+    unsigned val = strtoul(mem_max_freq, NULL, 10);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed, val);
   }
 
   if (!static_info->integrated_graphics) {
@@ -288,6 +382,10 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     const char *hwmon_energy = NULL;
     for (unsigned i = 0; i < (is_xe ? 2 : 1); i++) {
       // Max Power
+      if (hwmon_power_max == NULL || hwmon_power_max[0] == '0') {
+        // Some Battlemage (xe) cards use power*_cap as a custom power limit
+        nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "power1_cap" : "power2_cap", &hwmon_power_max);
+      }
       if (hwmon_power_max == NULL || hwmon_power_max[0] == '0') {
         // power1 is for i915 and `card` on supported cards on xe, power2 is `pkg` on xe
         nvtop_device_get_sysattr_value(hwmon_dev_noncached, i == 0 ? "power1_max" : "power2_max", &hwmon_power_max);
