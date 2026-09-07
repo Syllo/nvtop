@@ -162,6 +162,15 @@ if(METAX_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_metax.c)
 endif()
 
+if(REMOTE_SUPPORT)
+  message(STATUS "Building with remote GPU telemetry support (--export / [RemoteHost])")
+  target_compile_definitions(nvtop PRIVATE REMOTE_SUPPORT=1 INI_CALL_HANDLER_ON_NEW_SECTION=1)
+  target_sources(nvtop PRIVATE
+    extract_gpuinfo_remote.c
+    export_server.c
+    remote_wire.c)
+endif()
+
 if(ENFLAME_SUPPORT)
   message(STATUS "Building with Enflame GCU support")
   target_sources(nvtop PRIVATE extract_gcuinfo_enflame.c)

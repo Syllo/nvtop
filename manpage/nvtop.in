@@ -41,6 +41,22 @@ Show only one bar plot corresponding to the maximum of all GPUs.
 .TP
 .BR \-v ", " \-\-version
 Print the version and exit.
+.TP
+.BR \-s ", " \-\-snapshot
+Output the current gpu stats without ncurses (useful for scripting).
+.TP
+.BR \-l ", " \-\-loop
+Output the current gpu stats without ncurses in a loop.
+.TP
+.BR \-x ", " \-\-export \fI[port]\fR
+Serve the current gpu stats to remote consumers over TCP on the given
+port (default 8765). Pair with \fB\-b \-\-bind\fR \fIaddr\fR to change the
+bind address (default 0.0.0.0). Intended for running headless as a
+systemd service on remote hosts; the dashboard host then lists them via
+the \fB[RemoteHost]\fR configuration section.
+.TP
+.BR \-b ", " \-\-bind \fIaddr\fR
+Address the \fB\-\-export\fR server binds to (default \fI0.0.0.0\fR).
 
 .SH INTERACTIVE SETUP WINDOW
 .TP

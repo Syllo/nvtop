@@ -152,6 +152,15 @@ option(ENFLAME_SUPPORT "Build support for Enflame GCUs through libefml" ${ENFLAM
 option(TENSTORRENT_SUPPORT "Build support for Tenstorrent accelerators through tt-kmd" ${TENSTORRENT_SUPPORT_DEFAULT})
 option(IXML_SUPPORT "Build support for Iluvatar CoreX GPUs through libixml" ${IXML_SUPPORT_DEFAULT})
 
+# Remote GPU telemetry (nvtop --export server + remote vendor) is
+# available on any POSIX platform with sockets in libc.
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(REMOTE_SUPPORT_DEFAULT ON)
+else()
+  set(REMOTE_SUPPORT_DEFAULT OFF)
+endif()
+option(REMOTE_SUPPORT "Build support for remote GPU telemetry over TCP (nvtop --export)" ${REMOTE_SUPPORT_DEFAULT})
+
 add_subdirectory(src)
 
 #///////////////////////////////////////////////////////////////////#

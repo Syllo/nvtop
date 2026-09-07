@@ -26,6 +26,10 @@
 #include "nvtop/interface_options.h"
 #include "nvtop/time.h"
 #include "nvtop/version.h"
+#if REMOTE_SUPPORT
+#include "nvtop/export_server.h"
+#include "nvtop/remote_proto.h"
+#endif
 
 #include <getopt.h>
 #include <ncurses.h>
@@ -76,7 +80,12 @@ static const char helpstring[] = "Available options:\n"
                                  "  -h --help         : Print help and exit\n"
                                  "  -s --snapshot     : Output the current gpu stats without ncurses"
                                  "(useful for scripting)\n"
-                                 "  -l --loop         : Output the current gpu stats without ncurses in a loop\n";
+                                 "  -l --loop         : Output the current gpu stats without ncurses in a loop\n"
+#if REMOTE_SUPPORT
+                                 "  -x --export       : Serve gpu stats to remote consumers over TCP "
+                                 "(optionally --export <port>, --bind <addr>)\n"
+#endif
+;
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
@@ -95,10 +104,18 @@ static const struct option long_opts[] = {
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
     {.name = "loop", .has_arg = no_argument, .flag = NULL, .val = 'l'},
+#if REMOTE_SUPPORT
+    {.name = "export", .has_arg = optional_argument, .flag = NULL, .val = 'x'},
+    {.name = "bind", .has_arg = required_argument, .flag = NULL, .val = 'b'},
+#endif
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pPrisl";
+static const char opts[] = "hvd:c:CfE:pPrisl"
+#if REMOTE_SUPPORT
+                            "xb:"
+#endif
+                            ;
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -117,6 +134,12 @@ int main(int argc, char **argv) {
   bool loop_snapshot = false;
   double encode_decode_hide_time = -1.;
   char *custom_config_file_path = NULL;
+#if REMOTE_SUPPORT
+  bool export_enabled = false;
+  unsigned short export_port = NVTOP_EXPORT_DEFAULT_PORT;
+  char *export_bind = "0.0.0.0";
+  int export_port_argc = 0;
+#endif
   while (true) {
     int optchar = getopt_long(argc, argv, opts, long_opts, NULL);
     if (optchar == -1)
@@ -181,6 +204,23 @@ int main(int argc, char **argv) {
     case 'l':
       loop_snapshot = true;
       break;
+#if REMOTE_SUPPORT
+    case 'x':
+      export_enabled = true;
+      if (optarg) {
+        char *endptr = NULL;
+        long p = strtol(optarg, &endptr, 0);
+        if (endptr == optarg || p < 1 || p > 65535) {
+          fprintf(stderr, "Error: invalid port for --export\n");
+          exit(EXIT_FAILURE);
+        }
+        export_port = (unsigned short)p;
+      }
+      break;
+    case 'b':
+      export_bind = optarg;
+      break;
+#endif
     case ':':
     case '?':
       switch (optopt) {
@@ -226,12 +266,58 @@ int main(int argc, char **argv) {
   unsigned allDevCount = 0;
   LIST_HEAD(monitoredGpus);
   LIST_HEAD(nonMonitoredGpus);
+
+#if REMOTE_SUPPORT
+  /* Start the export server BEFORE init so a remote vendor that dials this
+   * exporter's own port (the self-connect case) finds it listening. The
+   * poll/encode only happens in the loop, so the GPU list need not be
+   * populated yet. */
+  if (export_enabled) {
+    export_server_init(&monitoredGpus);
+    if (export_server_start(export_port, export_bind) != 0) {
+      fprintf(stderr, "Error: could not bind the export server on port %u\n", export_port);
+      return EXIT_FAILURE;
+    }
+  }
+#endif
+
   if (!gpuinfo_init_info_extraction(&allDevCount, &monitoredGpus))
     return EXIT_FAILURE;
   if (allDevCount == 0) {
     fprintf(stdout, "No GPU to monitor.\n");
+    if (export_enabled)
+      export_server_stop();
     return EXIT_SUCCESS;
   }
+
+#if REMOTE_SUPPORT
+  if (export_enabled) {
+    gpuinfo_populate_static_infos(&monitoredGpus);
+    // Same refresh cadence as the snapshot loop; the server only serializes
+    // the already-populated structs when a consumer polls.
+    if (!update_interval_option_set)
+      update_interval_option = 100;
+    while (!signal_exit) {
+      export_server_poll();
+      #if _POSIX_C_SOURCE >= 199309L
+      struct timespec tv = {.tv_sec = update_interval_option / 1000,
+                            .tv_nsec = (update_interval_option % 1000) * 1000000};
+      nanosleep(&tv, &tv);
+      #else
+      sleep(update_interval_option / 1000 > 0 ? update_interval_option / 1000 : 1);
+      #endif
+      if (signal_exit)
+        break;
+      gpuinfo_refresh_dynamic_info(&monitoredGpus);
+      gpuinfo_refresh_processes(&monitoredGpus);
+      gpuinfo_utilisation_rate(&monitoredGpus);
+      gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
+    }
+    export_server_stop();
+    gpuinfo_shutdown_info_extraction(&monitoredGpus);
+    return EXIT_SUCCESS;
+  }
+#endif
 
   if (show_snapshot || loop_snapshot) {
     gpuinfo_populate_static_infos(&monitoredGpus);
@@ -350,6 +436,10 @@ int main(int argc, char **argv) {
         gpuinfo_utilisation_rate(&monitoredGpus);
         gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
       }
+#if REMOTE_SUPPORT
+      if (export_enabled)
+        export_server_poll();
+#endif
       save_current_data_to_ring(&monitoredGpus, interface);
       timeout(interface_update_interval(interface));
       time_slept = 0.;
@@ -426,6 +516,10 @@ int main(int argc, char **argv) {
   }
 
   clean_ncurses(interface);
+#if REMOTE_SUPPORT
+  if (export_enabled)
+    export_server_stop();
+#endif
   gpuinfo_shutdown_info_extraction(&monitoredGpus);
 
   return EXIT_SUCCESS;
