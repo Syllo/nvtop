@@ -12,10 +12,8 @@ unsigned nvtop_get_nvlink_info(struct gpu_info *gpu_info, struct nvlink_info *nv
   return 0;
 }
 
-bool nvtop_get_nvlink_error_counts(struct gpu_info *gpu_info,
-                                    unsigned long long *out_errors,
-                                    unsigned long long *out_corrections,
-                                    unsigned long long *out_ecc) {
+bool nvtop_get_nvlink_error_counts(struct gpu_info *gpu_info, unsigned long long *out_errors,
+                                   unsigned long long *out_corrections, unsigned long long *out_ecc) {
   (void)gpu_info;
   (void)out_errors;
   (void)out_corrections;
@@ -23,6 +21,4 @@ bool nvtop_get_nvlink_error_counts(struct gpu_info *gpu_info,
   return false;
 }
 
-void nvtop_reset_nvlink_cache(struct gpu_info *gpu_info) {
-  (void)gpu_info;
-}
+void nvtop_reset_nvlink_cache(struct gpu_info *gpu_info) { (void)gpu_info; }

@@ -43,10 +43,9 @@
 #include <unistd.h>
 
 static unsigned int sizeof_device_field[device_field_count] = {
-    [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
-    [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
-    [device_l2features] = 11, [device_execengines] = 11,
-    [device_nvlink_errors] = 33,
+    [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10,   [device_power] = 15,
+    [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,          [device_shadercores] = 7,
+    [device_l2features] = 11, [device_execengines] = 11, [device_nvlink_errors] = 33,
 };
 
 // True if any monitored device has NVLink hardware support (even if 0 links active).
@@ -62,7 +61,7 @@ static bool any_device_has_nvlink_active = false;
 // display does not require any padding reduction.
 static void nvtop_adjust_field_sizes_for_nvlink(void) {
   if (any_device_has_nvlink_active) {
-    sizeof_device_field[device_fan_speed] = 8;  // "FAN %3u%%" (was 11 with padding)
+    sizeof_device_field[device_fan_speed] = 8; // "FAN %3u%%" (was 11 with padding)
   } else {
     sizeof_device_field[device_fan_speed] = 11; // Restore default padding
   }
@@ -147,8 +146,8 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
     dwin->nvlink_info =
         newwin(1, sizeof_device_field[device_pcie] - sizeof_device_field[device_power] - spacer * 3, start_row + 1,
                start_col + spacer * 4 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
-                   sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                   spacer * 2 + sizeof_device_field[device_power]);
+                   sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] + spacer * 2 +
+                   sizeof_device_field[device_power]);
     if (dwin->nvlink_info == NULL)
       goto alloc_error;
   } else {
@@ -240,10 +239,9 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
   // NVLink errors appended to exec_engines on the same row (start_row + 3), conditional on NVLink
   // Only allocate for devices with active links — 0-link devices have no error counters to show.
   if (any_device_has_nvlink_active) {
-    dwin->nvlink_errors =
-        newwin(1, sizeof_device_field[device_nvlink_errors], start_row + 3,
-               start_col + spacer * 3 + sizeof_device_field[device_shadercores] +
-                   sizeof_device_field[device_l2features] + sizeof_device_field[device_execengines]);
+    dwin->nvlink_errors = newwin(1, sizeof_device_field[device_nvlink_errors], start_row + 3,
+                                 start_col + spacer * 3 + sizeof_device_field[device_shadercores] +
+                                     sizeof_device_field[device_l2features] + sizeof_device_field[device_execengines]);
     if (dwin->nvlink_errors == NULL)
       goto alloc_error;
   } else {
@@ -2246,9 +2244,9 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
     // allocate fan_speed windows at stale width 8.
     sizeof_device_field[device_fan_speed] = 11;
     // Reset NVLink probes on all monitored GPUs so they get probed fresh.
-    { struct gpu_info *g;
-      list_for_each_entry(g, monitoredGpus, list)
-        nvtop_reset_nvlink_cache(g);
+    {
+      struct gpu_info *g;
+      list_for_each_entry(g, monitoredGpus, list) nvtop_reset_nvlink_cache(g);
     }
     // Re-probe NVLink now that caches are cleared, so that
     // any_device_has_nvlink_active is correct when initialize_curses()
