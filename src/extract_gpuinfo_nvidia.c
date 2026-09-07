@@ -88,11 +88,11 @@ typedef struct nvmlFieldValue_st {
 } nvmlFieldValue_t;
 
 // NVML field IDs for NVLink throughput and CRC corrections (from nvml.h)
-#ifndef NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX
-#define NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX 140
+#ifndef NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX
+#define NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX 138
 #endif
-#ifndef NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX
-#define NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX 141
+#ifndef NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX
+#define NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX 139
 #endif
 #ifndef NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL 38
@@ -347,7 +347,7 @@ struct gpu_info_nvidia {
   bool isInMigMode;
   unsigned long long last_utilization_timestamp;
 
-  // NVLink throughput via NVML API (raw counters, aggregate across all links)
+  // NVLink throughput via NVML API (data counters, aggregate across all links)
   unsigned long long nvlink_last_tx;       // Cumulative aggregate TX for delta computation
   unsigned long long nvlink_last_rx;       // Cumulative aggregate RX for delta computation
   nvtop_time nvlink_last_poll_time;        // Timestamp for poll throttling
@@ -1243,8 +1243,9 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
   }
 
   // Throughput and corrections via NVML API in a single batched call.
-  // RAW fields (140/141) include protocol overhead; DATA fields (138/139) return
-  // identical TX/RX on consumer GPUs with aggregate scopeId, yielding zero throughput.
+  // DATA fields (138/139) report payload throughput (data only); RAW fields
+  // (140/141) would include protocol overhead. scopeId=UINT_MAX aggregates
+  // across all links, as documented for these throughput fields.
   // Field 38 (CRC corrections) is per-link (all lanes of one link, selected by scopeId),
   // so it is queried once per active link and summed for the per-device total.
   // Field 160 (ECC errors) is already a per-device aggregate across all links.
@@ -1260,9 +1261,9 @@ static void nvlink_refresh_cached_info(struct gpu_info_nvidia *gpu_info, unsigne
   // and ECC errors. Each entry's nvmlReturn field is checked individually for validity.
   nvmlFieldValue_t batch[linkCount + 3];
   memset(batch, 0, sizeof(batch));
-  batch[0].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_TX;
+  batch[0].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_TX;
   batch[0].scopeId = UINT_MAX;
-  batch[1].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_RAW_RX;
+  batch[1].fieldId = NVML_FI_DEV_NVLINK_THROUGHPUT_DATA_RX;
   batch[1].scopeId = UINT_MAX;
   for (unsigned int link = 0; link < linkCount; link++) {
     batch[2 + link].fieldId = NVML_FI_DEV_NVLINK_CRC_FLIT_ERROR_COUNT_TOTAL;
