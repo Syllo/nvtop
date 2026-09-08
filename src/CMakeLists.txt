@@ -59,8 +59,27 @@ endif()
 
 if(ASCEND_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_ascend.c)
-  set(DCMI_LIBRARY_PATH /usr/local/Ascend/driver/lib64/driver)
-  target_link_libraries(nvtop PRIVATE "${DCMI_LIBRARY_PATH}/libdcmi.so")
+  find_package(Threads REQUIRED)
+  set(ASCEND_ROOT "" CACHE PATH "Ascend toolkit/driver root (for example /usr/local/Ascend)")
+  set(ASCEND_DCMI_HINTS
+    "/usr/local/Ascend/driver/lib64/driver"
+    "/usr/local/Ascend/driver/lib64"
+    "/usr/local/Ascend/lib64")
+  if(ASCEND_ROOT)
+    list(PREPEND ASCEND_DCMI_HINTS
+      "${ASCEND_ROOT}/driver/lib64/driver"
+      "${ASCEND_ROOT}/driver/lib64"
+      "${ASCEND_ROOT}/lib64")
+  endif()
+  find_library(DCMI_LIBRARY
+    NAMES dcmi
+    HINTS ${ASCEND_DCMI_HINTS}
+    PATH_SUFFIXES driver lib64)
+  if(NOT DCMI_LIBRARY)
+    message(FATAL_ERROR "Ascend support enabled, but libdcmi.so was not found. Set ASCEND_ROOT to the Ascend installation root.")
+  endif()
+  message(STATUS "Found Ascend DCMI: ${DCMI_LIBRARY}")
+  target_link_libraries(nvtop PRIVATE "${DCMI_LIBRARY}" Threads::Threads)
 endif()
 
 if(AMDGPU_SUPPORT OR RADEON_SUPPORT OR INTEL_SUPPORT OR V3D_SUPPORT)
