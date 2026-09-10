@@ -1890,14 +1890,20 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
               data_val = 100u;
           }
           break;
-        case plot_gpu_power_draw_rate:
-          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
-              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max)) {
-            data_val = device->dynamic_info.power_draw * 100 / device->dynamic_info.power_draw_max;
-            if (data_val > 100)
-              data_val = 100u;
-          }
-          break;
+          case plot_gpu_power_draw_rate:
+            if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
+                GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
+                device->dynamic_info.power_draw_max > 0) {
+
+              data_val = device->dynamic_info.power_draw * 100 /
+                        device->dynamic_info.power_draw_max;
+
+              if (data_val > 100)
+                data_val = 100u;
+            } else {
+              data_val = 0;
+            }
+            break;
         case plot_fan_speed:
           if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed)) {
             data_val = device->dynamic_info.fan_speed;
