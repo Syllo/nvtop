@@ -127,7 +127,7 @@ static bool gpuinfo_ascend_get_device_handles(struct list_head *devices, unsigne
   for (int i = 0; i < num_cards; ++i) {
     for (int j = 0; j < card_device_list[i]; ++j) {
       gpu_infos[*count].base.vendor = &gpu_vendor_ascend;
-      _encode_card_device_id_to_pdev(gpu_infos[*count].base.pdev, i, j);
+      _encode_card_device_id_to_pdev(gpu_infos[*count].base.pdev, card_list[i], j);
       list_add_tail(&gpu_infos[*count].base.list, devices);
       *count += 1;
     }
@@ -163,7 +163,23 @@ static void gpuinfo_ascend_populate_static_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
   }
   free(chip_info);
-  // todo: it seems that other static infos are not supported by Ascend DCMI for now, will add if possible in future
+
+  /* Detect memory type: HBM (910B) vs DDR (310P3/300i DUO) */
+  struct dsmi_hbm_info_stru hbm_info;
+  int detect_ret = dcmi_get_hbm_info(card_id, device_id, &hbm_info);
+  if (detect_ret == DCMI_SUCCESS) {
+    strncpy(static_info->memory_type, "HBM", sizeof(static_info->memory_type) - 1);
+    static_info->memory_type[sizeof(static_info->memory_type) - 1] = '\0';
+    SET_VALID(gpuinfo_memory_type_valid, static_info->valid);
+  } else {
+    struct dcmi_memory_info_stru ddr_info;
+    detect_ret = dcmi_get_memory_info(card_id, device_id, &ddr_info);
+    if (detect_ret == DCMI_SUCCESS) {
+      strncpy(static_info->memory_type, "DDR", sizeof(static_info->memory_type) - 1);
+      static_info->memory_type[sizeof(static_info->memory_type) - 1] = '\0';
+      SET_VALID(gpuinfo_memory_type_valid, static_info->valid);
+    }
+  }
 }
 
 static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -188,20 +204,7 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_gpu_clock_speed_max_valid, dynamic_info->valid);
   }
 
-  unsigned hbm_freq;
-  last_dcmi_return_status = dcmi_get_device_frequency(card_id, device_id, DCMI_FREQ_HBM, &hbm_freq);
-  if (last_dcmi_return_status == DCMI_SUCCESS) {
-    dynamic_info->mem_clock_speed = hbm_freq;
-    SET_VALID(gpuinfo_mem_clock_speed_valid, dynamic_info->valid);
-  }
-
-  unsigned aicore_util_rate;
-  last_dcmi_return_status = dcmi_get_device_utilization_rate(card_id, device_id, DCMI_UTILIZATION_RATE_AICORE, &aicore_util_rate);
-  if (last_dcmi_return_status == DCMI_SUCCESS) {
-    dynamic_info->gpu_util_rate = aicore_util_rate;
-    SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
-  }
-
+  /* Try HBM memory (Ascend 910B/910A) first, then DDR (Ascend 310P3/300i DUO) */
   struct dsmi_hbm_info_stru hbm_info;
   last_dcmi_return_status = dcmi_get_hbm_info(card_id, device_id, &hbm_info);
   if (last_dcmi_return_status == DCMI_SUCCESS) {
@@ -209,6 +212,39 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, hbm_info.memory_usage * KB_TO_GB);
     SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, (hbm_info.memory_size - hbm_info.memory_usage) * KB_TO_GB);
     SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, hbm_info.memory_usage * 100 / hbm_info.memory_size);
+
+    /* HBM memory clock */
+    unsigned hbm_freq;
+    last_dcmi_return_status = dcmi_get_device_frequency(card_id, device_id, DCMI_FREQ_HBM, &hbm_freq);
+    if (last_dcmi_return_status == DCMI_SUCCESS) {
+      dynamic_info->mem_clock_speed = hbm_freq;
+      SET_VALID(gpuinfo_mem_clock_speed_valid, dynamic_info->valid);
+    }
+  } else {
+    /* Fallback to DDR memory (300i DUO / 310P3) */
+    struct dcmi_memory_info_stru ddr_info;
+    last_dcmi_return_status = dcmi_get_memory_info(card_id, device_id, &ddr_info);
+    if (last_dcmi_return_status == DCMI_SUCCESS) {
+      /* memory_size is in MB, convert to bytes for nvtop */
+      unsigned long long total_bytes = ddr_info.memory_size * 1024 * 1024;
+      unsigned long long used_bytes = total_bytes * ddr_info.utilize / 100;
+      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_bytes);
+      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_bytes);
+      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, total_bytes - used_bytes);
+      SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, ddr_info.utilize);
+
+      if (ddr_info.freq > 0) {
+        dynamic_info->mem_clock_speed = ddr_info.freq;
+        SET_VALID(gpuinfo_mem_clock_speed_valid, dynamic_info->valid);
+      }
+    }
+  }
+
+  unsigned aicore_util_rate;
+  last_dcmi_return_status = dcmi_get_device_utilization_rate(card_id, device_id, DCMI_UTILIZATION_RATE_AICORE, &aicore_util_rate);
+  if (last_dcmi_return_status == DCMI_SUCCESS) {
+    dynamic_info->gpu_util_rate = aicore_util_rate;
+    SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
   }
 
   int device_temperature;
@@ -241,6 +277,8 @@ static void gpuinfo_ascend_get_running_processes(struct gpu_info *_gpu_info) {
       perror("Could not allocate memory: ");
       exit(EXIT_FAILURE);
     }
+    // Zero-initialize to prevent garbage values for unset fields (e.g. gpu_usage)
+    memset(_gpu_info->processes, 0, _gpu_info->processes_array_size * sizeof(*_gpu_info->processes));
     for (int i = 0; i < proc_num; i++) {
       _gpu_info->processes[i].type = gpu_process_compute;
       _gpu_info->processes[i].pid = proc_info[i].proc_id;
