@@ -129,6 +129,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->show_startup_messages = true;
   options->filter_nvtop_pid = true;
   options->has_gpu_info_bar = false;
+  options->show_pcie_overlay = false;
   options->gpu_plot_color_idx[0] = 1;  // Cyan
   options->gpu_plot_color_idx[1] = 3;  // Yellow
   options->gpu_plot_color_idx[2] = 2;  // Green
@@ -178,6 +179,7 @@ static const char header_value_gpu_info_bar[] = "GPUInfoBar";
 
 static const char chart_section[] = "ChartOption";
 static const char chart_value_reverse[] = "ReverseChart";
+static const char chart_value_pcie_overlay[] = "PcieOverlay";
 static const char *chart_value_gpu_plot_color[MAX_LINES_PER_PLOT] = {
     "GpuPlotColor0", "GpuPlotColor1", "GpuPlotColor2", "GpuPlotColor3"};
 
@@ -262,6 +264,14 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
       }
       if (strcmp(value, "false") == 0) {
         ini_data->options->plot_left_to_right = false;
+      }
+    }
+    if (strcmp(name, chart_value_pcie_overlay) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->show_pcie_overlay = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->show_pcie_overlay = false;
       }
     }
     for (unsigned s = 0; s < MAX_LINES_PER_PLOT; ++s) {
@@ -422,6 +432,7 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   // Chart Options
   fprintf(config_file, "\n[%s]\n", chart_section);
   fprintf(config_file, "%s = %s\n", chart_value_reverse, boolean_string(options->plot_left_to_right));
+  fprintf(config_file, "%s = %s\n", chart_value_pcie_overlay, boolean_string(options->show_pcie_overlay));
   for (unsigned s = 0; s < MAX_LINES_PER_PLOT; ++s)
     fprintf(config_file, "%s = %s\n", chart_value_gpu_plot_color[s],
             plot_color_names[options->gpu_plot_color_idx[s]]);

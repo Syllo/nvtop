@@ -69,12 +69,14 @@ static const char *setup_header_option_descriptions[setup_header_options_count] 
 
 enum setup_chart_options {
   setup_chart_reverse,
+  setup_chart_pcie_overlay,
   setup_chart_color_start, // dynamic color rows: slots 0..slot_count-1
   // setup_chart_all_gpu      = setup_chart_color_start + slot_count     (computed)
   // setup_chart_start_gpu_list = setup_chart_color_start + slot_count+1 (computed)
 };
 
 static const char *setup_chart_reverse_description = "Reverse plot direction";
+static const char *setup_chart_pcie_overlay_description = "Shade charts with PCIe rx/tx utilization";
 static const char *setup_chart_all_gpu_description  = "Displayed all GPUs";
 static const char *setup_chart_gpu_description      = "Displayed GPU";
 
@@ -374,6 +376,15 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
   if (interface->setup_win.indentation_level == 1 &&
       interface->setup_win.options_selected[0] == setup_chart_reverse) {
     mvwchgat(option_list_win, setup_chart_reverse + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+
+  // PCIe bandwidth overlay
+  option_state = interface->options.show_pcie_overlay;
+  mvwprintw(option_list_win, setup_chart_pcie_overlay + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_chart_pcie_overlay_description);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_chart_pcie_overlay) {
+    mvwchgat(option_list_win, setup_chart_pcie_overlay + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
 
   // Dynamic color rows — one per active plot slot
@@ -833,6 +844,9 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
         if (interface->setup_win.indentation_level == 1) {
           if (interface->setup_win.options_selected[0] == setup_chart_reverse) {
             interface->options.plot_left_to_right = !interface->options.plot_left_to_right;
+          }
+          if (interface->setup_win.options_selected[0] == setup_chart_pcie_overlay) {
+            interface->options.show_pcie_overlay = !interface->options.show_pcie_overlay;
           }
           // Color rows
           unsigned sel = interface->setup_win.options_selected[0];

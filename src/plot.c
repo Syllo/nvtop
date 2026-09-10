@@ -123,6 +123,75 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned 
   }
 }
 
+// Per-lane unidirectional payload bandwidth in KB/s, indexed by PCIe generation.
+// Gen1/2 are 8b/10b encoded, Gen3 to Gen5 are 128b/130b, Gen6 is PAM4 with FLIT
+// mode. These are the raw link rates minus encoding overhead; real payload
+// throughput also loses a few percent to TLP headers.
+static const unsigned pcie_lane_kbs_per_gen[] = {
+    0,       // unknown
+    250000,  // Gen1  2.5 GT/s
+    500000,  // Gen2  5 GT/s
+    984615,  // Gen3  8 GT/s
+    1969231, // Gen4  16 GT/s
+    3938461, // Gen5  32 GT/s
+    7563000, // Gen6  64 GT/s
+};
+
+unsigned nvtop_pcie_link_max_kbs(unsigned gen, unsigned width) {
+  static const unsigned num_gens = sizeof(pcie_lane_kbs_per_gen) / sizeof(*pcie_lane_kbs_per_gen);
+  if (gen == 0 || width == 0)
+    return 0;
+  if (gen >= num_gens)
+    gen = num_gens - 1;
+  return pcie_lane_kbs_per_gen[gen] * width;
+}
+
+// Height in cells of a bar covering the given fraction of a plot_rows tall plot.
+// Traffic worth less than half a cell shades nothing, so an idle link reads as
+// idle instead of as a permanent one row floor.
+static unsigned bar_cells(double fraction, int plot_rows) {
+  if (!(fraction > 0.))
+    return 0;
+  if (fraction > 1.)
+    fraction = 1.;
+  double cells = round(fraction * (double)plot_rows);
+  return (unsigned)cells;
+}
+
+void nvtop_bandwidth_overlay(WINDOW *win, size_t num_data, const double *rx_fraction, const double *tx_fraction,
+                             short rx_color, short tx_color) {
+  int rows, cols;
+  getmaxyx(win, rows, cols);
+  // nvtop_line_plot places 100% at row 0 and 0% at row rows-1, using the full
+  // window height. A bar covering the whole height (plot_rows == rows) is
+  // needed to reach row 0 at 100%, matching that gridline.
+  int plot_rows = rows;
+  if (plot_rows < 1)
+    return;
+
+  for (size_t i = 0; i < num_data && i < (size_t)cols; ++i) {
+    const double fraction[PCIE_DIRECTION_COUNT] = {rx_fraction[i], tx_fraction[i]};
+    const short color[PCIE_DIRECTION_COUNT] = {rx_color, tx_color};
+    // Both directions rise from the bottom of the plot, so paint the taller one
+    // first: the shorter one then reads as a band inside it and neither height
+    // is lost.
+    unsigned tallest = fraction[0] >= fraction[1] ? 0 : 1;
+    for (unsigned o = 0; o < PCIE_DIRECTION_COUNT; ++o) {
+      unsigned which = o == 0 ? tallest : PCIE_DIRECTION_COUNT - 1 - tallest;
+      unsigned cells = bar_cells(fraction[which], plot_rows);
+      for (unsigned r = 0; r < cells; ++r) {
+        int row = rows - 1 - (int)r;
+        // Reverse video turns the cell background into the pair's color while
+        // leaving whatever the line plot drew there legible on top of it. The
+        // cell's own attributes have to be carried over: dropping A_ALTCHARSET
+        // would turn the line drawing glyphs back into the ASCII they map to.
+        chtype existing = mvwinch(win, row, i) & A_ATTRIBUTES & ~A_COLOR;
+        mvwchgat(win, row, i, 1, existing | A_REVERSE, color[which], NULL);
+      }
+    }
+  }
+}
+
 void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY, unsigned sizeX, unsigned sizeY) {
   mvwhline(win, startY, startX + 1, 0, sizeX - 2);
   mvwhline(win, startY + sizeY - 1, startX + 1, 0, sizeX - 2);
