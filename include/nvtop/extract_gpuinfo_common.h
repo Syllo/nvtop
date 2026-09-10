@@ -53,6 +53,7 @@
 #define GPUINFO_STATIC_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_)
 enum gpuinfo_static_info_valid {
   gpuinfo_device_name_valid = 0,
+  gpuinfo_device_architecture_valid,
   gpuinfo_max_pcie_gen_valid,
   gpuinfo_max_pcie_link_width_valid,
   gpuinfo_temperature_shutdown_threshold_valid,
@@ -68,6 +69,7 @@ enum gpuinfo_static_info_valid {
 
 struct gpuinfo_static_info {
   char device_name[MAX_DEVICE_NAME];
+  char device_architecture[MAX_DEVICE_NAME];
   unsigned max_pcie_gen;
   unsigned max_pcie_link_width;
   unsigned temperature_shutdown_threshold;

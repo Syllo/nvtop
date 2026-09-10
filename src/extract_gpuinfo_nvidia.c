@@ -120,6 +120,8 @@ static const char *(*nvmlErrorString)(nvmlReturn_t);
 
 static nvmlReturn_t (*nvmlDeviceGetName)(nvmlDevice_t device, char *name, unsigned int length);
 
+static nvmlReturn_t (*nvmlDeviceGetArchitecture)(nvmlDevice_t device, unsigned int *arch);
+
 typedef struct {
   char busIdLegacy[16];
   unsigned int domain;
@@ -466,6 +468,9 @@ static bool gpuinfo_nvidia_init(void) {
   if (!nvmlDeviceGetName)
     goto init_error_clean_exit;
 
+  // Optional; not present in older drivers, absence is not an error
+  nvmlDeviceGetArchitecture = dlsym(libnvidia_ml_handle, "nvmlDeviceGetArchitecture");
+
   nvmlDeviceGetPciInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPciInfo_v3");
   if (!nvmlDeviceGetPciInfo)
     nvmlDeviceGetPciInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPciInfo_v2");
@@ -678,6 +683,49 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetName(device, static_info->device_name, MAX_DEVICE_NAME);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
+
+  if (nvmlDeviceGetArchitecture) {
+    unsigned int arch = 0;
+    if (nvmlDeviceGetArchitecture(device, &arch) == NVML_SUCCESS) {
+      const char *arch_name = NULL;
+      switch (arch) {
+      case 2:
+        arch_name = "Kepler";
+        break;
+      case 3:
+        arch_name = "Maxwell";
+        break;
+      case 4:
+        arch_name = "Pascal";
+        break;
+      case 5:
+        arch_name = "Volta";
+        break;
+      case 6:
+        arch_name = "Turing";
+        break;
+      case 7:
+        arch_name = "Ampere";
+        break;
+      case 8:
+        arch_name = "Ada";
+        break;
+      case 9:
+        arch_name = "Hopper";
+        break;
+      case 10:
+        arch_name = "Blackwell";
+        break;
+      default:
+        break;
+      }
+      if (arch_name) {
+        strncpy(static_info->device_architecture, arch_name, MAX_DEVICE_NAME - 1);
+        static_info->device_architecture[MAX_DEVICE_NAME - 1] = '\0';
+        SET_VALID(gpuinfo_device_architecture_valid, static_info->valid);
+      }
+    }
+  }
 
   last_nvml_return_status = nvmlDeviceGetMaxPcieLinkGeneration(device, &static_info->max_pcie_gen);
   if (last_nvml_return_status == NVML_SUCCESS)
