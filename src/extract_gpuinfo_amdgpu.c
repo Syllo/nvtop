@@ -786,6 +786,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 static const char drm_amdgpu_pdev_old[] = "pdev";
 static const char drm_amdgpu_vram_old[] = "vram mem";
 static const char drm_amdgpu_vram[] = "drm-memory-vram";
+static const char drm_amdgpu_gtt_old[] = "gtt mem";
+static const char drm_amdgpu_gtt[] = "drm-memory-gtt";
 static const char drm_amdgpu_gfx_old[] = "gfx";
 static const char drm_amdgpu_gfx[] = "drm-engine-gfx";
 static const char drm_amdgpu_compute_old[] = "compute";
@@ -831,8 +833,12 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if (*endptr)
         continue;
       client_id_set = true;
-    } else if (!strcmp(key, drm_amdgpu_vram_old) || !strcmp(key, drm_amdgpu_vram)) {
-      // TODO: do we count "gtt mem" too?
+    } else if (!strcmp(key, drm_amdgpu_vram_old) || !strcmp(key, drm_amdgpu_vram) ||
+               !strcmp(key, drm_amdgpu_gtt_old) || !strcmp(key, drm_amdgpu_gtt)) {
+      // Count VRAM and GTT together, matching the device-level accounting
+      // which sums both heaps (amdgpu_query_info above). Integrated GPUs
+      // allocate almost everything in GTT, so counting only VRAM reports
+      // near-zero per-process memory there.
       unsigned long mem_int;
       char *endptr;
 
@@ -840,7 +846,7 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
         continue;
 
-      SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+      SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + mem_int * 1024);
     } else {
       bool is_gfx_old = !strncmp(key, drm_amdgpu_gfx_old, sizeof(drm_amdgpu_gfx_old) - 1);
       bool is_compute_old = !strncmp(key, drm_amdgpu_compute_old, sizeof(drm_amdgpu_compute_old) - 1);
