@@ -821,14 +821,20 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 
   // Pcie generation used by the device
-  last_nvml_return_status = nvmlDeviceGetCurrPcieLinkGeneration(device, &dynamic_info->pcie_link_gen);
-  if (last_nvml_return_status == NVML_SUCCESS)
-    SET_VALID(gpuinfo_pcie_link_gen_valid, dynamic_info->valid);
+  // On unified-memory SoC platforms (e.g. DGX Spark / GB10) the device is not
+  // attached through a PCIe link but via its own on-die interconnect
+  // (NVLink-C2C). NVML still reports placeholder values here (GEN 1 @ 1x) that
+  // would be misleading, so only report them on discrete GPUs.
+  if (!has_unified_memory) {
+    last_nvml_return_status = nvmlDeviceGetCurrPcieLinkGeneration(device, &dynamic_info->pcie_link_gen);
+    if (last_nvml_return_status == NVML_SUCCESS)
+      SET_VALID(gpuinfo_pcie_link_gen_valid, dynamic_info->valid);
 
-  // Pcie width used by the device
-  last_nvml_return_status = nvmlDeviceGetCurrPcieLinkWidth(device, &dynamic_info->pcie_link_width);
-  if (last_nvml_return_status == NVML_SUCCESS)
-    SET_VALID(gpuinfo_pcie_link_width_valid, dynamic_info->valid);
+    // Pcie width used by the device
+    last_nvml_return_status = nvmlDeviceGetCurrPcieLinkWidth(device, &dynamic_info->pcie_link_width);
+    if (last_nvml_return_status == NVML_SUCCESS)
+      SET_VALID(gpuinfo_pcie_link_width_valid, dynamic_info->valid);
+  }
 
   // Pcie reception throughput
   last_nvml_return_status = nvmlDeviceGetPcieThroughput(device, NVML_PCIE_UTIL_RX_BYTES, &dynamic_info->pcie_rx);
