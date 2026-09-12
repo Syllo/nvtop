@@ -286,7 +286,69 @@ static char didnt_call_gpuinfo_init[] = "The NVIDIA extraction has not been init
                                         "gpuinfo_nvidia_init\n";
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
-static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_info) {
+// Sum the device memory actually allocated by the processes running on this
+// device. On UMA platforms NVML does not report a framebuffer size, but it does
+// report per-process allocations, so this is the real GPU memory footprint.
+static unsigned long long sum_process_gpu_memory(nvmlDevice_t device) {
+  unsigned long long used = 0;
+
+  for (unsigned pass = 0; pass < 2; ++pass) {
+    nvmlReturn_t (**family)(nvmlDevice_t, unsigned int *, void *) =
+        pass == 0 ? nvmlDeviceGetComputeRunningProcesses : nvmlDeviceGetGraphicsRunningProcesses;
+    bool has_v3 = pass == 0 ? nvmlDeviceGetComputeRunningProcesses_v3 != NULL
+                            : nvmlDeviceGetGraphicsRunningProcesses_v3 != NULL;
+    bool has_v2 = pass == 0 ? nvmlDeviceGetComputeRunningProcesses_v2 != NULL
+                            : nvmlDeviceGetGraphicsRunningProcesses_v2 != NULL;
+    bool has_v1 = pass == 0 ? nvmlDeviceGetComputeRunningProcesses_v1 != NULL
+                            : nvmlDeviceGetGraphicsRunningProcesses_v1 != NULL;
+
+    unsigned version;
+    size_t info_size;
+    if (has_v3) {
+      version = 3;
+      info_size = sizeof(nvmlProcessInfo_v3_t);
+    } else if (has_v2) {
+      version = 2;
+      info_size = sizeof(nvmlProcessInfo_v2_t);
+    } else if (has_v1) {
+      version = 1;
+      info_size = sizeof(nvmlProcessInfo_v1_t);
+    } else {
+      continue;
+    }
+
+    unsigned int count = 0;
+    nvmlReturn_t ret = family[version](device, &count, NULL);
+    if ((ret != NVML_SUCCESS && ret != NVML_ERROR_INSUFFICIENT_SIZE) || count == 0)
+      continue;
+
+    void *infos = malloc(count * info_size);
+    if (!infos)
+      continue;
+
+    if (family[version](device, &count, infos) == NVML_SUCCESS) {
+      for (unsigned int i = 0; i < count; ++i) {
+        switch (version) {
+        case 3:
+          used += ((nvmlProcessInfo_v3_t *)infos)[i].usedGpuMemory;
+          break;
+        case 2:
+          used += ((nvmlProcessInfo_v2_t *)infos)[i].usedGpuMemory;
+          break;
+        default:
+          used += ((nvmlProcessInfo_v1_t *)infos)[i].usedGpuMemory;
+          break;
+        }
+      }
+    }
+    free(infos);
+  }
+
+  return used;
+}
+
+static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_info,
+                                           unsigned long long gpu_used_memory) {
   FILE *meminfo = fopen("/proc/meminfo", "r");
   if (!meminfo)
     return false;
@@ -314,12 +376,20 @@ static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_
       available_memory_kb > total_memory_kb)
     return false;
 
-  unsigned long long total_memory = total_memory_kb * 1024;
-  unsigned long long free_memory = available_memory_kb * 1024;
-  unsigned long long used_memory = total_memory - free_memory;
+  unsigned long long available_memory = available_memory_kb * 1024;
+
+  // The GPU shares the system memory pool, so the memory it can reach is what
+  // it already holds plus what the system has left. Reporting MemTotal here
+  // would claim memory that other processes are already using, and deriving
+  // used memory from MemTotal - MemAvailable would report host consumption as
+  // GPU consumption.
+  unsigned long long used_memory = gpu_used_memory;
+  unsigned long long total_memory = used_memory + available_memory;
+  if (total_memory == 0)
+    return false;
 
   SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
-  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, free_memory);
+  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, available_memory);
   SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_memory);
   SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, used_memory * 100 / total_memory);
 
@@ -817,7 +887,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // not expose dedicated framebuffer memory, so use the Linux system memory
   // counters recommended by NVIDIA for memory reporting.
   if (has_unified_memory) {
-    set_unified_system_memory_info(dynamic_info);
+    set_unified_system_memory_info(dynamic_info, sum_process_gpu_memory(device));
   }
 
   // Pcie generation used by the device
