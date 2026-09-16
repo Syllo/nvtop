@@ -885,6 +885,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (last_nvml_return_status == NVML_SUCCESS)
       SET_GPUINFO_DYNAMIC(dynamic_info, ecc_uncorrected, ecc_count);
   }
+
   // MIG mode
   if (nvmlDeviceGetMigMode) {
     unsigned currentMode, pendingMode;
