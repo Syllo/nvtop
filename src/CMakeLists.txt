@@ -13,6 +13,7 @@ add_executable(nvtop
   interface_setup_win.c
   interface_ring_buffer.c
   extract_gpuinfo.c
+  pcie_utilization.c
   time.c
   plot.c
   ini.c
@@ -52,6 +53,8 @@ endif()
 
 if(NVIDIA_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
+else()
+  target_sources(nvtop PRIVATE nvlink_nvidia_disabled.c)
 endif()
 
 if(ASCEND_SUPPORT)

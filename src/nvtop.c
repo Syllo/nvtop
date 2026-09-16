@@ -294,7 +294,8 @@ int main(int argc, char **argv) {
       allDevicesOptions.gpu_specific_opts[i].to_draw = 0;
     }
   }
-  allDevicesOptions.hide_processes_list = hide_processes_option;
+  if (hide_processes_option)
+    allDevicesOptions.hide_processes_list = true;
   if (encode_decode_timer_option_set) {
     allDevicesOptions.encode_decode_hiding_timer = encode_decode_hide_time;
     if (allDevicesOptions.encode_decode_hiding_timer < 0.)
@@ -311,6 +312,9 @@ int main(int argc, char **argv) {
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
+
+  // Probe for NVLink before layout computation
+  nvtop_probe_nvlink_list(&monitoredGpus);
 
   if (allDevicesOptions.show_startup_messages) {
     bool dont_show_again = show_information_messages(numWarningMessages, warningMessages);
@@ -334,6 +338,10 @@ int main(int argc, char **argv) {
       signal_cont_received = 0;
       update_window_size_to_terminal_size(interface);
     }
+    // Probe NVLink state BEFORE monitored-set-change check, so that
+    // any_device_has_nvlink_active is set before initialize_all_windows()
+    // reads it for layout decisions.
+    nvtop_probe_nvlink_list(&monitoredGpus);
     interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);

@@ -27,6 +27,7 @@
 extern "C" {
 #include "nvtop/interface.h"
 #include "nvtop/interface_layout_selection.h"
+#include "nvtop/pcie_utilization.h"
 }
 
 static std::ostream &operator<<(std::ostream &os, const struct window_position &win) {
@@ -199,6 +200,61 @@ TEST(InterfaceLayout, FixInfiniteLoop) {
 }
 
 TEST(InterfaceLayout, LayoutSelection_test_fail_case1) { test_with_terminal_size(32, 3, 55, 16, 1760); }
+
+namespace {
+
+// Build a gpuinfo_static_info with valid max PCIe gen / width fields.
+struct gpuinfo_static_info make_static_info(unsigned gen, unsigned width) {
+  struct gpuinfo_static_info info = {};
+  SET_GPUINFO_STATIC(&info, max_pcie_gen, gen);
+  SET_GPUINFO_STATIC(&info, max_pcie_link_width, width);
+  return info;
+}
+
+} // namespace
+
+TEST(PcieUtilization, MaxBandwidthPerGeneration) {
+  // Per-lane effective rate (KB/s) multiplied by the link width.
+  struct gpuinfo_static_info gen1 = make_static_info(1, 16);
+  struct gpuinfo_static_info gen2 = make_static_info(2, 16);
+  struct gpuinfo_static_info gen3 = make_static_info(3, 16);
+  struct gpuinfo_static_info gen4 = make_static_info(4, 16);
+  struct gpuinfo_static_info gen5 = make_static_info(5, 16);
+  struct gpuinfo_static_info gen6 = make_static_info(6, 16);
+  struct gpuinfo_static_info gen5x4 = make_static_info(5, 4);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen1), 250000u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen2), 500000u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen3), 984600u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen4), 1969000u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen5), 3938000u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen6), 7563000u * 16u);
+  // Width scales the bandwidth linearly.
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen5x4), 3938000u * 4u);
+}
+
+TEST(PcieUtilization, MaxBandwidthUnknownReturnsZero) {
+  // Unsupported / unknown generation.
+  struct gpuinfo_static_info gen7 = make_static_info(7, 16);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen7), 0u);
+  // Missing validity flags.
+  struct gpuinfo_static_info no_info = {};
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&no_info), 0u);
+}
+
+TEST(PcieUtilization, LoadPercentClampsAndScales) {
+  struct gpuinfo_static_info info = make_static_info(5, 16); // 63,008,000 KB/s max
+  unsigned max_bw = 3938000u * 16u;
+  EXPECT_EQ(pcie_load_percent(0u, &info), 0u);
+  EXPECT_EQ(pcie_load_percent(max_bw / 2u, &info), 50u);
+  EXPECT_EQ(pcie_load_percent(max_bw, &info), 100u);
+  // Above the theoretical max is clamped to 100%.
+  EXPECT_EQ(pcie_load_percent(max_bw * 2u, &info), 100u);
+}
+
+TEST(PcieUtilization, LoadPercentNoMaxReturnsZero) {
+  struct gpuinfo_static_info no_info = {};
+  EXPECT_EQ(pcie_load_percent(1000000u, &no_info), 0u);
+}
 
 #ifdef THOROUGH_TESTING
 

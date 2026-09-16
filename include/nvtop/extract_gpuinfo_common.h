@@ -113,30 +113,30 @@ enum gpuinfo_dynamic_info_valid {
 };
 
 struct gpuinfo_dynamic_info {
-  unsigned int gpu_clock_speed;     // Device clock speed in MHz
-  unsigned int gpu_clock_speed_max; // Maximum clock speed in MHz
-  unsigned int mem_clock_speed;     // Device clock speed in MHz
-  unsigned int mem_clock_speed_max; // Maximum clock speed in MHz
-  unsigned int gpu_util_rate;       // GPU utilization rate in %
-  unsigned int mem_util_rate;       // MEM utilization rate in %
-  unsigned int effective_load_rate; // Effective load rate in %
-  unsigned int encoder_rate;        // Encoder utilization rate in %
-  unsigned int decoder_rate;        // Decoder utilization rate in %
-  unsigned long long total_memory;  // Total memory (bytes)
-  unsigned long long free_memory;   // Unallocated memory (bytes)
-  unsigned long long used_memory;   // Allocated memory (bytes)
-  unsigned long long ecc_corrected; // Total correctable ECC errors
+  unsigned int gpu_clock_speed;       // Device clock speed in MHz
+  unsigned int gpu_clock_speed_max;   // Maximum clock speed in MHz
+  unsigned int mem_clock_speed;       // Device clock speed in MHz
+  unsigned int mem_clock_speed_max;   // Maximum clock speed in MHz
+  unsigned int gpu_util_rate;         // GPU utilization rate in %
+  unsigned int mem_util_rate;         // MEM utilization rate in %
+  unsigned int effective_load_rate;   // Effective load rate in %
+  unsigned int encoder_rate;          // Encoder utilization rate in %
+  unsigned int decoder_rate;          // Decoder utilization rate in %
+  unsigned long long total_memory;    // Total memory (bytes)
+  unsigned long long free_memory;     // Unallocated memory (bytes)
+  unsigned long long used_memory;     // Allocated memory (bytes)
+  unsigned long long ecc_corrected;   // Total correctable ECC errors
   unsigned long long ecc_uncorrected; // Total uncorrected ECC errors
-  unsigned int pcie_link_gen;       // PCIe link generation used
-  unsigned int pcie_link_width;     // PCIe line width used
-  unsigned int pcie_rx;             // PCIe throughput in KB/s
-  unsigned int pcie_tx;             // PCIe throughput in KB/s
-  unsigned int fan_speed;           // Fan speed percentage
-  unsigned int fan_rpm;             // Fan speed RPM
-  unsigned int gpu_temp;            // GPU temperature °celsius
-  unsigned int power_draw;          // Power usage in milliwatts
-  unsigned int power_draw_max;      // Max power usage in milliwatts
-  bool multi_instance_mode;          // True if the GPU is in multi-instance mode
+  unsigned int pcie_link_gen;         // PCIe link generation used
+  unsigned int pcie_link_width;       // PCIe line width used
+  unsigned int pcie_rx;               // PCIe throughput in KB/s
+  unsigned int pcie_tx;               // PCIe throughput in KB/s
+  unsigned int fan_speed;             // Fan speed percentage
+  unsigned int fan_rpm;               // Fan speed RPM
+  unsigned int gpu_temp;              // GPU temperature °celsius
+  unsigned int power_draw;            // Power usage in milliwatts
+  unsigned int power_draw_max;        // Max power usage in milliwatts
+  bool multi_instance_mode;           // True if the GPU is in multi-instance mode
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
@@ -243,5 +243,34 @@ inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64
 }
 
 unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed);
+
+// NVLink support
+#define NVTOP_NVLINK_MAX_LINKS 36
+
+struct nvlink_info {
+  unsigned num_links;                   // Number of NVLink links on this device
+  unsigned version;                     // NVLink version (e.g. 3 for NVLink 3.0)
+  bool supported;                       // NVLink is supported on this device
+  bool has_throughput;                  // Whether throughput data was available this cycle
+  unsigned long long aggregate_tx;      // Aggregate TX throughput across all links (KiB/s)
+  unsigned long long aggregate_rx;      // Aggregate RX throughput across all links (KiB/s)
+  unsigned long long total_errors;      // Cumulative-since-launch flit CRC errors across all links
+  unsigned long long total_corrections; // Cumulative-since-launch CRC data errors across all links
+  unsigned long long total_ecc_errors;  // Cumulative-since-launch ECC data errors across all links
+};
+
+unsigned nvtop_get_nvlink_info(struct gpu_info *gpu_info, struct nvlink_info *nvlink_info);
+
+// Get display-ready NVLink flit CRC / CRC data / ECC counts from the per-device
+// persistent struct. Returns true if a baseline has been established at least once.
+bool nvtop_get_nvlink_error_counts(struct gpu_info *gpu_info, unsigned long long *out_errors,
+                                   unsigned long long *out_corrections, unsigned long long *out_ecc);
+
+// NVLink probe — call before initialize_curses to set layout mode
+bool nvtop_probe_nvlink_list(struct list_head *devices);
+
+// Reset per-GPU NVLink cache (probed flag, cached linkcount/version, cached info struct).
+// Call when the monitored device set changes so newly-monitored NVLink GPUs get probed fresh.
+void nvtop_reset_nvlink_cache(struct gpu_info *gpu_info);
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

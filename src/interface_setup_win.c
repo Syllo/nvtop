@@ -79,9 +79,9 @@ static const char *setup_chart_all_gpu_description  = "Displayed all GPUs";
 static const char *setup_chart_gpu_description      = "Displayed GPU";
 
 static const char *setup_chart_gpu_value_descriptions[plot_information_count] = {
-    "GPU utilization rate", "GPU memory utilization rate",   "GPU encoder rate", "GPU decoder rate",
-    "GPU temperature",      "Power draw rate (current/max)", "Fan speed",        "GPU clock rate",
-    "GPU memory clock rate", "Effective load rate"};
+    "GPU utilization rate",  "GPU memory utilization rate",   "GPU encoder rate",  "GPU decoder rate",
+    "GPU temperature",       "Power draw rate (current/max)", "Fan speed",         "GPU clock rate",
+    "GPU memory clock rate", "Effective load rate",           "PCIe RX load rate", "PCIe TX load rate"};
 
 static const char *chart_color_names[] = {"Red", "Cyan", "Green", "Yellow", "Blue", "Magenta", "White"};
 static const unsigned chart_color_names_count = ARRAY_SIZE(chart_color_names);
@@ -846,6 +846,15 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
             handle_setup_win_keypress(KEY_RIGHT, interface);
           }
         } else if (interface->setup_win.indentation_level == 2) {
+          // The "Displayed all GPUs" and GPU rows are laid out right after the
+          // color rows, so their row index depends on the number of currently
+          // enabled metrics (slot_count). Toggling a metric below changes that
+          // count and shifts those rows, hence we keep the cursor anchored on
+          // the same logical row while the metric is toggled.
+          bool selected_all_gpus = interface->setup_win.options_selected[0] == chart_all_gpu_kp;
+          unsigned selected_gpu_offset = interface->setup_win.options_selected[0] > chart_all_gpu_kp
+                                             ? interface->setup_win.options_selected[0] - chart_gpu_list_kp
+                                             : 0;
           if (interface->setup_win.options_selected[0] == chart_all_gpu_kp) {
             plot_info_to_draw draw_intersection = 0xffff;
             for (unsigned j = 0; j < interface->monitored_dev_count; ++j) {
@@ -875,6 +884,17 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
               interface->options.gpu_specific_opts[selected_gpu].to_draw = plot_add_draw_info(
                   interface->setup_win.options_selected[1], interface->options.gpu_specific_opts[selected_gpu].to_draw);
             interface_ring_buffer_empty(&interface->saved_data_ring, selected_gpu);
+          }
+          // Re-anchor the selection after the color rows count may have changed.
+          if (selected_all_gpus || interface->setup_win.options_selected[0] > chart_all_gpu_kp) {
+            plot_info_to_draw ref_draw_after = 0;
+            for (unsigned j = 0; j < interface->monitored_dev_count; ++j)
+              ref_draw_after |= interface->options.gpu_specific_opts[j].to_draw;
+            unsigned chart_all_gpu_after = setup_chart_color_start + plot_count_draw_info(ref_draw_after);
+            if (selected_all_gpus)
+              interface->setup_win.options_selected[0] = chart_all_gpu_after;
+            else
+              interface->setup_win.options_selected[0] = chart_all_gpu_after + 1 + selected_gpu_offset;
           }
         }
       }
