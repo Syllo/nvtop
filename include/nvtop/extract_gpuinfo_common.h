@@ -231,6 +231,9 @@ struct gpu_info {
   char pdev[PDEV_LEN];
 };
 
+// Short label for the device's compute unit (e.g. "GPU", "NPU"), defaults to "GPU"
+#define DEVICE_UNIT_NAME(dev) ((dev)->vendor->unit_name ? (dev)->vendor->unit_name : "GPU")
+
 void register_gpu_vendor(struct gpu_vendor *vendor);
 
 bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);

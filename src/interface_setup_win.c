@@ -79,27 +79,32 @@ static const char *setup_chart_all_gpu_description  = "Displayed all GPUs";
 static const char *setup_chart_gpu_description      = "Displayed GPU";
 
 static const char *setup_chart_gpu_value_descriptions[plot_information_count] = {
-    "GPU utilization rate",  "GPU memory utilization rate",   "GPU encoder rate",  "GPU decoder rate",
-    "GPU temperature",       "Power draw rate (current/max)", "Fan speed",         "GPU clock rate",
-    "GPU memory clock rate", "Effective load rate",           "PCIe RX load rate", "PCIe TX load rate",
+    "%s utilization rate",   "%s memory utilization rate",    "%s encoder rate",   "%s decoder rate",
+    "%s temperature",        "Power draw rate (current/max)", "Fan speed",         "%s clock rate",
+    "%s memory clock rate",  "Effective load rate",           "PCIe RX load rate", "PCIe TX load rate",
     "HVX utilization rate",  "HMX utilization rate"};
+
+// Formats the description of a plot metric for the given compute unit label.
+// Descriptions without a unit placeholder (power, fan, ...) are returned as-is.
+static void format_metric_description(char *buf, size_t buflen, enum plot_information info, const char *unit) {
+  snprintf(buf, buflen, setup_chart_gpu_value_descriptions[info], unit);
+}
 
 static const char *chart_color_names[] = {"Red", "Cyan", "Green", "Yellow", "Blue", "Magenta", "White"};
 static const unsigned chart_color_names_count = ARRAY_SIZE(chart_color_names);
 
 // Build labels for each active plot slot for a given GPU's to_draw mask.
 // Uses the same iteration order as populate_plot_data_from_ring_buffer.
-static unsigned get_plot_slot_labels(plot_info_to_draw to_draw, unsigned dev_id,
+static unsigned get_plot_slot_labels(plot_info_to_draw to_draw, unsigned dev_id, const char *unit,
                                      const char *labels[MAX_LINES_PER_PLOT]) {
   unsigned slot = 0;
   for (enum plot_information info = plot_gpu_rate; info < plot_information_count && slot < MAX_LINES_PER_PLOT; ++info) {
     if (plot_isset_draw_info(info, to_draw)) {
-      char buf[64];
-      snprintf(buf, sizeof(buf), "GPU%u %s", dev_id, setup_chart_gpu_value_descriptions[info]);
+      char description[64];
+      format_metric_description(description, sizeof(description), info, unit);
       // store in a static table since we need stable pointers for the caller
       static char label_storage[MAX_LINES_PER_PLOT][64];
-      snprintf(label_storage[slot], sizeof(label_storage[slot]), "GPU%u %s", dev_id,
-               setup_chart_gpu_value_descriptions[info]);
+      snprintf(label_storage[slot], sizeof(label_storage[slot]), "%s%u %s", unit, dev_id, description);
       labels[slot] = label_storage[slot];
       slot++;
     }
@@ -383,7 +388,13 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
   plot_info_to_draw gpu0_draw = interface->monitored_dev_count > 0
                                     ? interface->options.gpu_specific_opts[0].to_draw
                                     : ref_draw;
-  get_plot_slot_labels(gpu0_draw, 0, slot_labels);
+  struct gpu_info *first_device;
+  const char *unit = "GPU";
+  list_for_each_entry(first_device, devices, list) {
+    unit = DEVICE_UNIT_NAME(first_device);
+    break;
+  }
+  get_plot_slot_labels(gpu0_draw, 0, unit, slot_labels);
 
   for (unsigned s = 0; s < slot_count && s < MAX_LINES_PER_PLOT; ++s) {
     unsigned row = setup_chart_color_start + s;
@@ -435,6 +446,7 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
     mvwprintw(value_list_win, 0, 0, "Metric Displayed in Graph");
     getmaxyx(value_list_win, tmp, maxcols);
     unsigned selected_gpu = interface->setup_win.options_selected[0] - chart_start_gpu_list;
+    const char *unit = "GPU";
     if (interface->setup_win.options_selected[0] == chart_all_gpu) {
       wprintw(value_list_win, " (All GPUs)");
     } else {
@@ -445,11 +457,12 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
           break;
         index++;
       }
+      unit = DEVICE_UNIT_NAME(device);
       if (IS_VALID(gpuinfo_device_name_valid, device->static_info.valid)) {
         getyx(value_list_win, tmp, cur_col);
         wprintw(value_list_win, " (%.*s)", maxcols - cur_col - 3, device->static_info.device_name);
       } else
-        wprintw(value_list_win, " (GPU %u)", selected_gpu);
+        wprintw(value_list_win, " (%s %u)", unit, selected_gpu);
     }
     wclrtoeol(value_list_win);
     getyx(value_list_win, tmp, cur_col);
@@ -476,8 +489,9 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
       } else {
         option_state = plot_isset_draw_info(i, interface->options.gpu_specific_opts[selected_gpu].to_draw);
       }
-      mvwprintw(value_list_win, i + 2, 0, "[%c] %s", option_state_char(option_state),
-                setup_chart_gpu_value_descriptions[i]);
+      char description[64];
+      format_metric_description(description, sizeof(description), i, unit);
+      mvwprintw(value_list_win, i + 2, 0, "[%c] %s", option_state_char(option_state), description);
       if (interface->setup_win.indentation_level == 2 && interface->setup_win.options_selected[1] == i) {
         mvwchgat(value_list_win, i + 2, 0, 3, A_STANDOUT, cyan_color, NULL);
       }

@@ -43,8 +43,6 @@
 #include <tgmath.h>
 #include <unistd.h>
 
-#define DEVICE_UNIT_NAME(dev) ((dev)->vendor->unit_name ? (dev)->vendor->unit_name : "GPU")
-
 // device_ecc is sized for "ECC 999/99": corrected is capped at 3 digits, uncorrected at 2
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,  [device_temperature] = 10, [device_power] = 15,
