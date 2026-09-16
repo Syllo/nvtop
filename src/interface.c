@@ -127,6 +127,23 @@ static unsigned int sizeof_process_field[process_field_count] = {
     [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9, [process_command] = 0,
 };
 
+// NVLink window geometry on device line 2. The window is appended after power
+// (and ECC, when present); its width is derived from the PCIe field width.
+// Shared by alloc_device_window() and device_length() so the allocated window
+// and the reserved panel width can never drift apart.
+static unsigned int nvlink_line2_start(unsigned int spacer) {
+  unsigned int start = spacer * 6 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                       sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
+                       sizeof_device_field[device_power];
+  if (any_device_has_ecc)
+    start += sizeof_device_field[device_ecc];
+  return start;
+}
+
+static unsigned int nvlink_line2_width(unsigned int spacer) {
+  return sizeof_device_field[device_pcie] - sizeof_device_field[device_power] - spacer * 3;
+}
+
 static void alloc_device_window(unsigned int start_row, unsigned int start_col, unsigned int totalcol,
                                 struct device_window *dwin) {
 
@@ -179,14 +196,9 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
     dwin->ecc_info = NULL;
   }
 
-  // NVLink appended after power (and ECC when present) on the same row (start_row + 1),
-  // using remaining width
+  // NVLink appended after power (and ECC when present) on the same row (start_row + 1)
   if (any_device_has_nvlink) {
-    dwin->nvlink_info =
-        newwin(1, sizeof_device_field[device_pcie] - sizeof_device_field[device_power] - spacer * 3, start_row + 1,
-               start_col + spacer * 6 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
-                   sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                   sizeof_device_field[device_power] + (any_device_has_ecc ? sizeof_device_field[device_ecc] : 0));
+    dwin->nvlink_info = newwin(1, nvlink_line2_width(spacer), start_row + 1, start_col + nvlink_line2_start(spacer));
     if (dwin->nvlink_info == NULL)
       goto alloc_error;
   } else {
@@ -470,20 +482,23 @@ static void alloc_plot_window(unsigned devices_count, struct window_position *pl
 }
 
 static unsigned device_length(void) {
+  const unsigned int spacer = 1;
+
   unsigned line1 = sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1;
 
   // Line 2 base: clock, mem_clock, temp, fan, power + spacers (4 spacers + 1 = 5)
   // ECC is only counted when a monitored GPU actually supports it, so consumer
   // systems keep the original narrower panel width.
-  // Do NOT expand for NVLink — the NVLink window on line 2 extends past the
-  // nominal panel edge and ncurses renders it fine. Expanding it would make
-  // line 3 bar charts (GPU/MEM/Enc/Dec) too wide. This applies to both the
-  // 0-link case ("NVL3 0x") and the active-links case (with throughput).
   unsigned line2 = sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                    sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
                    sizeof_device_field[device_power] + 5;
   if (any_device_has_ecc)
     line2 += sizeof_device_field[device_ecc] + 1;
+
+  // The NVLink window is appended to line 2 and must be part of the panel width,
+  // otherwise it overlaps the next device header when several devices share a row.
+  if (any_device_has_nvlink)
+    line2 = max(line2, nvlink_line2_start(spacer) + nvlink_line2_width(spacer) + 1);
 
   return max(line1, line2);
 }
