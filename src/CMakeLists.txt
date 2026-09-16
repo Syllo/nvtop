@@ -13,6 +13,7 @@ add_executable(nvtop
   interface_setup_win.c
   interface_ring_buffer.c
   extract_gpuinfo.c
+  pcie_utilization.c
   time.c
   plot.c
   ini.c
@@ -52,6 +53,8 @@ endif()
 
 if(NVIDIA_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
+else()
+  target_sources(nvtop PRIVATE nvlink_nvidia_disabled.c)
 endif()
 
 if(ASCEND_SUPPORT)
@@ -100,18 +103,21 @@ if (MSM_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_msm.c)
   target_sources(nvtop PRIVATE extract_gpuinfo_msm_utils.c)
 
-  pkg_check_modules(NPUPERF REQUIRED qcnpuperf)
+  pkg_check_modules(NPUPERF qcnpuperf)
+  if (NPUPERF_FOUND)
+    target_include_directories(nvtop
+      PRIVATE
+        ${NPUPERF_INCLUDE_DIRS}
+    )
 
-  target_include_directories(nvtop
-    PRIVATE
-      ${NPUPERF_INCLUDE_DIRS}
-  )
-
-  target_link_libraries(nvtop
-    PRIVATE
-      ${NPUPERF_LIBRARIES}
-  )
-  target_sources(nvtop PRIVATE extract_npuinfo_qualcomm.c)
+    target_link_libraries(nvtop
+      PRIVATE
+        ${NPUPERF_LIBRARIES}
+    )
+    target_sources(nvtop PRIVATE extract_npuinfo_qualcomm.c)
+  else()
+    message(STATUS "libqcnpuperf not found: Qualcomm NPU monitoring disabled")
+  endif()
 endif()
 
 if(INTEL_SUPPORT)

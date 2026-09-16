@@ -273,17 +273,17 @@ int main(int argc, char **argv) {
   alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus, &allDevicesOptions);
   load_interface_options_from_config_file(allDevCount, &allDevicesOptions);
   struct gpu_info *dev;
-  unsigned i = 0;
+  unsigned dev_idx = 0;
   list_for_each_entry(dev, &monitoredGpus, list) {
     // Nothing specified in the file
-    if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw)) {
-      allDevicesOptions.gpu_specific_opts[i].to_draw =
+    if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw)) {
+      allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
           dev->vendor->unit_name ? plot_npu_default_draw_info() : plot_default_draw_info();
     } else {
-      allDevicesOptions.gpu_specific_opts[i].to_draw =
-          plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw);
+      allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
+          plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw);
     }
-    i++;
+    dev_idx++;
   }
   if (!process_is_field_displayed(process_field_count, allDevicesOptions.process_fields_displayed)) {
     allDevicesOptions.process_fields_displayed = process_default_displayed_field();
@@ -298,7 +298,8 @@ int main(int argc, char **argv) {
       allDevicesOptions.gpu_specific_opts[i].to_draw = 0;
     }
   }
-  allDevicesOptions.hide_processes_list = hide_processes_option;
+  if (hide_processes_option)
+    allDevicesOptions.hide_processes_list = true;
   if (encode_decode_timer_option_set) {
     allDevicesOptions.encode_decode_hiding_timer = encode_decode_hide_time;
     if (allDevicesOptions.encode_decode_hiding_timer < 0.)
@@ -315,6 +316,10 @@ int main(int argc, char **argv) {
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
+
+  // Probe for NVLink and ECC support before layout computation
+  nvtop_probe_nvlink_list(&monitoredGpus);
+  nvtop_probe_ecc_list(&monitoredGpus);
 
   if (allDevicesOptions.show_startup_messages) {
     bool dont_show_again = show_information_messages(numWarningMessages, warningMessages);
@@ -338,6 +343,11 @@ int main(int argc, char **argv) {
       signal_cont_received = 0;
       update_window_size_to_terminal_size(interface);
     }
+    // Probe NVLink state and ECC support BEFORE monitored-set-change check, so
+    // that any_device_has_nvlink_active / any_device_has_ecc are set before
+    // initialize_all_windows() reads them for layout decisions.
+    nvtop_probe_nvlink_list(&monitoredGpus);
+    nvtop_probe_ecc_list(&monitoredGpus);
     interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);

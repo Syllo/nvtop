@@ -8,6 +8,7 @@ if (BUILD_TESTING AND GTest_FOUND)
     ${PROJECT_SOURCE_DIR}/src/interface_layout_selection.c
     ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c
     ${PROJECT_SOURCE_DIR}/src/interface_options.c
+    ${PROJECT_SOURCE_DIR}/src/pcie_utilization.c
     ${PROJECT_SOURCE_DIR}/src/ini.c
   )
   target_include_directories(testLib PUBLIC

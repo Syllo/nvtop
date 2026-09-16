@@ -128,6 +128,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->has_monitored_set_changed = false;
   options->show_startup_messages = true;
   options->filter_nvtop_pid = true;
+  options->hide_processes_list = false;
   options->has_gpu_info_bar = false;
   options->gpu_plot_color_idx[0] = 1;  // Cyan
   options->gpu_plot_color_idx[1] = 3;  // Yellow
@@ -201,8 +202,9 @@ static const char device_pdev[] = "Pdev";
 static const char device_monitor[] = "Monitor";
 static const char device_shown_value[] = "ShownInfo";
 static const char *device_draw_vals[plot_information_count + 1] = {
-    "gpuRate",       "gpuMemRate", "encodeRate",   "decodeRate",      "temperature",
-    "powerDrawRate", "fanSpeed",   "gpuClockRate", "gpuMemClockRate", "effectiveLoadRate", "none"};
+    "gpuRate",      "gpuMemRate",      "encodeRate",        "decodeRate", "temperature", "powerDrawRate", "fanSpeed",
+    "gpuClockRate", "gpuMemClockRate", "effectiveLoadRate", "pcieRxRate", "pcieTxRate",  "hvxUtilRate",
+    "hmxUtilRate",  "none"};
 
 static int nvtop_option_ini_handler(void *user, const char *section, const char *name, const char *value) {
   struct nvtop_option_ini_data *ini_data = (struct nvtop_option_ini_data *)user;
