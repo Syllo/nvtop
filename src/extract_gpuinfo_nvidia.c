@@ -205,12 +205,25 @@ typedef enum {
   NVML_TEMPERATURE_GPU = 0,
 } nvmlTemperatureSensors_t;
 
+typedef enum {
+  NVML_MEMORY_ERROR_TYPE_CORRECTED = 0,
+  NVML_MEMORY_ERROR_TYPE_UNCORRECTED = 1,
+} nvmlMemoryErrorType_t;
+
+typedef enum {
+  NVML_VOLATILE_ECC = 0,
+  NVML_AGGREGATE_ECC = 1,
+} nvmlEccCounterType_t;
+
 static nvmlReturn_t (*nvmlDeviceGetTemperature)(nvmlDevice_t device, nvmlTemperatureSensors_t sensorType,
                                                 unsigned int *temp);
 
 static nvmlReturn_t (*nvmlDeviceGetPowerUsage)(nvmlDevice_t device, unsigned int *power);
 
 static nvmlReturn_t (*nvmlDeviceGetEnforcedPowerLimit)(nvmlDevice_t device, unsigned int *limit);
+
+static nvmlReturn_t (*nvmlDeviceGetTotalEccErrors)(nvmlDevice_t device, nvmlMemoryErrorType_t errorType,
+                                                   nvmlEccCounterType_t counterType, unsigned long long *eccCounts);
 
 static nvmlReturn_t (*nvmlDeviceGetEncoderUtilization)(nvmlDevice_t device, unsigned int *utilization,
                                                        unsigned int *samplingPeriodUs);
@@ -579,6 +592,7 @@ static bool gpuinfo_nvidia_init(void) {
       (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetMPSComputeRunningProcesses_v2;
   nvmlDeviceGetMPSComputeRunningProcesses[3] =
       (nvmlReturn_t(*)(nvmlDevice_t, unsigned int *, void *))nvmlDeviceGetMPSComputeRunningProcesses_v3;
+  nvmlDeviceGetTotalEccErrors = dlsym(libnvidia_ml_handle, "nvmlDeviceGetTotalEccErrors");
 
   // These ones might not be available
   nvmlDeviceGetProcessUtilization = dlsym(libnvidia_ml_handle, "nvmlDeviceGetProcessUtilization");
@@ -859,6 +873,18 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetEnforcedPowerLimit(device, &dynamic_info->power_draw_max);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_power_draw_max_valid, dynamic_info->valid);
+
+  if (nvmlDeviceGetTotalEccErrors) {
+    unsigned long long ecc_count;
+    last_nvml_return_status =
+        nvmlDeviceGetTotalEccErrors(device, NVML_MEMORY_ERROR_TYPE_CORRECTED, NVML_VOLATILE_ECC, &ecc_count);
+    if (last_nvml_return_status == NVML_SUCCESS)
+      SET_GPUINFO_DYNAMIC(dynamic_info, ecc_corrected, ecc_count);
+    last_nvml_return_status =
+        nvmlDeviceGetTotalEccErrors(device, NVML_MEMORY_ERROR_TYPE_UNCORRECTED, NVML_VOLATILE_ECC, &ecc_count);
+    if (last_nvml_return_status == NVML_SUCCESS)
+      SET_GPUINFO_DYNAMIC(dynamic_info, ecc_uncorrected, ecc_count);
+  }
 
   // MIG mode
   if (nvmlDeviceGetMigMode) {
@@ -1399,4 +1425,21 @@ void nvtop_reset_nvlink_cache(struct gpu_info *_gpu_info) {
   gpu_info->nvlink_last_tx = 0;
   gpu_info->nvlink_last_rx = 0;
   gpu_info->nvlink_last_poll_time = (struct timespec){0};
+}
+
+// Memory ECC support: probe the volatile corrected ECC counter once. Consumer GPUs
+// return NVML_ERROR_NOT_SUPPORTED, so the layout can skip the ECC field entirely.
+bool nvtop_get_ecc_support(struct gpu_info *_gpu_info) {
+  // Memory ECC is an NVIDIA-specific NVML query
+  if (strcmp(_gpu_info->vendor->name, "NVIDIA"))
+    return false;
+
+  if (!nvmlDeviceGetTotalEccErrors)
+    return false;
+
+  struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
+  unsigned long long ecc_count = 0;
+  nvmlReturn_t ret =
+      nvmlDeviceGetTotalEccErrors(gpu_info->gpuhandle, NVML_MEMORY_ERROR_TYPE_CORRECTED, NVML_VOLATILE_ECC, &ecc_count);
+  return ret == NVML_SUCCESS;
 }

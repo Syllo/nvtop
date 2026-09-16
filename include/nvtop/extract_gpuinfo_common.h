@@ -107,32 +107,36 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_power_draw_max_valid,
   gpuinfo_effective_load_rate_valid,
   gpuinfo_multi_instance_mode_valid,
+  gpuinfo_ecc_corrected_valid,
+  gpuinfo_ecc_uncorrected_valid,
   gpuinfo_dynamic_info_count,
 };
 
 struct gpuinfo_dynamic_info {
-  unsigned int gpu_clock_speed;     // Device clock speed in MHz
-  unsigned int gpu_clock_speed_max; // Maximum clock speed in MHz
-  unsigned int mem_clock_speed;     // Device clock speed in MHz
-  unsigned int mem_clock_speed_max; // Maximum clock speed in MHz
-  unsigned int gpu_util_rate;       // GPU utilization rate in %
-  unsigned int mem_util_rate;       // MEM utilization rate in %
-  unsigned int effective_load_rate; // Effective load rate in %
-  unsigned int encoder_rate;        // Encoder utilization rate in %
-  unsigned int decoder_rate;        // Decoder utilization rate in %
-  unsigned long long total_memory;  // Total memory (bytes)
-  unsigned long long free_memory;   // Unallocated memory (bytes)
-  unsigned long long used_memory;   // Allocated memory (bytes)
-  unsigned int pcie_link_gen;       // PCIe link generation used
-  unsigned int pcie_link_width;     // PCIe line width used
-  unsigned int pcie_rx;             // PCIe throughput in KB/s
-  unsigned int pcie_tx;             // PCIe throughput in KB/s
-  unsigned int fan_speed;           // Fan speed percentage
-  unsigned int fan_rpm;             // Fan speed RPM
-  unsigned int gpu_temp;            // GPU temperature °celsius
-  unsigned int power_draw;          // Power usage in milliwatts
-  unsigned int power_draw_max;      // Max power usage in milliwatts
-  bool multi_instance_mode;          // True if the GPU is in multi-instance mode
+  unsigned int gpu_clock_speed;       // Device clock speed in MHz
+  unsigned int gpu_clock_speed_max;   // Maximum clock speed in MHz
+  unsigned int mem_clock_speed;       // Device clock speed in MHz
+  unsigned int mem_clock_speed_max;   // Maximum clock speed in MHz
+  unsigned int gpu_util_rate;         // GPU utilization rate in %
+  unsigned int mem_util_rate;         // MEM utilization rate in %
+  unsigned int effective_load_rate;   // Effective load rate in %
+  unsigned int encoder_rate;          // Encoder utilization rate in %
+  unsigned int decoder_rate;          // Decoder utilization rate in %
+  unsigned long long total_memory;    // Total memory (bytes)
+  unsigned long long free_memory;     // Unallocated memory (bytes)
+  unsigned long long used_memory;     // Allocated memory (bytes)
+  unsigned long long ecc_corrected;   // Total correctable ECC errors
+  unsigned long long ecc_uncorrected; // Total uncorrected ECC errors
+  unsigned int pcie_link_gen;         // PCIe link generation used
+  unsigned int pcie_link_width;       // PCIe line width used
+  unsigned int pcie_rx;               // PCIe throughput in KB/s
+  unsigned int pcie_tx;               // PCIe throughput in KB/s
+  unsigned int fan_speed;             // Fan speed percentage
+  unsigned int fan_rpm;               // Fan speed RPM
+  unsigned int gpu_temp;              // GPU temperature °celsius
+  unsigned int power_draw;            // Power usage in milliwatts
+  unsigned int power_draw_max;        // Max power usage in milliwatts
+  bool multi_instance_mode;           // True if the GPU is in multi-instance mode
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
@@ -268,5 +272,13 @@ bool nvtop_probe_nvlink_list(struct list_head *devices);
 // Reset per-GPU NVLink cache (probed flag, cached linkcount/version, cached info struct).
 // Call when the monitored device set changes so newly-monitored NVLink GPUs get probed fresh.
 void nvtop_reset_nvlink_cache(struct gpu_info *gpu_info);
+
+// Memory ECC support: returns true if the GPU exposes volatile ECC error counters
+// (professional/datacenter GPUs). Consumer GPUs report NVML_ERROR_NOT_SUPPORTED.
+bool nvtop_get_ecc_support(struct gpu_info *gpu_info);
+
+// ECC probe — call before initialize_curses so the layout only reserves room for
+// the ECC field when a monitored GPU actually supports ECC.
+bool nvtop_probe_ecc_list(struct list_head *devices);
 
 #endif // EXTRACT_GPUINFO_COMMON_H__
