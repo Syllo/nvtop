@@ -233,7 +233,7 @@ struct gpu_vendor gpu_vendor_qcom_npu = {
 	.refresh_dynamic_info = gpuinfo_qcom_npu_refresh_dynamic_info,
 	.refresh_running_processes = gpuinfo_qcom_npu_get_running_processes,
 	.name = "QCOM-NPU",
-	.processing_unit_name = "NPU",
+	.processing_unit = gpu_processing_unit_npu,
 };
 
 __attribute__((constructor)) static void init_extract_gpuinfo_qcom_npu(void) {

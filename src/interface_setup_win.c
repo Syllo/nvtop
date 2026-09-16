@@ -446,7 +446,6 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
     mvwprintw(value_list_win, 0, 0, "Metric Displayed in Graph");
     getmaxyx(value_list_win, tmp, maxcols);
     unsigned selected_gpu = interface->setup_win.options_selected[0] - chart_start_gpu_list;
-    const char *unit = "GPU";
     if (interface->setup_win.options_selected[0] == chart_all_gpu) {
       wprintw(value_list_win, " (All GPUs)");
     } else {

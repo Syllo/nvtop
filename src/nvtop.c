@@ -80,14 +80,14 @@ static const char helpstring[] = "Available options:\n"
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
-// NPU backends get the NPU-specific default plots.
-static const char *const npu_vendor_names[] = {"QCOM-NPU", "RK-NPU"};
+// Backends that provide HVX/HMX metrics get the NPU-specific default plots.
+static const char *const npu_plot_vendor_names[] = {"QCOM-NPU"};
 
-static bool vendor_is_npu(const struct gpu_vendor *vendor) {
+static bool vendor_uses_npu_plots(const struct gpu_vendor *vendor) {
   if (!vendor->name)
     return false;
-  for (size_t i = 0; i < sizeof(npu_vendor_names) / sizeof(npu_vendor_names[0]); ++i) {
-    if (strcmp(vendor->name, npu_vendor_names[i]) == 0)
+  for (size_t i = 0; i < sizeof(npu_plot_vendor_names) / sizeof(npu_plot_vendor_names[0]); ++i) {
+    if (strcmp(vendor->name, npu_plot_vendor_names[i]) == 0)
       return true;
   }
   return false;
@@ -291,7 +291,7 @@ int main(int argc, char **argv) {
     // Nothing specified in the file
     if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw)) {
       allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
-          vendor_is_npu(dev->vendor) ? plot_npu_default_draw_info() : plot_default_draw_info();
+          vendor_uses_npu_plots(dev->vendor) ? plot_npu_default_draw_info() : plot_default_draw_info();
     } else {
       allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
           plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw);

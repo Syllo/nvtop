@@ -200,6 +200,14 @@ struct gpu_process {
 
 struct gpu_info;
 
+// Compute unit a vendor's devices expose. gpu_processing_unit_gpu is 0 so that
+// vendors not setting it (or zero-initialized structs) default to "GPU".
+enum gpu_processing_unit {
+  gpu_processing_unit_gpu = 0,
+  gpu_processing_unit_npu,
+  gpu_processing_unit_count,
+};
+
 struct gpu_vendor {
   struct list_head list;
 
@@ -216,8 +224,7 @@ struct gpu_vendor {
 
   void (*refresh_running_processes)(struct gpu_info *gpu_info);
   char *name;
-  // Short 3-character label for the compute unit (e.g. "GPU", "NPU"); NULL defaults to "GPU"
-  const char *processing_unit_name;
+  enum gpu_processing_unit processing_unit; // defaults to gpu_processing_unit_gpu
 };
 
 #define PDEV_LEN 16
@@ -232,8 +239,13 @@ struct gpu_info {
   char pdev[PDEV_LEN];
 };
 
-// Short 3-character label for the device's compute unit (e.g. "GPU", "NPU"), defaults to "GPU"
-#define DEVICE_UNIT_NAME(dev) ((dev)->vendor->processing_unit_name ? (dev)->vendor->processing_unit_name : "GPU")
+// Short 3-character label for a processing unit (e.g. "GPU", "NPU")
+static inline const char *processing_unit_name(enum gpu_processing_unit unit) {
+  static const char *const names[gpu_processing_unit_count] = {"GPU", "NPU"};
+  return (unsigned)unit < gpu_processing_unit_count ? names[unit] : names[gpu_processing_unit_gpu];
+}
+
+#define DEVICE_UNIT_NAME(dev) processing_unit_name((dev)->vendor->processing_unit)
 
 void register_gpu_vendor(struct gpu_vendor *vendor);
 
