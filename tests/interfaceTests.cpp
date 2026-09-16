@@ -256,6 +256,30 @@ TEST(PcieUtilization, LoadPercentNoMaxReturnsZero) {
   EXPECT_EQ(pcie_load_percent(1000000u, &no_info), 0u);
 }
 
+TEST(InterfaceOptions, NpuDefaultPlotsRespectMaxLines) {
+  plot_info_to_draw npu = plot_npu_default_draw_info();
+  // The NPU defaults add HVX/HMX on top of the GPU defaults.
+  EXPECT_TRUE(plot_isset_draw_info(plot_hvx_util_rate, npu));
+  EXPECT_TRUE(plot_isset_draw_info(plot_hmx_util_rate, npu));
+  // They must never exceed the number of plot lines nvtop can draw.
+  EXPECT_LE(plot_count_draw_info(npu), MAX_LINES_PER_PLOT);
+}
+
+TEST(InterfaceOptions, AddingManyPlotsRespectsMaxLines) {
+  // Mirrors loading a config file that selects more metrics than can be drawn.
+  plot_info_to_draw to_draw = 0;
+  for (int i = plot_gpu_rate; i < plot_information_count; ++i)
+    to_draw = plot_add_draw_info((enum plot_information)i, to_draw);
+  EXPECT_LE(plot_count_draw_info(to_draw), MAX_LINES_PER_PLOT);
+}
+
+TEST(InterfaceOptions, ProcessingUnitNames) {
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_gpu), "GPU");
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_npu), "NPU");
+  // Out-of-range values fall back to the default.
+  EXPECT_STREQ(processing_unit_name((enum gpu_processing_unit)gpu_processing_unit_count), "GPU");
+}
+
 #ifdef THOROUGH_TESTING
 
 TEST(InterfaceLayout, CheckManyTermSize) {

@@ -91,6 +91,8 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_mem_clock_speed_max_valid,
   gpuinfo_gpu_util_rate_valid,
   gpuinfo_mem_util_rate_valid,
+  gpuinfo_hvx_util_rate_valid,
+  gpuinfo_hmx_util_rate_valid,
   gpuinfo_encoder_rate_valid,
   gpuinfo_decoder_rate_valid,
   gpuinfo_total_memory_valid,
@@ -119,6 +121,8 @@ struct gpuinfo_dynamic_info {
   unsigned int mem_clock_speed_max;   // Maximum clock speed in MHz
   unsigned int gpu_util_rate;         // GPU utilization rate in %
   unsigned int mem_util_rate;         // MEM utilization rate in %
+  unsigned int hvx_util_rate;         // Qualcomm NPU HVX utilization rate in %
+  unsigned int hmx_util_rate;         // Qualcomm NPU HMX utilization rate in %
   unsigned int effective_load_rate;   // Effective load rate in %
   unsigned int encoder_rate;          // Encoder utilization rate in %
   unsigned int decoder_rate;          // Decoder utilization rate in %
@@ -196,6 +200,14 @@ struct gpu_process {
 
 struct gpu_info;
 
+// Compute unit a vendor's devices expose. gpu_processing_unit_gpu is 0 so that
+// vendors not setting it (or zero-initialized structs) default to "GPU".
+enum gpu_processing_unit {
+  gpu_processing_unit_gpu = 0,
+  gpu_processing_unit_npu,
+  gpu_processing_unit_count,
+};
+
 struct gpu_vendor {
   struct list_head list;
 
@@ -212,6 +224,7 @@ struct gpu_vendor {
 
   void (*refresh_running_processes)(struct gpu_info *gpu_info);
   char *name;
+  enum gpu_processing_unit processing_unit; // defaults to gpu_processing_unit_gpu
 };
 
 #define PDEV_LEN 16
@@ -225,6 +238,14 @@ struct gpu_info {
   unsigned processes_array_size;
   char pdev[PDEV_LEN];
 };
+
+// Short 3-character label for a processing unit (e.g. "GPU", "NPU")
+static inline const char *processing_unit_name(enum gpu_processing_unit unit) {
+  static const char *const names[gpu_processing_unit_count] = {"GPU", "NPU"};
+  return (unsigned)unit < gpu_processing_unit_count ? names[unit] : names[gpu_processing_unit_gpu];
+}
+
+#define DEVICE_UNIT_NAME(dev) processing_unit_name((dev)->vendor->processing_unit)
 
 void register_gpu_vendor(struct gpu_vendor *vendor);
 
