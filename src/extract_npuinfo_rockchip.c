@@ -166,7 +166,8 @@ struct gpu_vendor gpu_vendor_rknpu = {
   .populate_static_info = gpuinfo_rknpu_populate_static_info,
   .refresh_dynamic_info = gpuinfo_rknpu_refresh_dynamic_info,
   .refresh_running_processes = gpuinfo_rknpu_get_running_processes,
-  .name = "RK-NPU"
+  .name = "RK-NPU",
+  .processing_unit_name = "NPU"
 };
 
 __attribute__((constructor)) static void init_extract_gpuinfo_rknpu(void) {

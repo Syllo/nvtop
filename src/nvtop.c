@@ -80,6 +80,19 @@ static const char helpstring[] = "Available options:\n"
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
+// NPU backends get the NPU-specific default plots.
+static const char *const npu_vendor_names[] = {"QCOM-NPU", "RK-NPU"};
+
+static bool vendor_is_npu(const struct gpu_vendor *vendor) {
+  if (!vendor->name)
+    return false;
+  for (size_t i = 0; i < sizeof(npu_vendor_names) / sizeof(npu_vendor_names[0]); ++i) {
+    if (strcmp(vendor->name, npu_vendor_names[i]) == 0)
+      return true;
+  }
+  return false;
+}
+
 static const struct option long_opts[] = {
     {.name = "delay", .has_arg = required_argument, .flag = NULL, .val = 'd'},
     {.name = "version", .has_arg = no_argument, .flag = NULL, .val = 'v'},
@@ -278,7 +291,7 @@ int main(int argc, char **argv) {
     // Nothing specified in the file
     if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw)) {
       allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
-          dev->vendor->unit_name ? plot_npu_default_draw_info() : plot_default_draw_info();
+          vendor_is_npu(dev->vendor) ? plot_npu_default_draw_info() : plot_default_draw_info();
     } else {
       allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
           plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw);

@@ -14,6 +14,10 @@
 #include <qcom_dsp.h>
 
 #define MAX_NSP_THERMAL_ZONES 8
+// libqcnpuperf connects to one DSP/NPU domain (DSP_NPU0, the CDSP) and reports
+// aggregate metrics, so the driver exposes a single aggregate device and
+// refuses to register more.
+#define QCOM_NPU_MAX 1
 
 struct gpu_info_qcom_npu {
 	struct gpu_info base;
@@ -47,9 +51,15 @@ static const char *gpuinfo_qcom_npu_last_error_string(void) {
 	return "QCOM-NPU error";
 }
 
-static void add_qcom_npu_chip(struct list_head *devices, unsigned *count) {
-	struct gpu_info_qcom_npu *this_npu = &qcom_npu_info[*count];
+static bool add_qcom_npu_chip(struct list_head *devices, unsigned *count) {
+	struct gpu_info_qcom_npu *this_npu;
 
+	if (*count >= QCOM_NPU_MAX) {
+		fprintf(stderr, "QCOM-NPU: %u NPUs found but at most %d is supported\n", *count + 1, QCOM_NPU_MAX);
+		return false;
+	}
+
+	this_npu = &qcom_npu_info[*count];
 	this_npu->base.vendor = &gpu_vendor_qcom_npu;
 	snprintf(this_npu->base.pdev, PDEV_LEN, "QCOM-NPU%d", *count);
 	list_add_tail(&this_npu->base.list, devices);
@@ -57,6 +67,7 @@ static void add_qcom_npu_chip(struct list_head *devices, unsigned *count) {
 	this_npu->base.processes = NULL;
 	this_npu->base.processes_array_size = 0;
 	*count += 1;
+	return true;
 }
 
 static void find_nsp_thermal_zones(struct gpu_info_qcom_npu *npu) {
@@ -108,7 +119,13 @@ static bool gpuinfo_qcom_npu_get_device_handles(struct list_head *devices_list, 
 		return false;
 	}
 
-	add_qcom_npu_chip(devices_list, count);
+	if (!add_qcom_npu_chip(devices_list, count)) {
+		qcom_dsp_close(qcom_npu_info->ctx);
+		free(qcom_npu_info);
+		qcom_npu_info = NULL;
+		*count = 0;
+		return false;
+	}
 	find_nsp_thermal_zones(qcom_npu_info);
 
 	return true;
@@ -216,7 +233,7 @@ struct gpu_vendor gpu_vendor_qcom_npu = {
 	.refresh_dynamic_info = gpuinfo_qcom_npu_refresh_dynamic_info,
 	.refresh_running_processes = gpuinfo_qcom_npu_get_running_processes,
 	.name = "QCOM-NPU",
-	.unit_name = "NPU",
+	.processing_unit_name = "NPU",
 };
 
 __attribute__((constructor)) static void init_extract_gpuinfo_qcom_npu(void) {

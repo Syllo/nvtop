@@ -216,7 +216,8 @@ struct gpu_vendor {
 
   void (*refresh_running_processes)(struct gpu_info *gpu_info);
   char *name;
-  const char *unit_name; // Short label for the compute unit (e.g. "GPU", "NPU"); NULL defaults to "GPU"
+  // Short 3-character label for the compute unit (e.g. "GPU", "NPU"); NULL defaults to "GPU"
+  const char *processing_unit_name;
 };
 
 #define PDEV_LEN 16
@@ -231,8 +232,8 @@ struct gpu_info {
   char pdev[PDEV_LEN];
 };
 
-// Short label for the device's compute unit (e.g. "GPU", "NPU"), defaults to "GPU"
-#define DEVICE_UNIT_NAME(dev) ((dev)->vendor->unit_name ? (dev)->vendor->unit_name : "GPU")
+// Short 3-character label for the device's compute unit (e.g. "GPU", "NPU"), defaults to "GPU"
+#define DEVICE_UNIT_NAME(dev) ((dev)->vendor->processing_unit_name ? (dev)->vendor->processing_unit_name : "GPU")
 
 void register_gpu_vendor(struct gpu_vendor *vendor);
 

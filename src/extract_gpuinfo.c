@@ -19,9 +19,11 @@
  *
  */
 
+#include <assert.h>
 #include <ctype.h>
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/extract_gpuinfo_common.h"
@@ -51,7 +53,11 @@ struct process_info_cache *updated_process_info = NULL;
 
 static LIST_HEAD(gpu_vendors);
 
-void register_gpu_vendor(struct gpu_vendor *vendor) { list_add(&vendor->list, &gpu_vendors); }
+void register_gpu_vendor(struct gpu_vendor *vendor) {
+  // The processing unit name is rendered in a fixed 3-character field (e.g. "GPU", "NPU")
+  assert(vendor->processing_unit_name == NULL || strlen(vendor->processing_unit_name) == 3);
+  list_add(&vendor->list, &gpu_vendors);
+}
 
 bool gpuinfo_init_info_extraction(unsigned *monitored_dev_count, struct list_head *devices) {
   struct gpu_vendor *vendor;
