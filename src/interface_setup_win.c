@@ -79,10 +79,10 @@ static const char *setup_chart_all_gpu_description  = "Displayed all GPUs";
 static const char *setup_chart_gpu_description      = "Displayed GPU";
 
 static const char *setup_chart_gpu_value_descriptions[plot_information_count] = {
-    "%s utilization rate",   "%s memory utilization rate",    "%s encoder rate",   "%s decoder rate",
-    "%s temperature",        "Power draw rate (current/max)", "Fan speed",         "%s clock rate",
-    "%s memory clock rate",  "Effective load rate",           "PCIe RX load rate", "PCIe TX load rate",
-    "HVX utilization rate",  "HMX utilization rate"};
+    "%s utilization rate",  "%s memory utilization rate",    "%s encoder rate",   "%s decoder rate",
+    "%s temperature",       "Power draw rate (current/max)", "Fan speed",         "%s clock rate",
+    "%s memory clock rate", "Effective load rate",           "PCIe RX load rate", "PCIe TX load rate",
+    "HVX utilization rate", "HMX utilization rate"};
 
 // Formats the description of a plot metric for the given compute unit label.
 // Descriptions without a unit placeholder (power, fan, ...) are returned as-is.

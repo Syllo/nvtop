@@ -891,7 +891,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate)) {
         snprintf(buff, 1024, "%u%%(eff %u%%)", device->dynamic_info.gpu_util_rate,
                  device->dynamic_info.effective_load_rate);
-        draw_percentage_meter_with_yellow_highlight(gpu_util_win, DEVICE_UNIT_NAME(device), device->dynamic_info.gpu_util_rate,
+        draw_percentage_meter_with_yellow_highlight(gpu_util_win, DEVICE_UNIT_NAME(device),
+                                                    device->dynamic_info.gpu_util_rate,
                                                     device->dynamic_info.effective_load_rate, buff);
       } else {
         snprintf(buff, 1024, "%u%%", device->dynamic_info.gpu_util_rate);
@@ -988,7 +989,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     // GPU CLOCK
     werase(dev->gpu_clock_info);
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed))
-      mvwprintw(dev->gpu_clock_info, 0, 0, "%.3s %uMHz", DEVICE_UNIT_NAME(device), device->dynamic_info.gpu_clock_speed);
+      mvwprintw(dev->gpu_clock_info, 0, 0, "%.3s %uMHz", DEVICE_UNIT_NAME(device),
+                device->dynamic_info.gpu_clock_speed);
     else
       mvwprintw(dev->gpu_clock_info, 0, 0, "%.3s N/A MHz", DEVICE_UNIT_NAME(device));
 
@@ -2041,8 +2043,7 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
   }
 }
 
-static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices,
-                                                    const struct nvtop_interface *interface,
+static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices, const struct nvtop_interface *interface,
                                                     struct plot_window *plot_win, unsigned size_data_buff,
                                                     double data[size_data_buff],
                                                     char plot_legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE]) {
@@ -2143,9 +2144,9 @@ static void draw_plots(struct list_head *devices, struct nvtop_interface *interf
 
     char plot_legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE];
 
-    unsigned num_lines =
-        populate_plot_data_from_ring_buffer(devices, interface, &interface->plots[plot_id], interface->plots[plot_id].num_data,
-                                            interface->plots[plot_id].data, plot_legend);
+    unsigned num_lines = populate_plot_data_from_ring_buffer(devices, interface, &interface->plots[plot_id],
+                                                             interface->plots[plot_id].num_data,
+                                                             interface->plots[plot_id].data, plot_legend);
 
     nvtop_line_plot(interface->plots[plot_id].plot_window, interface->plots[plot_id].num_data,
                     interface->plots[plot_id].data, num_lines, !interface->options.plot_left_to_right, plot_legend);
