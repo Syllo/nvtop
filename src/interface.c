@@ -2102,10 +2102,10 @@ static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices,
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u eff. load%%", unit, dev_id);
           break;
         case plot_hvx_util_rate:
-          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "HVX %%");
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u HVX%%", unit, dev_id);
           break;
         case plot_hmx_util_rate:
-          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "HMX %%");
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u HMX%%", unit, dev_id);
           break;
         case plot_pcie_rx_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u PCIe RX%%", dev_id);

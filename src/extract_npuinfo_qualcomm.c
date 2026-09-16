@@ -34,12 +34,8 @@ static bool gpuinfo_qcom_npu_init(void) {
 }
 
 static void gpuinfo_qcom_npu_shutdown(void) {
+	// The process list and its strings are owned by the core processinfo layer.
 	if (qcom_npu_info) {
-		for (unsigned i = 0; i < qcom_npu_info->base.processes_count; i++) {
-			free(qcom_npu_info->base.processes[i].cmdline);
-			free(qcom_npu_info->base.processes[i].user_name);
-		}
-		free(qcom_npu_info->base.processes);
 		if (qcom_npu_info->ctx)
 			qcom_dsp_close(qcom_npu_info->ctx);
 	}
@@ -192,10 +188,8 @@ static void gpuinfo_qcom_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 	int no_metrics = 0;
 
 	data = qcom_dsp_get_prof_data(gpu_info->ctx, &no_metrics);
-	if (!data || no_metrics <= 0) {
-		fprintf(stderr, "qcom_dsp_get_prof_data failed\n");
+	if (!data || no_metrics <= 0)
 		return;
-	}
 
 	float q6_util  = qcom_dsp_prof_get_q6_utilization(data);
 	float hvx_util = qcom_dsp_prof_get_hvx_utilization(data);
@@ -205,8 +199,6 @@ static void gpuinfo_qcom_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 	SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, qcom_dsp_prof_get_q6_clock(data) / 1000);
 	SET_GPUINFO_DYNAMIC(dynamic_info, hvx_util_rate, (unsigned int)hvx_util);
 	SET_GPUINFO_DYNAMIC(dynamic_info, hmx_util_rate, (unsigned int)hmx_util);
-	SET_VALID(gpuinfo_hvx_util_rate_valid, dynamic_info->valid);
-	SET_VALID(gpuinfo_hmx_util_rate_valid, dynamic_info->valid);
 
 	int max_temp = 0;
 	for (int i = 0; i < gpu_info->nsp_thermal_count; i++) {
