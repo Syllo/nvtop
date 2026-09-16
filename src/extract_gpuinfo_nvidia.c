@@ -1425,3 +1425,20 @@ void nvtop_reset_nvlink_cache(struct gpu_info *_gpu_info) {
   gpu_info->nvlink_last_rx = 0;
   gpu_info->nvlink_last_poll_time = (struct timespec){0};
 }
+
+// Memory ECC support: probe the volatile corrected ECC counter once. Consumer GPUs
+// return NVML_ERROR_NOT_SUPPORTED, so the layout can skip the ECC field entirely.
+bool nvtop_get_ecc_support(struct gpu_info *_gpu_info) {
+  // Memory ECC is an NVIDIA-specific NVML query
+  if (strcmp(_gpu_info->vendor->name, "NVIDIA"))
+    return false;
+
+  if (!nvmlDeviceGetTotalEccErrors)
+    return false;
+
+  struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
+  unsigned long long ecc_count = 0;
+  nvmlReturn_t ret =
+      nvmlDeviceGetTotalEccErrors(gpu_info->gpuhandle, NVML_MEMORY_ERROR_TYPE_CORRECTED, NVML_VOLATILE_ECC, &ecc_count);
+  return ret == NVML_SUCCESS;
+}

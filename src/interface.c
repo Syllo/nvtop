@@ -96,6 +96,30 @@ bool nvtop_probe_nvlink_list(struct list_head *devices) {
   return has_nvlink;
 }
 
+// True if any monitored device exposes memory ECC error counters (professional/
+// datacenter GPUs). Controls whether the ECC field reserves panel width at all.
+static bool any_device_has_ecc = false;
+
+bool nvtop_probe_ecc_list(struct list_head *devices) {
+  // Skip re-probing if we already know at least one device supports ECC.
+  // ECC support is a static hardware property that does not change at runtime.
+  if (any_device_has_ecc)
+    return true;
+
+  bool has_ecc = false;
+
+  struct gpu_info *gpu;
+  list_for_each_entry(gpu, devices, list) {
+    if (nvtop_get_ecc_support(gpu)) {
+      has_ecc = true;
+      break;
+    }
+  }
+
+  any_device_has_ecc = has_ecc;
+  return has_ecc;
+}
+
 static unsigned int sizeof_process_field[process_field_count] = {
     [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,   [process_type] = 8,
     [process_gpu_rate] = 4,  [process_enc_rate] = 4,      [process_dec_rate] = 4,
@@ -142,21 +166,27 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
                  sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed]);
   if (dwin->power_info == NULL)
     goto alloc_error;
-  // ECC errors appended to power_info on the same row (start_row + 1)
-  dwin->ecc_info = newwin(1, sizeof_device_field[device_ecc], start_row + 1,
-                          start_col + spacer * 5 + sizeof_device_field[device_clock] +
-                              sizeof_device_field[device_mem_clock] + sizeof_device_field[device_temperature] +
-                              sizeof_device_field[device_fan_speed] + sizeof_device_field[device_power]);
-  if (dwin->ecc_info == NULL)
-    goto alloc_error;
+  // ECC errors appended to power_info on the same row (start_row + 1), only when
+  // at least one monitored GPU exposes ECC counters.
+  if (any_device_has_ecc) {
+    dwin->ecc_info = newwin(1, sizeof_device_field[device_ecc], start_row + 1,
+                            start_col + spacer * 5 + sizeof_device_field[device_clock] +
+                                sizeof_device_field[device_mem_clock] + sizeof_device_field[device_temperature] +
+                                sizeof_device_field[device_fan_speed] + sizeof_device_field[device_power]);
+    if (dwin->ecc_info == NULL)
+      goto alloc_error;
+  } else {
+    dwin->ecc_info = NULL;
+  }
 
-  // NVLink appended after ECC on the same row (start_row + 1), using remaining width
+  // NVLink appended after power (and ECC when present) on the same row (start_row + 1),
+  // using remaining width
   if (any_device_has_nvlink) {
     dwin->nvlink_info =
         newwin(1, sizeof_device_field[device_pcie] - sizeof_device_field[device_power] - spacer * 3, start_row + 1,
                start_col + spacer * 6 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                    sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                   sizeof_device_field[device_power] + sizeof_device_field[device_ecc]);
+                   sizeof_device_field[device_power] + (any_device_has_ecc ? sizeof_device_field[device_ecc] : 0));
     if (dwin->nvlink_info == NULL)
       goto alloc_error;
   } else {
@@ -278,7 +308,8 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->gpu_clock_info);
   delwin(dwin->mem_clock_info);
   delwin(dwin->power_info);
-  delwin(dwin->ecc_info);
+  if (dwin->ecc_info != NULL)
+    delwin(dwin->ecc_info);
   delwin(dwin->temperature);
   delwin(dwin->fan_speed);
   delwin(dwin->pcie_info);
@@ -441,14 +472,18 @@ static void alloc_plot_window(unsigned devices_count, struct window_position *pl
 static unsigned device_length(void) {
   unsigned line1 = sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1;
 
-  // Line 2 base: clock, mem_clock, temp, fan, power, ECC + spacers (5 spacers + 1 = 6)
+  // Line 2 base: clock, mem_clock, temp, fan, power + spacers (4 spacers + 1 = 5)
+  // ECC is only counted when a monitored GPU actually supports it, so consumer
+  // systems keep the original narrower panel width.
   // Do NOT expand for NVLink — the NVLink window on line 2 extends past the
   // nominal panel edge and ncurses renders it fine. Expanding it would make
   // line 3 bar charts (GPU/MEM/Enc/Dec) too wide. This applies to both the
   // 0-link case ("NVL3 0x") and the active-links case (with throughput).
   unsigned line2 = sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
                    sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                   sizeof_device_field[device_power] + sizeof_device_field[device_ecc] + 6;
+                   sizeof_device_field[device_power] + 5;
+  if (any_device_has_ecc)
+    line2 += sizeof_device_field[device_ecc] + 1;
 
   return max(line1, line2);
 }
@@ -960,22 +995,24 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->power_info);
 
-    // ECC errors (professional/datacenter cards only; hidden otherwise)
-    werase(dev->ecc_info);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_corrected) ||
-        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_uncorrected)) {
-      unsigned long long corrected =
-          GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_corrected) ? device->dynamic_info.ecc_corrected : 0;
-      unsigned long long uncorrected = GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_uncorrected)
-                                           ? device->dynamic_info.ecc_uncorrected
-                                           : 0;
-      mvwprintw(dev->ecc_info, 0, 0, "  ECC %llu/%llu", corrected, uncorrected);
-      mvwchgat(dev->ecc_info, 0, 2, 3, 0, cyan_color, NULL);
-      // Highlight a non-zero uncorrected count in red: it signals a hardware fault
-      if (uncorrected > 0)
-        mvwchgat(dev->ecc_info, 0, 6, -1, 0, red_color, NULL);
+    // ECC errors (professional/datacenter cards only; window absent otherwise)
+    if (dev->ecc_info != NULL) {
+      werase(dev->ecc_info);
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_corrected) ||
+          GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_uncorrected)) {
+        unsigned long long corrected =
+            GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_corrected) ? device->dynamic_info.ecc_corrected : 0;
+        unsigned long long uncorrected = GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_uncorrected)
+                                             ? device->dynamic_info.ecc_uncorrected
+                                             : 0;
+        mvwprintw(dev->ecc_info, 0, 0, "  ECC %llu/%llu", corrected, uncorrected);
+        mvwchgat(dev->ecc_info, 0, 2, 3, 0, cyan_color, NULL);
+        // Highlight a non-zero uncorrected count in red: it signals a hardware fault
+        if (uncorrected > 0)
+          mvwchgat(dev->ecc_info, 0, 6, -1, 0, red_color, NULL);
+      }
+      wnoutrefresh(dev->ecc_info);
     }
-    wnoutrefresh(dev->ecc_info);
 
     // NVLink info (on same row as power_info, after ECC)
     if (dev->nvlink_info != NULL) {

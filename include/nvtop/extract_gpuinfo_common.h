@@ -273,4 +273,12 @@ bool nvtop_probe_nvlink_list(struct list_head *devices);
 // Call when the monitored device set changes so newly-monitored NVLink GPUs get probed fresh.
 void nvtop_reset_nvlink_cache(struct gpu_info *gpu_info);
 
+// Memory ECC support: returns true if the GPU exposes volatile ECC error counters
+// (professional/datacenter GPUs). Consumer GPUs report NVML_ERROR_NOT_SUPPORTED.
+bool nvtop_get_ecc_support(struct gpu_info *gpu_info);
+
+// ECC probe — call before initialize_curses so the layout only reserves room for
+// the ECC field when a monitored GPU actually supports ECC.
+bool nvtop_probe_ecc_list(struct list_head *devices);
+
 #endif // EXTRACT_GPUINFO_COMMON_H__
