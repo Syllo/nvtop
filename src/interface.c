@@ -43,9 +43,10 @@
 #include <tgmath.h>
 #include <unistd.h>
 
+// device_ecc is sized for "ECC 999/99": corrected is capped at 3 digits, uncorrected at 2
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,  [device_temperature] = 10, [device_power] = 15,
-    [device_ecc] = 16,        [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,
+    [device_ecc] = 10,        [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,
     [device_shadercores] = 7, [device_l2features] = 11, [device_execengines] = 11, [device_nvlink_errors] = 33,
 };
 
@@ -1020,11 +1021,13 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         unsigned long long uncorrected = GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_uncorrected)
                                              ? device->dynamic_info.ecc_uncorrected
                                              : 0;
-        mvwprintw(dev->ecc_info, 0, 0, "  ECC %llu/%llu", corrected, uncorrected);
-        mvwchgat(dev->ecc_info, 0, 2, 3, 0, cyan_color, NULL);
+        // Capped to match the device_ecc field width: 3 digits corrected, 2 uncorrected
+        mvwprintw(dev->ecc_info, 0, 0, "ECC %3llu/%2llu", corrected > 999 ? 999 : corrected,
+                  uncorrected > 99 ? 99 : uncorrected);
+        mvwchgat(dev->ecc_info, 0, 0, 3, 0, cyan_color, NULL);
         // Highlight a non-zero uncorrected count in red: it signals a hardware fault
         if (uncorrected > 0)
-          mvwchgat(dev->ecc_info, 0, 6, -1, 0, red_color, NULL);
+          mvwchgat(dev->ecc_info, 0, 4, -1, 0, red_color, NULL);
       }
       wnoutrefresh(dev->ecc_info);
     }
