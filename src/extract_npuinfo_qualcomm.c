@@ -196,7 +196,6 @@ static void gpuinfo_qcom_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 	float hmx_util = qcom_dsp_prof_get_hmx_utilization(data);
 	SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, (unsigned int)q6_util);
 	SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, qcom_dsp_prof_get_q6_clock(data) / 1000);
-	SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, qcom_dsp_prof_get_q6_clock(data) / 1000);
 	SET_GPUINFO_DYNAMIC(dynamic_info, hvx_util_rate, (unsigned int)hvx_util);
 	SET_GPUINFO_DYNAMIC(dynamic_info, hmx_util_rate, (unsigned int)hmx_util);
 
