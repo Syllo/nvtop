@@ -187,6 +187,8 @@ static void gpuinfo_qcom_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 	struct sysmon_query_prof_data *data;
 	int no_metrics = 0;
 
+	RESET_ALL(dynamic_info->valid);
+
 	data = qcom_dsp_get_prof_data(gpu_info->ctx, &no_metrics);
 	if (!data || no_metrics <= 0)
 		return;

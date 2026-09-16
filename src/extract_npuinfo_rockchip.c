@@ -139,6 +139,8 @@ static void gpuinfo_rknpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_rknpu *gpu_info = container_of(_gpu_info, struct gpu_info_rknpu, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
+  RESET_ALL(dynamic_info->valid);
+
   int gpu_clock_speed = read_int_from_file("/sys/class/devfreq/fdab0000.npu/cur_freq") / 1000000;
   int gpu_clock_speed_max = read_int_from_file("/sys/class/devfreq/fdab0000.npu/max_freq") / 1000000;
   int gpu_util_rate = read_npu_load("/sys/kernel/debug/rknpu/load");
