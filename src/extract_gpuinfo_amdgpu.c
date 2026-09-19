@@ -813,6 +813,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 static const char drm_amdgpu_pdev_old[] = "pdev";
 static const char drm_amdgpu_vram_old[] = "vram mem";
 static const char drm_amdgpu_vram[] = "drm-memory-vram";
+static const char drm_amdgpu_gtt_old[] = "gtt mem";
+static const char drm_amdgpu_gtt[] = "drm-memory-gtt";
 static const char drm_amdgpu_gfx_old[] = "gfx";
 static const char drm_amdgpu_gfx[] = "drm-engine-gfx";
 static const char drm_amdgpu_compute_old[] = "compute";
@@ -858,8 +860,17 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if (*endptr)
         continue;
       client_id_set = true;
-    } else if (!strcmp(key, drm_amdgpu_vram_old) || !strcmp(key, drm_amdgpu_vram)) {
-      // TODO: do we count "gtt mem" too?
+    } else if (!strcmp(key, drm_amdgpu_vram_old) || !strcmp(key, drm_amdgpu_vram) ||
+               !strcmp(key, drm_amdgpu_gtt_old) || !strcmp(key, drm_amdgpu_gtt)) {
+      // On integrated GPUs, GTT is the primary GPU memory and the device-level
+      // accounting (amdgpu_query_info above) sums it with VRAM, so count both.
+      // On discrete GPUs the device-level accounting is VRAM-only: counting GTT
+      // here would desync the per-process numerator from the device total,
+      // skew gpu_memory_percentage, and can push gpu_memory_usage above
+      // total_memory, causing the value to be dropped entirely.
+      if ((!strcmp(key, drm_amdgpu_gtt_old) || !strcmp(key, drm_amdgpu_gtt)) && !static_info->integrated_graphics)
+        continue;
+
       unsigned long mem_int;
       char *endptr;
 
@@ -867,7 +878,10 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
         continue;
 
-      SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+      if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage))
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + mem_int * 1024);
+      else
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
     } else {
       bool is_gfx_old = !strncmp(key, drm_amdgpu_gfx_old, sizeof(drm_amdgpu_gfx_old) - 1);
       bool is_compute_old = !strncmp(key, drm_amdgpu_compute_old, sizeof(drm_amdgpu_compute_old) - 1);
