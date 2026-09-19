@@ -45,6 +45,11 @@ static void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_intel_get_running_processes(struct gpu_info *_gpu_info);
 
+// State of gpu_info_intel.perf_event_fd: a non-negative value is an open fd,
+// a negative value means no perf event is open
+#define PERF_EVENT_FD_NOT_OPENED (-1)
+#define PERF_EVENT_FD_UNAVAILABLE (-2)
+
 static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu, int group_fd, unsigned long flags) {
   return syscall(SYS_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
@@ -182,6 +187,7 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   thisGPU->card_device = nvtop_device_ref(dev);
   thisGPU->driver_device = nvtop_device_ref(parent);
   thisGPU->hwmon_device = nvtop_device_get_hwmon(thisGPU->driver_device);
+  thisGPU->perf_event_fd = PERF_EVENT_FD_NOT_OPENED;
 
   const char *devname;
   if (nvtop_device_get_devname(thisGPU->card_device, &devname) >= 0)
@@ -295,13 +301,13 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   bool is_xe = gpu_info->driver == DRIVER_XE;
 
-  if (gpu_info->perf_event_fd == 0) {
+  if (gpu_info->perf_event_fd == PERF_EVENT_FD_NOT_OPENED) {
     if (get_perf_event_by_gpu_info(gpu_info, is_xe ? "gt-actual-frequency" : "actual-frequency",
                                    &gpu_info->perf_event_fd)) {
       ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_RESET, 0);
       ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_ENABLE, 0);
     } else {
-      gpu_info->perf_event_fd = -1;
+      gpu_info->perf_event_fd = PERF_EVENT_FD_UNAVAILABLE;
     }
   }
 
