@@ -193,6 +193,12 @@ static nvmlReturn_t (*nvmlDeviceGetCurrPcieLinkGeneration)(nvmlDevice_t device, 
 
 static nvmlReturn_t (*nvmlDeviceGetCurrPcieLinkWidth)(nvmlDevice_t device, unsigned int *currLinkWidth);
 
+// Bus type of the device (nvmlBusType_t in nvml.h, which is not included here).
+// This is the authoritative signal for whether a device is really behind a PCIe
+// link. The function may be absent on older drivers.
+#define NVML_BUS_TYPE_PCIE 2
+static nvmlReturn_t (*nvmlDeviceGetBusType)(nvmlDevice_t device, unsigned int *type);
+
 typedef enum {
   NVML_PCIE_UTIL_TX_BYTES = 0,
   NVML_PCIE_UTIL_RX_BYTES = 1,
@@ -547,6 +553,11 @@ static bool gpuinfo_nvidia_init(void) {
   nvmlDeviceGetCurrPcieLinkWidth = dlsym(libnvidia_ml_handle, "nvmlDeviceGetCurrPcieLinkWidth");
   if (!nvmlDeviceGetCurrPcieLinkWidth)
     goto init_error_clean_exit;
+
+  // Optional: lets us avoid reporting a PCIe link on devices that are not on a
+  // PCIe bus (e.g. NVLink-C2C SoCs). Absent on older drivers -> keep the
+  // previous behaviour of probing the PCIe link.
+  nvmlDeviceGetBusType = dlsym(libnvidia_ml_handle, "nvmlDeviceGetBusType");
 
   nvmlDeviceGetPcieThroughput = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPcieThroughput");
   if (!nvmlDeviceGetPcieThroughput)
@@ -914,12 +925,19 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     set_unified_system_memory_info(dynamic_info);
   }
 
-  // Pcie generation used by the device
-  // On unified-memory SoC platforms (e.g. DGX Spark / GB10) the device is not
-  // attached through a PCIe link but via its own on-die interconnect
-  // (NVLink-C2C). NVML still reports placeholder values here (GEN 1 @ 1x) that
-  // would be misleading, so only report them on discrete GPUs.
-  if (!has_unified_memory) {
+  // Pcie generation and width used by the device.
+  // Only report these when NVML confirms the device is on a PCIe bus. Some SoCs
+  // (e.g. DGX Spark / GB10) are attached over NVLink-C2C, yet the PCIe link
+  // queries still return placeholder values (GEN 1 @ 1x) that would be
+  // misleading. The bus type is authoritative here rather than the memory model.
+  bool device_on_pcie_bus = nvmlDeviceGetBusType == NULL; // Older drivers: assume PCIe as before.
+  if (nvmlDeviceGetBusType) {
+    unsigned int bus_type;
+    if (nvmlDeviceGetBusType(device, &bus_type) == NVML_SUCCESS)
+      device_on_pcie_bus = bus_type == NVML_BUS_TYPE_PCIE;
+  }
+
+  if (device_on_pcie_bus) {
     last_nvml_return_status = nvmlDeviceGetCurrPcieLinkGeneration(device, &dynamic_info->pcie_link_gen);
     if (last_nvml_return_status == NVML_SUCCESS)
       SET_VALID(gpuinfo_pcie_link_gen_valid, dynamic_info->valid);
