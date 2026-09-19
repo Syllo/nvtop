@@ -156,6 +156,14 @@ struct gpu_vendor gpu_vendor_amdgpu = {
 
 static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const char *format, ...);
 
+/*
+ * SMU13.0.6 only implements AMDGPU_PP_SENSOR_HOTSPOT_TEMP and
+ * AMDGPU_PP_SENSOR_MEM_TEMP temperature queries.  Its useful GPU temperature
+ * is exposed as hwmon "junction" instead.  Keep the ioctl as the preferred
+ * source, but use hwmon when it is unavailable.
+ */
+static bool readHwmonGpuTemperature(nvtop_device *hwmon_device, unsigned *temperature);
+
 __attribute__((constructor)) static void init_extract_gpuinfo_amdgpu(void) { register_gpu_vendor(&gpu_vendor_amdgpu); }
 
 static int wrap_drmGetDevices(drmDevicePtr devices[], int max_devices) {
@@ -501,6 +509,32 @@ static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const
   return nread;
 }
 
+static bool readHwmonGpuTemperature(nvtop_device *hwmon_device, unsigned *temperature) {
+  if (!hwmon_device)
+    return false;
+
+  /* Prefer the conventional edge sensor, then the junction sensor used by MI300A. */
+  static const char *const preferred_labels[] = {"edge", "junction"};
+  for (unsigned label_index = 0; label_index < sizeof(preferred_labels) / sizeof(preferred_labels[0]); ++label_index) {
+    for (unsigned sensor = 1; sensor <= 8; ++sensor) {
+      char label_attribute[16];
+      const char *label;
+      snprintf(label_attribute, sizeof(label_attribute), "temp%u_label", sensor);
+      if (nvtop_device_get_sysattr_value(hwmon_device, label_attribute, &label) < 0 ||
+          strcmp(label, preferred_labels[label_index]) != 0)
+        continue;
+
+      char input_attribute[16];
+      snprintf(input_attribute, sizeof(input_attribute), "temp%u_input", sensor);
+      if (readAttributeFromDevice(hwmon_device, input_attribute, "%u", temperature) == 1)
+        return true;
+    }
+  }
+
+  /* Preserve compatibility with older hwmon implementations without labels. */
+  return readAttributeFromDevice(hwmon_device, "temp1_input", "%u", temperature) == 1;
+}
+
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_amdgpu *gpu_info = container_of(_gpu_info, struct gpu_info_amdgpu, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
@@ -725,6 +759,8 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   else
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, out32 / 1000);
+  } else if (readHwmonGpuTemperature(gpu_info->hwmonDevice, &out32)) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, out32 / 1000);
   }
 
