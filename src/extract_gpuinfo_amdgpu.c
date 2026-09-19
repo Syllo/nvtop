@@ -122,6 +122,7 @@ struct gpu_info_amdgpu {
   FILE *fanSpeedFILE; // FILE* for this device current fan speed
   FILE *PCIeBW;       // FILE* for this device PCIe bandwidth over one second
   FILE *powerCap;     // FILE* for this device power cap
+  FILE *powerCapDefault;
 
   nvtop_device *amdgpuDevice; // The AMDGPU driver device
   nvtop_device *hwmonDevice;  // The AMDGPU driver hwmon device
@@ -241,6 +242,8 @@ static void gpuinfo_amdgpu_shutdown(void) {
       fclose(gpu_info->PCIeBW);
     if (gpu_info->powerCap)
       fclose(gpu_info->powerCap);
+    if (gpu_info->powerCapDefault)
+      fclose(gpu_info->powerCapDefault);
     nvtop_device_unref(gpu_info->amdgpuDevice);
     nvtop_device_unref(gpu_info->hwmonDevice);
     _drmFreeVersion(gpu_info->drmVersion);
@@ -363,8 +366,18 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
     // Open the power cap file for dynamic info gathering
     gpu_info->powerCap = NULL;
     int powerCapFD = openat(hwmonFD, "power1_cap", O_RDONLY);
-    if (powerCapFD) {
+    if (powerCapFD >= 0) {
       gpu_info->powerCap = fdopen(powerCapFD, "r");
+      if (!gpu_info->powerCap)
+        close(powerCapFD);
+    }
+
+    gpu_info->powerCapDefault = NULL;
+    int powerCapDefaultFD = openat(hwmonFD, "power1_cap_default", O_RDONLY);
+    if (powerCapDefaultFD >= 0) {
+      gpu_info->powerCapDefault = fdopen(powerCapDefaultFD, "r");
+      if (!gpu_info->powerCapDefault)
+        close(powerCapDefaultFD);
     }
     close(hwmonFD);
   }
@@ -373,8 +386,10 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
   // Open the PCIe bandwidth file for dynamic info gathering
   gpu_info->PCIeBW = NULL;
   int pcieBWFD = openat(sysfsFD, "pcie_bw", O_RDONLY);
-  if (pcieBWFD) {
+  if (pcieBWFD >= 0) {
     gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
+    if (!gpu_info->PCIeBW)
+      close(pcieBWFD);
   }
 
   close(sysfsFD);
@@ -871,19 +886,33 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
+  unsigned powerCap = 0;
+  bool havePowerCap = false;
+
+  /* First try the current enforced power cap */
   if (gpu_info->powerCap) {
-    // The power cap in microwatts
-    unsigned powerCap;
-    int NreadPatterns = rewindAndReadPattern(gpu_info->powerCap, "%u", &powerCap);
-    if (NreadPatterns == 1) {
-      SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, powerCap / 1000);
+    if (rewindAndReadPattern(gpu_info->powerCap, "%u", &powerCap) == 1 && powerCap > 0) {
+      havePowerCap = true;
     }
+  }
+
+  /* If unavailable or reported as 0, fall back to the default cap */
+  if (!havePowerCap && gpu_info->powerCapDefault) {
+    if (rewindAndReadPattern(gpu_info->powerCapDefault, "%u", &powerCap) == 1 && powerCap > 0) {
+      havePowerCap = true;
+    }
+  }
+
+  if (havePowerCap) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, powerCap / 1000);
   }
 }
 
 static const char drm_amdgpu_pdev_old[] = "pdev";
 static const char drm_amdgpu_vram_old[] = "vram mem";
 static const char drm_amdgpu_vram[] = "drm-memory-vram";
+static const char drm_amdgpu_gtt_old[] = "gtt mem";
+static const char drm_amdgpu_gtt[] = "drm-memory-gtt";
 static const char drm_amdgpu_gfx_old[] = "gfx";
 static const char drm_amdgpu_gfx[] = "drm-engine-gfx";
 static const char drm_amdgpu_compute_old[] = "compute";
@@ -929,8 +958,17 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if (*endptr)
         continue;
       client_id_set = true;
-    } else if (!strcmp(key, drm_amdgpu_vram_old) || !strcmp(key, drm_amdgpu_vram)) {
-      // TODO: do we count "gtt mem" too?
+    } else if (!strcmp(key, drm_amdgpu_vram_old) || !strcmp(key, drm_amdgpu_vram) ||
+               !strcmp(key, drm_amdgpu_gtt_old) || !strcmp(key, drm_amdgpu_gtt)) {
+      // On integrated GPUs, GTT is the primary GPU memory and the device-level
+      // accounting (amdgpu_query_info above) sums it with VRAM, so count both.
+      // On discrete GPUs the device-level accounting is VRAM-only: counting GTT
+      // here would desync the per-process numerator from the device total,
+      // skew gpu_memory_percentage, and can push gpu_memory_usage above
+      // total_memory, causing the value to be dropped entirely.
+      if ((!strcmp(key, drm_amdgpu_gtt_old) || !strcmp(key, drm_amdgpu_gtt)) && !static_info->integrated_graphics)
+        continue;
+
       unsigned long mem_int;
       char *endptr;
 
@@ -938,7 +976,10 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
         continue;
 
-      SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+      if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage))
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + mem_int * 1024);
+      else
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
     } else {
       bool is_gfx_old = !strncmp(key, drm_amdgpu_gfx_old, sizeof(drm_amdgpu_gfx_old) - 1);
       bool is_compute_old = !strncmp(key, drm_amdgpu_compute_old, sizeof(drm_amdgpu_compute_old) - 1);
