@@ -80,6 +80,19 @@ static const char helpstring[] = "Available options:\n"
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
+// Backends that provide HVX/HMX metrics get the NPU-specific default plots.
+static const char *const npu_plot_vendor_names[] = {"QCOM-NPU"};
+
+static bool vendor_uses_npu_plots(const struct gpu_vendor *vendor) {
+  if (!vendor->name)
+    return false;
+  for (size_t i = 0; i < sizeof(npu_plot_vendor_names) / sizeof(npu_plot_vendor_names[0]); ++i) {
+    if (strcmp(vendor->name, npu_plot_vendor_names[i]) == 0)
+      return true;
+  }
+  return false;
+}
+
 static const struct option long_opts[] = {
     {.name = "delay", .has_arg = required_argument, .flag = NULL, .val = 'd'},
     {.name = "version", .has_arg = no_argument, .flag = NULL, .val = 'v'},
@@ -272,14 +285,18 @@ int main(int argc, char **argv) {
   nvtop_interface_option allDevicesOptions;
   alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus, &allDevicesOptions);
   load_interface_options_from_config_file(allDevCount, &allDevicesOptions);
-  for (unsigned i = 0; i < allDevCount; ++i) {
+  struct gpu_info *dev;
+  unsigned dev_idx = 0;
+  list_for_each_entry(dev, &monitoredGpus, list) {
     // Nothing specified in the file
-    if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw)) {
-      allDevicesOptions.gpu_specific_opts[i].to_draw = plot_default_draw_info();
+    if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw)) {
+      allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
+          vendor_uses_npu_plots(dev->vendor) ? plot_npu_default_draw_info() : plot_default_draw_info();
     } else {
-      allDevicesOptions.gpu_specific_opts[i].to_draw =
-          plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw);
+      allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
+          plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw);
     }
+    dev_idx++;
   }
   if (!process_is_field_displayed(process_field_count, allDevicesOptions.process_fields_displayed)) {
     allDevicesOptions.process_fields_displayed = process_default_displayed_field();
@@ -294,7 +311,8 @@ int main(int argc, char **argv) {
       allDevicesOptions.gpu_specific_opts[i].to_draw = 0;
     }
   }
-  allDevicesOptions.hide_processes_list = hide_processes_option;
+  if (hide_processes_option)
+    allDevicesOptions.hide_processes_list = true;
   if (encode_decode_timer_option_set) {
     allDevicesOptions.encode_decode_hiding_timer = encode_decode_hide_time;
     if (allDevicesOptions.encode_decode_hiding_timer < 0.)
@@ -311,6 +329,10 @@ int main(int argc, char **argv) {
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
+
+  // Probe for NVLink and ECC support before layout computation
+  nvtop_probe_nvlink_list(&monitoredGpus);
+  nvtop_probe_ecc_list(&monitoredGpus);
 
   if (allDevicesOptions.show_startup_messages) {
     bool dont_show_again = show_information_messages(numWarningMessages, warningMessages);
@@ -334,6 +356,11 @@ int main(int argc, char **argv) {
       signal_cont_received = 0;
       update_window_size_to_terminal_size(interface);
     }
+    // Probe NVLink state and ECC support BEFORE monitored-set-change check, so
+    // that any_device_has_nvlink_active / any_device_has_ecc are set before
+    // initialize_all_windows() reads them for layout decisions.
+    nvtop_probe_nvlink_list(&monitoredGpus);
+    nvtop_probe_ecc_list(&monitoredGpus);
     interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);

@@ -29,7 +29,6 @@
 #include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
 
-#define KB_TO_GB (1024 * 1024)
 #define DCMI_SUCCESS 0
 #define MAX_DEVICE_NUM 64
 #define MAX_PROC_NUM 32
@@ -127,7 +126,7 @@ static bool gpuinfo_ascend_get_device_handles(struct list_head *devices, unsigne
   for (int i = 0; i < num_cards; ++i) {
     for (int j = 0; j < card_device_list[i]; ++j) {
       gpu_infos[*count].base.vendor = &gpu_vendor_ascend;
-      _encode_card_device_id_to_pdev(gpu_infos[*count].base.pdev, i, j);
+      _encode_card_device_id_to_pdev(gpu_infos[*count].base.pdev, card_list[i], j);
       list_add_tail(&gpu_infos[*count].base.list, devices);
       *count += 1;
     }
@@ -142,6 +141,28 @@ static void _encode_card_device_id_to_pdev(char *pdev, int card_id, int device_i
 
 static void _decode_card_device_id_from_pdev(const char *pdev, int *card_id, int *device_id) {
   sscanf(pdev, "%d-%d", card_id, device_id);
+}
+
+enum ascend_memory_type {
+  ascend_memory_type_unknown = 0,
+  ascend_memory_type_hbm,
+  ascend_memory_type_ddr,
+};
+
+/* Ascend 910B/910A expose HBM through dsmi_hbm_info_stru while 310P3/300i DUO
+ * expose DDR through dcmi_memory_info_stru. Prefer HBM, but some drivers answer
+ * the HBM query with DCMI_SUCCESS and a size of 0 on boards that have no HBM,
+ * so only trust it when memory_size is non-zero and otherwise fall back to DDR.
+ * This keeps static (label) and dynamic (sizes/clocks) detection in sync and
+ * avoids dividing by hbm_info.memory_size == 0. */
+static enum ascend_memory_type gpuinfo_ascend_detect_memory_type(int card_id, int device_id,
+                                                                 struct dsmi_hbm_info_stru *hbm_info,
+                                                                 struct dcmi_memory_info_stru *ddr_info) {
+  if (dcmi_get_hbm_info(card_id, device_id, hbm_info) == DCMI_SUCCESS && hbm_info->memory_size > 0)
+    return ascend_memory_type_hbm;
+  if (dcmi_get_memory_info(card_id, device_id, ddr_info) == DCMI_SUCCESS)
+    return ascend_memory_type_ddr;
+  return ascend_memory_type_unknown;
 }
 
 static void gpuinfo_ascend_populate_static_info(struct gpu_info *_gpu_info) {
@@ -163,7 +184,22 @@ static void gpuinfo_ascend_populate_static_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
   }
   free(chip_info);
-  // todo: it seems that other static infos are not supported by Ascend DCMI for now, will add if possible in future
+
+  /* Detect memory type: HBM (910B) vs DDR (310P3/300i DUO) */
+  struct dsmi_hbm_info_stru hbm_info;
+  struct dcmi_memory_info_stru ddr_info;
+  switch (gpuinfo_ascend_detect_memory_type(card_id, device_id, &hbm_info, &ddr_info)) {
+  case ascend_memory_type_hbm:
+    snprintf(static_info->memory_type, sizeof(static_info->memory_type), "HBM");
+    SET_VALID(gpuinfo_memory_type_valid, static_info->valid);
+    break;
+  case ascend_memory_type_ddr:
+    snprintf(static_info->memory_type, sizeof(static_info->memory_type), "DDR");
+    SET_VALID(gpuinfo_memory_type_valid, static_info->valid);
+    break;
+  default:
+    break;
+  }
 }
 
 static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -188,11 +224,49 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_gpu_clock_speed_max_valid, dynamic_info->valid);
   }
 
-  unsigned hbm_freq;
-  last_dcmi_return_status = dcmi_get_device_frequency(card_id, device_id, DCMI_FREQ_HBM, &hbm_freq);
-  if (last_dcmi_return_status == DCMI_SUCCESS) {
-    dynamic_info->mem_clock_speed = hbm_freq;
-    SET_VALID(gpuinfo_mem_clock_speed_valid, dynamic_info->valid);
+  /* Pick HBM (Ascend 910B/910A) when present, otherwise DDR (310P3/300i DUO) */
+  struct dsmi_hbm_info_stru hbm_info;
+  struct dcmi_memory_info_stru ddr_info;
+  switch (gpuinfo_ascend_detect_memory_type(card_id, device_id, &hbm_info, &ddr_info)) {
+  case ascend_memory_type_hbm: {
+    /* dsmi_hbm_info_stru.memory_size and .memory_usage are expressed in KB
+     * (see "dcmi_get_hbm_info Prototype", field "HBM total size, KB"):
+     * https://support.huawei.com/enterprise/en/doc/EDOC1100149961/3b2c683b/dcmi_get_hbm_info-prototype
+     * The struct declaration in include/ascend/dcmi_interface_api.h documents
+     * the same unit. gpuinfo_dynamic_info stores memory in bytes, so a single
+     * multiplication by 1024 is needed. The previous KB_TO_GB factor
+     * (1024 * 1024) made HBM devices report a size 1024x too large. */
+    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, hbm_info.memory_size * 1024ULL);
+    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, hbm_info.memory_usage * 1024ULL);
+    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, (hbm_info.memory_size - hbm_info.memory_usage) * 1024ULL);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, hbm_info.memory_usage * 100 / hbm_info.memory_size);
+
+    /* HBM memory clock */
+    unsigned hbm_freq;
+    last_dcmi_return_status = dcmi_get_device_frequency(card_id, device_id, DCMI_FREQ_HBM, &hbm_freq);
+    if (last_dcmi_return_status == DCMI_SUCCESS) {
+      dynamic_info->mem_clock_speed = hbm_freq;
+      SET_VALID(gpuinfo_mem_clock_speed_valid, dynamic_info->valid);
+    }
+    break;
+  }
+  case ascend_memory_type_ddr: {
+    /* memory_size is in MB, convert to bytes for nvtop */
+    unsigned long long total_bytes = ddr_info.memory_size * 1024ULL * 1024ULL;
+    unsigned long long used_bytes = total_bytes * ddr_info.utilize / 100;
+    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_bytes);
+    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_bytes);
+    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, total_bytes - used_bytes);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, ddr_info.utilize);
+
+    if (ddr_info.freq > 0) {
+      dynamic_info->mem_clock_speed = ddr_info.freq;
+      SET_VALID(gpuinfo_mem_clock_speed_valid, dynamic_info->valid);
+    }
+    break;
+  }
+  default:
+    break;
   }
 
   unsigned aicore_util_rate;
@@ -200,15 +274,6 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (last_dcmi_return_status == DCMI_SUCCESS) {
     dynamic_info->gpu_util_rate = aicore_util_rate;
     SET_VALID(gpuinfo_gpu_util_rate_valid, dynamic_info->valid);
-  }
-
-  struct dsmi_hbm_info_stru hbm_info;
-  last_dcmi_return_status = dcmi_get_hbm_info(card_id, device_id, &hbm_info);
-  if (last_dcmi_return_status == DCMI_SUCCESS) {
-    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, hbm_info.memory_size * KB_TO_GB);
-    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, hbm_info.memory_usage * KB_TO_GB);
-    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, (hbm_info.memory_size - hbm_info.memory_usage) * KB_TO_GB);
-    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, hbm_info.memory_usage * 100 / hbm_info.memory_size);
   }
 
   int device_temperature;
@@ -241,6 +306,8 @@ static void gpuinfo_ascend_get_running_processes(struct gpu_info *_gpu_info) {
       perror("Could not allocate memory: ");
       exit(EXIT_FAILURE);
     }
+    // Zero-initialize to prevent garbage values for unset fields (e.g. gpu_usage)
+    memset(_gpu_info->processes, 0, _gpu_info->processes_array_size * sizeof(*_gpu_info->processes));
     for (int i = 0; i < proc_num; i++) {
       _gpu_info->processes[i].type = gpu_process_compute;
       _gpu_info->processes[i].pid = proc_info[i].proc_id;

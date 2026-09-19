@@ -53,7 +53,7 @@ This section deals with general interface options. \fBColor support\fR and \fBin
 This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR and \fBset the encoder/decoder hiding timer\fR.
 .TP
 .I Chart
-This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR.
+This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR. The available metrics are GPU utilization, GPU memory utilization, encoder rate, decoder rate, temperature, power draw rate, fan speed, GPU clock rate, GPU memory clock rate, effective load rate and PCIe RX / TX load. The PCIe RX and TX load are the receive and transmit throughput expressed as a percentage of the maximum link bandwidth (link generation times link width).
 .TP
 .I Processes
 This section deals with the process list (bottom of the interface). You can \fBselect the sort order\fR, \fBselect the metric by which to sort the processes by\fR and \fBselect which metric is displayed\fR.

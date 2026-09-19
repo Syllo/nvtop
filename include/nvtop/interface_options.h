@@ -80,6 +80,15 @@ inline plot_info_to_draw plot_remove_draw_info(enum plot_information reset_info,
 
 inline plot_info_to_draw plot_default_draw_info(void) { return (1 << plot_gpu_rate) | (1 << plot_gpu_mem_rate); }
 
+// Default plots for NPU backends that expose HVX/HMX. Built through
+// plot_add_draw_info() so the MAX_LINES_PER_PLOT limit is always respected.
+static inline plot_info_to_draw plot_npu_default_draw_info(void) {
+  plot_info_to_draw to_draw = plot_default_draw_info();
+  to_draw = plot_add_draw_info(plot_hvx_util_rate, to_draw);
+  to_draw = plot_add_draw_info(plot_hmx_util_rate, to_draw);
+  return to_draw;
+}
+
 void alloc_interface_options_internals(char *config_file_location, unsigned num_devices, struct list_head *devices,
                                        nvtop_interface_option *options);
 
