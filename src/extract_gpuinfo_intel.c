@@ -28,6 +28,7 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <linux/perf_event.h>
 #include <stdio.h>
 #include <string.h>
@@ -62,6 +63,9 @@ static bool get_perf_event(uint32_t type, uint64_t config, int *fd) {
   return true;
 }
 
+// The sysfs event description names the config field after the driver that
+// emits it: xe (drivers/gpu/drm/xe/xe_pmu.c) writes "event=0x.." while i915
+// (drivers/gpu/drm/i915/i915_pmu.c) writes "config=0x..". Accept either key.
 static bool measure_perf_event_by_name(const char *pmu_name, const char *event_name, int *fd) {
   char type_path[128];
   FILE *type_file;
@@ -83,7 +87,10 @@ static bool measure_perf_event_by_name(const char *pmu_name, const char *event_n
   type_file = fopen(type_path, "r");
   if (!type_file)
     return false;
-  if (fscanf(type_file, "event=0x%lx", &config) != 1) {
+  // Accept either "event=0x.." (xe) or "config=0x.." (i915)
+  char key[16];
+  if (fscanf(type_file, "%15[^=]=0x%" SCNx64, key, &config) != 2 ||
+      (strcmp(key, "event") != 0 && strcmp(key, "config") != 0)) {
     fclose(type_file);
     return false;
   }
