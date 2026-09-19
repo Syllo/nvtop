@@ -30,6 +30,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <linux/perf_event.h>
+#include <sched.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
@@ -59,9 +60,11 @@ static bool get_perf_event(uint32_t type, uint64_t config, int *fd) {
       .type = type,
       .size = sizeof(attr),
       .config = config,
+      .disabled = 1,
   };
 
-  *fd = perf_event_open(&attr, -1, 0, -1, 0);
+  // Use the currently active CPU, which is guaranteed to be active
+  *fd = perf_event_open(&attr, -1, sched_getcpu(), -1, 0);
   if (*fd < 0)
     return false;
 
@@ -104,15 +107,19 @@ static bool measure_perf_event_by_name(const char *pmu_name, const char *event_n
   return get_perf_event(type, config, fd);
 }
 
-static bool get_perf_event_by_gpu_info(const struct gpu_info_intel *gpu_info, const char *event_name,
-                                           int *fd) {
+static bool get_perf_event_by_gpu_info(const struct gpu_info_intel *gpu_info, const char *event_name, int *fd) {
   char pmu_name[32];
   snprintf(pmu_name, sizeof(pmu_name), gpu_info->driver == DRIVER_XE ? "xe_%s" : "i915_%s", gpu_info->base.pdev);
   for (char *ch = pmu_name; *ch; ++ch) {
     if (*ch == ':')
       *ch = '_';
   }
-  return measure_perf_event_by_name(pmu_name, event_name, fd);
+  if (measure_perf_event_by_name(pmu_name, event_name, fd))
+    return true;
+  // Devices with more than one GT expose per-GT event names (e.g. actual-frequency-gt0)
+  char gt_event_name[64];
+  snprintf(gt_event_name, sizeof(gt_event_name), "%s-gt0", event_name);
+  return measure_perf_event_by_name(pmu_name, gt_event_name, fd);
 }
 
 struct gpu_vendor gpu_vendor_intel = {
@@ -339,17 +346,19 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (gpu_info->perf_event_fd >= 0) {
     ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_DISABLE, 0);
     uint64_t actual_freq = 0;
-    if (read(gpu_info->perf_event_fd, &actual_freq, sizeof(actual_freq)) == sizeof(actual_freq)) {
+    // A zero reading means the GT reported no frequency this cycle, so leave the
+    // field invalid and let the sysfs fallback below handle it
+    if (read(gpu_info->perf_event_fd, &actual_freq, sizeof(actual_freq)) == sizeof(actual_freq) && actual_freq > 0) {
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, actual_freq);
     }
     ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_RESET, 0);
     ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_ENABLE, 0);
   }
   if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_clock_speed)) {
-    const char *gt_act_freq;
-    const char *gt_act_freq_sysattr = is_xe ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
-    if (nvtop_device_get_sysattr_value(clock_device, gt_act_freq_sysattr, &gt_act_freq) >= 0) {
-      unsigned val = strtoul(gt_act_freq, NULL, 10);
+    const char *gt_cur_freq;
+    const char *gt_cur_freq_sysattr = is_xe ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
+    if (nvtop_device_get_sysattr_value(clock_device, gt_cur_freq_sysattr, &gt_cur_freq) >= 0) {
+      unsigned val = strtoul(gt_cur_freq, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
     }
   }
