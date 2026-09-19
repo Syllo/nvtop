@@ -36,6 +36,7 @@
 #include <inttypes.h>
 #include <libdrm/amdgpu.h>
 #include <libdrm/amdgpu_drm.h>
+#include <limits.h>
 #include <math.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -44,6 +45,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
+#include <sys/sysmacros.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <uthash.h>
@@ -116,6 +118,10 @@ struct gpu_info_amdgpu {
 
   drmVersionPtr drmVersion;
   int fd;
+  // DRM render node minor. DRM allocates all card/render minors from one global namespace
+  // (render minors occupy a range disjoint from card minors), so the render minor uniquely
+  // identifies the GPU and matches the KFD node's drm_render_minor even with multiple GPUs.
+  int render_minor;
   amdgpu_device_handle amdgpu_device;
 
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
@@ -422,10 +428,12 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       continue;
 
     int fd = -1;
+    bool is_render_node = false;
 
     // Try render node first
     if (1 << DRM_NODE_RENDER & devs[i]->available_nodes) {
       fd = open(devs[i]->nodes[DRM_NODE_RENDER], O_RDWR);
+      is_render_node = fd >= 0;
     }
     if (fd < 0) {
       // Fallback to primary node (control nodes are unused according to the DRM documentation)
@@ -467,6 +475,10 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
     if (!last_libdrm_return_status) {
       gpu_infos[amdgpu_count].drmVersion = ver;
       gpu_infos[amdgpu_count].fd = fd;
+      struct stat st;
+      // KFD only exposes a render node minor, so only record ours if the render node was
+      // the one opened (the primary fallback has a different minor namespace).
+      gpu_infos[amdgpu_count].render_minor = is_render_node && fstat(fd, &st) == 0 ? (int)minor(st.st_rdev) : -1;
       gpu_infos[amdgpu_count].base.vendor = &gpu_vendor_amdgpu;
 
       snprintf(gpu_infos[amdgpu_count].base.pdev, PDEV_LEN - 1, "%04x:%02x:%02x.%d", devs[i]->businfo.pci->domain,
@@ -514,6 +526,119 @@ static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const
   int nread = vsscanf(val, format, args);
   va_end(args);
   return nread;
+}
+
+// Locate the KFD topology node directory (e.g. /sys/class/kfd/kfd/topology/nodes/1) that
+// belongs to the monitored GPU, matching it on the DRM render node minor which the KFD
+// topology exposes as "drm_render_minor". The render minor is unique across all DRM devices
+// (DRM hands out card and render minors from a single global pool), so this stays correct on
+// multi-GPU systems. Returns false if KFD is unavailable or no node matches.
+static bool gpuinfo_amdgpu_kfd_node_path(char *node_path, size_t node_path_size, int render_minor) {
+  static const char kfd_nodes_path[] = "/sys/class/kfd/kfd/topology/nodes";
+
+  if (render_minor <= 0)
+    return false;
+
+  DIR *nodes = opendir(kfd_nodes_path);
+  if (!nodes)
+    return false;
+
+  bool found = false;
+  struct dirent *entry;
+  while (!found && (entry = readdir(nodes))) {
+    if (entry->d_name[0] == '.')
+      continue;
+
+    char properties_path[PATH_MAX];
+    snprintf(properties_path, sizeof(properties_path), "%s/%s/properties", kfd_nodes_path, entry->d_name);
+
+    FILE *properties = fopen(properties_path, "r");
+    if (!properties)
+      continue;
+
+    int node_render_minor = -1;
+    char line[256];
+    while (fgets(line, sizeof(line), properties)) {
+      int value;
+      if (sscanf(line, "drm_render_minor %d", &value) == 1) {
+        node_render_minor = value;
+        break;
+      }
+    }
+    fclose(properties);
+
+    if (node_render_minor == render_minor) {
+      snprintf(node_path, node_path_size, "%s/%s", kfd_nodes_path, entry->d_name);
+      found = true;
+    }
+  }
+
+  closedir(nodes);
+  return found;
+}
+
+// Translate a KFD gfx_target_version (encoded MMMNNRR, e.g. 100300 is gfx10.3.0) into an
+// architecture name. The target values are the ones assigned by the kernel in
+// drivers/gpu/drm/amd/amdkfd/kfd_device.c. Returns NULL for unknown targets.
+static const char *amdgpu_architecture_from_gfx_target(unsigned int gfx_target) {
+  unsigned int major = gfx_target / 10000;
+  unsigned int minor = (gfx_target / 100) % 100;
+
+  switch (major) {
+  case 6:
+    return "GCN 1";
+  case 7:
+    return "GCN 2";
+  case 8:
+    // gfx80003 is shared by Fiji (GCN 3) and Polaris (GCN 4), the target cannot split them
+    return gfx_target == 80003 ? "GCN 3/4" : "GCN 3";
+  case 9:
+    switch (gfx_target) {
+    case 90008: // gfx908 Arcturus (MI100)
+      return "CDNA 1";
+    case 90010: // gfx90a Aldebaran (MI200)
+      return "CDNA 2";
+    case 90402: // gfx942 (MI300)
+      return "CDNA 3";
+    case 90500: // gfx950 (MI350)
+      return "CDNA 4";
+    default:
+      return "GCN 5 (Vega)";
+    }
+  case 10:
+    if (minor == 1)
+      return "RDNA";
+    if (minor == 3)
+      return "RDNA 2";
+    return NULL;
+  case 11:
+    return minor == 5 ? "RDNA 3.5" : "RDNA 3";
+  case 12:
+    return "RDNA 4";
+  default:
+    return NULL;
+  }
+}
+
+// Read gfx_target_version from a KFD topology node and translate it to an architecture name.
+// Returns NULL if the node is unreadable, the property is absent, or the target is unknown.
+static const char *gpuinfo_amdgpu_kfd_architecture(const char *node_path) {
+  char properties_path[PATH_MAX];
+  snprintf(properties_path, sizeof(properties_path), "%s/properties", node_path);
+
+  FILE *properties = fopen(properties_path, "r");
+  if (!properties)
+    return NULL;
+
+  unsigned int gfx_target = 0;
+  char line[256];
+  while (fgets(line, sizeof(line), properties)) {
+    if (sscanf(line, "gfx_target_version %u", &gfx_target) == 1)
+      break;
+  }
+  fclose(properties);
+
+  return amdgpu_architecture_from_gfx_target(gfx_target);
 }
 
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
@@ -612,6 +737,19 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
       default:
         break;
       }
+    }
+  }
+
+  // family_id cannot identify the architecture (it maps both RDNA 1 and RDNA 2 discrete
+  // GPUs to AMDGPU_FAMILY_NV, for example). Use the ISA target reported by the KFD topology
+  // instead, matching this GPU through its DRM render node minor.
+  char kfd_node_path[PATH_MAX];
+  if (gpuinfo_amdgpu_kfd_node_path(kfd_node_path, sizeof(kfd_node_path), gpu_info->render_minor)) {
+    const char *arch_name = gpuinfo_amdgpu_kfd_architecture(kfd_node_path);
+    if (arch_name) {
+      strncpy(static_info->device_architecture, arch_name, MAX_DEVICE_NAME - 1);
+      static_info->device_architecture[MAX_DEVICE_NAME - 1] = '\0';
+      SET_VALID(gpuinfo_device_architecture_valid, static_info->valid);
     }
   }
 

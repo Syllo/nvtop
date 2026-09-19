@@ -120,6 +120,8 @@ static const char *(*nvmlErrorString)(nvmlReturn_t);
 
 static nvmlReturn_t (*nvmlDeviceGetName)(nvmlDevice_t device, char *name, unsigned int length);
 
+static nvmlReturn_t (*nvmlDeviceGetArchitecture)(nvmlDevice_t device, unsigned int *arch);
+
 typedef struct {
   char busIdLegacy[16];
   unsigned int domain;
@@ -286,6 +288,24 @@ static nvmlReturn_t (*nvmlDeviceGetMPSComputeRunningProcesses[4])(nvmlDevice_t d
 #define NVML_DEVICE_MIG_DISABLE 0x0
 #define NVML_DEVICE_MIG_ENABLE 0x1
 nvmlReturn_t (*nvmlDeviceGetMigMode)(nvmlDevice_t device, unsigned int *currentMode, unsigned int *pendingMode);
+
+// nvmlDeviceArchitecture_t values (from nvml.h). nvtop does not include nvml.h,
+// so the NVML_DEVICE_ARCH_* constants are mirrored here.
+#define NVML_DEVICE_ARCH_KEPLER 2
+#define NVML_DEVICE_ARCH_MAXWELL 3
+#define NVML_DEVICE_ARCH_PASCAL 4
+#define NVML_DEVICE_ARCH_VOLTA 5
+#define NVML_DEVICE_ARCH_TURING 6
+#define NVML_DEVICE_ARCH_AMPERE 7
+#define NVML_DEVICE_ARCH_ADA 8
+#define NVML_DEVICE_ARCH_HOPPER 9
+#define NVML_DEVICE_ARCH_BLACKWELL 10
+#define NVML_DEVICE_ARCH_RUBIN 13
+// Non-GPU accelerators, present on Tegra/NPU platforms
+#define NVML_DEVICE_ARCH_DLA 11
+#define NVML_DEVICE_ARCH_DLA2 12
+#define NVML_DEVICE_ARCH_NPU3 15
+#define NVML_DEVICE_ARCH_UNKNOWN 0xffffffff
 
 // NVLink functions (not present in older NVML versions, gracefully handled)
 static nvmlReturn_t (*nvmlDeviceGetNvLinkState)(nvmlDevice_t device, unsigned int link, unsigned int *isActive);
@@ -478,6 +498,9 @@ static bool gpuinfo_nvidia_init(void) {
   nvmlDeviceGetName = dlsym(libnvidia_ml_handle, "nvmlDeviceGetName");
   if (!nvmlDeviceGetName)
     goto init_error_clean_exit;
+
+  // Optional; not present in older drivers, absence is not an error
+  nvmlDeviceGetArchitecture = dlsym(libnvidia_ml_handle, "nvmlDeviceGetArchitecture");
 
   nvmlDeviceGetPciInfo = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPciInfo_v3");
   if (!nvmlDeviceGetPciInfo)
@@ -692,6 +715,63 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetName(device, static_info->device_name, MAX_DEVICE_NAME);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
+
+  if (nvmlDeviceGetArchitecture) {
+    unsigned int arch = 0;
+    if (nvmlDeviceGetArchitecture(device, &arch) == NVML_SUCCESS) {
+      const char *arch_name = NULL;
+      switch (arch) {
+      case NVML_DEVICE_ARCH_KEPLER:
+        arch_name = "Kepler";
+        break;
+      case NVML_DEVICE_ARCH_MAXWELL:
+        arch_name = "Maxwell";
+        break;
+      case NVML_DEVICE_ARCH_PASCAL:
+        arch_name = "Pascal";
+        break;
+      case NVML_DEVICE_ARCH_VOLTA:
+        arch_name = "Volta";
+        break;
+      case NVML_DEVICE_ARCH_TURING:
+        arch_name = "Turing";
+        break;
+      case NVML_DEVICE_ARCH_AMPERE:
+        arch_name = "Ampere";
+        break;
+      case NVML_DEVICE_ARCH_ADA:
+        arch_name = "Ada";
+        break;
+      case NVML_DEVICE_ARCH_HOPPER:
+        arch_name = "Hopper";
+        break;
+      case NVML_DEVICE_ARCH_BLACKWELL:
+        arch_name = "Blackwell";
+        break;
+      case NVML_DEVICE_ARCH_RUBIN:
+        arch_name = "Rubin";
+        break;
+      // Non-GPU accelerators, reported for completeness
+      case NVML_DEVICE_ARCH_DLA:
+        arch_name = "DLA";
+        break;
+      case NVML_DEVICE_ARCH_DLA2:
+        arch_name = "DLA2";
+        break;
+      case NVML_DEVICE_ARCH_NPU3:
+        arch_name = "NPU3";
+        break;
+      default:
+        // NVML_DEVICE_ARCH_UNKNOWN, reserved values and future architectures
+        break;
+      }
+      if (arch_name) {
+        strncpy(static_info->device_architecture, arch_name, MAX_DEVICE_NAME - 1);
+        static_info->device_architecture[MAX_DEVICE_NAME - 1] = '\0';
+        SET_VALID(gpuinfo_device_architecture_valid, static_info->valid);
+      }
+    }
+  }
 
   last_nvml_return_status = nvmlDeviceGetMaxPcieLinkGeneration(device, &static_info->max_pcie_gen);
   if (last_nvml_return_status == NVML_SUCCESS)
