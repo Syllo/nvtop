@@ -143,6 +143,28 @@ static void _decode_card_device_id_from_pdev(const char *pdev, int *card_id, int
   sscanf(pdev, "%d-%d", card_id, device_id);
 }
 
+enum ascend_memory_type {
+  ascend_memory_type_unknown = 0,
+  ascend_memory_type_hbm,
+  ascend_memory_type_ddr,
+};
+
+/* Ascend 910B/910A expose HBM through dsmi_hbm_info_stru while 310P3/300i DUO
+ * expose DDR through dcmi_memory_info_stru. Prefer HBM, but some drivers answer
+ * the HBM query with DCMI_SUCCESS and a size of 0 on boards that have no HBM,
+ * so only trust it when memory_size is non-zero and otherwise fall back to DDR.
+ * This keeps static (label) and dynamic (sizes/clocks) detection in sync and
+ * avoids dividing by hbm_info.memory_size == 0. */
+static enum ascend_memory_type gpuinfo_ascend_detect_memory_type(int card_id, int device_id,
+                                                                 struct dsmi_hbm_info_stru *hbm_info,
+                                                                 struct dcmi_memory_info_stru *ddr_info) {
+  if (dcmi_get_hbm_info(card_id, device_id, hbm_info) == DCMI_SUCCESS && hbm_info->memory_size > 0)
+    return ascend_memory_type_hbm;
+  if (dcmi_get_memory_info(card_id, device_id, ddr_info) == DCMI_SUCCESS)
+    return ascend_memory_type_ddr;
+  return ascend_memory_type_unknown;
+}
+
 static void gpuinfo_ascend_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_ascend *gpu_info = container_of(_gpu_info, struct gpu_info_ascend, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
@@ -165,19 +187,18 @@ static void gpuinfo_ascend_populate_static_info(struct gpu_info *_gpu_info) {
 
   /* Detect memory type: HBM (910B) vs DDR (310P3/300i DUO) */
   struct dsmi_hbm_info_stru hbm_info;
-  int detect_ret = dcmi_get_hbm_info(card_id, device_id, &hbm_info);
-  if (detect_ret == DCMI_SUCCESS) {
-    strncpy(static_info->memory_type, "HBM", sizeof(static_info->memory_type) - 1);
-    static_info->memory_type[sizeof(static_info->memory_type) - 1] = '\0';
+  struct dcmi_memory_info_stru ddr_info;
+  switch (gpuinfo_ascend_detect_memory_type(card_id, device_id, &hbm_info, &ddr_info)) {
+  case ascend_memory_type_hbm:
+    snprintf(static_info->memory_type, sizeof(static_info->memory_type), "HBM");
     SET_VALID(gpuinfo_memory_type_valid, static_info->valid);
-  } else {
-    struct dcmi_memory_info_stru ddr_info;
-    detect_ret = dcmi_get_memory_info(card_id, device_id, &ddr_info);
-    if (detect_ret == DCMI_SUCCESS) {
-      strncpy(static_info->memory_type, "DDR", sizeof(static_info->memory_type) - 1);
-      static_info->memory_type[sizeof(static_info->memory_type) - 1] = '\0';
-      SET_VALID(gpuinfo_memory_type_valid, static_info->valid);
-    }
+    break;
+  case ascend_memory_type_ddr:
+    snprintf(static_info->memory_type, sizeof(static_info->memory_type), "DDR");
+    SET_VALID(gpuinfo_memory_type_valid, static_info->valid);
+    break;
+  default:
+    break;
   }
 }
 
@@ -203,10 +224,11 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_gpu_clock_speed_max_valid, dynamic_info->valid);
   }
 
-  /* Try HBM memory (Ascend 910B/910A) first, then DDR (Ascend 310P3/300i DUO) */
+  /* Pick HBM (Ascend 910B/910A) when present, otherwise DDR (310P3/300i DUO) */
   struct dsmi_hbm_info_stru hbm_info;
-  last_dcmi_return_status = dcmi_get_hbm_info(card_id, device_id, &hbm_info);
-  if (last_dcmi_return_status == DCMI_SUCCESS) {
+  struct dcmi_memory_info_stru ddr_info;
+  switch (gpuinfo_ascend_detect_memory_type(card_id, device_id, &hbm_info, &ddr_info)) {
+  case ascend_memory_type_hbm: {
     /* dsmi_hbm_info_stru.memory_size and .memory_usage are expressed in KB
      * (see "dcmi_get_hbm_info Prototype", field "HBM total size, KB"):
      * https://support.huawei.com/enterprise/en/doc/EDOC1100149961/3b2c683b/dcmi_get_hbm_info-prototype
@@ -226,24 +248,25 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       dynamic_info->mem_clock_speed = hbm_freq;
       SET_VALID(gpuinfo_mem_clock_speed_valid, dynamic_info->valid);
     }
-  } else {
-    /* Fallback to DDR memory (300i DUO / 310P3) */
-    struct dcmi_memory_info_stru ddr_info;
-    last_dcmi_return_status = dcmi_get_memory_info(card_id, device_id, &ddr_info);
-    if (last_dcmi_return_status == DCMI_SUCCESS) {
-      /* memory_size is in MB, convert to bytes for nvtop */
-      unsigned long long total_bytes = ddr_info.memory_size * 1024 * 1024;
-      unsigned long long used_bytes = total_bytes * ddr_info.utilize / 100;
-      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_bytes);
-      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_bytes);
-      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, total_bytes - used_bytes);
-      SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, ddr_info.utilize);
+    break;
+  }
+  case ascend_memory_type_ddr: {
+    /* memory_size is in MB, convert to bytes for nvtop */
+    unsigned long long total_bytes = ddr_info.memory_size * 1024ULL * 1024ULL;
+    unsigned long long used_bytes = total_bytes * ddr_info.utilize / 100;
+    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_bytes);
+    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_bytes);
+    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, total_bytes - used_bytes);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, ddr_info.utilize);
 
-      if (ddr_info.freq > 0) {
-        dynamic_info->mem_clock_speed = ddr_info.freq;
-        SET_VALID(gpuinfo_mem_clock_speed_valid, dynamic_info->valid);
-      }
+    if (ddr_info.freq > 0) {
+      dynamic_info->mem_clock_speed = ddr_info.freq;
+      SET_VALID(gpuinfo_mem_clock_speed_valid, dynamic_info->valid);
     }
+    break;
+  }
+  default:
+    break;
   }
 
   unsigned aicore_util_rate;
