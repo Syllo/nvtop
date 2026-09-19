@@ -289,6 +289,24 @@ static nvmlReturn_t (*nvmlDeviceGetMPSComputeRunningProcesses[4])(nvmlDevice_t d
 #define NVML_DEVICE_MIG_ENABLE 0x1
 nvmlReturn_t (*nvmlDeviceGetMigMode)(nvmlDevice_t device, unsigned int *currentMode, unsigned int *pendingMode);
 
+// nvmlDeviceArchitecture_t values (from nvml.h). nvtop does not include nvml.h,
+// so the NVML_DEVICE_ARCH_* constants are mirrored here.
+#define NVML_DEVICE_ARCH_KEPLER 2
+#define NVML_DEVICE_ARCH_MAXWELL 3
+#define NVML_DEVICE_ARCH_PASCAL 4
+#define NVML_DEVICE_ARCH_VOLTA 5
+#define NVML_DEVICE_ARCH_TURING 6
+#define NVML_DEVICE_ARCH_AMPERE 7
+#define NVML_DEVICE_ARCH_ADA 8
+#define NVML_DEVICE_ARCH_HOPPER 9
+#define NVML_DEVICE_ARCH_BLACKWELL 10
+#define NVML_DEVICE_ARCH_RUBIN 13
+// Non-GPU accelerators, present on Tegra/NPU platforms
+#define NVML_DEVICE_ARCH_DLA 11
+#define NVML_DEVICE_ARCH_DLA2 12
+#define NVML_DEVICE_ARCH_NPU3 15
+#define NVML_DEVICE_ARCH_UNKNOWN 0xffffffff
+
 // NVLink functions (not present in older NVML versions, gracefully handled)
 static nvmlReturn_t (*nvmlDeviceGetNvLinkState)(nvmlDevice_t device, unsigned int link, unsigned int *isActive);
 static nvmlReturn_t (*nvmlDeviceGetNvLinkVersion)(nvmlDevice_t device, unsigned int link, unsigned int *version);
@@ -703,34 +721,48 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
     if (nvmlDeviceGetArchitecture(device, &arch) == NVML_SUCCESS) {
       const char *arch_name = NULL;
       switch (arch) {
-      case 2:
+      case NVML_DEVICE_ARCH_KEPLER:
         arch_name = "Kepler";
         break;
-      case 3:
+      case NVML_DEVICE_ARCH_MAXWELL:
         arch_name = "Maxwell";
         break;
-      case 4:
+      case NVML_DEVICE_ARCH_PASCAL:
         arch_name = "Pascal";
         break;
-      case 5:
+      case NVML_DEVICE_ARCH_VOLTA:
         arch_name = "Volta";
         break;
-      case 6:
+      case NVML_DEVICE_ARCH_TURING:
         arch_name = "Turing";
         break;
-      case 7:
+      case NVML_DEVICE_ARCH_AMPERE:
         arch_name = "Ampere";
         break;
-      case 8:
+      case NVML_DEVICE_ARCH_ADA:
         arch_name = "Ada";
         break;
-      case 9:
+      case NVML_DEVICE_ARCH_HOPPER:
         arch_name = "Hopper";
         break;
-      case 10:
+      case NVML_DEVICE_ARCH_BLACKWELL:
         arch_name = "Blackwell";
         break;
+      case NVML_DEVICE_ARCH_RUBIN:
+        arch_name = "Rubin";
+        break;
+      // Non-GPU accelerators, reported for completeness
+      case NVML_DEVICE_ARCH_DLA:
+        arch_name = "DLA";
+        break;
+      case NVML_DEVICE_ARCH_DLA2:
+        arch_name = "DLA2";
+        break;
+      case NVML_DEVICE_ARCH_NPU3:
+        arch_name = "NPU3";
+        break;
       default:
+        // NVML_DEVICE_ARCH_UNKNOWN, reserved values and future architectures
         break;
       }
       if (arch_name) {
