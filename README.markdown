@@ -62,6 +62,10 @@ NVTOP Options and Interactive Commands
 NVTOP has a builtin setup utility that provides a way to specialize the interface to your needs.
 Simply press ``F2`` and select the options that are the best for you.
 
+In the ``Chart`` section you can choose which metrics are plotted, including GPU and memory
+utilization, temperature, power, clocks, and the **PCIe RX / TX load** (the receive and transmit
+throughput as a percentage of the maximum link bandwidth).
+
 ![NVTOP Setup Window](/screenshot/Nvtop-config.png)
 
 ### Saving Preferences
@@ -430,6 +434,7 @@ Troubleshoot
 
 - The plot looks bad:
   - Verify that you installed the wide character version of the ncurses library (libncurses**w**5-dev for Debian / Ubuntu), clean the build directory and restart the build process.
+- If `nvtop` exits with `ncurses: cannot initialize terminal type ($TERM="unknown")`, ensure that `$TERM` is set to a valid terminal type such as `xterm-256color`.
 - **Putty**: Tell putty not to lie about its capabilities (`$TERM`) by setting the field ``Terminal-type string`` to ``putty`` in the menu
   ``Connection > Data > Terminal Details``.
 - `NO GPU to monitor.` for NVIDIA GPUs:

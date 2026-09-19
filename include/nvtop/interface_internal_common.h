@@ -68,12 +68,15 @@ struct device_window {
   WINDOW *fan_speed;
   WINDOW *temperature;
   WINDOW *power_info;
+  WINDOW *ecc_info;
   WINDOW *gpu_clock_info;
   WINDOW *mem_clock_info;
   WINDOW *pcie_info;
+  WINDOW *nvlink_info;
   WINDOW *shader_cores;
   WINDOW *l2_cache_size;
   WINDOW *exec_engines;
+  WINDOW *nvlink_errors;
   WINDOW *extra_clocks[MAX_EXTRA_CLOCK_DOMAINS];
   bool enc_was_visible;
   bool dec_was_visible;
@@ -151,12 +154,14 @@ enum device_field {
   device_fan_speed,
   device_temperature,
   device_power,
+  device_ecc,
   device_pcie,
   device_clock,
   device_mem_clock,
   device_shadercores,
   device_l2features,
   device_execengines,
+  device_nvlink_errors,
   device_extra_clock,
   device_field_count,
 };
