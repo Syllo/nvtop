@@ -386,8 +386,10 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
   // Open the PCIe bandwidth file for dynamic info gathering
   gpu_info->PCIeBW = NULL;
   int pcieBWFD = openat(sysfsFD, "pcie_bw", O_RDONLY);
-  if (pcieBWFD) {
+  if (pcieBWFD >= 0) {
     gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
+    if (!gpu_info->PCIeBW)
+      close(pcieBWFD);
   }
 
   close(sysfsFD);

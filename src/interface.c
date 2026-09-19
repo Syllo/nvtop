@@ -2001,13 +2001,15 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
           break;
         case plot_gpu_clock_rate:
           if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed) &&
-              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed_max)) {
+              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed_max) &&
+              device->dynamic_info.gpu_clock_speed_max > 0) {
             data_val = device->dynamic_info.gpu_clock_speed * 100 / device->dynamic_info.gpu_clock_speed_max;
           }
           break;
         case plot_gpu_mem_clock_rate:
           if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed) &&
-              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed_max)) {
+              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed_max) &&
+              device->dynamic_info.mem_clock_speed_max > 0) {
             data_val = device->dynamic_info.mem_clock_speed * 100 / device->dynamic_info.mem_clock_speed_max;
           }
           break;
