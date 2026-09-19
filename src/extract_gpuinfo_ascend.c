@@ -29,7 +29,6 @@
 #include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
 
-#define KB_TO_GB (1024 * 1024)
 #define DCMI_SUCCESS 0
 #define MAX_DEVICE_NUM 64
 #define MAX_PROC_NUM 32
@@ -208,9 +207,16 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct dsmi_hbm_info_stru hbm_info;
   last_dcmi_return_status = dcmi_get_hbm_info(card_id, device_id, &hbm_info);
   if (last_dcmi_return_status == DCMI_SUCCESS) {
-    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, hbm_info.memory_size * KB_TO_GB);
-    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, hbm_info.memory_usage * KB_TO_GB);
-    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, (hbm_info.memory_size - hbm_info.memory_usage) * KB_TO_GB);
+    /* dsmi_hbm_info_stru.memory_size and .memory_usage are expressed in KB
+     * (see "dcmi_get_hbm_info Prototype", field "HBM total size, KB"):
+     * https://support.huawei.com/enterprise/en/doc/EDOC1100149961/3b2c683b/dcmi_get_hbm_info-prototype
+     * The struct declaration in include/ascend/dcmi_interface_api.h documents
+     * the same unit. gpuinfo_dynamic_info stores memory in bytes, so a single
+     * multiplication by 1024 is needed. The previous KB_TO_GB factor
+     * (1024 * 1024) made HBM devices report a size 1024x too large. */
+    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, hbm_info.memory_size * 1024ULL);
+    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, hbm_info.memory_usage * 1024ULL);
+    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, (hbm_info.memory_size - hbm_info.memory_usage) * 1024ULL);
     SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, hbm_info.memory_usage * 100 / hbm_info.memory_size);
 
     /* HBM memory clock */
