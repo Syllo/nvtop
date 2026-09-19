@@ -47,7 +47,7 @@
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,  [device_temperature] = 10, [device_power] = 15,
     [device_ecc] = 10,        [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,
-    [device_shadercores] = 7, [device_l2features] = 11, [device_execengines] = 11, [device_nvlink_errors] = 33,
+    [device_shadercores] = 11, [device_l2features] = 11, [device_execengines] = 11, [device_nvlink_errors] = 33,
 };
 
 // True if any monitored device has NVLink hardware support (even if 0 links active).
