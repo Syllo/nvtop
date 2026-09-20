@@ -112,8 +112,8 @@ source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/dr
 Hence, you will need a kernel with a version greater or equal to 5.19 to see the
 processes using Intel GPUs.
 
-Intel requires CAP_PERFMON or CAP_SYS_ADMIN capabilities to access the total memory usage,
-you can run `sudo setcap cap_perfmon=ep nvtop` to grant the necessary permissions or run nvtop as root.
+Intel requires CAP_PERFMON or CAP_SYS_ADMIN capabilities to access the total memory usage, and an accurate GPU frequency.
+you can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
 
 ### NVIDIA
 
