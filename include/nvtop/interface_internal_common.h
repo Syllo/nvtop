@@ -23,6 +23,7 @@
 #define INTERFACE_INTERNAL_COMMON_H__
 
 #include "nvtop/common.h"
+#include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
 #include "nvtop/time.h"
@@ -76,6 +77,7 @@ struct device_window {
   WINDOW *l2_cache_size;
   WINDOW *exec_engines;
   WINDOW *nvlink_errors;
+  WINDOW *extra_clocks[MAX_EXTRA_CLOCK_DOMAINS];
   bool enc_was_visible;
   bool dec_was_visible;
   nvtop_time last_decode_seen;
@@ -141,6 +143,7 @@ struct nvtop_interface {
   struct process_window process;
   WINDOW *shortcut_window;
   unsigned num_plots;
+  unsigned extra_clock_rows; // Rows the current layout reserves for the clock domains
   struct plot_window *plots;
   interface_ring_buffer saved_data_ring;
   struct setup_window setup_win;
@@ -159,6 +162,7 @@ enum device_field {
   device_l2features,
   device_execengines,
   device_nvlink_errors,
+  device_extra_clock,
   device_field_count,
 };
 

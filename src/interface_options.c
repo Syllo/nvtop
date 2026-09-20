@@ -130,6 +130,8 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->filter_nvtop_pid = true;
   options->hide_processes_list = false;
   options->has_gpu_info_bar = false;
+  options->has_extra_clocks_bar = false;
+  options->has_all_clocks_bar = false;
   options->gpu_plot_color_idx[0] = 1;  // Cyan
   options->gpu_plot_color_idx[1] = 3;  // Yellow
   options->gpu_plot_color_idx[2] = 2;  // Green
@@ -176,6 +178,8 @@ static const char header_section[] = "HeaderOption";
 static const char header_value_use_fahrenheit[] = "UseFahrenheit";
 static const char header_value_encode_decode_timer[] = "EncodeHideTimer";
 static const char header_value_gpu_info_bar[] = "GPUInfoBar";
+static const char header_value_extra_clocks_bar[] = "ExtraClocksBar";
+static const char header_value_all_clocks_bar[] = "AllClocksBar";
 
 static const char chart_section[] = "ChartOption";
 static const char chart_value_reverse[] = "ReverseChart";
@@ -253,6 +257,22 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
       }
       if (strcmp(value, "false") == 0) {
         ini_data->options->has_gpu_info_bar = false;
+      }
+    }
+    if (strcmp(name, header_value_extra_clocks_bar) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->has_extra_clocks_bar = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->has_extra_clocks_bar = false;
+      }
+    }
+    if (strcmp(name, header_value_all_clocks_bar) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->has_all_clocks_bar = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->has_all_clocks_bar = false;
       }
     }
   }
@@ -420,6 +440,8 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   fprintf(config_file, "%s = %s\n", header_value_use_fahrenheit, boolean_string(options->temperature_in_fahrenheit));
   fprintf(config_file, "%s = %e\n", header_value_encode_decode_timer, options->encode_decode_hiding_timer);
   fprintf(config_file, "%s = %s\n", header_value_gpu_info_bar, boolean_string(options->has_gpu_info_bar));
+  fprintf(config_file, "%s = %s\n", header_value_extra_clocks_bar, boolean_string(options->has_extra_clocks_bar));
+  fprintf(config_file, "%s = %s\n", header_value_all_clocks_bar, boolean_string(options->has_all_clocks_bar));
 
   // Chart Options
   fprintf(config_file, "\n[%s]\n", chart_section);

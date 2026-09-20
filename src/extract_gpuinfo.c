@@ -21,6 +21,7 @@
 
 #include <ctype.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "nvtop/extract_gpuinfo.h"
@@ -404,4 +405,23 @@ void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info) {
   utilisation_rate = utilisation_rate > 100 ? 100 : utilisation_rate;
 
   SET_GPUINFO_DYNAMIC(&gpu_info->dynamic_info, gpu_util_rate, utilisation_rate);
+}
+
+void gpuinfo_add_extra_clock(struct gpuinfo_dynamic_info *dynamic_info, const char *name, unsigned int speed_mhz,
+                             bool secondary) {
+  // The count lives as long as the valid bit does, so the RESET_ALL every
+  // vendor does at the start of a refresh empties the array as well.
+  if (!IS_VALID(gpuinfo_extra_clocks_valid, dynamic_info->valid))
+    dynamic_info->extra_clock_count = 0;
+
+  if (dynamic_info->extra_clock_count >= MAX_EXTRA_CLOCK_DOMAINS)
+    return;
+
+  struct gpuinfo_extra_clock *clock = &dynamic_info->extra_clocks[dynamic_info->extra_clock_count];
+  snprintf(clock->name, sizeof(clock->name), "%s", name);
+  clock->speed = speed_mhz;
+  clock->secondary = secondary;
+
+  dynamic_info->extra_clock_count++;
+  SET_VALID(gpuinfo_extra_clocks_valid, dynamic_info->valid);
 }
