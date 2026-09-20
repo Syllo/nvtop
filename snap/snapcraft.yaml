@@ -27,10 +27,47 @@ apps:
     - process-control
     - system-observe
     # - kubernetes-support # Temporarily required for nvtop to display AMD GPU processes. Once apparmor rule to allow access to @{PROC}/[0-9]*/fdinfo/ is added to system-observe, this can be removed.
+    environment:
+      # The staged terminfo db is outside ncurses search path
+      TERMINFO_DIRS: $SNAP/usr/share/terminfo:$SNAP/lib/terminfo:$SNAP/etc/terminfo:/usr/share/terminfo:/lib/terminfo:/etc/terminfo
 # layout:
 #   /usr/share/libdrm:
 #     symlink: $SNAP/usr/share/libdrm
 parts:
+  extra-terminfo:
+    # Ghostty and WezTerm postdate core22's ncurses 6.3 and have no Ubuntu
+    # terminfo package of their own, so their entries are compiled here.
+    #
+    # WezTerm publishes its terminfo as a plain source file, so it is fetched
+    # from a pinned commit and checksum-verified at build time.
+    #
+    # Ghostty maintains its terminfo as Zig source (src/terminfo/ghostty.zig)
+    # and only emits a .terminfo when built, so there is no upstream file to
+    # pin. Its entry is vendored in snap/local/terminfo instead.
+    plugin: nil
+    source: snap/local/terminfo
+    build-packages:
+    - ncurses-bin
+    - curl
+    - ca-certificates
+    override-pull: |
+      set -eux
+      craftctl default
+      # wezterm/wezterm termwiz/data/wezterm.terminfo, last changed 2025-05-03
+      # ("Advertize the Su capability too"). The newest tagged release predates
+      # that commit, so pin the commit rather than the tag.
+      wezterm_commit=52c3515037518b826f32609179383948217d5a33
+      wezterm_sha256=5e386fb149b2a16b71b4d9a373c54737c9e5694eb67fe38d93b24705b93437ed
+      curl -sSfL -o wezterm.terminfo \
+        "https://raw.githubusercontent.com/wezterm/wezterm/${wezterm_commit}/termwiz/data/wezterm.terminfo"
+      echo "${wezterm_sha256}  wezterm.terminfo" | sha256sum -c -
+    override-build: |
+      set -eux
+      terminfo_dir="$CRAFT_PART_INSTALL/usr/share/terminfo"
+      mkdir -p "$terminfo_dir"
+      for src in *.terminfo; do
+        tic -x -o "$terminfo_dir" "$src"
+      done
   libdrm:
     source: https://gitlab.freedesktop.org/mesa/drm.git
     source-tag: libdrm-2.4.113
@@ -79,5 +116,9 @@ parts:
     - libncurses6
     - libncursesw6
     - libsystemd0
+    - ncurses-base
+    - ncurses-term
+    - kitty-terminfo
+    - foot-terminfo
     prime:
     - -usr/share/doc
