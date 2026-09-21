@@ -20,8 +20,11 @@
  */
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <unistd.h>
 #include <vector>
 
 extern "C" {
@@ -278,6 +281,26 @@ TEST(InterfaceOptions, ProcessingUnitNames) {
   EXPECT_STREQ(processing_unit_name(gpu_processing_unit_npu), "NPU");
   // Out-of-range values fall back to the default.
   EXPECT_STREQ(processing_unit_name((enum gpu_processing_unit)gpu_processing_unit_count), "GPU");
+}
+
+TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
+  char config_path[] = "interface-options-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+  options.dynamic_memory_units = true;
+
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.dynamic_memory_units = false;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_TRUE(options.dynamic_memory_units);
+
+  EXPECT_EQ(std::remove(config_path), 0);
 }
 
 #ifdef THOROUGH_TESTING
