@@ -22,6 +22,7 @@
  *
  */
 
+#include "nvtop/amdgpu_amdsmi.h"
 #include "nvtop/common.h"
 #include "nvtop/device_discovery.h"
 #include "nvtop/extract_gpuinfo_common.h"
@@ -123,6 +124,7 @@ struct gpu_info_amdgpu {
   // identifies the GPU and matches the KFD node's drm_render_minor even with multiple GPUs.
   int render_minor;
   amdgpu_device_handle amdgpu_device;
+  void *amdsmi_device;
 
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
   FILE *fanSpeedFILE; // FILE* for this device current fan speed
@@ -230,6 +232,7 @@ static bool gpuinfo_amdgpu_init(void) {
     _amdgpu_query_sensor_info = dlsym(libdrm_amdgpu_handle, "amdgpu_query_sensor_info");
   }
 
+  nvtop_amdsmi_init();
   local_error_string = NULL;
   return true;
 
@@ -240,6 +243,7 @@ init_error_clean_exit:
 }
 
 static void gpuinfo_amdgpu_shutdown(void) {
+  nvtop_amdsmi_shutdown();
   for (unsigned i = 0; i < amdgpu_count; ++i) {
     struct gpu_info_amdgpu *gpu_info = &gpu_infos[i];
     if (gpu_info->fanSpeedFILE)
@@ -483,6 +487,7 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
 
       snprintf(gpu_infos[amdgpu_count].base.pdev, PDEV_LEN - 1, "%04x:%02x:%02x.%d", devs[i]->businfo.pci->domain,
                devs[i]->businfo.pci->bus, devs[i]->businfo.pci->dev, devs[i]->businfo.pci->func);
+      gpu_infos[amdgpu_count].amdsmi_device = nvtop_amdsmi_device_from_bdf(gpu_infos[amdgpu_count].base.pdev);
       initDeviceSysfsPaths(&gpu_infos[amdgpu_count]);
       list_add_tail(&gpu_infos[amdgpu_count].base.list, devices);
       // Register a fdinfo callback for this GPU
@@ -898,12 +903,23 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, out32 * 1000);
   }
 
-  nvtop_pcie_link curr_link_characteristics;
-  int ret = nvtop_device_current_pcie_link(gpu_info->amdgpuDevice, &curr_link_characteristics);
-  if (ret >= 0) {
-    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
-    unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
-    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, pcieGen);
+  unsigned generation, width;
+  if (nvtop_amdsmi_current_pcie_link(gpu_info->amdsmi_device, &generation, &width)) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, generation);
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, width);
+  } else {
+    // In a passthrough VM these may describe a virtual root port, but remain a
+    // useful fallback on systems without AMD SMI or supported GPU metrics.
+    nvtop_pcie_link curr_link_characteristics;
+    int ret = nvtop_device_current_pcie_link(gpu_info->amdgpuDevice, &curr_link_characteristics);
+    if (ret >= 0 && curr_link_characteristics.speed != UINT_MAX && curr_link_characteristics.width > 0 &&
+        curr_link_characteristics.width != UINT_MAX) {
+      unsigned pcieGen = nvtop_pcie_gen_from_link_speed(curr_link_characteristics.speed);
+      if (pcieGen) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, curr_link_characteristics.width);
+        SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, pcieGen);
+      }
+    }
   }
 
   // PCIe bandwidth
