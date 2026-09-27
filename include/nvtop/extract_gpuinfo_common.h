@@ -81,6 +81,7 @@ struct gpuinfo_static_info {
   unsigned engine_count;
   bool integrated_graphics;
   bool encode_decode_shared;
+  bool memory_shared_with_host; // True if device memory is shared with the host (e.g. UMA)
   char memory_type[8];
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
