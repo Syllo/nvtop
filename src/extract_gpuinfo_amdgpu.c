@@ -125,9 +125,10 @@ struct gpu_info_amdgpu {
   amdgpu_device_handle amdgpu_device;
 
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
-  FILE *fanSpeedFILE; // FILE* for this device current fan speed
-  FILE *PCIeBW;       // FILE* for this device PCIe bandwidth over one second
-  FILE *powerCap;     // FILE* for this device power cap
+  FILE *fanSpeedFILE;   // FILE* for this device current fan speed
+  FILE *tempSensorFILE; // FILE* for the hwmon GPU temperature fallback
+  FILE *PCIeBW;         // FILE* for this device PCIe bandwidth over one second
+  FILE *powerCap;       // FILE* for this device power cap
   FILE *powerCapDefault;
 
   nvtop_device *amdgpuDevice; // The AMDGPU driver device
@@ -163,13 +164,10 @@ struct gpu_vendor gpu_vendor_amdgpu = {
 
 static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const char *format, ...);
 
-/*
- * SMU13.0.6 only implements AMDGPU_PP_SENSOR_HOTSPOT_TEMP and
- * AMDGPU_PP_SENSOR_MEM_TEMP temperature queries.  Its useful GPU temperature
- * is exposed as hwmon "junction" instead.  Keep the ioctl as the preferred
- * source, but use hwmon when it is unavailable.
- */
-static bool readHwmonGpuTemperature(nvtop_device *hwmon_device, unsigned *temperature);
+// SMU13.0.6 only implements AMDGPU_PP_SENSOR_HOTSPOT_TEMP and AMDGPU_PP_SENSOR_MEM_TEMP
+// temperature queries. Its useful GPU temperature is exposed as hwmon "junction" instead.
+// Resolve the hwmon input attribute to fall back to when the GPU_TEMP ioctl is unavailable.
+static bool findHwmonGpuTempAttribute(nvtop_device *hwmon_device, char *input_attribute, size_t size);
 
 __attribute__((constructor)) static void init_extract_gpuinfo_amdgpu(void) { register_gpu_vendor(&gpu_vendor_amdgpu); }
 
@@ -252,6 +250,8 @@ static void gpuinfo_amdgpu_shutdown(void) {
     struct gpu_info_amdgpu *gpu_info = &gpu_infos[i];
     if (gpu_info->fanSpeedFILE)
       fclose(gpu_info->fanSpeedFILE);
+    if (gpu_info->tempSensorFILE)
+      fclose(gpu_info->tempSensorFILE);
     if (gpu_info->PCIeBW)
       fclose(gpu_info->PCIeBW);
     if (gpu_info->powerCap)
@@ -392,6 +392,18 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
       gpu_info->powerCapDefault = fdopen(powerCapDefaultFD, "r");
       if (!gpu_info->powerCapDefault)
         close(powerCapDefaultFD);
+    }
+
+    // Open the hwmon temperature file used when the GPU_TEMP ioctl is unavailable
+    gpu_info->tempSensorFILE = NULL;
+    char tempAttribute[16];
+    if (findHwmonGpuTempAttribute(gpu_info->hwmonDevice, tempAttribute, sizeof(tempAttribute))) {
+      int tempFD = openat(hwmonFD, tempAttribute, O_RDONLY);
+      if (tempFD >= 0) {
+        gpu_info->tempSensorFILE = fdopen(tempFD, "r");
+        if (!gpu_info->tempSensorFILE)
+          close(tempFD);
+      }
     }
     close(hwmonFD);
   }
@@ -536,11 +548,14 @@ static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const
   return nread;
 }
 
-static bool readHwmonGpuTemperature(nvtop_device *hwmon_device, unsigned *temperature) {
+// Pick the hwmon temperature input to use as a fallback: prefer the conventional "edge"
+// sensor, then the "junction" sensor used by MI300A, and finally the unlabeled temp1_input
+// for older hwmon implementations. The caller opens the returned attribute and tolerates
+// its absence, so this only fails when there is no hwmon device at all.
+static bool findHwmonGpuTempAttribute(nvtop_device *hwmon_device, char *input_attribute, size_t size) {
   if (!hwmon_device)
     return false;
 
-  /* Prefer the conventional edge sensor, then the junction sensor used by MI300A. */
   static const char *const preferred_labels[] = {"edge", "junction"};
   for (unsigned label_index = 0; label_index < sizeof(preferred_labels) / sizeof(preferred_labels[0]); ++label_index) {
     for (unsigned sensor = 1; sensor <= 8; ++sensor) {
@@ -551,15 +566,13 @@ static bool readHwmonGpuTemperature(nvtop_device *hwmon_device, unsigned *temper
           strcmp(label, preferred_labels[label_index]) != 0)
         continue;
 
-      char input_attribute[16];
-      snprintf(input_attribute, sizeof(input_attribute), "temp%u_input", sensor);
-      if (readAttributeFromDevice(hwmon_device, input_attribute, "%u", temperature) == 1)
-        return true;
+      snprintf(input_attribute, size, "temp%u_input", sensor);
+      return true;
     }
   }
 
-  /* Preserve compatibility with older hwmon implementations without labels. */
-  return readAttributeFromDevice(hwmon_device, "temp1_input", "%u", temperature) == 1;
+  snprintf(input_attribute, size, "temp1_input");
+  return true;
 }
 
 // Locate the KFD topology node directory (e.g. /sys/class/kfd/kfd/topology/nodes/1) that
@@ -913,7 +926,7 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, out32 / 1000);
-  } else if (readHwmonGpuTemperature(gpu_info->hwmonDevice, &out32)) {
+  } else if (rewindAndReadPattern(gpu_info->tempSensorFILE, "%u", &out32) == 1) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, out32 / 1000);
   }
 
