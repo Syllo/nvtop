@@ -34,40 +34,69 @@ apps:
 #   /usr/share/libdrm:
 #     symlink: $SNAP/usr/share/libdrm
 parts:
-  extra-terminfo:
-    # Ghostty and WezTerm postdate core22's ncurses 6.3 and have no Ubuntu
-    # terminfo package of their own, so their entries are compiled here.
+  ghostty-terminfo:
+    # Upstream Ghostty publishes only a terminfo generator, not a file, and
+    # core22's ncurses 6.3 predates the entry. The Ubuntu "ghostty" package
+    # ships the compiled xterm-ghostty entry; the terminfo payload is
+    # architecture-independent data, so the amd64 binary package is used for
+    # every build target.
     #
-    # WezTerm publishes its terminfo as a plain source file, so it is fetched
-    # from a pinned commit and checksum-verified at build time.
-    #
-    # Ghostty maintains its terminfo as Zig source (src/terminfo/ghostty.zig)
-    # and only emits a .terminfo when built, so there is no upstream file to
-    # pin. Its entry is vendored in snap/local/terminfo instead.
+    # The terminfo data is MIT-licensed:
+    # Copyright (c) 2024 Mitchell Hashimoto, Ghostty contributors.
+    # The license text is installed by the terminfo-licenses part.
     plugin: nil
-    source: snap/local/terminfo
+    source: http://archive.ubuntu.com/ubuntu/pool/universe/g/ghostty/ghostty_1.3.0~us1-0ubuntu1_amd64.deb
+    source-type: deb
+    source-checksum: sha256/5b597b97a13e7fab6e25b2c9c0f713e206c16ff9c629293c3459d1ecac39a2f7
     build-packages:
     - ncurses-bin
-    - curl
-    - ca-certificates
-    override-pull: |
-      set -eux
-      craftctl default
-      # wezterm/wezterm termwiz/data/wezterm.terminfo, last changed 2025-05-03
-      # ("Advertize the Su capability too"). The newest tagged release predates
-      # that commit, so pin the commit rather than the tag.
-      wezterm_commit=52c3515037518b826f32609179383948217d5a33
-      wezterm_sha256=5e386fb149b2a16b71b4d9a373c54737c9e5694eb67fe38d93b24705b93437ed
-      curl -sSfL -o wezterm.terminfo \
-        "https://raw.githubusercontent.com/wezterm/wezterm/${wezterm_commit}/termwiz/data/wezterm.terminfo"
-      echo "${wezterm_sha256}  wezterm.terminfo" | sha256sum -c -
     override-build: |
       set -eux
       terminfo_dir="$CRAFT_PART_INSTALL/usr/share/terminfo"
       mkdir -p "$terminfo_dir"
-      for src in *.terminfo; do
-        tic -x -o "$terminfo_dir" "$src"
-      done
+      # Decompile with core22's ncurses, then recompile with the same version so
+      # the entry is in the base's native format and the "ghostty" alias is
+      # created alongside "xterm-ghostty".
+      TERMINFO="$CRAFT_PART_SRC/usr/share/terminfo" \
+        infocmp -x -1 xterm-ghostty > ghostty.terminfo
+      tic -x -o "$terminfo_dir" ghostty.terminfo
+  wezterm-terminfo:
+    # WezTerm publishes its terminfo as a plain source file; pin the commit and
+    # let the build verify the checksum.
+    #
+    # termwiz/data/wezterm.terminfo, last changed 2025-05-03 ("Advertize the Su
+    # capability too"). The newest tagged release predates that commit, so pin
+    # the commit rather than the tag.
+    #
+    # The terminfo data is MIT-licensed:
+    # Copyright (c) 2018-Present Wez Furlong.
+    # The license text is installed by the terminfo-licenses part.
+    plugin: nil
+    source: https://raw.githubusercontent.com/wezterm/wezterm/52c3515037518b826f32609179383948217d5a33/termwiz/data/wezterm.terminfo
+    source-type: file
+    source-checksum: sha256/5e386fb149b2a16b71b4d9a373c54737c9e5694eb67fe38d93b24705b93437ed
+    build-packages:
+    - ncurses-bin
+    override-build: |
+      set -eux
+      terminfo_dir="$CRAFT_PART_INSTALL/usr/share/terminfo"
+      mkdir -p "$terminfo_dir"
+      tic -x -o "$terminfo_dir" wezterm.terminfo
+  terminfo-licenses:
+    # MIT license texts for the bundled third-party terminfo entries. The MIT
+    # license asks that the copyright and permission notice be included with
+    # copies, so they are installed into the snap under usr/share/doc.
+    #
+    # ghostty.txt matches Ghostty's LICENSE at the packaged version (1.3.0);
+    # wezterm.txt matches LICENSE.md at the pinned WezTerm commit above.
+    plugin: nil
+    source: snap/local/licenses
+    override-build: |
+      set -eux
+      install -Dm644 ghostty.txt \
+        "$CRAFT_PART_INSTALL/usr/share/doc/ghostty-terminfo/copyright"
+      install -Dm644 wezterm.txt \
+        "$CRAFT_PART_INSTALL/usr/share/doc/wezterm-terminfo/copyright"
   libdrm:
     source: https://gitlab.freedesktop.org/mesa/drm.git
     source-tag: libdrm-2.4.113
