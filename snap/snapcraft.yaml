@@ -28,8 +28,10 @@ apps:
     - system-observe
     # - kubernetes-support # Temporarily required for nvtop to display AMD GPU processes. Once apparmor rule to allow access to @{PROC}/[0-9]*/fdinfo/ is added to system-observe, this can be removed.
     environment:
-      # The staged terminfo db is outside ncurses search path
-      TERMINFO_DIRS: $SNAP/usr/share/terminfo:$SNAP/lib/terminfo:$SNAP/etc/terminfo:/usr/share/terminfo:/lib/terminfo:/etc/terminfo
+      # The staged terminfo db is not in ncurses' compiled-in search path, so
+      # point TERMINFO_DIRS at it; ncurses still searches the base snap's
+      # locations afterwards.
+      TERMINFO_DIRS: $SNAP/usr/share/terminfo
 # layout:
 #   /usr/share/libdrm:
 #     symlink: $SNAP/usr/share/libdrm
