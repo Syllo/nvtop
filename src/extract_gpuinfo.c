@@ -21,6 +21,7 @@
 
 #include <ctype.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 
 #include "nvtop/extract_gpuinfo.h"
@@ -140,6 +141,15 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
     bool needGpuDecode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate);
     bool needGPUMemory = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) &&
                          GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory);
+    // A device whose memory is shared with the host (e.g. UMA) reports the
+    // total and free amounts but cannot report the used amount itself; it is
+    // reconstructed from the process list below. Start from zero so an idle
+    // device reports 0. Devices that only cannot measure used (e.g. Apple
+    // without per-process accounting) do not set the flag and keep reporting it
+    // as unknown.
+    bool sharedHostMemory = needGPUMemory && device->static_info.memory_shared_with_host;
+    if (sharedHostMemory)
+      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, 0);
     if (needGpuRate || needGpuEncode || needGpuDecode || needGPUMemory) {
       for (unsigned processIdx = 0; processIdx < device->processes_count; ++processIdx) {
         struct gpu_process *process_info = &device->processes[processIdx];
@@ -185,6 +195,12 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
       // We already checked that used_memory <= total_memory so no underflow can happen here
       unsigned long long free = dynamic_info->total_memory - dynamic_info->used_memory;
       SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, free);
+    }
+    // A shared-memory device cannot report the used amount itself, so derive the
+    // utilization rate for the graph from the reconstructed sum.
+    if (sharedHostMemory && !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, mem_util_rate) &&
+        GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) && dynamic_info->total_memory > 0) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, dynamic_info->used_memory * 100 / dynamic_info->total_memory);
     }
     if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
@@ -404,4 +420,23 @@ void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info) {
   utilisation_rate = utilisation_rate > 100 ? 100 : utilisation_rate;
 
   SET_GPUINFO_DYNAMIC(&gpu_info->dynamic_info, gpu_util_rate, utilisation_rate);
+}
+
+void gpuinfo_add_extra_clock(struct gpuinfo_dynamic_info *dynamic_info, const char *name, unsigned int speed_mhz,
+                             bool secondary) {
+  // The count lives as long as the valid bit does, so the RESET_ALL every
+  // vendor does at the start of a refresh empties the array as well.
+  if (!IS_VALID(gpuinfo_extra_clocks_valid, dynamic_info->valid))
+    dynamic_info->extra_clock_count = 0;
+
+  if (dynamic_info->extra_clock_count >= MAX_EXTRA_CLOCK_DOMAINS)
+    return;
+
+  struct gpuinfo_extra_clock *clock = &dynamic_info->extra_clocks[dynamic_info->extra_clock_count];
+  snprintf(clock->name, sizeof(clock->name), "%s", name);
+  clock->speed = speed_mhz;
+  clock->secondary = secondary;
+
+  dynamic_info->extra_clock_count++;
+  SET_VALID(gpuinfo_extra_clocks_valid, dynamic_info->valid);
 }

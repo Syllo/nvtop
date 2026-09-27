@@ -58,12 +58,13 @@ enum setup_header_options {
   setup_header_toggle_fahrenheit,
   setup_header_enc_dec_timer,
   setup_header_gpu_info_bar,
+  setup_header_all_info_bar,
   setup_header_options_count
 };
 
 static const char *setup_header_option_descriptions[setup_header_options_count] = {
     "Temperature in fahrenheit", "Keep displaying Encoder/Decoder rate (after reaching an idle state)",
-    "Display extra GPU info bar"};
+    "Display dynamic GPU info (clock domains, NVLink errors)", "Display static GPU info and secondary clock domains"};
 
 // Chart Options
 
@@ -117,6 +118,7 @@ static unsigned get_plot_slot_labels(plot_info_to_draw to_draw, unsigned dev_id,
 enum setup_proc_list_options {
   setup_proc_list_hide_process_list,
   setup_proc_list_hide_nvtop_process,
+  setup_proc_list_dynamic_memory_units,
   setup_proc_list_sort_ascending,
   setup_proc_list_sort_by,
   setup_proc_list_display,
@@ -124,7 +126,12 @@ enum setup_proc_list_options {
 };
 
 static const char *setup_proc_list_option_description[setup_proc_list_options_count] = {
-    "Don't display the process list", "Hide nvtop in the process list", "Sort Ascending", "Sort by", "Field Displayed"};
+    "Don't display the process list",
+    "Hide nvtop in the process list",
+    "Dynamic memory units",
+    "Sort Ascending",
+    "Sort by",
+    "Field Displayed"};
 
 static const char *setup_proc_list_value_descriptions[process_field_count] = {
     "Process Id",    "User name",        "Device Id", "Workload type",    "GPU usage", "Encoder usage",
@@ -313,13 +320,22 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
     mvwchgat(options_win, setup_header_enc_dec_timer + 1, 0, 8, A_STANDOUT, cyan_color, NULL);
   }
 
-  // Extra GPU info bar
+  // Extra GPU info bar (dynamic parameters)
   option_state = interface->options.has_gpu_info_bar;
   mvwprintw(options_win, setup_header_gpu_info_bar + 1, 0, "[%c] %s", option_state_char(option_state),
             setup_header_option_descriptions[setup_header_gpu_info_bar]);
   if (interface->setup_win.indentation_level == 1 &&
       interface->setup_win.options_selected[0] == setup_header_gpu_info_bar) {
     mvwchgat(options_win, setup_header_gpu_info_bar + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+
+  // Static specs and secondary clock domains
+  option_state = interface->options.has_all_info_bar;
+  mvwprintw(options_win, setup_header_all_info_bar + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_header_option_descriptions[setup_header_all_info_bar]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_header_all_info_bar) {
+    mvwchgat(options_win, setup_header_all_info_bar + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
   wnoutrefresh(options_win);
 }
@@ -553,6 +569,13 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
   if (interface->setup_win.indentation_level == 1 &&
       interface->setup_win.options_selected[0] == setup_proc_list_hide_nvtop_process) {
     mvwchgat(option_list_win, setup_proc_list_hide_nvtop_process + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+  option_state = interface->options.dynamic_memory_units;
+  mvwprintw(option_list_win, setup_proc_list_dynamic_memory_units + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_proc_list_option_description[setup_proc_list_dynamic_memory_units]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_proc_list_dynamic_memory_units) {
+    mvwchgat(option_list_win, setup_proc_list_dynamic_memory_units + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
   option_state = !interface->options.sort_descending_order;
   mvwprintw(option_list_win, setup_proc_list_sort_ascending + 1, 0, "[%c] %s", option_state_char(option_state),
@@ -832,6 +855,9 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
           if (interface->setup_win.options_selected[0] == setup_header_gpu_info_bar) {
             interface->options.has_gpu_info_bar = !interface->options.has_gpu_info_bar;
           }
+          if (interface->setup_win.options_selected[0] == setup_header_all_info_bar) {
+            interface->options.has_all_info_bar = !interface->options.has_all_info_bar;
+          }
         }
       }
       // Chart Options
@@ -921,6 +947,8 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
             interface->options.filter_nvtop_pid = !interface->options.filter_nvtop_pid;
           } else if (interface->setup_win.options_selected[0] == setup_proc_list_hide_process_list) {
             interface->options.hide_processes_list = !interface->options.hide_processes_list;
+          } else if (interface->setup_win.options_selected[0] == setup_proc_list_dynamic_memory_units) {
+            interface->options.dynamic_memory_units = !interface->options.dynamic_memory_units;
           } else if (interface->setup_win.options_selected[0] == setup_proc_list_sort_by) {
             handle_setup_win_keypress(KEY_RIGHT, interface);
           }

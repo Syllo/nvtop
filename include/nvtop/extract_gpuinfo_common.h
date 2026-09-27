@@ -53,6 +53,7 @@
 #define GPUINFO_STATIC_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_)
 enum gpuinfo_static_info_valid {
   gpuinfo_device_name_valid = 0,
+  gpuinfo_device_architecture_valid,
   gpuinfo_max_pcie_gen_valid,
   gpuinfo_max_pcie_link_width_valid,
   gpuinfo_temperature_shutdown_threshold_valid,
@@ -61,6 +62,7 @@ enum gpuinfo_static_info_valid {
   gpuinfo_l2cache_size_valid,
   gpuinfo_n_exec_engines_valid,
   gpuinfo_engine_count_valid,
+  gpuinfo_memory_type_valid,
   gpuinfo_static_info_count,
 };
 
@@ -68,6 +70,7 @@ enum gpuinfo_static_info_valid {
 
 struct gpuinfo_static_info {
   char device_name[MAX_DEVICE_NAME];
+  char device_architecture[MAX_DEVICE_NAME];
   unsigned max_pcie_gen;
   unsigned max_pcie_link_width;
   unsigned temperature_shutdown_threshold;
@@ -78,6 +81,8 @@ struct gpuinfo_static_info {
   unsigned engine_count;
   bool integrated_graphics;
   bool encode_decode_shared;
+  bool memory_shared_with_host; // True if device memory is shared with the host (e.g. UMA)
+  char memory_type[8];
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
@@ -111,7 +116,19 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_multi_instance_mode_valid,
   gpuinfo_ecc_corrected_valid,
   gpuinfo_ecc_uncorrected_valid,
+  gpuinfo_extra_clocks_valid,
   gpuinfo_dynamic_info_count,
+};
+
+// Clock domains a driver exposes on top of the graphics and memory ones, which
+// have no vendor neutral meaning and are therefore carried with their name.
+#define MAX_EXTRA_CLOCK_DOMAINS 8
+#define EXTRA_CLOCK_NAME_LEN 8
+
+struct gpuinfo_extra_clock {
+  char name[EXTRA_CLOCK_NAME_LEN]; // Domain name as the vendor calls it
+  unsigned int speed;              // Domain clock speed in MHz
+  bool secondary;                  // True for the domains only shown on request
 };
 
 struct gpuinfo_dynamic_info {
@@ -137,10 +154,12 @@ struct gpuinfo_dynamic_info {
   unsigned int pcie_tx;               // PCIe throughput in KB/s
   unsigned int fan_speed;             // Fan speed percentage
   unsigned int fan_rpm;               // Fan speed RPM
-  unsigned int gpu_temp;              // GPU temperature °celsius
+  unsigned int gpu_temp;              // GPU temperature °Celsius
   unsigned int power_draw;            // Power usage in milliwatts
   unsigned int power_draw_max;        // Max power usage in milliwatts
   bool multi_instance_mode;           // True if the GPU is in multi-instance mode
+  unsigned int extra_clock_count;     // Number of populated entries in extra_clocks
+  struct gpuinfo_extra_clock extra_clocks[MAX_EXTRA_CLOCK_DOMAINS];
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
@@ -252,6 +271,13 @@ void register_gpu_vendor(struct gpu_vendor *vendor);
 bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
 
 void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info);
+
+// Appends a vendor specific clock domain to the dynamic info, ignoring the call
+// once MAX_EXTRA_CLOCK_DOMAINS of them have been reported. A secondary domain is
+// one the user has to ask for, for domains that say little about how the GPU is
+// performing.
+void gpuinfo_add_extra_clock(struct gpuinfo_dynamic_info *dynamic_info, const char *name, unsigned int speed_mhz,
+                             bool secondary);
 
 // fdinfo DRM interface names common to multiple drivers
 extern const char drm_pdev[];
