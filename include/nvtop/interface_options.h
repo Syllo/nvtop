@@ -50,7 +50,8 @@ typedef struct nvtop_interface_option_struct {
   bool show_startup_messages;                       // True to show the startup messages
   bool filter_nvtop_pid;                            // Do not show nvtop pid in the processes list
   bool has_monitored_set_changed;                   // True if the set of monitored gpu was modified through the interface
-  bool has_gpu_info_bar;                            // Show info bar with additional GPU parameters
+  bool has_gpu_info_bar;                            // Show the dynamic GPU parameters (clock domains, NVLink errors)
+  bool has_all_info_bar;                            // Show the static specs and the secondary clock domains
   bool hide_processes_list;                         // Hide processes list
   unsigned char gpu_plot_color_idx[MAX_LINES_PER_PLOT]; // index into plot_color_names[] per plot slot
 } nvtop_interface_option;

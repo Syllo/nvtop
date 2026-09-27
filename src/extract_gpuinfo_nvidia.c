@@ -295,6 +295,238 @@ static nvmlReturn_t (*nvmlDeviceGetMPSComputeRunningProcesses[4])(nvmlDevice_t d
 #define NVML_DEVICE_MIG_ENABLE 0x1
 nvmlReturn_t (*nvmlDeviceGetMigMode)(nvmlDevice_t device, unsigned int *currentMode, unsigned int *pendingMode);
 
+// NvAPI is NVIDIA's driver API. The generic entry points used here
+// (Initialize, Unload, EnumPhysicalGPUs, GPU_GetBusId) are documented in the
+// public NVAPI SDK, but the clock call NvAPI_GPU_GetAllClocks and its domain
+// layout are not part of that SDK: the documented clock function,
+// NvAPI_GPU_GetAllClockFrequencies, only reports the graphics/memory/video
+// clocks NVML already exposes. Everything is resolved through
+// nvapi_QueryInterface, so a driver without the library, or without this entry
+// point, simply reports no extra clocks.
+
+#define NVAPI_OK 0
+#define NVAPI_MAX_PHYSICAL_GPUS 64
+#define NVAPI_MAX_CLOCK_DOMAINS 32
+
+#define NVAPI_QUERY_INITIALIZE 0x0150e828u
+#define NVAPI_QUERY_UNLOAD 0xd22bdd7eu
+#define NVAPI_QUERY_ENUM_PHYSICAL_GPUS 0xe5ac921fu
+#define NVAPI_QUERY_GPU_GET_BUS_ID 0x1be0b8e5u
+#define NVAPI_QUERY_GPU_GET_ALL_CLOCKS 0x1bd69f49u
+
+typedef void *NvPhysicalGpuHandle;
+typedef int NvAPI_Status;
+
+// Private NvAPI_GPU_GetAllClocks. The call is undocumented and version
+// dependent; two interpretations of the same 1156-byte buffer are seen in the
+// wild:
+//
+//   - version 1: a flat u32 array with one {frequency, present} pair per domain;
+//   - version 2: an explicit domain[] array plus the extended[] tail.
+//
+// Neither is trusted on its own: the graphics and memory entries are compared
+// against what NVML read this cycle before any extra domain is reported.
+typedef struct {
+  unsigned int frequency; // In kHz
+  unsigned int bitfield;  // Bit 0 tells whether the domain is present
+} nvapiClockDomain_t;
+
+typedef struct {
+  unsigned int effective_frequency;
+  unsigned int ratio_domain;
+  unsigned int ratio;
+  unsigned int reserved[4];
+} nvapiClockDomainExtended_t;
+
+typedef struct {
+  unsigned int version; // Structure size in the low half, version in the high one
+  nvapiClockDomain_t domain[NVAPI_MAX_CLOCK_DOMAINS];
+  nvapiClockDomainExtended_t extended[NVAPI_MAX_CLOCK_DOMAINS];
+} nvapiAllClocksV2_t;
+
+#define NVAPI_MAX_CLOCKS_PER_GPU 288
+typedef struct {
+  unsigned int version;
+  unsigned int clocks[NVAPI_MAX_CLOCKS_PER_GPU];
+} nvapiAllClocksV1_t;
+
+// The clock domains reported next to the graphics and memory ones. Domain 0 is
+// the graphics clock and domain 4 the memory clock, both of which NVML already
+// reports, so they are deliberately left out. So is domain 31, which carries the
+// PCIe link generation rather than a frequency.
+//
+// The first three are the ones that move with a workload and explain what the
+// GPU is doing under a power limit; the rest are secondary, sitting at a fixed
+// frequency most of the time.
+//
+// Domain 20 is named NVD after measurement rather than after any header: giving
+// it a frequency offset raises NVENC throughput by the same proportion, which a
+// power management clock would not do.
+static const struct {
+  unsigned int id;
+  const char *name;
+  bool secondary;
+} nvapi_extra_clock_domains[] = {
+    {1, "XBAR", false},  {2, "SYS", false},  {20, "NVD", false}, {3, "HUB", true},
+    {5, "HOST", true},   {6, "DISP", true},  {21, "MSD", true},  {22, "UTILS", true},
+};
+
+static void *libnvidia_api_handle;
+
+static void *(*nvapi_QueryInterface)(unsigned int id);
+static NvAPI_Status (*nvapi_Initialize)(void);
+static NvAPI_Status (*nvapi_Unload)(void);
+static NvAPI_Status (*nvapi_EnumPhysicalGPUs)(NvPhysicalGpuHandle handles[NVAPI_MAX_PHYSICAL_GPUS],
+                                              unsigned int *count);
+static NvAPI_Status (*nvapi_GPU_GetBusId)(NvPhysicalGpuHandle handle, unsigned int *busId);
+static NvAPI_Status (*nvapi_GPU_GetAllClocks)(NvPhysicalGpuHandle handle, void *clocks);
+
+static NvPhysicalGpuHandle nvapi_handles[NVAPI_MAX_PHYSICAL_GPUS];
+static unsigned int nvapi_bus_ids[NVAPI_MAX_PHYSICAL_GPUS];
+static unsigned int nvapi_handle_count;
+static bool nvapi_initialized;
+
+static void gpuinfo_nvidia_nvapi_shutdown(void) {
+  if (!libnvidia_api_handle)
+    return;
+  if (nvapi_initialized && nvapi_Unload)
+    nvapi_Unload();
+  dlclose(libnvidia_api_handle);
+  libnvidia_api_handle = NULL;
+  nvapi_initialized = false;
+  nvapi_handle_count = 0;
+}
+
+// Optional: a failure here only costs the extra clock domains, so it never
+// fails the NVIDIA extraction as a whole.
+static void gpuinfo_nvidia_nvapi_init(void) {
+  libnvidia_api_handle = dlopen("libnvidia-api.so.1", RTLD_LAZY);
+  if (!libnvidia_api_handle)
+    return;
+
+  nvapi_QueryInterface = dlsym(libnvidia_api_handle, "nvapi_QueryInterface");
+  if (!nvapi_QueryInterface)
+    goto clean_exit;
+
+  nvapi_Initialize = nvapi_QueryInterface(NVAPI_QUERY_INITIALIZE);
+  nvapi_Unload = nvapi_QueryInterface(NVAPI_QUERY_UNLOAD);
+  nvapi_EnumPhysicalGPUs = nvapi_QueryInterface(NVAPI_QUERY_ENUM_PHYSICAL_GPUS);
+  nvapi_GPU_GetBusId = nvapi_QueryInterface(NVAPI_QUERY_GPU_GET_BUS_ID);
+  nvapi_GPU_GetAllClocks = nvapi_QueryInterface(NVAPI_QUERY_GPU_GET_ALL_CLOCKS);
+  if (!nvapi_Initialize || !nvapi_EnumPhysicalGPUs || !nvapi_GPU_GetBusId || !nvapi_GPU_GetAllClocks)
+    goto clean_exit;
+
+  if (nvapi_Initialize() != NVAPI_OK)
+    goto clean_exit;
+  nvapi_initialized = true;
+
+  unsigned int count = 0;
+  if (nvapi_EnumPhysicalGPUs(nvapi_handles, &count) != NVAPI_OK)
+    goto clean_exit;
+
+  for (unsigned int i = 0; i < count && i < NVAPI_MAX_PHYSICAL_GPUS; ++i) {
+    if (nvapi_GPU_GetBusId(nvapi_handles[i], &nvapi_bus_ids[nvapi_handle_count]) != NVAPI_OK)
+      continue;
+    nvapi_handles[nvapi_handle_count] = nvapi_handles[i];
+    nvapi_handle_count++;
+  }
+  return;
+
+clean_exit:
+  gpuinfo_nvidia_nvapi_shutdown();
+}
+
+// NvAPI identifies a GPU by its PCI bus number alone, so a machine with several
+// PCI domains could in principle have two GPUs answer to the same number. Such
+// a pair is left unmatched instead of guessing.
+static NvPhysicalGpuHandle gpuinfo_nvidia_nvapi_handle(unsigned int bus) {
+  NvPhysicalGpuHandle found = NULL;
+
+  for (unsigned int i = 0; i < nvapi_handle_count; ++i) {
+    if (nvapi_bus_ids[i] != bus)
+      continue;
+    if (found)
+      return NULL;
+    found = nvapi_handles[i];
+  }
+  return found;
+}
+
+// Compares a domain frequency (kHz) against the NVML value for the same clock
+// (MHz). The two reads happen microseconds apart so the clock can drift a
+// little; effective memory clocks are also sometimes reported at twice the NVML
+// value, so accept that too.
+static bool gpuinfo_nvidia_clock_matches(unsigned int reported_khz, unsigned int reference_mhz) {
+  const unsigned int reported = reported_khz / 1000;
+  const unsigned int tolerance = reference_mhz / 10 + 25;
+  return (reported + tolerance >= reference_mhz && reported <= reference_mhz + tolerance) ||
+         (reported + tolerance >= 2 * reference_mhz && reported <= 2 * reference_mhz + tolerance) ||
+         (2 * reported + tolerance >= reference_mhz && 2 * reported <= reference_mhz + tolerance);
+}
+
+// Domain 0 is the graphics clock and domain 4 the memory clock, both of which
+// NVML reports directly. A mismatched private layout can produce plausible but
+// wrong numbers, so the extra domains are only trusted once these two agree.
+static bool gpuinfo_nvidia_extra_clocks_valid(const unsigned int *frequency, const unsigned int *present,
+                                              unsigned int graphics_mhz, unsigned int memory_mhz) {
+  if (graphics_mhz == 0 && memory_mhz == 0)
+    return false;
+  if (graphics_mhz != 0 && (!present[0] || !gpuinfo_nvidia_clock_matches(frequency[0], graphics_mhz)))
+    return false;
+  if (memory_mhz != 0 && (!present[4] || !gpuinfo_nvidia_clock_matches(frequency[4], memory_mhz)))
+    return false;
+  return true;
+}
+
+static void gpuinfo_nvidia_add_extra_clocks(struct gpuinfo_dynamic_info *dynamic_info, const unsigned int *frequency,
+                                            const unsigned int *present) {
+  for (size_t i = 0; i < sizeof(nvapi_extra_clock_domains) / sizeof(*nvapi_extra_clock_domains); ++i) {
+    const unsigned int id = nvapi_extra_clock_domains[i].id;
+    if (!present[id] || !frequency[id])
+      continue;
+    gpuinfo_add_extra_clock(dynamic_info, nvapi_extra_clock_domains[i].name, frequency[id] / 1000,
+                            nvapi_extra_clock_domains[i].secondary);
+  }
+}
+
+// Tries the version 2 layout first, then falls back to version 1, and only adds
+// the extra clock domains once the reported graphics/memory clocks have been
+// cross-checked against NVML. A failure here only costs the extra clocks.
+static void gpuinfo_nvidia_refresh_extra_clocks(NvPhysicalGpuHandle handle, struct gpuinfo_dynamic_info *dynamic_info,
+                                                unsigned int graphics_mhz, unsigned int memory_mhz) {
+  if (!handle)
+    return;
+
+  unsigned int frequency[NVAPI_MAX_CLOCK_DOMAINS];
+  unsigned int present[NVAPI_MAX_CLOCK_DOMAINS];
+
+  nvapiAllClocksV2_t clocks2;
+  memset(&clocks2, 0, sizeof(clocks2));
+  clocks2.version = (unsigned int)(sizeof(clocks2) | (2u << 16));
+  if (nvapi_GPU_GetAllClocks(handle, &clocks2) == NVAPI_OK) {
+    for (unsigned int i = 0; i < NVAPI_MAX_CLOCK_DOMAINS; ++i) {
+      frequency[i] = clocks2.domain[i].frequency;
+      present[i] = clocks2.domain[i].bitfield & 1u;
+    }
+    if (gpuinfo_nvidia_extra_clocks_valid(frequency, present, graphics_mhz, memory_mhz)) {
+      gpuinfo_nvidia_add_extra_clocks(dynamic_info, frequency, present);
+      return;
+    }
+  }
+
+  nvapiAllClocksV1_t clocks1;
+  memset(&clocks1, 0, sizeof(clocks1));
+  clocks1.version = (unsigned int)(sizeof(clocks1) | (1u << 16));
+  if (nvapi_GPU_GetAllClocks(handle, &clocks1) == NVAPI_OK) {
+    for (unsigned int i = 0; i < NVAPI_MAX_CLOCK_DOMAINS; ++i) {
+      frequency[i] = clocks1.clocks[2 * i];
+      present[i] = clocks1.clocks[2 * i + 1] & 1u;
+    }
+    if (gpuinfo_nvidia_extra_clocks_valid(frequency, present, graphics_mhz, memory_mhz))
+      gpuinfo_nvidia_add_extra_clocks(dynamic_info, frequency, present);
+  }
+}
+
 // nvmlDeviceArchitecture_t values (from nvml.h). nvtop does not include nvml.h,
 // so the NVML_DEVICE_ARCH_* constants are mirrored here.
 #define NVML_DEVICE_ARCH_KEPLER 2
@@ -385,6 +617,7 @@ struct gpu_info_nvidia {
   struct list_head allocate_list;
 
   nvmlDevice_t gpuhandle;
+  NvPhysicalGpuHandle nvapihandle; // NULL unless NvAPI resolved this same GPU
   bool isInMigMode;
   unsigned long long last_utilization_timestamp;
 
@@ -643,6 +876,8 @@ static bool gpuinfo_nvidia_init(void) {
   }
   local_error_string = NULL;
 
+  gpuinfo_nvidia_nvapi_init();
+
   return true;
 
 init_error_clean_exit:
@@ -652,6 +887,8 @@ init_error_clean_exit:
 }
 
 static void gpuinfo_nvidia_shutdown(void) {
+  gpuinfo_nvidia_nvapi_shutdown();
+
   if (libnvidia_ml_handle) {
     nvmlShutdown();
     dlclose(libnvidia_ml_handle);
@@ -705,6 +942,7 @@ static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigne
       nvmlReturn_t pciInfoRet = nvmlDeviceGetPciInfo(gpu_infos[*count].gpuhandle, &pciInfo);
       if (pciInfoRet == NVML_SUCCESS) {
         strncpy(gpu_infos[*count].base.pdev, pciInfo.busIdLegacy, PDEV_LEN);
+        gpu_infos[*count].nvapihandle = gpuinfo_nvidia_nvapi_handle(pciInfo.bus);
         list_add_tail(&gpu_infos[*count].base.list, devices);
         *count += 1;
       }
@@ -851,6 +1089,13 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetMaxClockInfo(device, NVML_CLOCK_MEM, &dynamic_info->mem_clock_speed_max);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_mem_clock_speed_max_valid, dynamic_info->valid);
+
+  // Clock domains NVML does not report, such as XBAR. Pass the clocks NVML just
+  // read so the private API's layout can be cross-checked before it is trusted.
+  gpuinfo_nvidia_refresh_extra_clocks(gpu_info->nvapihandle, dynamic_info, graphics_clock_valid ? graphics_clock : 0,
+                                      GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, mem_clock_speed)
+                                          ? dynamic_info->mem_clock_speed
+                                          : 0);
 
   // CPU and Memory utilization rates
   nvmlUtilization_t utilization_percentages;

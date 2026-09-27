@@ -122,6 +122,14 @@ Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
+The extra GPU info bar (`nvtop -i`) shows the dynamic parameters NVML does not
+report, such as the XBAR, SYS and NVD clocks, and `nvtop -X` also shows the
+static specs (shader cores, L2 cache, execution engines) and the secondary HUB,
+HOST, DISP, MSD and UTILS clocks. The clock domains are read through the *NvAPI
+library* (`libnvidia-api.so.1`) that recent drivers install alongside NVML;
+without it the rest of the interface is unaffected and the bar takes no room on
+a GPU that reports nothing.
+
 ### Adreno
 
 NVTOP supports Adreno GPUs using the `msm` linux driver.
@@ -194,6 +202,8 @@ Several libraries are required in order for NVTOP to display GPU info:
   * This makes the screen look beautiful.
 * For NVIDIA: the *NVIDIA Management Library* (*NVML*) which comes with the GPU driver.
   * This queries the GPU for info.
+  * The *NvAPI library* (`libnvidia-api.so.1`), also from the driver, is used
+    when present for the clock domains NVML does not report. It is optional.
 * For AMD: the libdrm library used to query AMD GPUs through the kernel driver.
 * For METAX: the *MetaX System Management Library* (*MXSML*) which comes with the GPU driver.
   * This queries the GPU for info.
