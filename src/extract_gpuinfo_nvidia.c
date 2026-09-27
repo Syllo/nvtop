@@ -557,6 +557,14 @@ static char didnt_call_gpuinfo_init[] = "The NVIDIA extraction has not been init
                                         "gpuinfo_nvidia_init\n";
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
+// On UMA platforms the GPU has no dedicated framebuffer and shares the system
+// memory pool with the host, so there is no framebuffer size to query. Report
+// the whole system RAM as the total capacity and what the kernel says is still
+// allocatable as free. The used memory is deliberately left unset here: the
+// generic process accounting in
+// gpuinfo_fix_dynamic_info_from_process_info() fills it with the sum of the
+// running processes' GPU allocations, which is the only per-device figure NVML
+// exposes on these platforms.
 static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_info) {
   FILE *meminfo = fopen("/proc/meminfo", "r");
   if (!meminfo)
@@ -587,12 +595,14 @@ static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_
 
   unsigned long long total_memory = total_memory_kb * 1024;
   unsigned long long free_memory = available_memory_kb * 1024;
-  unsigned long long used_memory = total_memory - free_memory;
 
   SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
   SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, free_memory);
-  SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_memory);
-  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, used_memory * 100 / total_memory);
+
+  // The used memory is recomputed from the process list every refresh by the
+  // generic pass, so invalidate it (and the derived rate) for it to fill in.
+  RESET_GPUINFO_DYNAMIC(dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate);
 
   return true;
 }
@@ -978,6 +988,22 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = false;
   static_info->encode_decode_shared = false;
+  // NVML reports no dedicated framebuffer (NVML_ERROR_NOT_SUPPORTED or a total
+  // size of zero) on platforms where the GPU shares the system memory with the
+  // host, such as UMA platforms (e.g. DGX Spark / GB10).
+  static_info->memory_shared_with_host = false;
+  if (nvmlDeviceGetMemoryInfo_v2) {
+    nvmlMemory_v2_t memory_info;
+    memory_info.version = 2;
+    nvmlReturn_t ret = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
+    static_info->memory_shared_with_host =
+        ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
+  } else if (nvmlDeviceGetMemoryInfo) {
+    nvmlMemory_v1_t memory_info;
+    nvmlReturn_t ret = nvmlDeviceGetMemoryInfo(device, &memory_info);
+    static_info->memory_shared_with_host =
+        ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
+  }
   RESET_ALL(static_info->valid);
 
   last_nvml_return_status = nvmlDeviceGetName(device, static_info->device_name, MAX_DEVICE_NAME);
@@ -1134,59 +1160,37 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_decoder_rate_valid, dynamic_info->valid);
 
-  // Device memory info (total,used,free)
-  bool got_meminfo = false;
-  bool has_unified_memory = false;
-
-  if (nvmlDeviceGetMemoryInfo_v2) {
-    nvmlMemory_v2_t memory_info;
-    memory_info.version = 2;
-    last_nvml_return_status = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
-    if (last_nvml_return_status == NVML_SUCCESS) {
-      // Check if this is a unified memory GPU (total == 0 indicates unified memory)
-      got_meminfo = true;
-      if (memory_info.total == 0) {
-        has_unified_memory = true;
-      } else {
-        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.total);
-        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.used);
-        SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
-        SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
-      }
-    } else if (last_nvml_return_status == NVML_ERROR_NOT_SUPPORTED) {
-      // From the NVM: documentation:
-      // On certain SOC platforms, the integrated GPU (iGPU) does not use a dedicated framebuffer but instead shares
-      // memory with the system. As a result, NVML_ERROR_NOT_SUPPORTED will be returned in this case.
-      got_meminfo = true;
-      has_unified_memory = true;
-    }
-  }
-  if (!got_meminfo && nvmlDeviceGetMemoryInfo) {
-    nvmlMemory_v1_t memory_info;
-    last_nvml_return_status = nvmlDeviceGetMemoryInfo(device, &memory_info);
-    if (last_nvml_return_status == NVML_SUCCESS) {
-      // Check if this is a unified memory GPU (total == 0 indicates unified memory)
-      if (memory_info.total == 0) {
-        has_unified_memory = true;
-      } else {
-        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.total);
-        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.used);
-        SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
-        SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
-      }
-    } else if (last_nvml_return_status == NVML_ERROR_NOT_SUPPORTED) {
-      // From the NVM: documentation:
-      // On certain SOC platforms, the integrated GPU (iGPU) does not use a dedicated framebuffer but instead shares
-      // memory with the system. As a result, NVML_ERROR_NOT_SUPPORTED will be returned in this case.
-      has_unified_memory = true;
-    }
-  }
-
-  // Handle unified memory GPUs. On UMA platforms such as DGX Spark, NVML does
-  // not expose dedicated framebuffer memory, so use the Linux system memory
-  // counters recommended by NVIDIA for memory reporting.
-  if (has_unified_memory) {
+  // Device memory info (total,used,free). Devices sharing memory with the host
+  // (a fixed property, recorded in the static info) have no dedicated
+  // framebuffer: report the Linux system memory counters recommended by NVIDIA
+  // for memory reporting. The used memory is reconstructed from the process
+  // list by the generic pass after this one.
+  if (gpu_info->base.static_info.memory_shared_with_host) {
     set_unified_system_memory_info(dynamic_info);
+  } else {
+    bool got_meminfo = false;
+    if (nvmlDeviceGetMemoryInfo_v2) {
+      nvmlMemory_v2_t memory_info;
+      memory_info.version = 2;
+      last_nvml_return_status = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
+      if (last_nvml_return_status == NVML_SUCCESS && memory_info.total != 0) {
+        got_meminfo = true;
+        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.total);
+        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.used);
+        SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
+        SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
+      }
+    }
+    if (!got_meminfo && nvmlDeviceGetMemoryInfo) {
+      nvmlMemory_v1_t memory_info;
+      last_nvml_return_status = nvmlDeviceGetMemoryInfo(device, &memory_info);
+      if (last_nvml_return_status == NVML_SUCCESS && memory_info.total != 0) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory_info.total);
+        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory_info.used);
+        SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory_info.free);
+        SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_info.used * 100 / memory_info.total);
+      }
+    }
   }
 
   // Pcie generation and width used by the device.
