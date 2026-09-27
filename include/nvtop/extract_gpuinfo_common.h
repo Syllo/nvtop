@@ -53,7 +53,7 @@
 #define GPUINFO_STATIC_FIELD_VALID(structPtr, field) VALUE_IS_VALID(structPtr, field, gpuinfo_)
 enum gpuinfo_static_info_valid {
   gpuinfo_device_name_valid = 0,
-  gpuinfo_memory_type_valid,
+  gpuinfo_device_architecture_valid,
   gpuinfo_max_pcie_gen_valid,
   gpuinfo_max_pcie_link_width_valid,
   gpuinfo_temperature_shutdown_threshold_valid,
@@ -99,6 +99,7 @@ enum gpuinfo_static_info_valid {
   gpuinfo_affinity_cpu_valid,
   gpuinfo_flash_inventory_valid,
   gpuinfo_netdev_names_valid,
+  gpuinfo_memory_type_valid,
   gpuinfo_static_info_count,
 };
 
@@ -133,7 +134,7 @@ struct gpuinfo_flash_info {
 
 struct gpuinfo_static_info {
   char device_name[MAX_DEVICE_NAME];
-  char memory_type[8];
+  char device_architecture[MAX_DEVICE_NAME];
   char chip_type[MAX_DEVICE_METADATA];
   char chip_version[MAX_DEVICE_METADATA];
   char npu_name[MAX_DEVICE_METADATA];
@@ -184,6 +185,7 @@ struct gpuinfo_static_info {
   unsigned engine_count;
   bool integrated_graphics;
   bool encode_decode_shared;
+  char memory_type[8];
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
@@ -197,6 +199,8 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_mem_clock_speed_max_valid,
   gpuinfo_gpu_util_rate_valid,
   gpuinfo_mem_util_rate_valid,
+  gpuinfo_hvx_util_rate_valid,
+  gpuinfo_hmx_util_rate_valid,
   gpuinfo_encoder_rate_valid,
   gpuinfo_decoder_rate_valid,
   gpuinfo_total_memory_valid,
@@ -281,7 +285,21 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_ub_port_id_valid,
   gpuinfo_network_tc_stats_valid,
   gpuinfo_fault_events_valid,
+  gpuinfo_ecc_corrected_valid,
+  gpuinfo_ecc_uncorrected_valid,
+  gpuinfo_extra_clocks_valid,
   gpuinfo_dynamic_info_count,
+};
+
+// Clock domains a driver exposes on top of the graphics and memory ones, which
+// have no vendor neutral meaning and are therefore carried with their name.
+#define MAX_EXTRA_CLOCK_DOMAINS 8
+#define EXTRA_CLOCK_NAME_LEN 8
+
+struct gpuinfo_extra_clock {
+  char name[EXTRA_CLOCK_NAME_LEN]; // Domain name as the vendor calls it
+  unsigned int speed;              // Domain clock speed in MHz
+  bool secondary;                  // True for the domains only shown on request
 };
 
 struct gpuinfo_dynamic_info {
@@ -291,12 +309,16 @@ struct gpuinfo_dynamic_info {
   unsigned int mem_clock_speed_max; // Maximum clock speed in MHz
   unsigned int gpu_util_rate;       // GPU utilization rate in %
   unsigned int mem_util_rate;       // MEM utilization rate in %
+  unsigned int hvx_util_rate;       // Qualcomm NPU HVX utilization rate in %
+  unsigned int hmx_util_rate;       // Qualcomm NPU HMX utilization rate in %
   unsigned int effective_load_rate; // Effective load rate in %
   unsigned int encoder_rate;        // Encoder utilization rate in %
   unsigned int decoder_rate;        // Decoder utilization rate in %
   unsigned long long total_memory;  // Total memory (bytes)
   unsigned long long free_memory;   // Unallocated memory (bytes)
   unsigned long long used_memory;   // Allocated memory (bytes)
+  unsigned long long ecc_corrected;   // Total correctable ECC errors
+  unsigned long long ecc_uncorrected; // Total uncorrected ECC errors
   unsigned int pcie_link_gen;       // PCIe link generation used
   unsigned int pcie_link_width;     // PCIe line width used
   unsigned int pcie_rx;             // PCIe throughput in KB/s
@@ -386,6 +408,8 @@ struct gpuinfo_dynamic_info {
   unsigned long long network_tc_rx_packets;
   unsigned int fault_event_count;
   struct gpuinfo_fault_event fault_events[GPUINFO_MAX_FAULT_EVENTS];
+  unsigned int extra_clock_count;     // Number of populated entries in extra_clocks
+  struct gpuinfo_extra_clock extra_clocks[MAX_EXTRA_CLOCK_DOMAINS];
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
@@ -445,6 +469,14 @@ struct gpu_process {
 
 struct gpu_info;
 
+// Compute unit a vendor's devices expose. gpu_processing_unit_gpu is 0 so that
+// vendors not setting it (or zero-initialized structs) default to "GPU".
+enum gpu_processing_unit {
+  gpu_processing_unit_gpu = 0,
+  gpu_processing_unit_npu,
+  gpu_processing_unit_count,
+};
+
 struct gpu_vendor {
   struct list_head list;
 
@@ -461,6 +493,7 @@ struct gpu_vendor {
 
   void (*refresh_running_processes)(struct gpu_info *gpu_info);
   char *name;
+  enum gpu_processing_unit processing_unit; // defaults to gpu_processing_unit_gpu
 };
 
 #define PDEV_LEN 16
@@ -475,11 +508,26 @@ struct gpu_info {
   char pdev[PDEV_LEN];
 };
 
+// Short 3-character label for a processing unit (e.g. "GPU", "NPU")
+static inline const char *processing_unit_name(enum gpu_processing_unit unit) {
+  static const char *const names[gpu_processing_unit_count] = {"GPU", "NPU"};
+  return (unsigned)unit < gpu_processing_unit_count ? names[unit] : names[gpu_processing_unit_gpu];
+}
+
+#define DEVICE_UNIT_NAME(dev) processing_unit_name((dev)->vendor->processing_unit)
+
 void register_gpu_vendor(struct gpu_vendor *vendor);
 
 bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
 
 void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info);
+
+// Appends a vendor specific clock domain to the dynamic info, ignoring the call
+// once MAX_EXTRA_CLOCK_DOMAINS of them have been reported. A secondary domain is
+// one the user has to ask for, for domains that say little about how the GPU is
+// performing.
+void gpuinfo_add_extra_clock(struct gpuinfo_dynamic_info *dynamic_info, const char *name, unsigned int speed_mhz,
+                             bool secondary);
 
 // fdinfo DRM interface names common to multiple drivers
 extern const char drm_pdev[];
@@ -492,5 +540,42 @@ inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64
 }
 
 unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed);
+
+// NVLink support
+#define NVTOP_NVLINK_MAX_LINKS 36
+
+struct nvlink_info {
+  unsigned num_links;                   // Number of NVLink links on this device
+  unsigned version;                     // NVLink version (e.g. 3 for NVLink 3.0)
+  bool supported;                       // NVLink is supported on this device
+  bool has_throughput;                  // Whether throughput data was available this cycle
+  unsigned long long aggregate_tx;      // Aggregate TX throughput across all links (KiB/s)
+  unsigned long long aggregate_rx;      // Aggregate RX throughput across all links (KiB/s)
+  unsigned long long total_errors;      // Cumulative-since-launch flit CRC errors across all links
+  unsigned long long total_corrections; // Cumulative-since-launch CRC data errors across all links
+  unsigned long long total_ecc_errors;  // Cumulative-since-launch ECC data errors across all links
+};
+
+unsigned nvtop_get_nvlink_info(struct gpu_info *gpu_info, struct nvlink_info *nvlink_info);
+
+// Get display-ready NVLink flit CRC / CRC data / ECC counts from the per-device
+// persistent struct. Returns true if a baseline has been established at least once.
+bool nvtop_get_nvlink_error_counts(struct gpu_info *gpu_info, unsigned long long *out_errors,
+                                   unsigned long long *out_corrections, unsigned long long *out_ecc);
+
+// NVLink probe — call before initialize_curses to set layout mode
+bool nvtop_probe_nvlink_list(struct list_head *devices);
+
+// Reset per-GPU NVLink cache (probed flag, cached linkcount/version, cached info struct).
+// Call when the monitored device set changes so newly-monitored NVLink GPUs get probed fresh.
+void nvtop_reset_nvlink_cache(struct gpu_info *gpu_info);
+
+// Memory ECC support: returns true if the GPU exposes volatile ECC error counters
+// (professional/datacenter GPUs). Consumer GPUs report NVML_ERROR_NOT_SUPPORTED.
+bool nvtop_get_ecc_support(struct gpu_info *gpu_info);
+
+// ECC probe — call before initialize_curses so the layout only reserves room for
+// the ECC field when a monitored GPU actually supports ECC.
+bool nvtop_probe_ecc_list(struct list_head *devices);
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

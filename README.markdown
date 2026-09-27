@@ -62,6 +62,10 @@ NVTOP Options and Interactive Commands
 NVTOP has a builtin setup utility that provides a way to specialize the interface to your needs.
 Simply press ``F2`` and select the options that are the best for you.
 
+In the ``Chart`` section you can choose which metrics are plotted, including GPU and memory
+utilization, temperature, power, clocks, and the **PCIe RX / TX load** (the receive and transmit
+throughput as a percentage of the maximum link bandwidth).
+
 ![NVTOP Setup Window](/screenshot/Nvtop-config.png)
 
 ### Saving Preferences
@@ -108,8 +112,8 @@ source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/dr
 Hence, you will need a kernel with a version greater or equal to 5.19 to see the
 processes using Intel GPUs.
 
-Intel requires CAP_PERFMON or CAP_SYS_ADMIN capabilities to access the total memory usage,
-you can run `sudo setcap cap_perfmon=ep nvtop` to grant the necessary permissions or run nvtop as root.
+Intel requires CAP_PERFMON or CAP_SYS_ADMIN capabilities to access the total memory usage, and an accurate GPU frequency.
+you can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
 
 ### NVIDIA
 
@@ -117,6 +121,14 @@ The *NVML library* does not support some of the queries for GPUs coming before t
 Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
+
+The extra GPU info bar (`nvtop -i`) shows the dynamic parameters NVML does not
+report, such as the XBAR, SYS and NVD clocks, and `nvtop -X` also shows the
+static specs (shader cores, L2 cache, execution engines) and the secondary HUB,
+HOST, DISP, MSD and UTILS clocks. The clock domains are read through the *NvAPI
+library* (`libnvidia-api.so.1`) that recent drivers install alongside NVML;
+without it the rest of the interface is unaffected and the bar takes no room on
+a GPU that reports nothing.
 
 ### Adreno
 
@@ -193,6 +205,8 @@ Several libraries are required in order for NVTOP to display GPU info:
   * This makes the screen look beautiful.
 * For NVIDIA: the *NVIDIA Management Library* (*NVML*) which comes with the GPU driver.
   * This queries the GPU for info.
+  * The *NvAPI library* (`libnvidia-api.so.1`), also from the driver, is used
+    when present for the clock domains NVML does not report. It is optional.
 * For AMD: the libdrm library used to query AMD GPUs through the kernel driver.
 * For METAX: the *MetaX System Management Library* (*MXSML*) which comes with the GPU driver.
   * This queries the GPU for info.
@@ -425,6 +439,7 @@ Troubleshoot
 
 - The plot looks bad:
   - Verify that you installed the wide character version of the ncurses library (libncurses**w**5-dev for Debian / Ubuntu), clean the build directory and restart the build process.
+- If `nvtop` exits with `ncurses: cannot initialize terminal type ($TERM="unknown")`, ensure that `$TERM` is set to a valid terminal type such as `xterm-256color`.
 - **Putty**: Tell putty not to lie about its capabilities (`$TERM`) by setting the field ``Terminal-type string`` to ``putty`` in the menu
   ``Connection > Data > Terminal Details``.
 - `NO GPU to monitor.` for NVIDIA GPUs:
