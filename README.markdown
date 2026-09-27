@@ -122,11 +122,13 @@ Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
-The extra clock domains bar (`nvtop -x`) shows the XBAR, SYS and NVD clocks,
-which NVML does not report, and `nvtop -X` adds the secondary HUB, HOST, DISP,
-MSD and UTILS ones. They are read through the *NvAPI library*
-(`libnvidia-api.so.1`) that recent drivers install alongside NVML; without it
-the rest of the interface is unaffected and the bar takes no room on screen.
+The extra GPU info bar (`nvtop -i`) shows the dynamic parameters NVML does not
+report, such as the XBAR, SYS and NVD clocks, and `nvtop -X` also shows the
+static specs (shader cores, L2 cache, execution engines) and the secondary HUB,
+HOST, DISP, MSD and UTILS clocks. The clock domains are read through the *NvAPI
+library* (`libnvidia-api.so.1`) that recent drivers install alongside NVML;
+without it the rest of the interface is unaffected and the bar takes no room on
+a GPU that reports nothing.
 
 ### Adreno
 

@@ -295,11 +295,14 @@ static nvmlReturn_t (*nvmlDeviceGetMPSComputeRunningProcesses[4])(nvmlDevice_t d
 #define NVML_DEVICE_MIG_ENABLE 0x1
 nvmlReturn_t (*nvmlDeviceGetMigMode)(nvmlDevice_t device, unsigned int *currentMode, unsigned int *pendingMode);
 
-// NvAPI is a second, undocumented entry point into the driver. It is used here
-// for one thing only: the clock domains that NVML does not report, such as the
-// XBAR clock the memory subsystem runs at. Everything is resolved through
-// nvapi_QueryInterface, so a driver without the library, or without these
-// particular entry points, simply reports no extra clocks.
+// NvAPI is NVIDIA's driver API. The generic entry points used here
+// (Initialize, Unload, EnumPhysicalGPUs, GPU_GetBusId) are documented in the
+// public NVAPI SDK, but the clock call NvAPI_GPU_GetAllClocks and its domain
+// layout are not part of that SDK: the documented clock function,
+// NvAPI_GPU_GetAllClockFrequencies, only reports the graphics/memory/video
+// clocks NVML already exposes. Everything is resolved through
+// nvapi_QueryInterface, so a driver without the library, or without this entry
+// point, simply reports no extra clocks.
 
 #define NVAPI_OK 0
 #define NVAPI_MAX_PHYSICAL_GPUS 64

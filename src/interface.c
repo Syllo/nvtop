@@ -43,15 +43,14 @@
 #include <tgmath.h>
 #include <unistd.h>
 
-// A device box is device_length() columns wide, which fits this many clock fields
-#define EXTRA_CLOCKS_PER_ROW 4
+// A device box is device_length() columns wide, which fits this many extra info fields
+#define EXTRA_INFO_PER_ROW 4
 
 // device_ecc is sized for "ECC 999/99": corrected is capped at 3 digits, uncorrected at 2
 static unsigned int sizeof_device_field[device_field_count] = {
-    [device_name] = 11,       [device_fan_speed] = 11,  [device_temperature] = 10, [device_power] = 15,
-    [device_ecc] = 10,        [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,
-    [device_shadercores] = 11, [device_l2features] = 11, [device_execengines] = 11, [device_nvlink_errors] = 33,
-    [device_extra_clock] = 15,
+    [device_name] = 11,          [device_fan_speed] = 11,  [device_temperature] = 10, [device_power] = 15,
+    [device_ecc] = 10,           [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,
+    [device_nvlink_errors] = 33, [device_extra_info] = 15,
 };
 
 // True if any monitored device has NVLink hardware support (even if 0 links active).
@@ -150,14 +149,14 @@ static unsigned int nvlink_line2_width(unsigned int spacer) {
 }
 
 static void alloc_device_window(unsigned int start_row, unsigned int start_col, unsigned int totalcol,
-                                const nvtop_interface_option *options, unsigned int extra_clock_rows,
+                                const nvtop_interface_option *options, unsigned int extra_info_rows,
                                 struct device_window *dwin) {
 
   const unsigned int spacer = 1;
 
-  // Not every clock domain slot gets a window, so the unused ones have to read
-  // as absent rather than as leftovers of the previous layout
-  memset(dwin->extra_clocks, 0, sizeof(dwin->extra_clocks));
+  // Not every info slot gets a window, so the unused ones have to read as
+  // absent rather than as leftovers of the previous layout
+  memset(dwin->extra_info, 0, sizeof(dwin->extra_info));
 
   // Line 1 = Name | PCIe info
 
@@ -284,41 +283,29 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
   dwin->enc_was_visible = false;
   dwin->dec_was_visible = false;
 
-  // Line 4 = Number of shading cores | L2 Features
-  dwin->shader_cores = newwin(1, sizeof_device_field[device_shadercores], start_row + 3, start_col);
-  if (dwin->shader_cores == NULL)
-    goto alloc_error;
-  dwin->l2_cache_size = newwin(1, sizeof_device_field[device_l2features], start_row + 3,
-                               start_col + spacer + sizeof_device_field[device_shadercores]);
-  if (dwin->l2_cache_size == NULL)
-    goto alloc_error;
-  dwin->exec_engines =
-      newwin(1, sizeof_device_field[device_execengines], start_row + 3,
-             start_col + spacer * 2 + sizeof_device_field[device_shadercores] + sizeof_device_field[device_l2features]);
-  if (dwin->exec_engines == NULL)
-    goto alloc_error;
-  // NVLink errors appended to exec_engines on the same row (start_row + 3), conditional on NVLink
-  // Only allocate for devices with active links — 0-link devices have no error counters to show.
-  if (any_device_has_nvlink_active) {
-    dwin->nvlink_errors = newwin(1, sizeof_device_field[device_nvlink_errors], start_row + 3,
-                                 start_col + spacer * 3 + sizeof_device_field[device_shadercores] +
-                                     sizeof_device_field[device_l2features] + sizeof_device_field[device_execengines]);
+  // Extra GPU info bar. The reserved rows start right after the utilization
+  // bar. When present, the NVLink error counters take the first one and the
+  // generic grid of clock domains and static specs fills the rows below. Only
+  // the cells the reserved rows have room for get a window; the rest stay NULL.
+  const bool nvlink_errors_row = options->has_gpu_info_bar && any_device_has_nvlink_active;
+  const unsigned int info_bar_row = start_row + 3;
+  if (nvlink_errors_row) {
+    dwin->nvlink_errors = newwin(1, sizeof_device_field[device_nvlink_errors], info_bar_row, start_col);
     if (dwin->nvlink_errors == NULL)
       goto alloc_error;
   } else {
     dwin->nvlink_errors = NULL;
   }
 
-  // Clock domains besides the graphics and memory ones, on the rows following
-  // the GPU info bar when that one is displayed. Only the domains the reserved
-  // rows have room for get a window; the rest stay NULL.
-  unsigned int extra_clocks_row = start_row + 3 + (options->has_gpu_info_bar ? 1 : 0);
-  unsigned int extra_clocks_shown = min(extra_clock_rows * EXTRA_CLOCKS_PER_ROW, MAX_EXTRA_CLOCK_DOMAINS);
-  for (unsigned int i = 0; i < extra_clocks_shown; ++i) {
-    dwin->extra_clocks[i] =
-        newwin(1, sizeof_device_field[device_extra_clock], extra_clocks_row + i / EXTRA_CLOCKS_PER_ROW,
-               start_col + (i % EXTRA_CLOCKS_PER_ROW) * (sizeof_device_field[device_extra_clock] + spacer));
-    if (dwin->extra_clocks[i] == NULL)
+  const unsigned int nvlink_row_count = nvlink_errors_row ? 1u : 0u;
+  const unsigned int grid_rows = extra_info_rows > nvlink_row_count ? extra_info_rows - nvlink_row_count : 0u;
+  const unsigned int grid_start = info_bar_row + nvlink_row_count;
+  const unsigned int extra_info_shown = min(grid_rows * EXTRA_INFO_PER_ROW, (unsigned int)MAX_EXTRA_INFO_ITEMS);
+  for (unsigned int i = 0; i < extra_info_shown; ++i) {
+    dwin->extra_info[i] =
+        newwin(1, sizeof_device_field[device_extra_info], grid_start + i / EXTRA_INFO_PER_ROW,
+               start_col + (i % EXTRA_INFO_PER_ROW) * (sizeof_device_field[device_extra_info] + spacer));
+    if (dwin->extra_info[i] == NULL)
       goto alloc_error;
   }
 
@@ -348,16 +335,13 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->temperature);
   delwin(dwin->fan_speed);
   delwin(dwin->pcie_info);
-  delwin(dwin->shader_cores);
-  delwin(dwin->l2_cache_size);
-  delwin(dwin->exec_engines);
   if (dwin->nvlink_info != NULL)
     delwin(dwin->nvlink_info);
   if (dwin->nvlink_errors != NULL)
     delwin(dwin->nvlink_errors);
-  for (unsigned int i = 0; i < MAX_EXTRA_CLOCK_DOMAINS; ++i) {
-    if (dwin->extra_clocks[i])
-      delwin(dwin->extra_clocks[i]);
+  for (unsigned int i = 0; i < MAX_EXTRA_INFO_ITEMS; ++i) {
+    if (dwin->extra_info[i])
+      delwin(dwin->extra_info[i]);
   }
 }
 
@@ -548,7 +532,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
   // any_device_has_nvlink_active is set by the probe that runs before this function.
   nvtop_adjust_field_sizes_for_nvlink();
 
-  unsigned int device_rows = 3 + (dwin->options.has_gpu_info_bar ? 1 : 0) + dwin->extra_clock_rows;
+  unsigned int device_rows = 3 + dwin->extra_info_rows;
   compute_sizes_from_layout(devices_count, device_rows, device_length(), rows - 1, cols,
                             dwin->options.gpu_specific_opts, dwin->options.process_fields_displayed, device_positions,
                             &dwin->num_plots, plot_positions, map_device_to_plot, &process_position, &setup_position,
@@ -558,7 +542,7 @@ static void initialize_all_windows(struct nvtop_interface *dwin) {
 
   for (unsigned int i = 0; i < devices_count; ++i) {
     alloc_device_window(device_positions[i].posY, device_positions[i].posX, device_positions[i].sizeX, &dwin->options,
-                        dwin->extra_clock_rows, &dwin->devices_win[i]);
+                        dwin->extra_info_rows, &dwin->devices_win[i]);
   }
 
   alloc_process_with_option(dwin, process_position.posX, process_position.posY, process_position.sizeX,
@@ -843,46 +827,99 @@ static void encode_decode_show_select(struct device_window *dev, bool encode_val
   }
 }
 
-static bool extra_clock_is_shown(const struct gpuinfo_extra_clock *clock, const nvtop_interface_option *options) {
-  if (clock->secondary)
-    return options->has_all_clocks_bar;
-  return options->has_extra_clocks_bar || options->has_all_clocks_bar;
+// A cell of the extra GPU info bar. Fields carry no assumption about what they
+// represent: a short name and an already-formatted value, with the unit folded
+// in when there is one (e.g. "1980MHz" or a plain "128"). A dedicated unit
+// field can be split out later if a consumer needs the number on its own.
+#define EXTRA_INFO_NAME_LEN 8
+#define EXTRA_INFO_VALUE_LEN 16
+
+struct extra_info_item {
+  char name[EXTRA_INFO_NAME_LEN];
+  char value[EXTRA_INFO_VALUE_LEN];
+};
+
+static void add_extra_info_item(struct extra_info_item *items, unsigned *count, unsigned max_items, const char *name,
+                                unsigned number, const char *unit) {
+  if (*count >= max_items)
+    return;
+  struct extra_info_item *item = &items[*count];
+  snprintf(item->name, sizeof(item->name), "%s", name);
+  snprintf(item->value, sizeof(item->value), "%u%s", number, unit);
+  (*count)++;
 }
 
-static unsigned extra_clocks_visible(const struct gpuinfo_dynamic_info *dynamic_info,
-                                     const nvtop_interface_option *options) {
-  if (!IS_VALID(gpuinfo_extra_clocks_valid, dynamic_info->valid))
-    return 0;
-
+// Builds, in display order, the fields the extra GPU info bar shows for one
+// device: the dynamic primary clock domains when -i is on, then the static
+// specs and the secondary clock domains when -X is on. Fields the driver does
+// not report are simply not appended, so a device with nothing to show costs no
+// row at all.
+static unsigned collect_extra_info(const struct gpu_info *device, const nvtop_interface_option *options,
+                                   struct extra_info_item *items, unsigned max_items) {
   unsigned count = 0;
-  for (unsigned i = 0; i < dynamic_info->extra_clock_count; ++i) {
-    if (extra_clock_is_shown(&dynamic_info->extra_clocks[i], options))
-      count++;
+  const struct gpuinfo_dynamic_info *dynamic_info = &device->dynamic_info;
+  const struct gpuinfo_static_info *static_info = &device->static_info;
+
+  if (options->has_gpu_info_bar && IS_VALID(gpuinfo_extra_clocks_valid, dynamic_info->valid)) {
+    for (unsigned i = 0; i < dynamic_info->extra_clock_count; ++i) {
+      if (dynamic_info->extra_clocks[i].secondary)
+        continue;
+      add_extra_info_item(items, &count, max_items, dynamic_info->extra_clocks[i].name,
+                          dynamic_info->extra_clocks[i].speed, "MHz");
+    }
   }
+
+  if (options->has_all_info_bar) {
+    if (GPUINFO_STATIC_FIELD_VALID(static_info, n_shared_cores))
+      add_extra_info_item(items, &count, max_items, "NSHC", static_info->n_shared_cores, "");
+    if (GPUINFO_STATIC_FIELD_VALID(static_info, l2cache_size))
+      add_extra_info_item(items, &count, max_items, "L2CF", static_info->l2cache_size, "");
+    if (GPUINFO_STATIC_FIELD_VALID(static_info, n_exec_engines))
+      add_extra_info_item(items, &count, max_items, "NEXC", static_info->n_exec_engines, "");
+    if (IS_VALID(gpuinfo_extra_clocks_valid, dynamic_info->valid)) {
+      for (unsigned i = 0; i < dynamic_info->extra_clock_count; ++i) {
+        if (!dynamic_info->extra_clocks[i].secondary)
+          continue;
+        add_extra_info_item(items, &count, max_items, dynamic_info->extra_clocks[i].name,
+                            dynamic_info->extra_clocks[i].speed, "MHz");
+      }
+    }
+  }
+
   return count;
 }
 
-// How many clock domains a device reports is only known once it has been
-// refreshed at least once, which happens after the windows are first laid out,
-// so the reserved rows are revisited on every draw. A device that reports none
-// costs no row at all, which is the usual case outside NVIDIA.
-static void update_extra_clock_rows(struct list_head *devices, struct nvtop_interface *interface) {
+// How many fields a device reports is only known once it has been refreshed at
+// least once, which happens after the windows are first laid out, so the
+// reserved rows are revisited on every draw. A device that reports none costs
+// no row at all, which is the usual case outside NVIDIA.
+static void update_extra_info_rows(struct list_head *devices, struct nvtop_interface *interface) {
   unsigned rows_needed = 0;
+  const unsigned char option_sig =
+      (interface->options.has_gpu_info_bar ? 1u : 0u) | (interface->options.has_all_info_bar ? 2u : 0u);
+  const bool options_changed = option_sig != interface->extra_info_option_sig;
 
-  if (interface->options.has_extra_clocks_bar || interface->options.has_all_clocks_bar) {
+  if (interface->options.has_gpu_info_bar || interface->options.has_all_info_bar) {
+    struct extra_info_item items[MAX_EXTRA_INFO_ITEMS];
     struct gpu_info *device;
-    unsigned most_clocks = 0;
+    unsigned most_fields = 0;
     list_for_each_entry(device, devices, list) {
-      unsigned visible = extra_clocks_visible(&device->dynamic_info, &interface->options);
-      most_clocks = max(most_clocks, visible);
+      unsigned visible = collect_extra_info(device, &interface->options, items, MAX_EXTRA_INFO_ITEMS);
+      most_fields = max(most_fields, visible);
     }
-    rows_needed = (most_clocks + EXTRA_CLOCKS_PER_ROW - 1) / EXTRA_CLOCKS_PER_ROW;
-    // A driver that fails one read should not make the whole interface jump, so
-    // rows are only ever given back when the options change
-    rows_needed = max(rows_needed, interface->extra_clock_rows);
+    rows_needed = (most_fields + EXTRA_INFO_PER_ROW - 1) / EXTRA_INFO_PER_ROW;
+    // The NVLink error counters, when shown, take a dedicated full-width row
+    // above the generic grid.
+    if (interface->options.has_gpu_info_bar && any_device_has_nvlink_active)
+      rows_needed += 1;
+    // A driver that fails one read should not make the whole interface jump:
+    // while the options stay the same rows only ever grow. An option change is
+    // allowed to give rows back.
+    if (!options_changed)
+      rows_needed = max(rows_needed, interface->extra_info_rows);
   }
 
-  if (rows_needed == interface->extra_clock_rows)
+  if (rows_needed == interface->extra_info_rows && !options_changed)
     return;
 
   // Laying the windows out again closes the setup window, so a change made from
@@ -890,7 +927,8 @@ static void update_extra_clock_rows(struct list_head *devices, struct nvtop_inte
   if (interface->setup_win.visible)
     return;
 
-  interface->extra_clock_rows = rows_needed;
+  interface->extra_info_rows = rows_needed;
+  interface->extra_info_option_sig = option_sig;
   erase();
   refresh();
   delete_all_windows(interface);
@@ -1197,42 +1235,6 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     wnoutrefresh(dev->pcie_info);
 
     if (interface->options.has_gpu_info_bar) {
-      // Number of shader cores
-      werase(dev->shader_cores);
-      wcolor_set(dev->shader_cores, cyan_color, NULL);
-      mvwprintw(dev->shader_cores, 0, 0, "NSHC ");
-      wstandend(dev->shader_cores);
-      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, n_shared_cores))
-        wprintw(dev->shader_cores, "%u", device->static_info.n_shared_cores);
-      else
-        wprintw(dev->shader_cores, "N/A");
-
-      wnoutrefresh(dev->shader_cores);
-
-      // L2 cache information
-      werase(dev->l2_cache_size);
-      wcolor_set(dev->l2_cache_size, cyan_color, NULL);
-      mvwprintw(dev->l2_cache_size, 0, 0, "L2CF ");
-      wstandend(dev->l2_cache_size);
-      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, l2cache_size))
-        wprintw(dev->l2_cache_size, "%u", device->static_info.l2cache_size);
-      else
-        wprintw(dev->l2_cache_size, "N/A");
-
-      wnoutrefresh(dev->l2_cache_size);
-
-      // Number of execution engines
-      werase(dev->exec_engines);
-      wcolor_set(dev->exec_engines, cyan_color, NULL);
-      mvwprintw(dev->exec_engines, 0, 0, "NEXC ");
-      wstandend(dev->exec_engines);
-      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, n_exec_engines))
-        wprintw(dev->exec_engines, "%u", device->static_info.n_exec_engines);
-      else
-        wprintw(dev->exec_engines, "N/A");
-
-      wnoutrefresh(dev->exec_engines);
-
       // NVLink errors/corrections/ECC (conditional on NVLink)
       if (dev->nvlink_errors != NULL) {
         werase(dev->nvlink_errors);
@@ -1263,27 +1265,25 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       }
     }
 
-    // EXTRA CLOCK DOMAINS
-    // Every slot the layout did not reserve is a NULL window, so nothing is
-    // drawn at all while both options are off
-    unsigned extra_clock_slot = 0;
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, extra_clocks)) {
-      for (unsigned i = 0; i < device->dynamic_info.extra_clock_count; ++i) {
-        const struct gpuinfo_extra_clock *clock = &device->dynamic_info.extra_clocks[i];
-        if (!extra_clock_is_shown(clock, &interface->options))
-          continue;
-        if (extra_clock_slot >= MAX_EXTRA_CLOCK_DOMAINS || !dev->extra_clocks[extra_clock_slot])
-          break;
-        werase(dev->extra_clocks[extra_clock_slot]);
-        mvwprintw(dev->extra_clocks[extra_clock_slot], 0, 0, "%s %uMHz", clock->name, clock->speed);
-        mvwchgat(dev->extra_clocks[extra_clock_slot], 0, 0, (int)strlen(clock->name), 0, cyan_color, NULL);
-        wnoutrefresh(dev->extra_clocks[extra_clock_slot]);
-        extra_clock_slot++;
-      }
+    // Extra GPU info bar fields: clock domains and static specs packed into the
+    // reserved cells. Every slot the layout did not reserve is a NULL window,
+    // so nothing is drawn when the options are off or nothing is reported.
+    struct extra_info_item extra_items[MAX_EXTRA_INFO_ITEMS];
+    unsigned extra_count = collect_extra_info(device, &interface->options, extra_items, MAX_EXTRA_INFO_ITEMS);
+    unsigned extra_slot = 0;
+    for (unsigned i = 0; i < extra_count; ++i) {
+      if (extra_slot >= MAX_EXTRA_INFO_ITEMS || dev->extra_info[extra_slot] == NULL)
+        break;
+      WINDOW *win = dev->extra_info[extra_slot];
+      werase(win);
+      mvwprintw(win, 0, 0, "%s %s", extra_items[i].name, extra_items[i].value);
+      mvwchgat(win, 0, 0, (int)strlen(extra_items[i].name), 0, cyan_color, NULL);
+      wnoutrefresh(win);
+      extra_slot++;
     }
-    for (; extra_clock_slot < MAX_EXTRA_CLOCK_DOMAINS && dev->extra_clocks[extra_clock_slot]; ++extra_clock_slot) {
-      werase(dev->extra_clocks[extra_clock_slot]);
-      wnoutrefresh(dev->extra_clocks[extra_clock_slot]);
+    for (; extra_slot < MAX_EXTRA_INFO_ITEMS && dev->extra_info[extra_slot]; ++extra_slot) {
+      werase(dev->extra_info[extra_slot]);
+      wnoutrefresh(dev->extra_info[extra_slot]);
     }
 
     dev_id++;
@@ -2268,7 +2268,7 @@ static void draw_plots(struct list_head *devices, struct nvtop_interface *interf
 
 void draw_gpu_info_ncurses(unsigned devices_count, struct list_head *devices, struct nvtop_interface *interface) {
 
-  update_extra_clock_rows(devices, interface);
+  update_extra_info_rows(devices, interface);
   draw_devices(devices, interface);
   if (!interface->setup_win.visible) {
     draw_plots(devices, interface);

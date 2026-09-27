@@ -70,10 +70,10 @@ static const char helpstring[] = "Available options:\n"
                                  "  -C --no-color     : No colors\n"
                                  "line information\n"
                                  "  -f --freedom-unit : Use fahrenheit\n"
-                                 "  -i --gpu-info     : Show bar with additional GPU parameters\n"
-                                 "  -x --extra-clocks : Show bar with the clock domains besides graphics "
-                                 "and memory\n"
-                                 "  -X --all-clocks   : Extend that bar with the secondary clock domains\n"
+                                 "  -i --gpu-info     : Show dynamic GPU info bar (clock domains, NVLink "
+                                 "errors)\n"
+                                 "  -X --all-info     : Also show static GPU specs and the secondary clock "
+                                 "domains\n"
                                  "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
                                  "(default 30s, negative = always on screen)\n"
                                  "  -h --help         : Print help and exit\n"
@@ -105,8 +105,7 @@ static const struct option long_opts[] = {
     {.name = "no-colour", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "freedom-unit", .has_arg = no_argument, .flag = NULL, .val = 'f'},
     {.name = "gpu-info", .has_arg = no_argument, .flag = NULL, .val = 'i'},
-    {.name = "extra-clocks", .has_arg = no_argument, .flag = NULL, .val = 'x'},
-    {.name = "all-clocks", .has_arg = no_argument, .flag = NULL, .val = 'X'},
+    {.name = "all-info", .has_arg = no_argument, .flag = NULL, .val = 'X'},
     {.name = "encode-hide", .has_arg = required_argument, .flag = NULL, .val = 'E'},
     {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
     {.name = "no-processes", .has_arg = no_argument, .flag = NULL, .val = 'P'},
@@ -116,7 +115,7 @@ static const struct option long_opts[] = {
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pPrislxX";
+static const char opts[] = "hvd:c:CfE:pPrislX";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -131,8 +130,7 @@ int main(int argc, char **argv) {
   bool reverse_plot_direction_option = false;
   bool encode_decode_timer_option_set = false;
   bool show_gpu_info_bar = false;
-  bool show_extra_clocks_bar = false;
-  bool show_all_clocks_bar = false;
+  bool show_all_info_bar = false;
   bool show_snapshot = false;
   bool loop_snapshot = false;
   double encode_decode_hide_time = -1.;
@@ -179,11 +177,8 @@ int main(int argc, char **argv) {
     case 'i':
       show_gpu_info_bar = true;
       break;
-    case 'x':
-      show_extra_clocks_bar = true;
-      break;
     case 'X':
-      show_all_clocks_bar = true;
+      show_all_info_bar = true;
       break;
     case 'E': {
       if (sscanf(optarg, "%lf", &encode_decode_hide_time) == EOF) {
@@ -338,8 +333,7 @@ int main(int argc, char **argv) {
   if (update_interval_option_set)
     allDevicesOptions.update_interval = update_interval_option;
   allDevicesOptions.has_gpu_info_bar = allDevicesOptions.has_gpu_info_bar || show_gpu_info_bar;
-  allDevicesOptions.has_extra_clocks_bar = allDevicesOptions.has_extra_clocks_bar || show_extra_clocks_bar;
-  allDevicesOptions.has_all_clocks_bar = allDevicesOptions.has_all_clocks_bar || show_all_clocks_bar;
+  allDevicesOptions.has_all_info_bar = allDevicesOptions.has_all_info_bar || show_all_info_bar;
 
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =

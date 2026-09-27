@@ -35,6 +35,11 @@
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof((x)[0]))
 
+// The extra GPU info bar is a generic grid; a cell is just a field with a name
+// and a value, with no assumption about what it represents (a clock domain, a
+// cache size, a core count...). The capacity is independent of any source.
+#define MAX_EXTRA_INFO_ITEMS 16
+
 enum nvtop_option_window_state {
   nvtop_option_state_hidden,
   nvtop_option_state_kill,
@@ -73,11 +78,10 @@ struct device_window {
   WINDOW *mem_clock_info;
   WINDOW *pcie_info;
   WINDOW *nvlink_info;
-  WINDOW *shader_cores;
-  WINDOW *l2_cache_size;
-  WINDOW *exec_engines;
   WINDOW *nvlink_errors;
-  WINDOW *extra_clocks[MAX_EXTRA_CLOCK_DOMAINS];
+  // Generic grid of extra GPU information (clock domains and static specs); each
+  // cell holds one "NAME value" field. Unused slots are NULL.
+  WINDOW *extra_info[MAX_EXTRA_INFO_ITEMS];
   bool enc_was_visible;
   bool dec_was_visible;
   nvtop_time last_decode_seen;
@@ -143,7 +147,8 @@ struct nvtop_interface {
   struct process_window process;
   WINDOW *shortcut_window;
   unsigned num_plots;
-  unsigned extra_clock_rows; // Rows the current layout reserves for the clock domains
+  unsigned extra_info_rows;            // Rows the current layout reserves for the extra GPU info bar
+  unsigned char extra_info_option_sig; // Options the current extra info layout was built for
   struct plot_window *plots;
   interface_ring_buffer saved_data_ring;
   struct setup_window setup_win;
@@ -158,11 +163,8 @@ enum device_field {
   device_pcie,
   device_clock,
   device_mem_clock,
-  device_shadercores,
-  device_l2features,
-  device_execengines,
   device_nvlink_errors,
-  device_extra_clock,
+  device_extra_info,
   device_field_count,
 };
 

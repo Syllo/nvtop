@@ -8,7 +8,7 @@ nvtop \- interactive GPU process viewer
 
 .SH SYNOPSIS
 .B nvtop
-\fR[\fB\-hvCfpPrisxX\fR]
+\fR[\fB\-hvCfpPrislX\fR]
 \fR[\fB\-d\fR \fIdelay\fR]
 \fR[\fB\-c\fR \fIconfig-file\fR]
 \fR[\fB\-E\fR \fIseconds\fR]
@@ -21,32 +21,44 @@ nvtop is a ncurses\-based GPU status viewer for AMD, Intel and NVIDIA GPUs.
 .BR \-d ", " \-\-delay =\fIdelay\fR
 Delay between updates, in tenths of seconds (\fIdelay\fR * 0.1s).
 .TP
-.BR \-h ", " \-\-help
-Print the help and exit.
+.BR \-v ", " \-\-version
+Print the version and exit.
 .TP
-.BR \-C ", " \-\-no\-color
+.BR \-c ", " \-\-config\-file =\fIconfig\-file\fR
+Provide a custom config file location to load and save the preferences.
+.TP
+.BR \-p ", " \-\-no\-plot
+Show only one bar plot corresponding to the maximum of all GPUs.
+.TP
+.BR \-P ", " \-\-no\-processes
+Do not display the process list.
+.TP
+.BR \-r ", " \-\-reverse\-abs
+Reverse abscissa: switch the plot data order from "old --- recent" (default) to "recent --- old".
+.TP
+.BR \-C ", " \-\-no\-color ", " \-\-no\-colour
 Monochrome mode.
 .TP
 .BR \-f ", " \-\-freedom\-unit
 Use fahrenheit as temperature scale.
 .TP
+.BR \-i ", " \-\-gpu\-info
+Show a bar with the dynamic GPU parameters a driver reports besides the graphics and memory clocks. On NVIDIA these are the XBAR, SYS and NVD clocks, read through the NvAPI library the driver installs. The bar takes no room on a GPU that reports nothing.
+.TP
+.BR \-X ", " \-\-all\-info
+Also show the static GPU specs (shader cores, L2 cache, execution engines) and the secondary clock domains, the ones that sit at a fixed frequency most of the time. On NVIDIA these are HUB, HOST, DISP, MSD and UTILS.
+.TP
 .BR \-E ", " \-\-encode\-hide =\fIseconds\fR
 Modify the setting for the encode/decode auto-hide timer. Always visible if negative. Default to 30 seconds.
 .TP
-.BR \-r ", " \-\-reverse\-abs
-Reverse abscissa: switch the plot data order from "old --- recent" (default) to "recent --- old".
+.BR \-h ", " \-\-help
+Print the help and exit.
 .TP
-.BR \-p ", " \-\-no\-plot
-Show only one bar plot corresponding to the maximum of all GPUs.
+.BR \-s ", " \-\-snapshot
+Output the current GPU stats without ncurses, then exit (useful for scripting).
 .TP
-.BR \-x ", " \-\-extra\-clocks
-Show a bar with the clock domains a GPU exposes besides the graphics and memory ones. On NVIDIA these are XBAR, SYS and NVD, and reading them needs the NvAPI library the driver installs. The bar takes no room on a GPU that reports no such domain.
-.TP
-.BR \-X ", " \-\-all\-clocks
-Extend that bar with the secondary clock domains, the ones that sit at a fixed frequency most of the time. On NVIDIA these are HUB, HOST, DISP, MSD and UTILS.
-.TP
-.BR \-v ", " \-\-version
-Print the version and exit.
+.BR \-l ", " \-\-loop
+Keep outputting the current GPU stats without ncurses in a loop.
 
 .SH INTERACTIVE SETUP WINDOW
 .TP
@@ -56,7 +68,7 @@ You can enter the setup utility by pressing \fBF2\fR to view and modify the foll
 This section deals with general interface options. \fBColor support\fR and \fBinterface update interval\fR can be modified.
 .TP
 .I Devices
-This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR, \fBset the encoder/decoder hiding timer\fR, \fBdisplay the extra GPU info bar\fR, \fBdisplay the extra clock domains\fR and \fBinclude the secondary ones among them\fR.
+This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR, \fBset the encoder/decoder hiding timer\fR, \fBdisplay the dynamic GPU info bar\fR and \fBdisplay the static GPU info and secondary clock domains\fR.
 .TP
 .I Chart
 This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR. The available metrics are GPU utilization, GPU memory utilization, encoder rate, decoder rate, temperature, power draw rate, fan speed, GPU clock rate, GPU memory clock rate, effective load rate and PCIe RX / TX load. The PCIe RX and TX load are the receive and transmit throughput expressed as a percentage of the maximum link bandwidth (link generation times link width).
