@@ -8,7 +8,7 @@ nvtop \- interactive GPU process viewer
 
 .SH SYNOPSIS
 .B nvtop
-\fR[\fB\-hvCfpPrislX\fR]
+\fR[\fB\-hvCfpPurislX\fR]
 \fR[\fB\-d\fR \fIdelay\fR]
 \fR[\fB\-c\fR \fIconfig-file\fR]
 \fR[\fB\-E\fR \fIseconds\fR]
@@ -32,6 +32,9 @@ Show only one bar plot corresponding to the maximum of all GPUs.
 .TP
 .BR \-P ", " \-\-no\-processes
 Do not display the process list.
+.TP
+.BR \-u ", " \-\-dynamic\-memory\-units
+Automatically scale the process memory units, choosing a suitable binary unit from bytes up to PiB instead of always displaying MiB.
 .TP
 .BR \-r ", " \-\-reverse\-abs
 Reverse abscissa: switch the plot data order from "old --- recent" (default) to "recent --- old".
@@ -74,7 +77,7 @@ This section deals with the devices display (top of the interface). You can \fBs
 This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR. The available metrics are GPU utilization, GPU memory utilization, encoder rate, decoder rate, temperature, power draw rate, fan speed, GPU clock rate, GPU memory clock rate, effective load rate and PCIe RX / TX load. The PCIe RX and TX load are the receive and transmit throughput expressed as a percentage of the maximum link bandwidth (link generation times link width).
 .TP
 .I Processes
-This section deals with the process list (bottom of the interface). You can \fBselect the sort order\fR, \fBselect the metric by which to sort the processes by\fR and \fBselect which metric is displayed\fR.
+This section deals with the process list (bottom of the interface). You can \fBscale the process memory units automatically\fR, \fBselect the sort order\fR, \fBselect the metric by which to sort the processes by\fR and \fBselect which metric is displayed\fR.
 
 .SH INTERACTIVE COMMANDS
 .TP
@@ -127,6 +130,7 @@ If no configuration file is present, default options are used.
 .SH MEMORY SIZES
 .TP
 Memory sizes in nvtop are displayed as multiples of 1024 bytes or 1 KiB.
+The process list can also scale each process memory value to the most suitable binary unit, from bytes up to PiB, by enabling \fBDynamic memory units\fR in the \fBProcesses\fR section of the setup window (see \fBINTERACTIVE SETUP WINDOW\fR).
 
 .SH BUGS
 .TP

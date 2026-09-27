@@ -59,27 +59,28 @@ static void cont_handler(int signum) {
 }
 
 static const char helpstring[] = "Available options:\n"
-                                 "  -d --delay        : Select the refresh rate (1 == 0.1s)\n"
-                                 "  -v --version      : Print the version and exit\n"
-                                 "  -c --config-file  : Provide a custom config file location to load/save "
+                                 "  -d --delay                : Select the refresh rate (1 == 0.1s)\n"
+                                 "  -v --version              : Print the version and exit\n"
+                                 "  -c --config-file          : Provide a custom config file location to load/save "
                                  "preferences\n"
-                                 "  -p --no-plot      : Disable bar plot\n"
-                                 "  -P --no-processes : Disable process list\n"
-                                 "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
+                                 "  -p --no-plot              : Disable bar plot\n"
+                                 "  -P --no-processes         : Disable process list\n"
+                                 "  -u --dynamic-memory-units : Scale process memory units automatically\n"
+                                 "  -r --reverse-abs          : Reverse abscissa: plot the recent data left and "
                                  "older on the right\n"
-                                 "  -C --no-color     : No colors\n"
+                                 "  -C --no-color             : No colors\n"
                                  "line information\n"
-                                 "  -f --freedom-unit : Use fahrenheit\n"
-                                 "  -i --gpu-info     : Show dynamic GPU info bar (clock domains, NVLink "
+                                 "  -f --freedom-unit         : Use fahrenheit\n"
+                                 "  -i --gpu-info             : Show dynamic GPU info bar (clock domains, NVLink "
                                  "errors)\n"
-                                 "  -X --all-info     : Also show static GPU specs and the secondary clock "
+                                 "  -X --all-info             : Also show static GPU specs and the secondary clock "
                                  "domains\n"
-                                 "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
+                                 "  -E --encode-hide          : Set encode/decode auto hide time in seconds "
                                  "(default 30s, negative = always on screen)\n"
-                                 "  -h --help         : Print help and exit\n"
-                                 "  -s --snapshot     : Output the current gpu stats without ncurses"
+                                 "  -h --help                 : Print help and exit\n"
+                                 "  -s --snapshot             : Output the current gpu stats without ncurses"
                                  "(useful for scripting)\n"
-                                 "  -l --loop         : Output the current gpu stats without ncurses in a loop\n";
+                                 "  -l --loop                 : Output the current gpu stats without ncurses in a loop\n";
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
 
@@ -109,13 +110,14 @@ static const struct option long_opts[] = {
     {.name = "encode-hide", .has_arg = required_argument, .flag = NULL, .val = 'E'},
     {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
     {.name = "no-processes", .has_arg = no_argument, .flag = NULL, .val = 'P'},
+    {.name = "dynamic-memory-units", .has_arg = no_argument, .flag = NULL, .val = 'u'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
     {.name = "loop", .has_arg = no_argument, .flag = NULL, .val = 'l'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pPrislX";
+static const char opts[] = "hvd:c:CfE:pPrislXu";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -131,6 +133,7 @@ int main(int argc, char **argv) {
   bool encode_decode_timer_option_set = false;
   bool show_gpu_info_bar = false;
   bool show_all_info_bar = false;
+  bool dynamic_memory_units_option = false;
   bool show_snapshot = false;
   bool loop_snapshot = false;
   double encode_decode_hide_time = -1.;
@@ -192,6 +195,9 @@ int main(int argc, char **argv) {
       break;
     case 'P':
       hide_processes_option = true;
+      break;
+    case 'u':
+      dynamic_memory_units_option = true;
       break;
     case 'r':
       reverse_plot_direction_option = true;
@@ -334,6 +340,7 @@ int main(int argc, char **argv) {
     allDevicesOptions.update_interval = update_interval_option;
   allDevicesOptions.has_gpu_info_bar = allDevicesOptions.has_gpu_info_bar || show_gpu_info_bar;
   allDevicesOptions.has_all_info_bar = allDevicesOptions.has_all_info_bar || show_all_info_bar;
+  allDevicesOptions.dynamic_memory_units = allDevicesOptions.dynamic_memory_units || dynamic_memory_units_option;
 
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
