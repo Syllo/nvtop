@@ -207,9 +207,6 @@ void processinfo_sweep_fdinfos(void) {
       fclose(fdinfo_file);
       if (!callback_success)
         continue;
-      // Default to graphical type
-      if (processes_info_local.type == gpu_process_unknown)
-        processes_info_local.type = gpu_process_graphical;
 
       unsigned process_index =
           current_callback->gpu_info->processes_count ? current_callback->gpu_info->processes_count - 1 : 0;
@@ -283,6 +280,18 @@ void processinfo_sweep_fdinfos(void) {
       if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, sample_delta)) {
         SET_GPUINFO_PROCESS(process_info, sample_delta,
                             process_info->sample_delta + processes_info_local.sample_delta);
+      }
+    }
+
+    // We need to default to 'graphical' for processes with unknown workload types.
+    // Do this once all fds of this pid are merged: an idle fd must not mark a process that uses compute
+    // on its other fds as graphical. (The entry of the pid being scanned is always the last one.)
+    for (unsigned callback_idx = 0; callback_idx < registered_callback_entries; ++callback_idx) {
+      struct gpu_info *gpu_info = callback_entries[callback_idx].gpu_info;
+      if (gpu_info->processes_count > 0) {
+        struct gpu_process *process_info = &gpu_info->processes[gpu_info->processes_count - 1];
+        if (process_info->pid == (pid_t)client_pid && process_info->type == gpu_process_unknown)
+          process_info->type = gpu_process_graphical;
       }
     }
 
