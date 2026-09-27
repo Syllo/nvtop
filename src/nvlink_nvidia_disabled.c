@@ -22,3 +22,8 @@ bool nvtop_get_nvlink_error_counts(struct gpu_info *gpu_info, unsigned long long
 }
 
 void nvtop_reset_nvlink_cache(struct gpu_info *gpu_info) { (void)gpu_info; }
+
+bool nvtop_get_ecc_support(struct gpu_info *gpu_info) {
+  (void)gpu_info;
+  return false;
+}

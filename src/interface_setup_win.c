@@ -58,12 +58,13 @@ enum setup_header_options {
   setup_header_toggle_fahrenheit,
   setup_header_enc_dec_timer,
   setup_header_gpu_info_bar,
+  setup_header_all_info_bar,
   setup_header_options_count
 };
 
 static const char *setup_header_option_descriptions[setup_header_options_count] = {
     "Temperature in fahrenheit", "Keep displaying Encoder/Decoder rate (after reaching an idle state)",
-    "Display extra GPU info bar"};
+    "Display dynamic GPU info (clock domains, NVLink errors)", "Display static GPU info and secondary clock domains"};
 
 // Chart Options
 
@@ -79,26 +80,32 @@ static const char *setup_chart_all_gpu_description  = "Displayed all GPUs";
 static const char *setup_chart_gpu_description      = "Displayed GPU";
 
 static const char *setup_chart_gpu_value_descriptions[plot_information_count] = {
-    "GPU utilization rate",  "GPU memory utilization rate",   "GPU encoder rate",  "GPU decoder rate",
-    "GPU temperature",       "Power draw rate (current/max)", "Fan speed",         "GPU clock rate",
-    "GPU memory clock rate", "Effective load rate",           "PCIe RX load rate", "PCIe TX load rate"};
+    "%s utilization rate",  "%s memory utilization rate",    "%s encoder rate",   "%s decoder rate",
+    "%s temperature",       "Power draw rate (current/max)", "Fan speed",         "%s clock rate",
+    "%s memory clock rate", "Effective load rate",           "PCIe RX load rate", "PCIe TX load rate",
+    "HVX utilization rate", "HMX utilization rate"};
+
+// Formats the description of a plot metric for the given compute unit label.
+// Descriptions without a unit placeholder (power, fan, ...) are returned as-is.
+static void format_metric_description(char *buf, size_t buflen, enum plot_information info, const char *unit) {
+  snprintf(buf, buflen, setup_chart_gpu_value_descriptions[info], unit);
+}
 
 static const char *chart_color_names[] = {"Red", "Cyan", "Green", "Yellow", "Blue", "Magenta", "White"};
 static const unsigned chart_color_names_count = ARRAY_SIZE(chart_color_names);
 
 // Build labels for each active plot slot for a given GPU's to_draw mask.
 // Uses the same iteration order as populate_plot_data_from_ring_buffer.
-static unsigned get_plot_slot_labels(plot_info_to_draw to_draw, unsigned dev_id,
+static unsigned get_plot_slot_labels(plot_info_to_draw to_draw, unsigned dev_id, const char *unit,
                                      const char *labels[MAX_LINES_PER_PLOT]) {
   unsigned slot = 0;
   for (enum plot_information info = plot_gpu_rate; info < plot_information_count && slot < MAX_LINES_PER_PLOT; ++info) {
     if (plot_isset_draw_info(info, to_draw)) {
-      char buf[64];
-      snprintf(buf, sizeof(buf), "GPU%u %s", dev_id, setup_chart_gpu_value_descriptions[info]);
+      char description[64];
+      format_metric_description(description, sizeof(description), info, unit);
       // store in a static table since we need stable pointers for the caller
       static char label_storage[MAX_LINES_PER_PLOT][64];
-      snprintf(label_storage[slot], sizeof(label_storage[slot]), "GPU%u %s", dev_id,
-               setup_chart_gpu_value_descriptions[info]);
+      snprintf(label_storage[slot], sizeof(label_storage[slot]), "%s%u %s", unit, dev_id, description);
       labels[slot] = label_storage[slot];
       slot++;
     }
@@ -111,6 +118,7 @@ static unsigned get_plot_slot_labels(plot_info_to_draw to_draw, unsigned dev_id,
 enum setup_proc_list_options {
   setup_proc_list_hide_process_list,
   setup_proc_list_hide_nvtop_process,
+  setup_proc_list_dynamic_memory_units,
   setup_proc_list_sort_ascending,
   setup_proc_list_sort_by,
   setup_proc_list_display,
@@ -118,7 +126,12 @@ enum setup_proc_list_options {
 };
 
 static const char *setup_proc_list_option_description[setup_proc_list_options_count] = {
-    "Don't display the process list", "Hide nvtop in the process list", "Sort Ascending", "Sort by", "Field Displayed"};
+    "Don't display the process list",
+    "Hide nvtop in the process list",
+    "Dynamic memory units",
+    "Sort Ascending",
+    "Sort by",
+    "Field Displayed"};
 
 static const char *setup_proc_list_value_descriptions[process_field_count] = {
     "Process Id",    "User name",        "Device Id", "Workload type",    "GPU usage", "Encoder usage",
@@ -307,13 +320,22 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
     mvwchgat(options_win, setup_header_enc_dec_timer + 1, 0, 8, A_STANDOUT, cyan_color, NULL);
   }
 
-  // Extra GPU info bar
+  // Extra GPU info bar (dynamic parameters)
   option_state = interface->options.has_gpu_info_bar;
   mvwprintw(options_win, setup_header_gpu_info_bar + 1, 0, "[%c] %s", option_state_char(option_state),
             setup_header_option_descriptions[setup_header_gpu_info_bar]);
   if (interface->setup_win.indentation_level == 1 &&
       interface->setup_win.options_selected[0] == setup_header_gpu_info_bar) {
     mvwchgat(options_win, setup_header_gpu_info_bar + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+
+  // Static specs and secondary clock domains
+  option_state = interface->options.has_all_info_bar;
+  mvwprintw(options_win, setup_header_all_info_bar + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_header_option_descriptions[setup_header_all_info_bar]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_header_all_info_bar) {
+    mvwchgat(options_win, setup_header_all_info_bar + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
   wnoutrefresh(options_win);
 }
@@ -382,7 +404,13 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
   plot_info_to_draw gpu0_draw = interface->monitored_dev_count > 0
                                     ? interface->options.gpu_specific_opts[0].to_draw
                                     : ref_draw;
-  get_plot_slot_labels(gpu0_draw, 0, slot_labels);
+  struct gpu_info *first_device;
+  const char *unit = "GPU";
+  list_for_each_entry(first_device, devices, list) {
+    unit = DEVICE_UNIT_NAME(first_device);
+    break;
+  }
+  get_plot_slot_labels(gpu0_draw, 0, unit, slot_labels);
 
   for (unsigned s = 0; s < slot_count && s < MAX_LINES_PER_PLOT; ++s) {
     unsigned row = setup_chart_color_start + s;
@@ -444,11 +472,12 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
           break;
         index++;
       }
+      unit = DEVICE_UNIT_NAME(device);
       if (IS_VALID(gpuinfo_device_name_valid, device->static_info.valid)) {
         getyx(value_list_win, tmp, cur_col);
         wprintw(value_list_win, " (%.*s)", maxcols - cur_col - 3, device->static_info.device_name);
       } else
-        wprintw(value_list_win, " (GPU %u)", selected_gpu);
+        wprintw(value_list_win, " (%s %u)", unit, selected_gpu);
     }
     wclrtoeol(value_list_win);
     getyx(value_list_win, tmp, cur_col);
@@ -475,8 +504,9 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
       } else {
         option_state = plot_isset_draw_info(i, interface->options.gpu_specific_opts[selected_gpu].to_draw);
       }
-      mvwprintw(value_list_win, i + 2, 0, "[%c] %s", option_state_char(option_state),
-                setup_chart_gpu_value_descriptions[i]);
+      char description[64];
+      format_metric_description(description, sizeof(description), i, unit);
+      mvwprintw(value_list_win, i + 2, 0, "[%c] %s", option_state_char(option_state), description);
       if (interface->setup_win.indentation_level == 2 && interface->setup_win.options_selected[1] == i) {
         mvwchgat(value_list_win, i + 2, 0, 3, A_STANDOUT, cyan_color, NULL);
       }
@@ -539,6 +569,13 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
   if (interface->setup_win.indentation_level == 1 &&
       interface->setup_win.options_selected[0] == setup_proc_list_hide_nvtop_process) {
     mvwchgat(option_list_win, setup_proc_list_hide_nvtop_process + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+  option_state = interface->options.dynamic_memory_units;
+  mvwprintw(option_list_win, setup_proc_list_dynamic_memory_units + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_proc_list_option_description[setup_proc_list_dynamic_memory_units]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_proc_list_dynamic_memory_units) {
+    mvwchgat(option_list_win, setup_proc_list_dynamic_memory_units + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
   option_state = !interface->options.sort_descending_order;
   mvwprintw(option_list_win, setup_proc_list_sort_ascending + 1, 0, "[%c] %s", option_state_char(option_state),
@@ -818,6 +855,9 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
           if (interface->setup_win.options_selected[0] == setup_header_gpu_info_bar) {
             interface->options.has_gpu_info_bar = !interface->options.has_gpu_info_bar;
           }
+          if (interface->setup_win.options_selected[0] == setup_header_all_info_bar) {
+            interface->options.has_all_info_bar = !interface->options.has_all_info_bar;
+          }
         }
       }
       // Chart Options
@@ -907,6 +947,8 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
             interface->options.filter_nvtop_pid = !interface->options.filter_nvtop_pid;
           } else if (interface->setup_win.options_selected[0] == setup_proc_list_hide_process_list) {
             interface->options.hide_processes_list = !interface->options.hide_processes_list;
+          } else if (interface->setup_win.options_selected[0] == setup_proc_list_dynamic_memory_units) {
+            interface->options.dynamic_memory_units = !interface->options.dynamic_memory_units;
           } else if (interface->setup_win.options_selected[0] == setup_proc_list_sort_by) {
             handle_setup_win_keypress(KEY_RIGHT, interface);
           }

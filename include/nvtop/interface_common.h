@@ -35,6 +35,8 @@ enum plot_information {
   plot_effective_load_rate,
   plot_pcie_rx_rate,
   plot_pcie_tx_rate,
+  plot_hvx_util_rate,
+  plot_hmx_util_rate,
   plot_information_count
 };
 

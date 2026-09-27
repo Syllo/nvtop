@@ -59,26 +59,43 @@ static void cont_handler(int signum) {
 }
 
 static const char helpstring[] = "Available options:\n"
-                                 "  -d --delay        : Select the refresh rate (1 == 0.1s)\n"
-                                 "  -v --version      : Print the version and exit\n"
-                                 "  -c --config-file  : Provide a custom config file location to load/save "
+                                 "  -d --delay                : Select the refresh rate (1 == 0.1s)\n"
+                                 "  -v --version              : Print the version and exit\n"
+                                 "  -c --config-file          : Provide a custom config file location to load/save "
                                  "preferences\n"
-                                 "  -p --no-plot      : Disable bar plot\n"
-                                 "  -P --no-processes : Disable process list\n"
-                                 "  -r --reverse-abs  : Reverse abscissa: plot the recent data left and "
+                                 "  -p --no-plot              : Disable bar plot\n"
+                                 "  -P --no-processes         : Disable process list\n"
+                                 "  -u --dynamic-memory-units : Scale process memory units automatically\n"
+                                 "  -r --reverse-abs          : Reverse abscissa: plot the recent data left and "
                                  "older on the right\n"
-                                 "  -C --no-color     : No colors\n"
+                                 "  -C --no-color             : No colors\n"
                                  "line information\n"
-                                 "  -f --freedom-unit : Use fahrenheit\n"
-                                 "  -i --gpu-info     : Show bar with additional GPU parameters\n"
-                                 "  -E --encode-hide  : Set encode/decode auto hide time in seconds "
+                                 "  -f --freedom-unit         : Use fahrenheit\n"
+                                 "  -i --gpu-info             : Show dynamic GPU info bar (clock domains, NVLink "
+                                 "errors)\n"
+                                 "  -X --all-info             : Also show static GPU specs and the secondary clock "
+                                 "domains\n"
+                                 "  -E --encode-hide          : Set encode/decode auto hide time in seconds "
                                  "(default 30s, negative = always on screen)\n"
-                                 "  -h --help         : Print help and exit\n"
-                                 "  -s --snapshot     : Output the current gpu stats without ncurses"
+                                 "  -h --help                 : Print help and exit\n"
+                                 "  -s --snapshot             : Output the current gpu stats without ncurses"
                                  "(useful for scripting)\n"
-                                 "  -l --loop         : Output the current gpu stats without ncurses in a loop\n";
+                                 "  -l --loop                 : Output the current gpu stats without ncurses in a loop\n";
 
 static const char versionString[] = "nvtop version " NVTOP_VERSION_STRING;
+
+// Backends that provide HVX/HMX metrics get the NPU-specific default plots.
+static const char *const npu_plot_vendor_names[] = {"QCOM-NPU"};
+
+static bool vendor_uses_npu_plots(const struct gpu_vendor *vendor) {
+  if (!vendor->name)
+    return false;
+  for (size_t i = 0; i < sizeof(npu_plot_vendor_names) / sizeof(npu_plot_vendor_names[0]); ++i) {
+    if (strcmp(vendor->name, npu_plot_vendor_names[i]) == 0)
+      return true;
+  }
+  return false;
+}
 
 static const struct option long_opts[] = {
     {.name = "delay", .has_arg = required_argument, .flag = NULL, .val = 'd'},
@@ -89,16 +106,18 @@ static const struct option long_opts[] = {
     {.name = "no-colour", .has_arg = no_argument, .flag = NULL, .val = 'C'},
     {.name = "freedom-unit", .has_arg = no_argument, .flag = NULL, .val = 'f'},
     {.name = "gpu-info", .has_arg = no_argument, .flag = NULL, .val = 'i'},
+    {.name = "all-info", .has_arg = no_argument, .flag = NULL, .val = 'X'},
     {.name = "encode-hide", .has_arg = required_argument, .flag = NULL, .val = 'E'},
     {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
     {.name = "no-processes", .has_arg = no_argument, .flag = NULL, .val = 'P'},
+    {.name = "dynamic-memory-units", .has_arg = no_argument, .flag = NULL, .val = 'u'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
     {.name = "loop", .has_arg = no_argument, .flag = NULL, .val = 'l'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pPrisl";
+static const char opts[] = "hvd:c:CfE:pPrislXu";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -113,6 +132,8 @@ int main(int argc, char **argv) {
   bool reverse_plot_direction_option = false;
   bool encode_decode_timer_option_set = false;
   bool show_gpu_info_bar = false;
+  bool show_all_info_bar = false;
+  bool dynamic_memory_units_option = false;
   bool show_snapshot = false;
   bool loop_snapshot = false;
   double encode_decode_hide_time = -1.;
@@ -159,6 +180,9 @@ int main(int argc, char **argv) {
     case 'i':
       show_gpu_info_bar = true;
       break;
+    case 'X':
+      show_all_info_bar = true;
+      break;
     case 'E': {
       if (sscanf(optarg, "%lf", &encode_decode_hide_time) == EOF) {
         fprintf(stderr, "Invalid format for encode/decode hide time: %s\n", optarg);
@@ -171,6 +195,9 @@ int main(int argc, char **argv) {
       break;
     case 'P':
       hide_processes_option = true;
+      break;
+    case 'u':
+      dynamic_memory_units_option = true;
       break;
     case 'r':
       reverse_plot_direction_option = true;
@@ -272,14 +299,18 @@ int main(int argc, char **argv) {
   nvtop_interface_option allDevicesOptions;
   alloc_interface_options_internals(custom_config_file_path, allDevCount, &monitoredGpus, &allDevicesOptions);
   load_interface_options_from_config_file(allDevCount, &allDevicesOptions);
-  for (unsigned i = 0; i < allDevCount; ++i) {
+  struct gpu_info *dev;
+  unsigned dev_idx = 0;
+  list_for_each_entry(dev, &monitoredGpus, list) {
     // Nothing specified in the file
-    if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw)) {
-      allDevicesOptions.gpu_specific_opts[i].to_draw = plot_default_draw_info();
+    if (!plot_isset_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw)) {
+      allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
+          vendor_uses_npu_plots(dev->vendor) ? plot_npu_default_draw_info() : plot_default_draw_info();
     } else {
-      allDevicesOptions.gpu_specific_opts[i].to_draw =
-          plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[i].to_draw);
+      allDevicesOptions.gpu_specific_opts[dev_idx].to_draw =
+          plot_remove_draw_info(plot_information_count, allDevicesOptions.gpu_specific_opts[dev_idx].to_draw);
     }
+    dev_idx++;
   }
   if (!process_is_field_displayed(process_field_count, allDevicesOptions.process_fields_displayed)) {
     allDevicesOptions.process_fields_displayed = process_default_displayed_field();
@@ -308,13 +339,16 @@ int main(int argc, char **argv) {
   if (update_interval_option_set)
     allDevicesOptions.update_interval = update_interval_option;
   allDevicesOptions.has_gpu_info_bar = allDevicesOptions.has_gpu_info_bar || show_gpu_info_bar;
+  allDevicesOptions.has_all_info_bar = allDevicesOptions.has_all_info_bar || show_all_info_bar;
+  allDevicesOptions.dynamic_memory_units = allDevicesOptions.dynamic_memory_units || dynamic_memory_units_option;
 
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 
-  // Probe for NVLink before layout computation
+  // Probe for NVLink and ECC support before layout computation
   nvtop_probe_nvlink_list(&monitoredGpus);
+  nvtop_probe_ecc_list(&monitoredGpus);
 
   if (allDevicesOptions.show_startup_messages) {
     bool dont_show_again = show_information_messages(numWarningMessages, warningMessages);
@@ -338,10 +372,11 @@ int main(int argc, char **argv) {
       signal_cont_received = 0;
       update_window_size_to_terminal_size(interface);
     }
-    // Probe NVLink state BEFORE monitored-set-change check, so that
-    // any_device_has_nvlink_active is set before initialize_all_windows()
-    // reads it for layout decisions.
+    // Probe NVLink state and ECC support BEFORE monitored-set-change check, so
+    // that any_device_has_nvlink_active / any_device_has_ecc are set before
+    // initialize_all_windows() reads them for layout decisions.
     nvtop_probe_nvlink_list(&monitoredGpus);
+    nvtop_probe_ecc_list(&monitoredGpus);
     interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);

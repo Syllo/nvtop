@@ -8,7 +8,7 @@ nvtop \- interactive GPU process viewer
 
 .SH SYNOPSIS
 .B nvtop
-\fR[\fB\-hvCfpPris\fR]
+\fR[\fB\-hvCfpPurislX\fR]
 \fR[\fB\-d\fR \fIdelay\fR]
 \fR[\fB\-c\fR \fIconfig-file\fR]
 \fR[\fB\-E\fR \fIseconds\fR]
@@ -21,26 +21,47 @@ nvtop is a ncurses\-based GPU status viewer for AMD, Intel and NVIDIA GPUs.
 .BR \-d ", " \-\-delay =\fIdelay\fR
 Delay between updates, in tenths of seconds (\fIdelay\fR * 0.1s).
 .TP
-.BR \-h ", " \-\-help
-Print the help and exit.
+.BR \-v ", " \-\-version
+Print the version and exit.
 .TP
-.BR \-C ", " \-\-no\-color
+.BR \-c ", " \-\-config\-file =\fIconfig\-file\fR
+Provide a custom config file location to load and save the preferences.
+.TP
+.BR \-p ", " \-\-no\-plot
+Show only one bar plot corresponding to the maximum of all GPUs.
+.TP
+.BR \-P ", " \-\-no\-processes
+Do not display the process list.
+.TP
+.BR \-u ", " \-\-dynamic\-memory\-units
+Automatically scale the process memory units, choosing a suitable binary unit from bytes up to PiB instead of always displaying MiB.
+.TP
+.BR \-r ", " \-\-reverse\-abs
+Reverse abscissa: switch the plot data order from "old --- recent" (default) to "recent --- old".
+.TP
+.BR \-C ", " \-\-no\-color ", " \-\-no\-colour
 Monochrome mode.
 .TP
 .BR \-f ", " \-\-freedom\-unit
 Use fahrenheit as temperature scale.
 .TP
+.BR \-i ", " \-\-gpu\-info
+Show a bar with the dynamic GPU parameters a driver reports besides the graphics and memory clocks. On NVIDIA these are the XBAR, SYS and NVD clocks, read through the NvAPI library the driver installs. The bar takes no room on a GPU that reports nothing.
+.TP
+.BR \-X ", " \-\-all\-info
+Also show the static GPU specs (shader cores, L2 cache, execution engines) and the secondary clock domains, the ones that sit at a fixed frequency most of the time. On NVIDIA these are HUB, HOST, DISP, MSD and UTILS.
+.TP
 .BR \-E ", " \-\-encode\-hide =\fIseconds\fR
 Modify the setting for the encode/decode auto-hide timer. Always visible if negative. Default to 30 seconds.
 .TP
-.BR \-r ", " \-\-reverse\-abs
-Reverse abscissa: switch the plot data order from "old --- recent" (default) to "recent --- old".
+.BR \-h ", " \-\-help
+Print the help and exit.
 .TP
-.BR \-p ", " \-\-no\-plot
-Show only one bar plot corresponding to the maximum of all GPUs.
+.BR \-s ", " \-\-snapshot
+Output the current GPU stats without ncurses, then exit (useful for scripting).
 .TP
-.BR \-v ", " \-\-version
-Print the version and exit.
+.BR \-l ", " \-\-loop
+Keep outputting the current GPU stats without ncurses in a loop.
 
 .SH INTERACTIVE SETUP WINDOW
 .TP
@@ -50,13 +71,13 @@ You can enter the setup utility by pressing \fBF2\fR to view and modify the foll
 This section deals with general interface options. \fBColor support\fR and \fBinterface update interval\fR can be modified.
 .TP
 .I Devices
-This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR and \fBset the encoder/decoder hiding timer\fR.
+This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR, \fBset the encoder/decoder hiding timer\fR, \fBdisplay the dynamic GPU info bar\fR and \fBdisplay the static GPU info and secondary clock domains\fR.
 .TP
 .I Chart
 This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR. The available metrics are GPU utilization, GPU memory utilization, encoder rate, decoder rate, temperature, power draw rate, fan speed, GPU clock rate, GPU memory clock rate, effective load rate and PCIe RX / TX load. The PCIe RX and TX load are the receive and transmit throughput expressed as a percentage of the maximum link bandwidth (link generation times link width).
 .TP
 .I Processes
-This section deals with the process list (bottom of the interface). You can \fBselect the sort order\fR, \fBselect the metric by which to sort the processes by\fR and \fBselect which metric is displayed\fR.
+This section deals with the process list (bottom of the interface). You can \fBscale the process memory units automatically\fR, \fBselect the sort order\fR, \fBselect the metric by which to sort the processes by\fR and \fBselect which metric is displayed\fR.
 
 .SH INTERACTIVE COMMANDS
 .TP
@@ -109,6 +130,7 @@ If no configuration file is present, default options are used.
 .SH MEMORY SIZES
 .TP
 Memory sizes in nvtop are displayed as multiples of 1024 bytes or 1 KiB.
+The process list can also scale each process memory value to the most suitable binary unit, from bytes up to PiB, by enabling \fBDynamic memory units\fR in the \fBProcesses\fR section of the setup window (see \fBINTERACTIVE SETUP WINDOW\fR).
 
 .SH BUGS
 .TP
