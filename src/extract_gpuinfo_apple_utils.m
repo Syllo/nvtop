@@ -55,9 +55,52 @@ bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
     sample->gpu_util_rate = number > 100 ? 100 : (unsigned)number;
     sample->gpu_util_rate_valid = true;
   }
+  // AMD discrete GPUs (Radeon Pro W6800X, W6900X, RX 6900 XT, …) report load
+  // via "GPU Activity(%)" while "Device Utilization %" stays pinned at 0.
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"GPU Activity(%)"], &number)) {
+    sample->gpu_activity_rate = number > 100 ? 100 : (unsigned)number;
+    sample->gpu_activity_rate_valid = true;
+  }
   if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Alloc system memory"], &number)) {
     sample->allocated_system_memory = number;
     sample->allocated_system_memory_valid = true;
+  }
+  // Discrete AMD GPUs expose these counters on the same PerformanceStatistics
+  // dictionary. Each read is nil-guarded because the key set varies by driver
+  // generation (RDNA vs RDNA2 vs Vega); Apple Silicon GPUs simply lack all of
+  // them and leave the *_valid flags false.
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"inUseVidMemoryBytes"], &number)) {
+    sample->used_memory = number;
+    sample->used_memory_valid = true;
+  }
+  id temp_value = [performance_statistics objectForKey:@"Temperature(C)"];
+  if ([temp_value respondsToSelector:@selector(doubleValue)]) {
+    const double t = [temp_value doubleValue];
+    if (isfinite(t) && t >= -50.0 && t <= 200.0) {
+      sample->gpu_temp = (unsigned)(t + 0.5);
+      sample->gpu_temp_valid = true;
+    }
+  }
+  id power_value = [performance_statistics objectForKey:@"Total Power(W)"];
+  if ([power_value respondsToSelector:@selector(doubleValue)]) {
+    const double w = [power_value doubleValue];
+    if (isfinite(w) && w >= 0.0 && w <= 1000.0) {
+      // nvtop stores power in milliwatts; the driver reports whole watts.
+      sample->power_draw_mw = (unsigned)(w * 1000.0 + 0.5);
+      sample->power_draw_valid = true;
+    }
+  }
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Core Clock(MHz)"], &number)) {
+    sample->gpu_clock_speed = (unsigned)number;
+    sample->gpu_clock_speed_valid = true;
+  }
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Memory Clock(MHz)"], &number)) {
+    sample->mem_clock_speed = (unsigned)number;
+    sample->mem_clock_speed_valid = true;
+  }
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Fan Speed(%)"], &number)) {
+    sample->fan_speed = number > 100 ? 100 : (unsigned)number;
+    sample->fan_speed_valid = true;
   }
 
   return true;

@@ -61,6 +61,10 @@ enum gpuinfo_static_info_valid {
   gpuinfo_l2cache_size_valid,
   gpuinfo_n_exec_engines_valid,
   gpuinfo_engine_count_valid,
+  gpuinfo_peer_group_id_valid,
+  gpuinfo_peer_count_valid,
+  gpuinfo_pci_bus_id_valid,
+  gpuinfo_pci_slot_id_valid,
   gpuinfo_static_info_count,
 };
 
@@ -78,6 +82,13 @@ struct gpuinfo_static_info {
   unsigned engine_count;
   bool integrated_graphics;
   bool encode_decode_shared;
+  // Apple-platform-only fields surfaced by the macOS backend. Metal exposes
+  // them on every MTLDevice, but other backends leave them invalid; do not
+  // read them unless the matching *_valid bit is set.
+  uint64_t peer_group_id;     // Metal peer group; 0 = no fabric link
+  unsigned peer_count;        // Number of GPUs sharing peer_group_id
+  unsigned pci_bus_id;        // PCI bus number of the GPU's bridge (IOPCIBridge)
+  unsigned pci_slot_id;       // PCI device number within the bus
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
