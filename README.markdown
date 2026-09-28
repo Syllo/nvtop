@@ -93,6 +93,17 @@ GPU Support
 NVTOP supports AMD GPUs using the `amdgpu` driver and the legacy `radeon` driver (legacy GPUs, limited support) through the exposed DRM and
 sysfs interface.
 
+For current PCIe generation and width, NVTOP optionally uses AMD SMI 26.2 or
+newer. AMD SMI GPU metrics can report the physical link even when a passthrough
+VM's sysfs topology describes virtual PCIe bridges. The current link is queried
+on every refresh; unavailable or invalid metrics fall back to sysfs. PCIe RX/TX
+throughput remains independent and may be unavailable on some GPUs.
+
+AMD SMI is detected through its CMake package (including `/opt/rocm`) at build
+time and loaded at runtime using the matching ABI major. It is not required to
+run NVTOP. Set `-DAMDSMI_PCIE_SUPPORT=OFF` to build without this integration, or
+use `-DCMAKE_PREFIX_PATH=/path/to/rocm` for a nonstandard ROCm installation.
+
 The radeon provides limited metrics compared to amdgpu.
 
 AMD introduced the fdinfo interface in kernel 5.14 ([browse kernel
