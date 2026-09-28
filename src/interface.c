@@ -44,7 +44,7 @@
 
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,       [device_fan_speed] = 11,   [device_temperature] = 10, [device_power] = 15,
-    [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,        [device_shadercores] = 7,
+    [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 62,        [device_shadercores] = 7,
     [device_l2features] = 11, [device_execengines] = 11,
 };
 
@@ -830,7 +830,11 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     mvwchgat(dev->power_info, 0, 0, 3, 0, cyan_color, NULL);
     wnoutrefresh(dev->power_info);
 
-    // PICe throughput
+    // PCIe throughput — replaced on Apple with the chassis slot label
+    // (AAPL,slot-name, e.g. "Slot-1") and, for Duos, the die index in
+    // parentheses; followed by the chassis-wide Infinity Fabric
+    // topology string ("single 4-way bridge" for two linked Duos on a
+    // MacPro7,1, etc.). PCIe gen/width stays for non-Mac platforms.
     werase(dev->pcie_info);
     if (device->static_info.integrated_graphics) {
       wcolor_set(dev->pcie_info, cyan_color, NULL);
@@ -848,6 +852,23 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         wprintw(dev->pcie_info, "N/A");
     }
 
+#if defined(__APPLE__)
+    // On Apple, replace the always-N/A RX/TX display with the chassis
+    // slot + (for Duos) die index and Infinity Fabric topology label.
+    // The string fits inside the existing 46-column window. We keep
+    // the magenta "slot: " prefix so the layout reads consistently
+    // with the upstream "RX: … TX: …" labels it replaces.
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot)) {
+      wcolor_set(dev->pcie_info, magenta_color, NULL);
+      wprintw(dev->pcie_info, " slot: ");
+      wstandend(dev->pcie_info);
+      wprintw(dev->pcie_info, "%s", device->static_info.apple_slot);
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, mpx_die_index))
+        wprintw(dev->pcie_info, "/die%u", device->static_info.mpx_die_index);
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_architecture))
+        wprintw(dev->pcie_info, " %s", device->static_info.device_architecture);
+    }
+#else
     wcolor_set(dev->pcie_info, magenta_color, NULL);
     wprintw(dev->pcie_info, " RX: ");
     wstandend(dev->pcie_info);
@@ -862,6 +883,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       print_pcie_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
     else
       wprintw(dev->pcie_info, "N/A");
+#endif
 
     wnoutrefresh(dev->pcie_info);
 
@@ -2163,6 +2185,14 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     const char *mem_total_field = "mem_total";
     const char *mem_used_field = "mem_used";
     const char *mem_free_field = "mem_free";
+    const char *pcie_gen_field = "pcie_gen";
+    const char *pcie_width_field = "pcie_width";
+    const char *pci_bus_field = "pci_bus";
+    const char *pci_slot_field = "pci_slot";
+    const char *apple_slot_field = "apple_slot";
+    const char *mpx_die_index_field = "mpx_die_index";
+    const char *topology_field = "if_topology";
+    const char *hive_size_field = "xgmi_hive_size";
 
     printf("%s{\n", indent_level_two);
 
@@ -2259,16 +2289,66 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": null,\n", indent_level_four, mem_used_field);
     // Memory Available
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, free_memory))
-      printf("%s\"%s\": \"%llu\"", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
+      printf("%s\"%s\": \"%llu\",\n", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
     else
-      printf("%s\"%s\": null", indent_level_four, mem_free_field);
+      printf("%s\"%s\": null,\n", indent_level_four, mem_free_field);
+
+    // PCIe link generation / width
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen))
+      printf("%s\"%s\": \"%u\",\n", indent_level_four, pcie_gen_field, device->dynamic_info.pcie_link_gen);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, pcie_gen_field);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_width))
+      printf("%s\"%s\": \"x%u\",\n", indent_level_four, pcie_width_field, device->dynamic_info.pcie_link_width);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, pcie_width_field);
+
+    // PCI bus / slot (from gpuinfo_static_info on Apple)
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, pci_bus_id))
+      printf("%s\"%s\": \"%u\",\n", indent_level_four, pci_bus_field, device->static_info.pci_bus_id);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, pci_bus_field);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, pci_slot_id))
+      printf("%s\"%s\": \"%u\",\n", indent_level_four, pci_slot_field, device->static_info.pci_slot_id);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, pci_slot_field);
+    // Apple chassis slot label from AAPL,slot-name on the closest PCI
+    // bridge (Slot-1, Slot-3, …, Slot-8 on a MacPro7,1). For a W6800X
+    // Duo both dies report the same apple_slot — disambiguate them via
+    // mpx_die_index (0-indexed, parsed from GD<y> in the AMD driver's
+    // attached-gpu-control-path).
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot))
+      printf("%s\"%s\": \"%s\",\n", indent_level_four, apple_slot_field,
+             device->static_info.apple_slot);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, apple_slot_field);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, mpx_die_index))
+      printf("%s\"%s\": \"%u\",\n", indent_level_four, mpx_die_index_field,
+             device->static_info.mpx_die_index);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, mpx_die_index_field);
+    // Infinity Fabric connectivity topology for the whole machine
+    // (single 4-way bridge, dual 2-way bridges, …). Computed once in
+    // populate_static_info from per-GPU peerGroupID / XGMI_HiveSize and
+    // written into device_architecture (a field Apple Silicon doesn't use).
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_architecture))
+      printf("%s\"%s\": \"%s\",\n", indent_level_four, topology_field,
+             device->static_info.device_architecture);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, topology_field);
+    // XGMI hive size — number of GPUs sharing this card's peerGroupID.
+    // 0 / N/A for cards without an Infinity Fabric link.
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, peer_group_id))
+      printf("%s\"%s\": \"%u\",\n", indent_level_four, hive_size_field, device->static_info.peer_count);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, hive_size_field);
 
     // Processes
     if (hide_processes_option) {
       // (Notice: no comma at the end as it's the last field here)
       printf("\n");
     } else {
-      printf(",\n%s\"processes\" : [\n", indent_level_four);
+      printf("\n%s\"processes\" : [\n", indent_level_four);
       for (unsigned i = 0; i < device->processes_count; ++i) {
         struct gpu_process *proc = &device->processes[i];
         printf("%s{\n", indent_level_six);

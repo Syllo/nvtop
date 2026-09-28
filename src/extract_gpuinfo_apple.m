@@ -199,6 +199,72 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
   static_info->integrated_graphics = [gpu_info->device location] == MTLDeviceLocationBuiltIn;
   static_info->encode_decode_shared = true;
 
+  // Infinity Fabric connectivity topology. macOS does not expose a single
+  // "topology" property; we compute it from the per-GPU peerGroupID /
+  // XGMI_HiveID / XGMI_HiveSize we collect on every device and bucket them
+  // by hive. The shape on a MacPro7,1 with two MPX Duo bays linked across
+  // is one of:
+  //
+  //   * "single N-way bridge" — every dGPU shares a single XGMI hive
+  //     (the chassis inter-bay Infinity Fabric Link is wired). Most
+  //     common with two W6800X Duos installed.
+  //   * "dual M-way bridges"  — two distinct XGMI hives, each of size M.
+  //     (Dual Duos with the inter-bay link disabled.)
+  //   * "M independent GPUs" — every dGPU has its own hive (size 1) or
+  //     every hive has size 1. (W6900X, single W6800X, RX 6900 XT, …)
+  //   * "no XGMI"             — no peerGroupID anywhere (Apple Silicon or
+  //     a chassis with no AMD dGPUs).
+  //
+  // We walk MTLCopyAllDevices() once here, classify each GPU by hive, and
+  // synthesise the topology string into device_architecture (a field that
+  // is unused on Apple Silicon, so it's a free slot for this label).
+  static char topology[64] = "";
+  static dispatch_once_t once = 0;
+  dispatch_once(&once, ^{
+    NSArray<id<MTLDevice>> *all = MTLCopyAllDevices();
+    NSMutableDictionary<NSNumber *, NSNumber *> *hive_size = [NSMutableDictionary dictionary];
+    for (id<MTLDevice> d in all) {
+      uint64_t hive = (uint64_t)[d peerGroupID];
+      if (hive == 0) continue;
+      NSNumber *key = @(hive);
+      NSNumber *cur = hive_size[key];
+      hive_size[key] = @([cur unsignedIntValue] + 1);
+    }
+    NSUInteger distinct_hives = hive_size.count;
+    if (distinct_hives == 0) {
+      snprintf(topology, sizeof(topology), "no XGMI");
+    } else if (distinct_hives == 1) {
+      const NSUInteger n = [hive_size.allValues.firstObject unsignedIntValue];
+      if (n <= 1) snprintf(topology, sizeof(topology), "1 independent GPU");
+      else snprintf(topology, sizeof(topology), "single %lu-way bridge", (unsigned long)n);
+    } else {
+      // Multi-hive: sort sizes descending, render as "dual M+N" or
+      // "M+N+..." for three+ hives.
+      NSArray<NSNumber *> *sizes = [hive_size.allValues
+          sortedArrayUsingComparator:^NSComparisonResult(NSNumber *a, NSNumber *b) {
+            return [b compare:a];
+          }];
+      size_t off = 0;
+      bool first = true;
+      for (NSNumber *s in sizes) {
+        const int n = [s intValue];
+        const int written = snprintf(topology + off, sizeof(topology) - off,
+                                    "%s%i-way", first ? "" : "+", n);
+        if (written < 0 || (size_t)written >= sizeof(topology) - off) break;
+        off += (size_t)written;
+        first = false;
+      }
+      // Better label for two equal-size hives.
+      if (sizes.count == 2 && [sizes[0] isEqualToNumber:sizes[1]]) {
+        snprintf(topology, sizeof(topology), "dual %i-way bridges",
+                 [sizes[0] intValue]);
+      }
+    }
+  });
+  strncpy(static_info->device_architecture, topology, sizeof(static_info->device_architecture) - 1);
+  static_info->device_architecture[sizeof(static_info->device_architecture) - 1] = '\0';
+  SET_VALID(gpuinfo_device_architecture_valid, static_info->valid);
+
   // Metal exposes the Infinity Fabric peer group on every MTLDevice; pair
   // members see the same id and a count that matches how many GPUs share it.
   // Cards with no fabric link return peerGroupID == 0 / peerCount == 1, which
@@ -210,19 +276,54 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
     SET_VALID(gpuinfo_peer_count_valid, static_info->valid);
   }
 
-  unsigned bus = 0, slot = 0;
-  if (gpuinfo_apple_pci_lookup((uint64_t)[gpu_info->device registryID], &bus, &slot)) {
-    static_info->pci_bus_id = bus;
-    static_info->pci_slot_id = slot;
-    SET_VALID(gpuinfo_pci_bus_id_valid, static_info->valid);
-    SET_VALID(gpuinfo_pci_slot_id_valid, static_info->valid);
+  struct gpuinfo_apple_pci_full pci;
+  if (gpuinfo_apple_pci_full((uint64_t)[gpu_info->device registryID], &pci)) {
+    if (pci.bus_valid) {
+      static_info->pci_bus_id = pci.bus;
+      SET_VALID(gpuinfo_pci_bus_id_valid, static_info->valid);
+    }
+    if (pci.device_valid) {
+      static_info->pci_slot_id = pci.device;
+      SET_VALID(gpuinfo_pci_slot_id_valid, static_info->valid);
+    }
+    if (pci.apple_slot_valid) {
+      strncpy(static_info->apple_slot, pci.apple_slot,
+              sizeof(static_info->apple_slot) - 1);
+      static_info->apple_slot[sizeof(static_info->apple_slot) - 1] = '\0';
+      SET_VALID(gpuinfo_apple_slot_valid, static_info->valid);
+    }
+    if (pci.mpx_die_index_valid) {
+      static_info->mpx_die_index = pci.mpx_die_index;
+      SET_VALID(gpuinfo_mpx_die_index_valid, static_info->valid);
+    }
   }
+
+  // PCIe gen/width are filled in refresh_dynamic_info below: macOS doesn't
+  // expose the current negotiated gen, so we publish the chassis-fixed value
+  // (PCIe 3.0 x16 for AMD dGPUs on a MacPro7,1) as a best guess. The
+  // *_valid bits stay set so the TUI renders "3@16" instead of N/A.
 }
 
 static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_apple *gpu_info = container_of(_gpu_info, struct gpu_info_apple, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   RESET_ALL(dynamic_info->valid);
+
+  // macOS does not publish the current negotiated PCIe gen/width in the
+  // IORegistry, only the chassis-fixed capability. AMD dGPUs on a MacPro7,1
+  // are PCIe 3.0 x16; Apple Silicon iGPUs have no PCIe slot at all; an eGPU
+  // over Thunderbolt may negotiate either gen 3 or gen 4 and we cannot tell
+  // which. Render the gen/width we know about and let the TUI show N/A for
+  // anything we can't determine.
+  const int is_amd = ([gpu_info->device name].length > 0 &&
+                       [[gpu_info->device name] rangeOfString:@"AMD"].location != NSNotFound);
+  // All MacPro7,1 chassis variants are Intel-based.
+  const int is_intel_macpro = true;
+  const unsigned link_gen = gpuinfo_apple_pci_link_gen_chassis(is_intel_macpro, is_amd);
+  if (link_gen != 0 && is_amd) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, link_gen);
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, 16);
+  }
 
   unsigned power_draw;
   if (gpuinfo_apple_ioreport_get_power_draw(gpu_info->ioreport, &power_draw))
@@ -335,12 +436,23 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
   nvtop_get_current_time(&current_time);
   for (io_object_t child = IOIteratorNext(iterator); child; child = IOIteratorNext(iterator)) {
     io_name_t class_name;
-    if (IOObjectGetClass(child, class_name) == kIOReturnSuccess &&
-        strncmp(class_name, "AGXDeviceUserClient", sizeof(class_name)) == 0) {
-      CFMutableDictionaryRef cf_props;
-      if (IORegistryEntryCreateCFProperties(child, &cf_props, kCFAllocatorDefault, kNilOptions) == kIOReturnSuccess) {
-        struct gpuinfo_apple_process_sample sample = {0};
-        if (gpuinfo_apple_parse_process_sample(cf_props, &sample)) {
+    if (IOObjectGetClass(child, class_name) != kIOReturnSuccess)
+      continue;
+    // Apple Silicon (AGX) and Intel Mac Pro AMD dGPUs (AMDRadeonX6000)
+    // both expose user-client children carrying IOUserClientCreator. The
+    // creator string has the same "pid <pid>, <name>" format on both;
+    // gpuinfo_apple_parse_process_sample picks the PID out of it.
+    const bool is_agx_client = strncmp(class_name, "AGXDeviceUserClient", sizeof(class_name)) == 0;
+    const bool is_amd_client =
+        strncmp(class_name, "AMDRadeonX6000_AMDAccelDevice", sizeof(class_name)) == 0 ||
+        strncmp(class_name, "AMDRadeonX6000_AMDAccelSharedUserClient", sizeof(class_name)) == 0;
+    if (!is_agx_client && !is_amd_client)
+      continue;
+
+    CFMutableDictionaryRef cf_props;
+    if (IORegistryEntryCreateCFProperties(child, &cf_props, kCFAllocatorDefault, kNilOptions) == kIOReturnSuccess) {
+      struct gpuinfo_apple_process_sample sample = {0};
+      if (gpuinfo_apple_parse_process_sample(cf_props, &sample)) {
           bool gpu_usage_valid = false;
           unsigned gpu_usage = 0;
           uint64_t registry_entry_id = 0;
@@ -376,10 +488,9 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
         }
         CFRelease(cf_props);
       }
+
+      IOObjectRelease(child);
     }
 
-    IOObjectRelease(child);
-  }
-
-  IOObjectRelease(iterator);
+    IOObjectRelease(iterator);
 }
