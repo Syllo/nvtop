@@ -22,6 +22,7 @@
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/time.h"
 #include "extract_gpuinfo_apple_ioreport.h"
+#include "extract_gpuinfo_apple_pci.h"
 #include "extract_gpuinfo_apple_smc.h"
 #include "extract_gpuinfo_apple_utils.h"
 #include "uthash.h"
@@ -64,6 +65,7 @@ struct gpu_info_apple {
   id<MTLDevice> device;
   io_service_t gpu_service;
   struct gpuinfo_apple_ioreport *ioreport;
+  struct gpuinfo_apple_pci *pci;
   struct gpuinfo_apple_smc *smc;
   struct apple_process_info_cache *last_update_process_cache, *current_update_process_cache;
 };
@@ -119,6 +121,7 @@ static void gpuinfo_apple_shutdown(void) {
     gpuinfo_apple_free_process_cache(&gpu_info->last_update_process_cache);
     gpuinfo_apple_free_process_cache(&gpu_info->current_update_process_cache);
     gpuinfo_apple_ioreport_shutdown(gpu_info->ioreport);
+    gpuinfo_apple_pci_shutdown(gpu_info->pci);
     gpuinfo_apple_smc_shutdown(gpu_info->smc);
     [gpu_info->device release];
     IOObjectRelease(gpu_info->gpu_service);
@@ -164,6 +167,9 @@ static bool gpuinfo_apple_get_device_handles(struct list_head *devices, unsigned
     gpu_info->base.vendor = &gpu_vendor_apple;
     gpu_info->device = [dev retain];
     gpu_info->gpu_service = gpu_service;
+    // PCI bus/slot lookup is unconditional: every Mac Pro dGPU lives behind a
+    // walkable IOPCIBridge, while Apple Silicon simply leaves the lookup empty.
+    gpuinfo_apple_pci_init(&gpu_info->pci);
     if ([dev hasUnifiedMemory] && [dev location] == MTLDeviceLocationBuiltIn) {
       gpuinfo_apple_ioreport_init(&gpu_info->ioreport);
       gpuinfo_apple_smc_init(&gpu_info->smc);
@@ -192,6 +198,25 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = [gpu_info->device location] == MTLDeviceLocationBuiltIn;
   static_info->encode_decode_shared = true;
+
+  // Metal exposes the Infinity Fabric peer group on every MTLDevice; pair
+  // members see the same id and a count that matches how many GPUs share it.
+  // Cards with no fabric link return peerGroupID == 0 / peerCount == 1, which
+  // is the right thing to surface as "no link".
+  static_info->peer_group_id = (uint64_t)[gpu_info->device peerGroupID];
+  static_info->peer_count = (unsigned)[gpu_info->device peerCount];
+  if (static_info->peer_group_id != 0) {
+    SET_VALID(gpuinfo_peer_group_id_valid, static_info->valid);
+    SET_VALID(gpuinfo_peer_count_valid, static_info->valid);
+  }
+
+  unsigned bus = 0, slot = 0;
+  if (gpuinfo_apple_pci_lookup((uint64_t)[gpu_info->device registryID], &bus, &slot)) {
+    static_info->pci_bus_id = bus;
+    static_info->pci_slot_id = slot;
+    SET_VALID(gpuinfo_pci_bus_id_valid, static_info->valid);
+    SET_VALID(gpuinfo_pci_slot_id_valid, static_info->valid);
+  }
 }
 
 static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -227,14 +252,41 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (!sample_valid)
     return;
 
-  if (sample.gpu_util_rate_valid)
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, sample.gpu_util_rate);
+  if (sample.gpu_util_rate_valid || sample.gpu_activity_rate_valid) {
+    // Apple Silicon publishes "Device Utilization %"; discrete AMD cards pin
+    // that key at 0 and report real load under "GPU Activity(%)". Either side
+    // may be missing, so pick the larger valid reading and clamp to 100.
+    unsigned rate = 0;
+    if (sample.gpu_util_rate_valid && sample.gpu_util_rate > rate)
+      rate = sample.gpu_util_rate;
+    if (sample.gpu_activity_rate_valid && sample.gpu_activity_rate > rate)
+      rate = sample.gpu_activity_rate;
+    if (rate > 100)
+      rate = 100;
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, rate);
+  }
+
+  // Discrete AMD readings. These are populated only when the corresponding
+  // PerformanceStatistics key exists, so missing values simply leave the
+  // *_valid bits unset in the dynamic_info and nvtop renders them as N/A.
+  if (sample.used_memory_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, sample.used_memory);
+  if (sample.gpu_temp_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, sample.gpu_temp);
+  if (sample.power_draw_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, sample.power_draw_mw);
+  if (sample.gpu_clock_speed_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, sample.gpu_clock_speed);
+  if (sample.mem_clock_speed_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed, sample.mem_clock_speed);
+  if (sample.fan_speed_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, fan_speed, sample.fan_speed);
 
   if ([gpu_info->device hasUnifiedMemory]) {
     // [gpu_info->device currentAllocatedSize] returns the amount of memory allocated by this process, not
     // as allocated on the GPU globally. The performance statistics dictionary has the real value that we
     // are interested in, the amount of system memory allocated by the GPU.
-    if (sample.allocated_system_memory_valid)
+    if (sample.allocated_system_memory_valid && !sample.used_memory_valid)
       SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, sample.allocated_system_memory);
 
     // Unified-memory GPUs share the system's physical memory with the CPU. The Metal
@@ -247,10 +299,10 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (host_info_status == KERN_SUCCESS)
       SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, info.max_mem);
   } else {
-    // TODO: Figure out how to get used memory for this case.
-
-    // It does not really seem to be possible to get the amount of memory of a particular GPU.
-    // In this case, just get the recommended working set size. This is what MoltenVK also does.
+    // Discrete GPU (e.g. Radeon Pro W6800X/W6900X, RX 6900 XT). Total comes
+    // from the recommended working set size, as MoltenVK does. Used VRAM is
+    // taken from the AMD PerformanceStatistics "inUseVidMemoryBytes" counter,
+    // which `gpuinfo_apple_parse_performance_sample` already populated above.
     const uint64_t mem_total = [gpu_info->device recommendedMaxWorkingSetSize];
     SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mem_total);
   }

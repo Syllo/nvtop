@@ -41,9 +41,29 @@ struct gpuinfo_apple_process_sample {
 
 struct gpuinfo_apple_performance_sample {
   unsigned gpu_util_rate;
+  // AMD discrete GPUs (RDNA/RDNA2 on Mac Pro) pin "Device Utilization %" at 0
+  // and report real load under "GPU Activity(%)". We accept either source and
+  // let the caller pick the larger of the two.
+  unsigned gpu_activity_rate;
   uint64_t allocated_system_memory;
+  // Per-GPU stats populated for discrete AMD cards via the PerformanceStatistics
+  // dictionary. Apple Silicon GPUs don't expose these keys here, so each pair
+  // has its own *_valid flag.
+  uint64_t used_memory;             // inUseVidMemoryBytes
+  unsigned gpu_temp;                // Temperature(C)
+  unsigned power_draw_mw;           // Total Power(W), converted to mW
+  unsigned gpu_clock_speed;         // Core Clock(MHz)
+  unsigned mem_clock_speed;         // Memory Clock(MHz)
+  unsigned fan_speed;               // Fan Speed(%)
   bool gpu_util_rate_valid;
+  bool gpu_activity_rate_valid;
   bool allocated_system_memory_valid;
+  bool used_memory_valid;
+  bool gpu_temp_valid;
+  bool power_draw_valid;
+  bool gpu_clock_speed_valid;
+  bool mem_clock_speed_valid;
+  bool fan_speed_valid;
 };
 
 bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
