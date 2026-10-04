@@ -41,7 +41,7 @@
 // Core NVML types needed throughout the file (from nvml.h — cannot include directly
 // due to dlsym function pointer conflicts with nvtop's architecture).
 
-// NVML return codes (subset — we only use NVML_SUCCESS and NVML_ERROR_NOT_SUPPORTED)
+// NVML return codes (subset — the memory probes also need FUNCTION_NOT_FOUND)
 typedef enum nvmlReturn_enum {
   NVML_SUCCESS = 0,
   NVML_ERROR_UNINITIALIZED = 1,
@@ -49,6 +49,7 @@ typedef enum nvmlReturn_enum {
   NVML_ERROR_NOT_SUPPORTED = 3,
   NVML_ERROR_NO_PERMISSION = 4,
   NVML_ERROR_INSUFFICIENT_SIZE = 7,
+  NVML_ERROR_FUNCTION_NOT_FOUND = 13,
 } nvmlReturn_t;
 
 // Opaque device handle (nvml.h defines as struct nvmlDevice_st*)
@@ -198,6 +199,17 @@ static nvmlReturn_t (*nvmlDeviceGetCurrPcieLinkWidth)(nvmlDevice_t device, unsig
 // link. The function may be absent on older drivers.
 #define NVML_BUS_TYPE_PCIE 2
 static nvmlReturn_t (*nvmlDeviceGetBusType)(nvmlDevice_t device, unsigned int *type);
+
+// C2C link state (nvmlC2cModeInfo_v1_t in nvml.h, which is not included here).
+// Some SoCs report NVML_BUS_TYPE_PCIE even though the GPU die is attached to the
+// CPU through the on-die NVLink-C2C link, in which case the PCIe link queries
+// still succeed but return placeholder values. This entry point may be absent on
+// older drivers.
+typedef struct {
+  unsigned int isC2cEnabled;
+} nvmlC2cModeInfo_v1_t;
+
+static nvmlReturn_t (*nvmlDeviceGetC2cModeInfoV)(nvmlDevice_t device, nvmlC2cModeInfo_v1_t *c2c_mode_info);
 
 typedef enum {
   NVML_PCIE_UTIL_TX_BYTES = 0,
@@ -800,6 +812,11 @@ static bool gpuinfo_nvidia_init_with_lib(const char *libname) {
   // previous behaviour of probing the PCIe link.
   nvmlDeviceGetBusType = dlsym(libnvidia_ml_handle, "nvmlDeviceGetBusType");
 
+  // Optional: lets us detect a device attached over NVLink-C2C whose bus type
+  // still reports PCIe (e.g. DGX Spark / GB10). Absent on older drivers -> keep
+  // reporting the PCIe link as before.
+  nvmlDeviceGetC2cModeInfoV = dlsym(libnvidia_ml_handle, "nvmlDeviceGetC2cModeInfoV");
+
   nvmlDeviceGetPcieThroughput = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPcieThroughput");
   if (!nvmlDeviceGetPcieThroughput)
     goto init_error_clean_exit;
@@ -992,13 +1009,22 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   // size of zero) on platforms where the GPU shares the system memory with the
   // host, such as UMA platforms (e.g. DGX Spark / GB10).
   static_info->memory_shared_with_host = false;
+  bool memory_info_probed = false;
   if (nvmlDeviceGetMemoryInfo_v2) {
     nvmlMemory_v2_t memory_info;
     memory_info.version = 2;
     nvmlReturn_t ret = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
-    static_info->memory_shared_with_host =
-        ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
-  } else if (nvmlDeviceGetMemoryInfo) {
+    // A driver that predates the versioned memory ABI answers
+    // NVML_ERROR_FUNCTION_NOT_FOUND instead of describing the device, so it must
+    // not be read as evidence of a dedicated framebuffer. Fall through and let
+    // the v1 query below make the call.
+    if (ret != NVML_ERROR_FUNCTION_NOT_FOUND) {
+      memory_info_probed = true;
+      static_info->memory_shared_with_host =
+          ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
+    }
+  }
+  if (!memory_info_probed && nvmlDeviceGetMemoryInfo) {
     nvmlMemory_v1_t memory_info;
     nvmlReturn_t ret = nvmlDeviceGetMemoryInfo(device, &memory_info);
     static_info->memory_shared_with_host =
@@ -1203,6 +1229,16 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     unsigned int bus_type;
     if (nvmlDeviceGetBusType(device, &bus_type) == NVML_SUCCESS)
       device_on_pcie_bus = bus_type == NVML_BUS_TYPE_PCIE;
+  }
+  // The bus type alone is not enough: DGX Spark (GB10) reports
+  // NVML_BUS_TYPE_PCIE while the GPU die hangs off the on-die NVLink-C2C link,
+  // and the link queries then return placeholder values (GEN 1 @ 1x). A failed
+  // probe is not read as a C2C attach, so a real PCIe GPU keeps its readout.
+  if (device_on_pcie_bus && nvmlDeviceGetC2cModeInfoV) {
+    nvmlC2cModeInfo_v1_t c2c_mode_info = {0};
+    if (nvmlDeviceGetC2cModeInfoV(device, &c2c_mode_info) == NVML_SUCCESS &&
+        c2c_mode_info.isC2cEnabled != 0)
+      device_on_pcie_bus = false;
   }
 
   if (device_on_pcie_bus) {
