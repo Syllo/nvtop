@@ -287,6 +287,9 @@ void processinfo_sweep_fdinfos(void) {
     // Do this once all fds of this pid are merged: an idle fd must not mark a process that uses compute
     // on its other fds as graphical. (The entry of the pid being scanned is always the last one.)
     for (unsigned callback_idx = 0; callback_idx < registered_callback_entries; ++callback_idx) {
+      // Skip disabled callbacks: their parser did not run, so they hold no entry for this pid.
+      if (!callback_entries[callback_idx].active)
+        continue;
       struct gpu_info *gpu_info = callback_entries[callback_idx].gpu_info;
       if (gpu_info->processes_count > 0) {
         struct gpu_process *process_info = &gpu_info->processes[gpu_info->processes_count - 1];
