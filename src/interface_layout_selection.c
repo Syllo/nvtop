@@ -269,6 +269,21 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
   preliminary_plot_positioning(rows_for_plots, cols, devices_count, gpuOpts, map_device_to_plot, plot_in_stack,
                                num_plots, &num_plot_stacks);
 
+  // The headers of a row share the width evenly
+  unsigned header_slot_cols = max(device_header_cols, cols / num_device_per_row);
+
+  // With one plot per device, lay the plots out like the headers: each plot takes the columns of its device header
+  bool plots_follow_headers = num_plot_stacks > 0 && *num_plots == devices_count &&
+                              num_device_per_row * header_slot_cols <= cols &&
+                              header_stacks * min_plot_rows <= rows_for_plots;
+  for (unsigned i = 0; plots_follow_headers && i < devices_count; ++i)
+    plots_follow_headers = min_plot_cols(plot_count_draw_info(gpuOpts[i].to_draw)) <= header_slot_cols;
+  if (plots_follow_headers) {
+    num_plot_stacks = header_stacks;
+    for (unsigned i = 0; i < devices_count; ++i)
+      plot_in_stack[i] = i / num_device_per_row;
+  }
+
   // Transfer some lines to the header to separate the devices
   unsigned transferable_lines = rows_for_plots - num_plot_stacks * min_plot_rows;
   unsigned space_for_header = header_stacks == 0 ? 0 : header_stacks - 1;
@@ -280,7 +295,7 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
   }
 
   // Allocate additional plot stacks if there is enough vertical room
-  if (num_plot_stacks > 0) {
+  if (num_plot_stacks > 0 && !plots_follow_headers) {
     while (num_plot_stacks < *num_plots && rows_for_plots / (num_plot_stacks + 1) >= 11 &&
            (num_plot_stacks + 1) * min_plot_rows <= rows_for_plots)
       num_plot_stacks++;
@@ -297,36 +312,18 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
   }
 
   // Keep the plot order of apparition, but spread the plot on different stacks
-  balance_info_on_stacks_preserving_plot_order(cols, num_plot_stacks, *num_plots, num_info_per_plot,
-                                               cols_allocated_in_stacks, plot_in_stack);
+  if (!plots_follow_headers)
+    balance_info_on_stacks_preserving_plot_order(cols, num_plot_stacks, *num_plots, num_info_per_plot,
+                                                 cols_allocated_in_stacks, plot_in_stack);
 
   // Device Information Header
-  unsigned cols_header_left = cols - num_device_per_row * device_header_cols;
-  bool space_between_header_col = false;
-  bool space_before_header = false;
-  if (cols_header_left > num_device_per_row) {
-    space_between_header_col = true;
-    cols_header_left -= num_device_per_row - 1;
-  }
-  if (cols_header_left > 0)
-    space_before_header = true;
-
-  unsigned num_this_row = 0;
-  unsigned headerPosX = space_before_header;
-  unsigned headerPosY = 0;
+  // A header starts one column into its slot when the slot has room, which separates neighbouring headers
+  unsigned header_indent = header_slot_cols > device_header_cols;
   for (unsigned i = 0; i < devices_count; ++i) {
-    device_positions[i].posX = headerPosX;
-    device_positions[i].posY = headerPosY;
-    device_positions[i].sizeX = device_header_cols;
+    device_positions[i].posX = (i % num_device_per_row) * header_slot_cols + header_indent;
+    device_positions[i].posY = (i / num_device_per_row) * (device_header_rows + space_between_header_stack);
+    device_positions[i].sizeX = header_slot_cols - header_indent;
     device_positions[i].sizeY = device_header_rows;
-    num_this_row++;
-    if (num_this_row == num_device_per_row) {
-      headerPosX = space_before_header;
-      headerPosY += device_header_rows + space_between_header_stack;
-      num_this_row = 0;
-    } else {
-      headerPosX += device_header_cols + space_between_header_col;
-    }
   }
 
   unsigned rows_left_for_process = 0;
@@ -350,6 +347,10 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
         if (plot_in_stack[j] == stack_id) {
           unsigned max_plot_cols =
               cols_needed_box_drawing + cols_for_line_drawing * num_info_per_plot[j] / lines_to_draw;
+          if (plots_follow_headers) {
+            max_plot_cols = header_slot_cols;
+            currentPosX = (j % num_device_per_row) * header_slot_cols;
+          }
           unsigned plot_cols = max_plot_cols - (max_plot_cols - cols_needed_box_drawing) % num_info_per_plot[j];
           plot_positions[num_plot_done].posX = currentPosX;
           plot_positions[num_plot_done].posY = currentPosY;

@@ -204,6 +204,41 @@ TEST(InterfaceLayout, FixInfiniteLoop) {
 
 TEST(InterfaceLayout, LayoutSelection_test_fail_case1) { test_with_terminal_size(32, 3, 55, 16, 1760); }
 
+TEST(InterfaceLayout, LayoutSelectionSweep) {
+  for (unsigned header_cols : {55, 89})
+    for (unsigned device_count = 1; device_count <= 8; ++device_count)
+      for (unsigned rows = 4; rows <= 100; rows += 3)
+        for (unsigned cols = 30; cols <= 400; cols += 7)
+          EXPECT_TRUE(test_with_terminal_size(device_count, 3, header_cols, rows, cols))
+              << device_count << " devices, header " << header_cols << " cols, terminal " << cols << "x" << rows;
+}
+
+TEST(InterfaceLayout, PlotsAlignWithHeaders) {
+  unsigned device_count = 2, header_rows = 3, header_cols = 89, rows = 88, cols = 212;
+
+  nvtop_interface_gpu_opts to_draw_default = {.to_draw = plot_default_draw_info()};
+  std::vector<nvtop_interface_gpu_opts> plot_display(device_count, to_draw_default);
+
+  process_field_displayed proc_display = process_default_displayed_field();
+
+  unsigned num_plots = 0;
+  std::vector<struct window_position> dev_positions(device_count);
+  std::vector<struct window_position> plot_positions(MAX_CHARTS);
+  struct window_position process_position;
+  struct window_position setup_position;
+  std::vector<unsigned> map_dev_to_plot(device_count);
+  compute_sizes_from_layout(device_count, header_rows, header_cols, rows, cols, plot_display.data(), proc_display,
+                            dev_positions.data(), &num_plots, plot_positions.data(), map_dev_to_plot.data(),
+                            &process_position, &setup_position, false);
+  ASSERT_EQ(num_plots, device_count);
+  for (unsigned i = 0; i < device_count; ++i) {
+    EXPECT_EQ(dev_positions[i].posY, 0) << "header " << i;
+    EXPECT_EQ(plot_positions[i].posY, plot_positions[0].posY) << "plot " << i;
+    EXPECT_EQ(plot_positions[i].posX + 1, dev_positions[i].posX) << "plot " << i;
+    EXPECT_GE(plot_positions[i].sizeX + 5, dev_positions[i].sizeX) << "plot " << i;
+  }
+}
+
 namespace {
 
 // Build a gpuinfo_static_info with valid max PCIe gen / width fields.
