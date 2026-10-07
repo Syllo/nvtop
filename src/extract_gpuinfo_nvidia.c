@@ -994,7 +994,7 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   static_info->memory_shared_with_host = false;
   if (nvmlDeviceGetMemoryInfo_v2) {
     nvmlMemory_v2_t memory_info;
-    memory_info.version = 2;
+    memory_info.version = (unsigned int)sizeof(memory_info) | (2U << 24);
     nvmlReturn_t ret = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
     static_info->memory_shared_with_host =
         ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
@@ -1171,7 +1171,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     bool got_meminfo = false;
     if (nvmlDeviceGetMemoryInfo_v2) {
       nvmlMemory_v2_t memory_info;
-      memory_info.version = 2;
+      memory_info.version = (unsigned int)sizeof(memory_info) | (2U << 24);
       last_nvml_return_status = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
       if (last_nvml_return_status == NVML_SUCCESS && memory_info.total != 0) {
         got_meminfo = true;
