@@ -25,10 +25,12 @@
 #include "nvtop/time.h"
 
 #include <assert.h>
+#include <dirent.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <libdrm/msm_drm.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/sysinfo.h>
@@ -64,10 +66,15 @@ struct msm_process_info_cache {
   UT_hash_handle hh;
 };
 
+#define MSM_MAX_THERMAL_ZONES 32 // glymur has 14
+
 struct gpu_info_msm {
   drmVersionPtr drmVersion;
   struct gpu_info base;
   int fd;
+  char devfreq_cur_freq[sizeof("/sys/class/devfreq/") + NAME_MAX + sizeof("/cur_freq")];
+  unsigned thermal_zones[MSM_MAX_THERMAL_ZONES];
+  unsigned thermal_zone_count;
 
   struct msm_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
 };
@@ -466,6 +473,62 @@ static int gpuinfo_msm_query_param(int gpu, uint32_t param, uint64_t *value) {
   return 0;
 }
 
+static size_t msm_read_sysfs(const char *path, char *buf, size_t size) {
+  FILE *f = fopen(path, "r");
+  if (!f)
+    return 0;
+  size_t n = fread(buf, 1, size - 1, f);
+  fclose(f);
+  buf[n] = '\0';
+  return n;
+}
+
+// The GPU's node, not the GMU's: it lists the generic "qcom,adreno"
+static bool msm_is_gpu_compatible(const char *buf, size_t len) {
+  for (size_t i = 0; i < len && buf[i]; i += strlen(buf + i) + 1)
+    if (!strcmp(buf + i, "qcom,adreno"))
+      return true;
+  return false;
+}
+
+// No DRM query for the current clock or the temperature: use the GPU's devfreq and thermal zones
+static void msm_find_sysfs_paths(struct gpu_info_msm *gpu_info) {
+  char path[PATH_MAX], buf[256];
+  struct dirent *entry;
+
+  gpu_info->devfreq_cur_freq[0] = '\0';
+  gpu_info->thermal_zone_count = 0;
+
+  DIR *dir = opendir("/sys/class/devfreq");
+  if (dir) {
+    while ((entry = readdir(dir))) {
+      if (entry->d_name[0] == '.')
+        continue;
+      snprintf(path, sizeof(path), "/sys/class/devfreq/%s/device/of_node/compatible", entry->d_name);
+      size_t len = msm_read_sysfs(path, buf, sizeof(buf));
+      if (len && msm_is_gpu_compatible(buf, len)) {
+        snprintf(gpu_info->devfreq_cur_freq, sizeof(gpu_info->devfreq_cur_freq), "/sys/class/devfreq/%s/cur_freq",
+                 entry->d_name);
+        break;
+      }
+    }
+    closedir(dir);
+  }
+
+  dir = opendir("/sys/class/thermal");
+  if (dir) {
+    while ((entry = readdir(dir)) && gpu_info->thermal_zone_count < MSM_MAX_THERMAL_ZONES) {
+      unsigned zone;
+      if (sscanf(entry->d_name, "thermal_zone%u", &zone) != 1)
+        continue;
+      snprintf(path, sizeof(path), "/sys/class/thermal/thermal_zone%u/type", zone);
+      if (msm_read_sysfs(path, buf, sizeof(buf)) && !strncmp(buf, "gpu", 3))
+        gpu_info->thermal_zones[gpu_info->thermal_zone_count++] = zone;
+    }
+    closedir(dir);
+  }
+}
+
 void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_msm *gpu_info = container_of(_gpu_info, struct gpu_info_msm, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
@@ -473,6 +536,8 @@ void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
   static_info->integrated_graphics = true;
   static_info->encode_decode_shared = true;
   RESET_ALL(static_info->valid);
+
+  msm_find_sysfs_paths(gpu_info);
 
   uint64_t gpuid;
   if (gpuinfo_msm_query_param(gpu_info->fd, MSM_PARAM_CHIP_ID, &gpuid) == 0) {
@@ -499,12 +564,29 @@ void gpuinfo_msm_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   RESET_ALL(dynamic_info->valid);
 
-  // GPU clock
+  char buf[64], path[64];
+
+  // GPU clock: the maximum from the driver, the current one from devfreq
   uint64_t clock_val;
   if (gpuinfo_msm_query_param(gpu_info->fd, MSM_PARAM_MAX_FREQ, &clock_val) == 0) {
-    // TODO: No way to query current clock speed.
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, clock_val / 1000000);
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, clock_val / 1000000);
+  }
+  unsigned long long cur_freq;
+  if (gpu_info->devfreq_cur_freq[0] && msm_read_sysfs(gpu_info->devfreq_cur_freq, buf, sizeof(buf)) &&
+      sscanf(buf, "%llu", &cur_freq) == 1) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, cur_freq / 1000000);
+  }
+
+  // Temperature: the hottest GPU thermal zone
+  long max_temp = LONG_MIN;
+  for (unsigned i = 0; i < gpu_info->thermal_zone_count; i++) {
+    long temp;
+    snprintf(path, sizeof(path), "/sys/class/thermal/thermal_zone%u/temp", gpu_info->thermal_zones[i]);
+    if (msm_read_sysfs(path, buf, sizeof(buf)) && sscanf(buf, "%ld", &temp) == 1 && temp > max_temp)
+      max_temp = temp;
+  }
+  if (max_temp != LONG_MIN) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, max_temp > 0 ? max_temp / 1000 : 0);
   }
 
   // Mem clock
