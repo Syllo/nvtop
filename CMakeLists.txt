@@ -100,7 +100,7 @@ else()
   set(IXML_SUPPORT_DEFAULT ON)
 endif()
 
-# TPU and Enflame GCU support is only available on Linux
+# TPU, Enflame GCU and Gaudi support is only available on Linux
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   # Check for libtpuinfo.so to set the default for TPU support
   find_library(LIBTPUINFO
@@ -114,9 +114,11 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(TPU_SUPPORT_DEFAULT ON)
   endif()
   set(ENFLAME_SUPPORT_DEFAULT ON)
+  set(GAUDI_SUPPORT_DEFAULT ON)
 else()
   set(TPU_SUPPORT_DEFAULT OFF)
   set(ENFLAME_SUPPORT_DEFAULT OFF)
+  set(GAUDI_SUPPORT_DEFAULT OFF)
 endif()
 
 # Rockchip support is only available on Linux on arm
@@ -151,6 +153,7 @@ option(METAX_SUPPORT "Build support for MetaX GPUs through libmxsml" ${METAX_SUP
 option(ENFLAME_SUPPORT "Build support for Enflame GCUs through libefml" ${ENFLAME_SUPPORT_DEFAULT})
 option(TENSTORRENT_SUPPORT "Build support for Tenstorrent accelerators through tt-kmd" ${TENSTORRENT_SUPPORT_DEFAULT})
 option(IXML_SUPPORT "Build support for Iluvatar CoreX GPUs through libixml" ${IXML_SUPPORT_DEFAULT})
+option(GAUDI_SUPPORT "Build support for Intel Gaudi HPUs through libhlml" ${GAUDI_SUPPORT_DEFAULT})
 
 add_subdirectory(src)
 

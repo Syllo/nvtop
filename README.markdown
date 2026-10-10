@@ -11,8 +11,8 @@ htop-familiar way.
 Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
 M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
 proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver),
-Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver).
-Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Iluvatar CoreX (ixML / libixml).
+Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver),
+Iluvatar CoreX (ixML / libixml), Intel Gaudi (Linux habanalabs driver).
 
 Because a picture is worth a thousand words:
 
@@ -38,6 +38,7 @@ Table of Contents
   - [MetaX](#metax)
   - [Enflame](#enflame)
   - [Tenstorrent](#tenstorrent)
+  - [Intel Gaudi](#intel-gaudi)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
@@ -196,6 +197,23 @@ NVTOP supports Tenstorrent AI accelerators (Blackhole, Wormhole, Grayskull) thro
 
 Supports temperature, power draw, AI clock, fan RPM, PCIe link info, and process listing. No external libraries required -- all data is read from sysfs, hwmon, and procfs.
 
+### Intel Gaudi
+
+NVTOP supports Intel Gaudi HPUs (testing on Gaudi2 HL-225, driver 1.24) through the *Habana Labs Management
+Library* (*HLML*, `libhlml.so`), the library behind `hl-smi`. It is loaded at runtime, so building only needs the
+`GAUDI_SUPPORT` option (enabled by default on Linux), not the Habana SDK headers.
+
+Supports AIP utilization, memory usage, SoC clock, chip temperature, power draw and limit, PCIe link and
+rx/tx throughput, and the processes using each device with their device memory.
+
+* Some HLML queries go through the device firmware and take tens of milliseconds, so the device information is sampled
+  by a background thread and lags behind by at most one refresh interval.
+* Processes are found by scanning `/proc` for the `/dev/accel/accelN` device nodes, hence you need to run nvtop as root
+  to see the processes of other users. Gaudi runs one compute context per device: the process memory is the one the
+  framework publishes in `/dev/shm/mem_usage_accelN` (as `hl-smi` shows it) and the process utilization is the device
+  utilization.
+* The power limit is the one of the main (54V) power supply; `hl-smi` adds the auxiliary 12V supply to its cap.
+
 Build
 -----
 
@@ -212,6 +230,8 @@ Several libraries are required in order for NVTOP to display GPU info:
   * This queries the GPU for info.
 * For Enflame: the *Enflame Management Library* (*EFML*) which comes with the GCU driver.
 * For Iluvatar CoreX: the *ixML* runtime library (`libixml.so`) which comes with the driver.
+  * This backend loads the library dynamically at runtime.
+* For Intel Gaudi: the *Habana Labs Management Library* (*HLML*) which comes with the habanalabs driver packages.
   * This backend loads the library dynamically at runtime.
 
 ## Distribution Specific Installation Process

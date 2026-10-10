@@ -211,6 +211,13 @@ if(IXML_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_ixml.c)
 endif()
 
+if(GAUDI_SUPPORT)
+  message(STATUS "Building with Intel Gaudi HPU support")
+  find_package(Threads REQUIRED)
+  target_sources(nvtop PRIVATE extract_gpuinfo_gaudi.c)
+  target_link_libraries(nvtop PRIVATE Threads::Threads)
+endif()
+
 target_include_directories(nvtop PRIVATE
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_BINARY_DIR}/include)
