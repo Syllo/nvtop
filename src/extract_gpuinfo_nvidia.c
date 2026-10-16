@@ -186,6 +186,12 @@ typedef struct {
   unsigned long long used;
 } nvmlMemory_v2_t;
 
+// NVML API versioning: versioned structures must carry the value of
+// NVML_STRUCT_VERSION(Memory, 2) from the official nvml.h, i.e. the structure
+// size combined with the API version (sizeof | (2 << 24)). Passing the bare
+// version number makes the driver fail with NVML_ERROR_FUNCTION_NOT_FOUND.
+#define NVML_MEMORY_V2_VERSION ((unsigned int)(sizeof(nvmlMemory_v2_t)) | ((unsigned int)2 << 24))
+
 static nvmlReturn_t (*nvmlDeviceGetMemoryInfo)(nvmlDevice_t device, nvmlMemory_v1_t *memory);
 static nvmlReturn_t (*nvmlDeviceGetMemoryInfo_v2)(nvmlDevice_t device, nvmlMemory_v2_t *memory);
 
@@ -988,21 +994,21 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = false;
   static_info->encode_decode_shared = false;
-  // NVML reports no dedicated framebuffer (NVML_ERROR_NOT_SUPPORTED or a total
-  // size of zero) on platforms where the GPU shares the system memory with the
-  // host, such as UMA platforms (e.g. DGX Spark / GB10).
+  // NVML reports no dedicated framebuffer (any memory query failure, or a
+  // successful query with a total size of zero) on platforms where the GPU
+  // shares the system memory with the host, such as UMA platforms (e.g.
+  // DGX Spark / GB10). The broad error check also covers drivers replying
+  // NVML_ERROR_FUNCTION_NOT_FOUND to versioned structure mismatches.
   static_info->memory_shared_with_host = false;
   if (nvmlDeviceGetMemoryInfo_v2) {
     nvmlMemory_v2_t memory_info;
-    memory_info.version = 2;
+    memory_info.version = NVML_MEMORY_V2_VERSION;
     nvmlReturn_t ret = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
-    static_info->memory_shared_with_host =
-        ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
+    static_info->memory_shared_with_host = ret != NVML_SUCCESS || memory_info.total == 0;
   } else if (nvmlDeviceGetMemoryInfo) {
     nvmlMemory_v1_t memory_info;
     nvmlReturn_t ret = nvmlDeviceGetMemoryInfo(device, &memory_info);
-    static_info->memory_shared_with_host =
-        ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
+    static_info->memory_shared_with_host = ret != NVML_SUCCESS || memory_info.total == 0;
   }
   RESET_ALL(static_info->valid);
 
@@ -1171,7 +1177,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     bool got_meminfo = false;
     if (nvmlDeviceGetMemoryInfo_v2) {
       nvmlMemory_v2_t memory_info;
-      memory_info.version = 2;
+      memory_info.version = NVML_MEMORY_V2_VERSION;
       last_nvml_return_status = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
       if (last_nvml_return_status == NVML_SUCCESS && memory_info.total != 0) {
         got_meminfo = true;
