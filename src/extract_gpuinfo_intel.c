@@ -467,6 +467,9 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   nvtop_device_unref(driver_dev_noncached);
   if (hwmon_dev_noncached)
     nvtop_device_unref(hwmon_dev_noncached);
+  // bridge_dev_noncached aliases driver_dev_noncached when there is no bridge
+  if (bridge_dev_noncached != driver_dev_noncached)
+    nvtop_device_unref(bridge_dev_noncached);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_intel *gpu_info) {
