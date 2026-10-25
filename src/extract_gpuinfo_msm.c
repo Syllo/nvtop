@@ -343,8 +343,7 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
         MSM_CACHE_FIELD_VALID(cache_entry, engine_render) &&
         // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
-        process_info->gfx_engine_used >= cache_entry->engine_render &&
-        process_info->gfx_engine_used - cache_entry->engine_render <= time_elapsed) {
+        process_info->gfx_engine_used >= cache_entry->engine_render) {
       SET_GPUINFO_PROCESS(
           process_info, gpu_usage,
           busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));

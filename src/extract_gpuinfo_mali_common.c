@@ -420,8 +420,7 @@ void mali_common_parse_fdinfo_handle_cache(struct gpu_info_mali *gpu_info,
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
         MALI_CACHE_FIELD_VALID(cache_entry, engine_render) &&
         // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
-        process_info->gfx_engine_used >= cache_entry->engine_render &&
-        process_info->gfx_engine_used - cache_entry->engine_render <= time_elapsed) {
+        process_info->gfx_engine_used >= cache_entry->engine_render) {
       SET_GPUINFO_PROCESS(
           process_info, gpu_usage,
           busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));
