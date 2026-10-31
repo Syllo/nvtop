@@ -100,6 +100,9 @@ typedef struct nvmlFieldValue_st {
 #ifndef NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL 45
 #endif
+#ifndef NVML_FI_DEV_MEMORY_TEMP
+#define NVML_FI_DEV_MEMORY_TEMP 82
+#endif
 #ifndef NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL 160
 #endif
@@ -1235,6 +1238,21 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &dynamic_info->gpu_temp);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
+
+  // Memory (HBM) temperature — only reported by datacenter GPUs (V100/A100/H100)
+  if (nvmlDeviceGetFieldValues) {
+    nvmlFieldValue_t mem_temp_field;
+    memset(&mem_temp_field, 0, sizeof(mem_temp_field));
+    mem_temp_field.fieldId = NVML_FI_DEV_MEMORY_TEMP;
+    if (nvmlDeviceGetFieldValues(device, 1, &mem_temp_field) == NVML_SUCCESS &&
+        mem_temp_field.nvmlReturn == NVML_SUCCESS) {
+      unsigned int mem_temp = mem_temp_field.valueType == NVML_VALUE_TYPE_UNSIGNED_LONG_LONG
+                                  ? (unsigned int)mem_temp_field.value.ullVal
+                                  : mem_temp_field.value.uiVal;
+      if (mem_temp > 0 && mem_temp < 200)
+        SET_GPUINFO_DYNAMIC(dynamic_info, mem_temp, mem_temp);
+    }
+  }
 
   // Device power usage
   last_nvml_return_status = nvmlDeviceGetPowerUsage(device, &dynamic_info->power_draw);
