@@ -330,4 +330,12 @@ bool nvtop_get_ecc_support(struct gpu_info *gpu_info);
 // the ECC field when a monitored GPU actually supports ECC.
 bool nvtop_probe_ecc_list(struct list_head *devices);
 
+// Memory (HBM) temperature support: true if the GPU reports NVML_FI_DEV_MEMORY_TEMP
+// (datacenter GPUs). Consumer GPUs do not report it.
+bool nvtop_get_mem_temp_support(struct gpu_info *gpu_info);
+
+// Memory temperature probe — call before initialize_curses so the temperature field
+// is only widened when a monitored GPU reports a memory temperature.
+bool nvtop_probe_mem_temp_list(struct list_head *devices);
+
 #endif // EXTRACT_GPUINFO_COMMON_H__

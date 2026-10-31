@@ -48,7 +48,7 @@
 
 // device_ecc is sized for "ECC 999/99": corrected is capped at 3 digits, uncorrected at 2
 static unsigned int sizeof_device_field[device_field_count] = {
-    [device_name] = 11,          [device_fan_speed] = 11,  [device_temperature] = 19, [device_power] = 15,
+    [device_name] = 11,          [device_fan_speed] = 11,  [device_temperature] = 10, [device_power] = 15,
     [device_ecc] = 10,           [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,
     [device_nvlink_errors] = 33, [device_extra_info] = 15,
 };
@@ -122,6 +122,26 @@ bool nvtop_probe_ecc_list(struct list_head *devices) {
 
   any_device_has_ecc = has_ecc;
   return has_ecc;
+}
+
+// True if any monitored device reports a memory (HBM) temperature. The temperature
+// field is then widened from "TEMP  40°C" to "TEMP  40°C HBM 38°C".
+static bool any_device_has_mem_temp = false;
+
+bool nvtop_probe_mem_temp_list(struct list_head *devices) {
+  // Memory temperature support is a static hardware property: skip re-probing once found.
+  if (any_device_has_mem_temp)
+    return true;
+
+  struct gpu_info *gpu;
+  list_for_each_entry(gpu, devices, list) {
+    if (nvtop_get_mem_temp_support(gpu)) {
+      any_device_has_mem_temp = true;
+      break;
+    }
+  }
+  sizeof_device_field[device_temperature] = any_device_has_mem_temp ? 19 : 10;
+  return any_device_has_mem_temp;
 }
 
 static unsigned int sizeof_process_field[process_field_count] = {

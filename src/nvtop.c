@@ -349,6 +349,7 @@ int main(int argc, char **argv) {
   // Probe for NVLink and ECC support before layout computation
   nvtop_probe_nvlink_list(&monitoredGpus);
   nvtop_probe_ecc_list(&monitoredGpus);
+  nvtop_probe_mem_temp_list(&monitoredGpus);
 
   if (allDevicesOptions.show_startup_messages) {
     bool dont_show_again = show_information_messages(numWarningMessages, warningMessages);
@@ -377,6 +378,7 @@ int main(int argc, char **argv) {
     // initialize_all_windows() reads them for layout decisions.
     nvtop_probe_nvlink_list(&monitoredGpus);
     nvtop_probe_ecc_list(&monitoredGpus);
+    nvtop_probe_mem_temp_list(&monitoredGpus);
     interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
