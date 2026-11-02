@@ -195,8 +195,7 @@ static void add_v3d_cards(struct nvtop_device *dev, const char *devname, struct 
     return;
 
   const char *driver;
-  nvtop_device_get_driver(parent, &driver);
-  if (strcmp(driver, "v3d"))
+  if (nvtop_device_get_driver(parent, &driver) < 0 || strcmp(driver, "v3d"))
     return;
 
   struct gpu_info_v3d *thisGPU = &gpu_infos[v3d_gpu_count++];

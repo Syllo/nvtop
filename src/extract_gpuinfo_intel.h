@@ -67,6 +67,8 @@ struct gpu_info_intel {
     unsigned energy_uj;
     struct timespec time;
   } energy;
+
+  int perf_event_fd;
 };
 
 extern void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info);

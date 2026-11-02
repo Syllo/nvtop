@@ -139,6 +139,8 @@ static void gpuinfo_rknpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_rknpu *gpu_info = container_of(_gpu_info, struct gpu_info_rknpu, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
+  RESET_ALL(dynamic_info->valid);
+
   int gpu_clock_speed = read_int_from_file("/sys/class/devfreq/fdab0000.npu/cur_freq") / 1000000;
   int gpu_clock_speed_max = read_int_from_file("/sys/class/devfreq/fdab0000.npu/max_freq") / 1000000;
   int gpu_util_rate = read_npu_load("/sys/kernel/debug/rknpu/load");
@@ -158,16 +160,15 @@ static void gpuinfo_rknpu_get_running_processes(struct gpu_info *_gpu_info) {
   _gpu_info->processes_count = 0;
 }
 
-struct gpu_vendor gpu_vendor_rknpu = {
-  .init = gpuinfo_rknpu_init,
-  .shutdown = gpuinfo_rknpu_shutdown,
-  .last_error_string = gpuinfo_rknpu_last_error_string,
-  .get_device_handles = gpuinfo_rknpu_get_device_handles,
-  .populate_static_info = gpuinfo_rknpu_populate_static_info,
-  .refresh_dynamic_info = gpuinfo_rknpu_refresh_dynamic_info,
-  .refresh_running_processes = gpuinfo_rknpu_get_running_processes,
-  .name = "RK-NPU"
-};
+struct gpu_vendor gpu_vendor_rknpu = {.init = gpuinfo_rknpu_init,
+                                      .shutdown = gpuinfo_rknpu_shutdown,
+                                      .last_error_string = gpuinfo_rknpu_last_error_string,
+                                      .get_device_handles = gpuinfo_rknpu_get_device_handles,
+                                      .populate_static_info = gpuinfo_rknpu_populate_static_info,
+                                      .refresh_dynamic_info = gpuinfo_rknpu_refresh_dynamic_info,
+                                      .refresh_running_processes = gpuinfo_rknpu_get_running_processes,
+                                      .name = "RK-NPU",
+                                      .processing_unit = gpu_processing_unit_npu};
 
 __attribute__((constructor)) static void init_extract_gpuinfo_rknpu(void) {
   register_gpu_vendor(&gpu_vendor_rknpu);

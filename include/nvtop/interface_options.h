@@ -50,8 +50,10 @@ typedef struct nvtop_interface_option_struct {
   bool show_startup_messages;                       // True to show the startup messages
   bool filter_nvtop_pid;                            // Do not show nvtop pid in the processes list
   bool has_monitored_set_changed;                   // True if the set of monitored gpu was modified through the interface
-  bool has_gpu_info_bar;                            // Show info bar with additional GPU parameters
+  bool has_gpu_info_bar;                            // Show the dynamic GPU parameters (clock domains, NVLink errors)
+  bool has_all_info_bar;                            // Show the static specs and the secondary clock domains
   bool hide_processes_list;                         // Hide processes list
+  bool dynamic_memory_units;                        // Scale process memory units automatically
   unsigned char gpu_plot_color_idx[MAX_LINES_PER_PLOT]; // index into plot_color_names[] per plot slot
 } nvtop_interface_option;
 
@@ -79,6 +81,15 @@ inline plot_info_to_draw plot_remove_draw_info(enum plot_information reset_info,
 }
 
 inline plot_info_to_draw plot_default_draw_info(void) { return (1 << plot_gpu_rate) | (1 << plot_gpu_mem_rate); }
+
+// Default plots for NPU backends that expose HVX/HMX. Built through
+// plot_add_draw_info() so the MAX_LINES_PER_PLOT limit is always respected.
+static inline plot_info_to_draw plot_npu_default_draw_info(void) {
+  plot_info_to_draw to_draw = plot_default_draw_info();
+  to_draw = plot_add_draw_info(plot_hvx_util_rate, to_draw);
+  to_draw = plot_add_draw_info(plot_hmx_util_rate, to_draw);
+  return to_draw;
+}
 
 void alloc_interface_options_internals(char *config_file_location, unsigned num_devices, struct list_head *devices,
                                        nvtop_interface_option *options);
