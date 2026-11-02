@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Update/build once at startup, retaining the last working binary on failure.
+set -uo pipefail
+launcher=$(readlink -f -- "${BASH_SOURCE[0]}")
+repo=$(cd -- "$(dirname -- "$launcher")/.." && pwd)
+state=${XDG_STATE_HOME:-$HOME/.local/state}/nvtop
+mkdir -p "$state/logs" "$state/releases"
+log="$state/logs/start-$(date -u +%Y%m%d%H).log"
+find "$state/logs" -type f -name 'start-*.log' -mmin +1440 -delete
+exec 9>"$state/update.lock"
+if flock -w 10 9; then
+  branch=${NVTOP_UPDATE_BRANCH:-master}
+  update() {
+    printf '%s Checking %s\n' "$(date -u +%FT%TZ)" "$branch"
+    # No reset/checkout/pull in the user's working tree; build a separate snapshot.
+    GIT_TERMINAL_PROMPT=0 timeout 45 git -C "$repo" fetch origin "$branch" || return
+    revision=$(git -C "$repo" rev-parse FETCH_HEAD) || return
+    if [[ -x "$state/releases/$revision/nvtop" ]]; then
+      ln -sfn "releases/$revision" "$state/current.next"
+      mv -Tf "$state/current.next" "$state/current"
+      return
+    fi
+    staging=$(mktemp -d "$state/build.XXXXXX") || return
+    if ! git -C "$repo" archive "$revision" | tar -x -C "$staging"; then
+      rm -rf -- "$staging"; return 1
+    fi
+    if timeout 120 cmake -S "$staging" -B "$staging/build" -DCMAKE_BUILD_TYPE=Release \
+        -DREMOTE_SUPPORT=ON -DBUILD_TESTING=OFF && \
+       timeout 300 cmake --build "$staging/build" -j "${NVTOP_BUILD_JOBS:-2}" && \
+       "$staging/build/src/nvtop" --version; then
+      mkdir -p "$state/releases/$revision" || return
+      cp "$staging/build/src/nvtop" "$state/releases/$revision/nvtop.next" || return
+      mv "$state/releases/$revision/nvtop.next" "$state/releases/$revision/nvtop" || return
+      ln -sfn "releases/$revision" "$state/current.next"
+      mv -Tf "$state/current.next" "$state/current"
+      printf '%s Activated %s\n' "$(date -u +%FT%TZ)" "$revision"
+    else
+      rm -rf -- "$staging"; return 1
+    fi
+    rm -rf -- "$staging"
+  }
+  if [[ ${NVTOP_AUTO_UPDATE:-1} != 0 ]]; then
+    if ! (set -eo pipefail; update) >>"$log" 2>&1; then
+      printf '%s Update failed; retaining previous binary.\n' "$(date -u +%FT%TZ)" >>"$log"
+    fi
+  fi
+  flock -u 9
+fi
+exec 9>&-
+if [[ ! -x "$state/current/nvtop" ]]; then
+  printf 'No working nvtop build. See %s\n' "$log" >&2
+  exit 1
+fi
+exec "$state/current/nvtop" "$@"

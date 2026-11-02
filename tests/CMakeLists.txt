@@ -10,7 +10,17 @@ if (BUILD_TESTING AND GTest_FOUND)
     ${PROJECT_SOURCE_DIR}/src/interface_options.c
     ${PROJECT_SOURCE_DIR}/src/pcie_utilization.c
     ${PROJECT_SOURCE_DIR}/src/ini.c
+    ${PROJECT_SOURCE_DIR}/src/time.c
   )
+  if (REMOTE_SUPPORT)
+    target_sources(testLib PRIVATE
+      ${PROJECT_SOURCE_DIR}/src/remote_wire.c
+      ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo_remote.c
+      ${PROJECT_SOURCE_DIR}/src/export_server.c)
+    find_package(Threads REQUIRED)
+    target_link_libraries(testLib PUBLIC Threads::Threads)
+    target_compile_definitions(testLib PRIVATE REMOTE_SUPPORT=1 INI_CALL_HANDLER_ON_NEW_SECTION=1)
+  endif()
   target_include_directories(testLib PUBLIC
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_BINARY_DIR}/include)
@@ -22,6 +32,15 @@ if (BUILD_TESTING AND GTest_FOUND)
   )
   target_link_libraries(interfaceTests PRIVATE testLib GTest::gtest_main)
   gtest_discover_tests(interfaceTests)
+
+  if (REMOTE_SUPPORT)
+    add_executable(
+      wireTests
+      wireTest.cpp
+    )
+    target_link_libraries(wireTests PRIVATE testLib GTest::gtest_main)
+    gtest_discover_tests(wireTests)
+  endif()
 
   if (THOROUGH_TESTING)
     target_compile_definitions(interfaceTests PRIVATE THOROUGH_TESTING)

@@ -29,15 +29,17 @@
 #include <tgmath.h>
 
 static inline int data_level(double rows, double data, double increment) {
+  data = fmax(0., fmin(100., data));
   return (int)(rows - round(data / increment));
 }
 
 void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned num_lines, bool legend_left,
                      char legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE]) {
-  if (num_data == 0)
+  if (num_data == 0 || num_lines == 0)
     return;
   int rows, cols;
   getmaxyx(win, rows, cols);
+  if (rows < 2 || cols < 1) return;
   rows -= 1;
   double increment = 100. / (double)(rows);
 
@@ -47,7 +49,7 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned 
   for (size_t k = 0; k < num_lines; ++k)
     lvl_before[k] = data_level(rows, data[k], increment);
 
-  for (size_t i = 0; i < num_data || i < (size_t)cols; i += num_lines) {
+  for (size_t i = 0; i + num_lines <= num_data && i < (size_t)cols; i += num_lines) {
     for (unsigned k = 0; k < num_lines; ++k) {
       unsigned lvl_now_k = data_level(rows, data[i + k], increment);
       wcolor_set(win, plot_line_colors[k], NULL);

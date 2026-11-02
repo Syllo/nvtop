@@ -23,6 +23,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/extract_gpuinfo_common.h"
@@ -80,6 +81,10 @@ bool gpuinfo_shutdown_info_extraction(struct list_head *devices) {
   struct gpu_vendor *vendor;
 
   list_for_each_entry_safe(device, tmp, devices, list) {
+    if (device->remote) for (unsigned i = 0; i < device->processes_array_size; ++i) {
+      free(device->processes[i].cmdline);
+      free(device->processes[i].user_name);
+    }
     free(device->processes);
     list_del(&device->list);
   }
@@ -92,7 +97,17 @@ bool gpuinfo_shutdown_info_extraction(struct list_head *devices) {
 bool gpuinfo_populate_static_infos(struct list_head *devices) {
   struct gpu_info *device;
 
-  list_for_each_entry(device, devices, list) { device->vendor->populate_static_info(device); }
+  list_for_each_entry(device, devices, list) {
+    device->vendor->populate_static_info(device);
+    if (!device->remote && GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name)) {
+      char hostname[64] = "localhost", model[MAX_DEVICE_NAME];
+      gethostname(hostname, sizeof(hostname) - 1);
+      hostname[sizeof(hostname) - 1] = 0;
+      snprintf(model, sizeof(model), "%s", device->static_info.device_name);
+      snprintf(device->static_info.device_name, sizeof(device->static_info.device_name),
+               "%.60s @ %.63s", model, hostname);
+    }
+  }
   return true;
 }
 
@@ -302,7 +317,7 @@ bool gpuinfo_refresh_processes(struct list_head *devices) {
 
   list_for_each_entry(device, devices, list) {
     device->vendor->refresh_running_processes(device);
-    gpuinfo_populate_process_info(device);
+    if (!device->remote) gpuinfo_populate_process_info(device);
   }
   gpuinfo_clean_old_cache();
 

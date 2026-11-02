@@ -212,6 +212,7 @@ static const char *device_draw_vals[plot_information_count + 1] = {
 
 static int nvtop_option_ini_handler(void *user, const char *section, const char *name, const char *value) {
   struct nvtop_option_ini_data *ini_data = (struct nvtop_option_ini_data *)user;
+  if (!name || !value) return 1; /* INI section notifications */
   // General Options
   if (strcmp(section, general_section) == 0) {
     if (strcmp(name, general_value_use_color) == 0) {
