@@ -213,6 +213,8 @@ struct gpu_vendor {
 #define PDEV_LEN 16
 struct gpu_info {
   bool remote;
+  bool telemetry_stale;
+  bool remote_missing;
   bool offline; /* Remote telemetry unavailable; never display cached samples as live. */
   struct list_head list;
   struct gpu_vendor *vendor;

@@ -1682,6 +1682,7 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
       interface_ring_buffer_empty(&interface->saved_data_ring, dev_id++);
       continue;
     }
+    if (device->telemetry_stale) { ++dev_id; continue; }
     unsigned data_index = 0;
     for (enum plot_information info = plot_gpu_rate; info < plot_information_count; ++info) {
       if (plot_isset_draw_info(info, interface->options.gpu_specific_opts[dev_id].to_draw)) {
@@ -1851,7 +1852,7 @@ static void draw_plots(struct nvtop_interface *interface, struct list_head *devi
   for (unsigned plot_id = 0; plot_id < interface->num_plots; ++plot_id) {
     werase(interface->plots[plot_id].plot_window);
 
-    bool offline = false;
+    bool offline = false, stale = false, missing = false;
     unsigned device_id = 0;
     struct gpu_info *device;
     char status[128] = "";
@@ -1859,7 +1860,13 @@ static void draw_plots(struct nvtop_interface *interface, struct list_head *devi
       for (unsigned i = 0; i < interface->plots[plot_id].num_devices_to_plot; ++i) {
         if (interface->plots[plot_id].devices_ids[i] == device_id && device->offline) {
           offline = true;
-          snprintf(status, sizeof(status), "GPU%u offline | reconnecting...", device_id);
+          missing = device->remote_missing;
+          snprintf(status, sizeof(status), "GPU%u %s", device_id,
+                   missing ? "not reported by host" : "offline | reconnecting...");
+        }
+        if (interface->plots[plot_id].devices_ids[i] == device_id && device->telemetry_stale) {
+          stale = true;
+          if (!offline) snprintf(status, sizeof(status), "GPU%u retrying | last reading retained", device_id);
         }
       }
       ++device_id;
@@ -1868,10 +1875,10 @@ static void draw_plots(struct nvtop_interface *interface, struct list_head *devi
       WINDOW *win = interface->plots[plot_id].plot_window;
       int rows, cols;
       getmaxyx(win, rows, cols);
-      const char *message = "GPU offline";
-      mvwaddnstr(win, rows / 2, cols > 11 ? (cols - 11) / 2 : 0, message, cols);
+      const char *message = missing ? "GPU not reported" : "GPU offline";
+      mvwaddnstr(win, rows / 2, cols > (int)strlen(message) ? (cols - (int)strlen(message)) / 2 : 0, message, cols);
       if (rows > 3) mvwaddnstr(win, rows / 2 + 1, cols > 25 ? (cols - 25) / 2 : 0,
-                              "Reconnecting automatically", cols);
+                              missing ? "Waiting for host inventory" : "Reconnecting automatically", cols);
       wnoutrefresh(win);
       continue;
     }
@@ -1884,7 +1891,7 @@ static void draw_plots(struct nvtop_interface *interface, struct list_head *devi
     nvtop_line_plot(interface->plots[plot_id].plot_window, interface->plots[plot_id].num_data,
                     interface->plots[plot_id].data, num_lines, !interface->options.plot_left_to_right, plot_legend);
 
-    if (offline) mvwaddnstr(interface->plots[plot_id].plot_window, 0, 0, status,
+    if (offline || stale) mvwaddnstr(interface->plots[plot_id].plot_window, 0, 0, status,
                             getmaxx(interface->plots[plot_id].plot_window));
     wnoutrefresh(interface->plots[plot_id].plot_window);
   }

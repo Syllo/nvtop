@@ -9,7 +9,7 @@ log="$state/logs/start-$(date -u +%Y%m%d%H).log"
 find "$state/logs" -type f -name 'start-*.log' -mmin +1440 -delete
 exec 9>"$state/update.lock"
 if flock -w 10 9; then
-  branch=${NVTOP_UPDATE_BRANCH:-feat/remote-gpu-telemetry}
+  branch=${NVTOP_UPDATE_BRANCH:-master}
   update() {
     printf '%s Checking %s\n' "$(date -u +%FT%TZ)" "$branch"
     # No reset/checkout/pull in the user's working tree; build a separate snapshot.

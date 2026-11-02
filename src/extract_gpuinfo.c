@@ -22,6 +22,7 @@
 #include <ctype.h>
 #include <math.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "nvtop/extract_gpuinfo.h"
 #include "nvtop/extract_gpuinfo_common.h"
@@ -95,7 +96,17 @@ bool gpuinfo_shutdown_info_extraction(struct list_head *devices) {
 bool gpuinfo_populate_static_infos(struct list_head *devices) {
   struct gpu_info *device;
 
-  list_for_each_entry(device, devices, list) { device->vendor->populate_static_info(device); }
+  list_for_each_entry(device, devices, list) {
+    device->vendor->populate_static_info(device);
+    if (!device->remote && GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name)) {
+      char hostname[64] = "localhost", model[MAX_DEVICE_NAME];
+      gethostname(hostname, sizeof(hostname) - 1);
+      hostname[sizeof(hostname) - 1] = 0;
+      snprintf(model, sizeof(model), "%s", device->static_info.device_name);
+      snprintf(device->static_info.device_name, sizeof(device->static_info.device_name),
+               "%.60s @ %.63s", model, hostname);
+    }
+  }
   return true;
 }
 

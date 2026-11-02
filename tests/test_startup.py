@@ -16,7 +16,7 @@ class StartupTest(unittest.TestCase):
             source.mkdir(); mock.mkdir()
             def run(*args, cwd=source, env=None):
                 return subprocess.check_output(args, cwd=cwd, env=env, stderr=subprocess.STDOUT, text=True)
-            run('git', 'init', '-b', 'feat/remote-gpu-telemetry')
+            run('git', 'init', '-b', 'master')
             run('git', 'config', 'user.email', 'test@example.invalid')
             run('git', 'config', 'user.name', 'Test')
             (source/'scripts').mkdir()

@@ -151,6 +151,8 @@ struct remote_host {
   const char *last_error;
   uint8_t *frame;
   bool has_data;
+  bool last_poll_ok;
+  uint64_t offline_after_ns;
   unsigned expected_gpus;
   pthread_t worker;
   pthread_mutex_t lock;

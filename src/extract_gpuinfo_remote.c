@@ -136,6 +136,11 @@ static void remote_host_commit(struct remote_ini_ctx *c) {
     pthread_mutex_destroy(&h->lock); free(h); return;
   }
   h->has_data = false;
+  const char *timeout = getenv("NVTOP_OFFLINE_SECONDS");
+  char *end = NULL;
+  long seconds = timeout ? strtol(timeout, &end, 10) : 15;
+  if (seconds < 3 || seconds > 300 || (timeout && *end)) seconds = 15;
+  h->offline_after_ns = (uint64_t)seconds * UINT64_C(1000000000);
   list_add_tail(&h->list, &remote_host_list);
   remote_host_count++;
   c->pending_name[0] = '\0';
@@ -200,7 +205,7 @@ static int remote_host_connect(struct remote_host *h) {
     sock = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
     if (sock < 0)
       continue;
-    struct timeval tv = {0, 250000}; /* 250 ms */
+    struct timeval tv = {1, 500000}; /* Allow slower exporters 1.5 seconds to respond. */
     setsockopt(sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
     setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
     int flags = fcntl(sock, F_GETFL, 0);
@@ -258,7 +263,7 @@ static bool remote_host_refresh(struct remote_host *h) {
   while (got < 4) {
     nvtop_time now;
     nvtop_get_current_time(&now);
-    if (nvtop_difftime_u64(started, now) > UINT64_C(1000000000)) {
+    if (nvtop_difftime_u64(started, now) > UINT64_C(3000000000)) {
       close(h->sock); h->sock = -1; return false;
     }
     ssize_t n = recv(h->sock, buf + got, 4 - got, 0);
@@ -283,7 +288,7 @@ static bool remote_host_refresh(struct remote_host *h) {
   while (got < 4 + len) {
     nvtop_time now;
     nvtop_get_current_time(&now);
-    if (nvtop_difftime_u64(started, now) > UINT64_C(1000000000)) {
+    if (nvtop_difftime_u64(started, now) > UINT64_C(3000000000)) {
       close(h->sock); h->sock = -1; return false;
     }
     ssize_t n = recv(h->sock, buf + got, 4 + len - got, 0);
@@ -360,8 +365,9 @@ static void *remote_worker(void *arg) {
     int old;
     pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, &old);
     pthread_mutex_lock(&h->lock);
-    h->has_data = ok;
+    h->last_poll_ok = ok;
     if (ok) {
+      h->has_data = true;
       h->gpu_count = s->gpu_count;
       h->last_success = s->last_success;
       memcpy(h->last_good, s->last_good, 16 * sizeof(*s->last_good));
@@ -370,7 +376,7 @@ static void *remote_worker(void *arg) {
     }
     h->snapshot_ready = true;
     pthread_mutex_unlock(&h->lock);
-    if (ok && s->gpu_count > s->expected_gpus) {
+    if (ok && s->gpu_count != s->expected_gpus) {
       char path[8192];
       inventory_path(s, path, sizeof(path));
       FILE *saved = path[0] ? fopen(path, "w") : NULL;
@@ -477,7 +483,7 @@ static bool gpuinfo_remote_get_device_handles(struct list_head *devices, unsigne
       h->worker_started = pthread_create(&h->worker, NULL, remote_worker, h) == 0;
   }
   /* One shared startup grace period, not one timeout per host. */
-  for (unsigned attempt = 0; attempt < 100; ++attempt) {
+  for (unsigned attempt = 0; attempt < 300; ++attempt) {
     bool ready = true;
     list_for_each_entry(h, &remote_host_list, list) {
       pthread_mutex_lock(&h->lock);
@@ -491,7 +497,8 @@ static bool gpuinfo_remote_get_device_handles(struct list_head *devices, unsigne
   unsigned host_idx = 0;
   list_for_each_entry(h, &remote_host_list, list) {
     pthread_mutex_lock(&h->lock);
-    unsigned slots = h->gpu_count > h->expected_gpus ? h->gpu_count : h->expected_gpus;
+    /* A live inventory is authoritative; stale saved counts must not create phantom GPUs. */
+    unsigned slots = h->has_data ? h->gpu_count : h->expected_gpus;
     if (!slots) slots = 1;
     h->gpus = calloc(slots, sizeof(*h->gpus));
     if (h->gpus) for (unsigned i = 0; i < slots; ++i) {
@@ -521,7 +528,7 @@ static void gpuinfo_remote_populate_static_info(struct gpu_info *_gpu_info) {
 
   if (h->last_good_static && gpu->gpu_idx < h->gpu_count) {
     struct wire_static *ws = h->last_good_static;
-    snprintf(static_info->device_name, sizeof(static_info->device_name), "%s GPU%u", h->name, gpu->gpu_idx);
+    snprintf(static_info->device_name, sizeof(static_info->device_name), "%.45s GPU%u @ %.63s", h->name, gpu->gpu_idx, h->host);
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
     if (IS_VALID(gpuinfo_max_pcie_gen_valid, ws->valid))
       SET_GPUINFO_STATIC(static_info, max_pcie_gen, ws->max_pcie_gen);
@@ -542,7 +549,7 @@ static void gpuinfo_remote_populate_static_info(struct gpu_info *_gpu_info) {
     static_info->integrated_graphics = ws->integrated_graphics;
     static_info->encode_decode_shared = ws->encode_decode_shared;
   } else {
-    snprintf(static_info->device_name, sizeof(static_info->device_name), "%s GPU%u", h->name, gpu->gpu_idx);
+    snprintf(static_info->device_name, sizeof(static_info->device_name), "%.45s GPU%u @ %.63s", h->name, gpu->gpu_idx, h->host);
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
   }
   pthread_mutex_unlock(&h->lock);
@@ -557,8 +564,11 @@ static void gpuinfo_remote_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   nvtop_time now;
   nvtop_get_current_time(&now);
   pthread_mutex_lock(&h->lock);
-  bool online = h->has_data && gpu->gpu_idx < h->gpu_count &&
-      nvtop_difftime_u64(h->last_success, now) < UINT64_C(3000000000);
+  uint64_t age = h->has_data ? nvtop_difftime_u64(h->last_success, now) : UINT64_MAX;
+  bool host_online = h->has_data && age < h->offline_after_ns;
+  bool online = host_online && gpu->gpu_idx < h->gpu_count;
+  _gpu_info->remote_missing = host_online && gpu->gpu_idx >= h->gpu_count;
+  _gpu_info->telemetry_stale = online && (!h->last_poll_ok || age >= UINT64_C(3000000000));
   if (online) sample = h->last_good[gpu->gpu_idx];
   pthread_mutex_unlock(&h->lock);
   _gpu_info->offline = !online;

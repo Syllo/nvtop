@@ -41,13 +41,13 @@ int main(void) {
   a.processes = &pa; a.processes_count = 1;
   b.processes = &pb; b.processes_count = 1;
   SET_GPUINFO_DYNAMIC(&a.dynamic_info, gpu_util_rate, 87);
-  SET_GPUINFO_DYNAMIC(&b.dynamic_info, gpu_util_rate, 23);
+  SET_GPUINFO_DYNAMIC(&b.dynamic_info, gpu_util_rate, 0);
   list_add_tail(&a.list, &devices); list_add_tail(&b.list, &devices);
   frame_size = remote_wire_encode(&devices, frame, sizeof(frame)) + 4;
   assert(frame_size > 4);
   struct wire_gpu gpus[16]; struct wire_static st; struct wire_process procs[16 * 64];
   assert(remote_wire_decode(frame, frame_size, &st, gpus, procs) == 2);
-  assert(gpus[0].gpu_util_rate == 87 && gpus[1].gpu_util_rate == 23);
+  assert(gpus[0].gpu_util_rate == 87 && gpus[1].gpu_util_rate == 0);
   assert(procs[0].pid == 123 && procs[64].pid == 456);
   assert(!strcmp(procs[64].cmdline, "model-b"));
   /* Every truncation, including a self-consistent shortened length prefix. */
@@ -79,13 +79,18 @@ int main(void) {
   fprintf(f, "[RemoteHost]\nHost=127.0.0.1\nPort=%u\nName=always-online\nGPUs=2\n", ntohs(addr2.sin_port));
   fclose(f); setenv("NVTOP_CONFIG_FILE", config, 1);
   assert(gpuinfo_remote_init()); assert(remote_host_count == 3);
+  struct remote_host *host = list_first_entry(&remote_host_list, struct remote_host, list);
+  host->expected_gpus = 8; /* An old cached count must not add six phantom panels. */
+  assert(host->offline_after_ns == UINT64_C(15000000000));
   LIST_HEAD(remote_devices); unsigned count;
   assert(gpuinfo_remote_get_device_handles(&remote_devices, &count)); assert(count == 5);
   struct gpu_info *d = list_first_entry(&remote_devices, struct gpu_info, list);
+  gpuinfo_remote_populate_static_info(d);
+  assert(strstr(d->static_info.device_name, "@ 127.0.0.1"));
   gpuinfo_remote_refresh_dynamic_info(d); assert(!d->offline);
   gpuinfo_remote_refresh_running_processes(d); assert(d->processes[0].pid == 123);
   struct gpu_info *second = list_entry(d->list.next, struct gpu_info, list);
-  gpuinfo_remote_refresh_dynamic_info(second); assert(second->dynamic_info.gpu_util_rate == 23);
+  gpuinfo_remote_refresh_dynamic_info(second); assert(second->dynamic_info.gpu_util_rate == 0);
   gpuinfo_remote_refresh_running_processes(second); assert(second->processes[0].pid == 456);
   atomic_store(&mode, 1); wait_ms(1600);
   nvtop_time start, end; nvtop_get_current_time(&start);
@@ -94,11 +99,34 @@ int main(void) {
   assert(nvtop_difftime_u64(start, end) < UINT64_C(200000000));
   struct gpu_info *healthy = list_entry(remote_devices.prev, struct gpu_info, list);
   gpuinfo_remote_refresh_dynamic_info(healthy);
-  assert(!healthy->offline && healthy->dynamic_info.gpu_util_rate == 23);
-  assert(d->offline && !GPUINFO_DYNAMIC_FIELD_VALID(&d->dynamic_info, gpu_util_rate));
+  assert(!healthy->offline && healthy->dynamic_info.gpu_util_rate == 0);
+  /* A brief failed poll must preserve the chart, not trigger offline/reset. */
+  assert(!d->offline && d->telemetry_stale);
+  assert(GPUINFO_DYNAMIC_FIELD_VALID(&d->dynamic_info, gpu_util_rate));
+  atomic_store(&mode, 0); wait_ms(1600);
+  gpuinfo_remote_refresh_dynamic_info(d);
+  assert(!d->offline && !d->telemetry_stale);
+  /* The same missing data becomes offline only after the grace period. */
+  atomic_store(&mode, 1); wait_ms(1600);
+  pthread_mutex_lock(&host->lock);
+  host->last_success.tv_sec -= 20;
+  pthread_mutex_unlock(&host->lock);
+  gpuinfo_remote_refresh_dynamic_info(d);
+  assert(d->offline && !d->remote_missing && !GPUINFO_DYNAMIC_FIELD_VALID(&d->dynamic_info, gpu_util_rate));
   atomic_store(&mode, 0); wait_ms(1600);
   gpuinfo_remote_refresh_dynamic_info(d); assert(!d->offline);
   assert(d->dynamic_info.gpu_util_rate == 87);
+  /* A missing ordinal is not a network outage; zero-utilization iGPUs stay online. */
+  pthread_mutex_lock(&host->lock);
+  host->gpu_count = 1;
+  pthread_mutex_unlock(&host->lock);
+  gpuinfo_remote_refresh_dynamic_info(second);
+  assert(second->offline && second->remote_missing);
+  pthread_mutex_lock(&host->lock);
+  host->gpu_count = 2;
+  pthread_mutex_unlock(&host->lock);
+  gpuinfo_remote_refresh_dynamic_info(second);
+  assert(!second->offline && !second->remote_missing && second->dynamic_info.gpu_util_rate == 0);
   struct gpu_info *item;
   list_for_each_entry(item, &remote_devices, list) {
     for (unsigned i = 0; i < item->processes_array_size; ++i) {

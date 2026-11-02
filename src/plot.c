@@ -41,10 +41,6 @@ void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned 
   getmaxyx(win, rows, cols);
   if (rows < 2 || cols < 1) return;
   rows -= 1;
-  wattron(win, A_DIM);
-  for (int quarter = 1; quarter < 4; ++quarter)
-    for (int x = 0; x < cols; x += 4) mvwaddch(win, rows * quarter / 4, x, ACS_BULLET);
-  wattroff(win, A_DIM);
   double increment = 100. / (double)(rows);
 
   assert(num_lines <= MAX_LINES_PER_PLOT && "Cannot plot more than " EXPAND_AND_QUOTE(MAX_LINES_PER_PLOT) " lines");
