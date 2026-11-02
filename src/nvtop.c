@@ -281,6 +281,8 @@ int main(int argc, char **argv) {
   }
 #endif
 
+  if (custom_config_file_path) setenv("NVTOP_CONFIG_FILE", custom_config_file_path, 1);
+
   if (!gpuinfo_init_info_extraction(&allDevCount, &monitoredGpus))
     return EXIT_FAILURE;
   if (allDevCount == 0) {

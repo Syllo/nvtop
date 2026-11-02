@@ -22,6 +22,7 @@
 #define NVTOP_REMOTE_PROTO_H__
 
 #include <stdbool.h>
+#include <pthread.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -141,15 +142,22 @@ struct remote_host {
   char host[REMOTE_HOST_LEN];
   unsigned short port;
   int sock;
-  nvtop_time last_refresh, last_success;
+  nvtop_time last_success;
   unsigned gpu_count;
   struct gpu_info_remote *gpus;
   struct wire_gpu *last_good;
-  unsigned last_good_capacity;
   struct wire_static *last_good_static;
   struct wire_process *last_good_procs;
-  unsigned last_good_procs_capacity;
+  const char *last_error;
+  uint8_t *frame;
   bool has_data;
+  unsigned expected_gpus;
+  pthread_t worker;
+  pthread_mutex_t lock;
+  bool worker_started;
+  struct remote_host *snapshot;
+  bool snapshot_ready;
+
 };
 
 struct gpu_info_remote {
@@ -166,7 +174,7 @@ struct gpu_info_remote {
 size_t remote_wire_encode(struct list_head *monitored_gpus, uint8_t *out, size_t out_size);
 
 /* Decode one frame (the 4-byte length prefix + payload) into caller-provided
- * arrays. Returns the number of GPUs on success, 0 on error. */
+ * arrays (1 static, 16 GPUs, 16 * 64 processes indexed by GPU * 64 + process). Returns the number of GPUs on success, 0 on error. */
 unsigned remote_wire_decode(const uint8_t *frame, size_t frame_size, struct wire_static *statics,
                             struct wire_gpu *gpus, struct wire_process *procs);
 

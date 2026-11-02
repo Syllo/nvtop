@@ -160,6 +160,8 @@ if(METAX_SUPPORT)
 endif()
 
 if(REMOTE_SUPPORT)
+  find_package(Threads REQUIRED)
+  target_link_libraries(nvtop PRIVATE Threads::Threads)
   message(STATUS "Building with remote GPU telemetry support (--export / [RemoteHost])")
   target_compile_definitions(nvtop PRIVATE REMOTE_SUPPORT=1 INI_CALL_HANDLER_ON_NEW_SECTION=1)
   target_sources(nvtop PRIVATE

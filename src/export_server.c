@@ -87,44 +87,37 @@ bool export_server_poll(void) {
     socklen_t addr_len = sizeof(client_addr);
     client_sock = accept(listen_sock, (struct sockaddr *)&client_addr, &addr_len);
     if (client_sock >= 0) {
-      /* Use a blocking socket with SO_RCVTIMEO/SO_SNDTIMEO for timeouts,
-       * and SO_LINGER so close() flushes the send buffer. */
+      /* Bound idle/blocked clients; never wait indefinitely for a poll. */
       struct timeval tv = {1, 0};
       setsockopt(client_sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
       setsockopt(client_sock, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
-      /* Force close() to flush the send buffer before tearing down, so a
-       * consumer reading the frame receives every byte. */
-      struct linger lg = {1, 30};
-      setsockopt(client_sock, SOL_SOCKET, SO_LINGER, &lg, sizeof(lg));
+
     }
   }
   if (client_sock < 0) return false;
 
   uint8_t poll_byte;
   ssize_t n = recv(client_sock, &poll_byte, 1, 0);
-  while (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-    struct timespec ts = {0, 50 * 1000 * 1000};
-    nanosleep(&ts, NULL);
-    n = recv(client_sock, &poll_byte, 1, 0);
-  }
   /* Client closed the connection (recv returned 0) or errored: tear down
    * the socket so the next client can be accepted. Without this, a stale
    * connection holds client_sock and blocks all subsequent POLLs. */
-  if (n == 0) {
+  if (n != 1) {
     close(client_sock);
     client_sock = -1;
     return false;
   }
-  if (n != 1) return false;
+  if (poll_byte != 1) { close(client_sock); client_sock = -1; return false; }
 
   /* Encode the current snapshot into the frame buffer. */
   if (!frame_buf) {
-    frame_buf_size = 1 << 16;
+    frame_buf_size = (1 << 20) + 4;
     frame_buf = (uint8_t *)malloc(frame_buf_size);
   }
+  if (!frame_buf) { close(client_sock); client_sock = -1; return false; }
   size_t frame_len = remote_wire_encode(monitored_gpus, frame_buf, frame_buf_size);
-  if (frame_len == 0) return false;
-  if (frame_len + 4 > frame_buf_size) return false;
+  if (frame_len == 0 || frame_len + 4 > frame_buf_size) {
+    close(client_sock); client_sock = -1; return false;
+  }
 
   const uint8_t *p = frame_buf;
   size_t total = frame_len + 4;
@@ -138,24 +131,21 @@ bool export_server_poll(void) {
       client_sock = -1;
       return false;
     } else {
-      if (errno != EAGAIN && errno != EWOULDBLOCK) {
-        close(client_sock);
-        client_sock = -1;
-        return false;
-      }
-      struct timespec ts = {0, 50 * 1000 * 1000};
-      nanosleep(&ts, NULL);
+      close(client_sock);
+      client_sock = -1;
+      return false;
     }
   }
-  /* close() with SO_LINGER flushes the send buffer before tearing down,
-   * so the consumer receives every byte of the frame. Then reset
-   * client_sock so the next poller's connection is accepted. */
+  /* The kernel drains queued bytes after close; accept a fresh connection next poll. */
   close(client_sock);
   client_sock = -1;
   return true;
 }
 
 void export_server_stop(void) {
+  free(frame_buf);
+  frame_buf = NULL;
+  frame_buf_size = 0;
   if (client_sock >= 0) {
     close(client_sock);
     client_sock = -1;

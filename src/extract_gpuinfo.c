@@ -79,6 +79,10 @@ bool gpuinfo_shutdown_info_extraction(struct list_head *devices) {
   struct gpu_vendor *vendor;
 
   list_for_each_entry_safe(device, tmp, devices, list) {
+    if (device->remote) for (unsigned i = 0; i < device->processes_array_size; ++i) {
+      free(device->processes[i].cmdline);
+      free(device->processes[i].user_name);
+    }
     free(device->processes);
     list_del(&device->list);
   }
@@ -286,7 +290,7 @@ bool gpuinfo_refresh_processes(struct list_head *devices) {
 
   list_for_each_entry(device, devices, list) {
     device->vendor->refresh_running_processes(device);
-    gpuinfo_populate_process_info(device);
+    if (!device->remote) gpuinfo_populate_process_info(device);
   }
   gpuinfo_clean_old_cache();
 

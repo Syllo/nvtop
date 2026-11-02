@@ -1,3 +1,5 @@
+> For startup updates, offline recovery, logging, and current operating instructions, see [REMOTE-OPERATIONS.md](REMOTE-OPERATIONS.md).
+
 # nvtop Remote GPU Telemetry — Complete Reference & Examples
 
 This document is the single place to learn the **remote GPU** feature:
@@ -253,8 +255,7 @@ nvtop
 ```
 
 Every remote GPU now appears in the same plots/tables as your local GPUs.
-If a remote host is unreachable, its last-known values keep displaying
-(last-good fallback) rather than vanishing.
+If a remote host is unreachable, its panels show GPU offline and retry automatically.
 
 ### Step 4 — Verify an exporter responds (scripting)
 
@@ -296,7 +297,7 @@ Expected: `magic = NVT1`, `gpu_count` = number of GPUs on that host, and
 | Symptom | Cause | Fix |
 |---------|-------|-----|
 | Dashboard shows only local GPUs | No `[RemoteHost]` sections parsed | Build with `REMOTE_SUPPORT` (enables `INI_CALL_HANDLER_ON_NEW_SECTION`); add the INI sections |
-| A remote GPU's stats freeze at a stale value | That host's exporter went down | The last-good fallback keeps the last frame; restart the exporter on that host |
+| A remote GPU's stats freeze at a stale value | That host's exporter went down | Update to the latest remote branch; panels now clear and reconnect automatically |
 | Exporter prints `could not bind the export server on port N` | Port already in use | Kill the stale process or pick another port |
 | Poll times out | Exporter running but not encoding | Give the exporter's 100 ms refresh loop a moment; poll in a retry loop |
 | A container's exporter accepts connections but returns no frame | Container runs a stale binary | Rebuild and redeploy the new binary into the container |

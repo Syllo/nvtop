@@ -1,0 +1,11 @@
+name: Remote telemetry regression
+on: [push, pull_request]
+jobs:
+  remote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Network and codec regression with sanitizers
+        run: NVTOP_TEST_CFLAGS='-fsanitize=address,undefined -fno-omit-frame-pointer' ./scripts/test-remote.sh
+      - name: Startup updater regression
+        run: python3 tests/test_startup.py

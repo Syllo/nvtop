@@ -100,6 +100,7 @@ static size_t encode_wire_process(uint8_t *dst, const struct gpu_process *p) {
   le_put32(dst + off, (uint32_t)p->pid);
   off += 4;
   if (p->cmdline) {
+    memset(dst + off, 0, REMOTE_CMDLINE_LEN);
     size_t n = strlen(p->cmdline);
     if (n >= REMOTE_CMDLINE_LEN) n = REMOTE_CMDLINE_LEN - 1;
     memcpy(dst + off, p->cmdline, n);
@@ -108,6 +109,7 @@ static size_t encode_wire_process(uint8_t *dst, const struct gpu_process *p) {
   }
   off += REMOTE_CMDLINE_LEN;
   if (p->user_name) {
+    memset(dst + off, 0, REMOTE_NAME_LEN);
     size_t n = strlen(p->user_name);
     if (n >= REMOTE_NAME_LEN) n = REMOTE_NAME_LEN - 1;
     memcpy(dst + off, p->user_name, n);
@@ -213,8 +215,10 @@ size_t remote_wire_encode(struct list_head *monitored_gpus, uint8_t *out, size_t
   struct gpu_info *device;
   unsigned gpu_count = 0;
   list_for_each_entry(device, monitored_gpus, list) {
-    if (gpu_count < WIRE_MAX_GPUS) gpu_count++;
+    if (++gpu_count > WIRE_MAX_GPUS) return 0;
   }
+
+  if (gpu_count == 0) return 0;
 
   struct wire_header header;
   memset(&header, 0, sizeof(header));
@@ -241,6 +245,7 @@ size_t remote_wire_encode(struct list_head *monitored_gpus, uint8_t *out, size_t
   // `out` must hold the 4-byte prefix + payload. Reserve `actual_total + 4`.
   if (actual_total + 4 > out_size) return 0;
 
+  memset(out, 0, actual_total + 4);
   uint8_t *dst = out + 4;
   memcpy(dst, &header, WIRE_HEADER_LEN);
   dst += WIRE_HEADER_LEN;
@@ -282,14 +287,15 @@ unsigned remote_wire_decode(const uint8_t *frame, size_t frame_size, struct wire
   if (frame_size < min_size) return 0;
 
   uint32_t declared = ((uint32_t)frame[0] << 24) | ((uint32_t)frame[1] << 16) | ((uint32_t)frame[2] << 8) | (uint32_t)frame[3];
-  if ((size_t)declared + 4 > frame_size) return 0;
+  if ((size_t)declared + 4 != frame_size) return 0;
+  const uint8_t *end = frame + frame_size;
 
   const uint8_t *dst = frame + 4;
   struct wire_header header;
   memcpy(&header, dst, sizeof(header));
   if (memcmp(header.magic, NVTOP_EXPORT_MAGIC, 4) != 0) return 0;
-  if (header.proto_major > remote_proto_major) return 0;
-  if (header.static_count > WIRE_STATIC_COUNT || header.gpu_count > WIRE_MAX_GPUS) return 0;
+  if (header.proto_major != remote_proto_major || header.flags != 1) return 0;
+  if (header.static_count != WIRE_STATIC_COUNT || header.gpu_count > WIRE_MAX_GPUS) return 0;
 
   dst += sizeof(header);
   for (size_t i = 0; i < header.static_count; ++i) {
@@ -325,6 +331,10 @@ unsigned remote_wire_decode(const uint8_t *frame, size_t frame_size, struct wire
   }
 
   for (size_t i = 0; i < header.gpu_count; ++i) {
+    if ((size_t)(end - dst) < WIRE_GPU_FIXED_LEN + 4) return 0;
+    unsigned process_count = le_get32(dst + WIRE_GPU_FIXED_LEN);
+    if (process_count > WIRE_MAX_PROCS ||
+        (size_t)(end - dst) < WIRE_GPU_FIXED_LEN + 4 + process_count * WIRE_PROCESS_LEN) return 0;
     size_t off = 0;
     if (gpus) {
       struct wire_gpu *g = &gpus[i];
@@ -376,18 +386,20 @@ unsigned remote_wire_decode(const uint8_t *frame, size_t frame_size, struct wire
       off += sizeof(g->valid);
       g->process_count = le_get32(dst + off);
       off += 4;
-      if (g->process_count > WIRE_MAX_PROCS) g->process_count = WIRE_MAX_PROCS;
+      dst += WIRE_GPU_FIXED_LEN + 4;
       for (unsigned j = 0; j < g->process_count; ++j) {
         if (procs) {
-          struct wire_process *w = &procs[j];
+          struct wire_process *w = &procs[i * WIRE_MAX_PROCS + j];
           size_t poff = 0;
           w->type = le_get32(dst + poff);
           poff += 4;
           w->pid = le_get32(dst + poff);
           poff += 4;
           memcpy(w->cmdline, dst + poff, REMOTE_CMDLINE_LEN);
+          w->cmdline[REMOTE_CMDLINE_LEN - 1] = 0;
           poff += REMOTE_CMDLINE_LEN;
           memcpy(w->user_name, dst + poff, REMOTE_NAME_LEN);
+          w->user_name[REMOTE_NAME_LEN - 1] = 0;
           poff += REMOTE_NAME_LEN;
           w->sample_delta = le_get64(dst + poff);
           poff += 8;
@@ -421,14 +433,14 @@ unsigned remote_wire_decode(const uint8_t *frame, size_t frame_size, struct wire
         }
         dst += WIRE_PROCESS_LEN;
       }
-      dst += WIRE_GPU_FIXED_LEN;
+
     } else {
       // skip this gpu block: fixed part + process_count + process records
       unsigned pc = le_get32(dst + WIRE_GPU_FIXED_LEN);
       if (pc > WIRE_MAX_PROCS) pc = WIRE_MAX_PROCS;
-      dst += WIRE_GPU_FIXED_LEN + (size_t)pc * WIRE_PROCESS_LEN;
+      dst += WIRE_GPU_FIXED_LEN + 4 + (size_t)pc * WIRE_PROCESS_LEN;
     }
   }
 
-  return (unsigned)header.gpu_count;
+  return dst == end ? (unsigned)header.gpu_count : 0;
 }

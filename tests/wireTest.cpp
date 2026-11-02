@@ -91,8 +91,8 @@ TEST(RemoteWire, RoundTrip) {
   // Decode
   struct wire_static statics[1] = {{0}};
   struct wire_gpu gpus[2] = {{0}};
-  struct wire_process procs_out[64] = {{0}};
-  unsigned n = remote_wire_decode(buf, total, statics, gpus, procs_out);
+  struct wire_process procs_out[16 * 64] = {{0}};
+  unsigned n = remote_wire_decode(buf, total + 4, statics, gpus, procs_out);
 
   EXPECT_EQ(n, 2u);
 

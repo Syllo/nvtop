@@ -1,3 +1,5 @@
+> **Remote GPU dashboard:** use the `feat/remote-gpu-telemetry` branch and see [startup updates, offline recovery, charts, and logging](REMOTE-OPERATIONS.md).
+
 NVTOP
 =====
 

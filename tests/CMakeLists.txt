@@ -16,7 +16,9 @@ if (BUILD_TESTING AND GTest_FOUND)
       ${PROJECT_SOURCE_DIR}/src/remote_wire.c
       ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo_remote.c
       ${PROJECT_SOURCE_DIR}/src/export_server.c)
-    target_compile_definitions(testLib PRIVATE REMOTE_SUPPORT=1)
+    find_package(Threads REQUIRED)
+    target_link_libraries(testLib PUBLIC Threads::Threads)
+    target_compile_definitions(testLib PRIVATE REMOTE_SUPPORT=1 INI_CALL_HANDLER_ON_NEW_SECTION=1)
   endif()
   target_include_directories(testLib PUBLIC
     ${PROJECT_SOURCE_DIR}/include

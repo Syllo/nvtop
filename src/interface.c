@@ -1678,6 +1678,10 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
   unsigned dev_id = 0;
 
   list_for_each_entry(device, devices, list) {
+    if (device->offline) {
+      interface_ring_buffer_empty(&interface->saved_data_ring, dev_id++);
+      continue;
+    }
     unsigned data_index = 0;
     for (enum plot_information info = plot_gpu_rate; info < plot_information_count; ++info) {
       if (plot_isset_draw_info(info, interface->options.gpu_specific_opts[dev_id].to_draw)) {
@@ -1748,6 +1752,20 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
   }
 }
 
+/* Trailing moving average for bursty LLM loads; raw values remain in the ring/header. */
+static double chart_sample(const interface_ring_buffer *ring, unsigned device, unsigned metric, unsigned index) {
+  static unsigned samples = 0;
+  if (!samples) {
+    const char *setting = getenv("NVTOP_CHART_SAMPLES");
+    long value = setting ? strtol(setting, NULL, 10) : 5;
+    samples = value >= 1 && value <= 30 ? (unsigned)value : 5;
+  }
+  unsigned n = index + 1 < samples ? index + 1 : samples;
+  double sum = 0;
+  for (unsigned i = 0; i < n; ++i) sum += interface_ring_buffer_get(ring, device, metric, index - i);
+  return sum / n;
+}
+
 static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface *interface,
                                                     struct plot_window *plot_win, unsigned size_data_buff,
                                                     double data[size_data_buff],
@@ -1776,7 +1794,7 @@ static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface
         // Populate the legend
         switch (info) {
         case plot_gpu_rate:
-          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u %%", dev_id);
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u load avg%%", dev_id);
           break;
         case plot_gpu_mem_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "GPU%u mem%%", dev_id);
@@ -1813,12 +1831,12 @@ static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface
         if (interface->options.plot_left_to_right) {
           for (unsigned j = 0; j < data_in_ring && j < max_data_to_copy; ++j) {
             data_split[j][in_processing] =
-                interface_ring_buffer_get(&interface->saved_data_ring, dev_id, data_ring_index, data_in_ring - j - 1);
+                chart_sample(&interface->saved_data_ring, dev_id, data_ring_index, data_in_ring - j - 1);
           }
         } else {
           for (unsigned j = 0; j < data_in_ring && j < max_data_to_copy; ++j) {
             data_split[max_data_to_copy - j - 1][in_processing] =
-                interface_ring_buffer_get(&interface->saved_data_ring, dev_id, data_ring_index, data_in_ring - j - 1);
+                chart_sample(&interface->saved_data_ring, dev_id, data_ring_index, data_in_ring - j - 1);
           }
         }
         data_ring_index++;
@@ -1829,10 +1847,34 @@ static unsigned populate_plot_data_from_ring_buffer(const struct nvtop_interface
   return total_to_draw;
 }
 
-static void draw_plots(struct nvtop_interface *interface) {
+static void draw_plots(struct nvtop_interface *interface, struct list_head *devices) {
   for (unsigned plot_id = 0; plot_id < interface->num_plots; ++plot_id) {
     werase(interface->plots[plot_id].plot_window);
 
+    bool offline = false;
+    unsigned device_id = 0;
+    struct gpu_info *device;
+    char status[128] = "";
+    list_for_each_entry(device, devices, list) {
+      for (unsigned i = 0; i < interface->plots[plot_id].num_devices_to_plot; ++i) {
+        if (interface->plots[plot_id].devices_ids[i] == device_id && device->offline) {
+          offline = true;
+          snprintf(status, sizeof(status), "GPU%u offline | reconnecting...", device_id);
+        }
+      }
+      ++device_id;
+    }
+    if (offline && interface->plots[plot_id].num_devices_to_plot == 1) {
+      WINDOW *win = interface->plots[plot_id].plot_window;
+      int rows, cols;
+      getmaxyx(win, rows, cols);
+      const char *message = "GPU offline";
+      mvwaddnstr(win, rows / 2, cols > 11 ? (cols - 11) / 2 : 0, message, cols);
+      if (rows > 3) mvwaddnstr(win, rows / 2 + 1, cols > 25 ? (cols - 25) / 2 : 0,
+                              "Reconnecting automatically", cols);
+      wnoutrefresh(win);
+      continue;
+    }
     char plot_legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE];
 
     unsigned num_lines =
@@ -1842,6 +1884,8 @@ static void draw_plots(struct nvtop_interface *interface) {
     nvtop_line_plot(interface->plots[plot_id].plot_window, interface->plots[plot_id].num_data,
                     interface->plots[plot_id].data, num_lines, !interface->options.plot_left_to_right, plot_legend);
 
+    if (offline) mvwaddnstr(interface->plots[plot_id].plot_window, 0, 0, status,
+                            getmaxx(interface->plots[plot_id].plot_window));
     wnoutrefresh(interface->plots[plot_id].plot_window);
   }
 }
@@ -1850,7 +1894,7 @@ void draw_gpu_info_ncurses(unsigned devices_count, struct list_head *devices, st
 
   draw_devices(devices, interface);
   if (!interface->setup_win.visible) {
-    draw_plots(interface);
+    draw_plots(interface, devices);
     draw_processes(devices, interface);
   } else {
     draw_setup_window(devices_count, devices, interface);
