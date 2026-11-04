@@ -12,7 +12,7 @@ Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
 M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
 proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver),
 Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver).
-Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Iluvatar CoreX (ixML / libixml).
+Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML).
 
 Because a picture is worth a thousand words:
 
@@ -33,6 +33,7 @@ Table of Contents
   - [Apple](#apple)
   - [Ascend](#ascend) (only tested on 910B)
   - [Iluvatar CoreX](#iluvatar-corex)
+  - [T-Head PPU](#t-head-ppu)
   - [VideoCore](#videocore)
   - [Rockchip](#rockchip)
   - [MetaX](#metax)
@@ -163,6 +164,23 @@ The backend dynamically loads `libixml.so` from `/usr/local/corex/lib`,
 `/usr/local/corex/lib64`, or the default dynamic loader search path. The ixML
 runtime exposes an NVML-compatible API surface used by NVTOP to query device,
 power, PCIe, clock, temperature, memory, and process information.
+
+### T-Head PPU
+
+NVTOP supports T-Head (平头哥) PPUs through the HGML runtime, tested on
+PPU-ZW810E hardware. Enable with `-DPPU_SUPPORT=ON` (the Linux default).
+No vendor headers are required to build. The backend loads `libhgml.so.1`
+or `libhgml.so` through the dynamic loader, then checks the standard
+`/usr/local/PPU_SDK` library directories. For a custom SDK installation,
+add its library directory to `LD_LIBRARY_PATH`.
+
+Supported telemetry includes utilization, memory, clocks, temperature, power,
+PCIe link/throughput, compute process memory, and per-process PPU utilization. Metrics unavailable in the
+installed driver remain unset. Process enumeration requires the HGML v2 or
+v3 process API. Per-process utilization uses `hgmlDeviceGetProcessUtilization`
+when available, selecting the newest SM sample for each PID. Failed queries
+or refreshes without a new valid sample display `N/A`; sampled idle processes
+show `0%`.
 
 ### VideoCore
 

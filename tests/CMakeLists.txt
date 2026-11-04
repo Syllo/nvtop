@@ -29,3 +29,11 @@ if (BUILD_TESTING AND GTest_FOUND)
 
 
 endif()
+
+if(BUILD_TESTING AND PPU_SUPPORT)
+  add_executable(ppuTests ppuTests.c)
+  target_include_directories(ppuTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_link_libraries(ppuTests PRIVATE ${CMAKE_DL_LIBS})
+  set_property(TARGET ppuTests PROPERTY C_STANDARD 11)
+  add_test(NAME ppuTests COMMAND ppuTests)
+endif()
