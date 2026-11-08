@@ -28,6 +28,7 @@
 #include <vector>
 
 extern "C" {
+#include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface.h"
 #include "nvtop/interface_layout_selection.h"
 #include "nvtop/pcie_utilization.h"
@@ -257,6 +258,28 @@ TEST(PcieUtilization, LoadPercentClampsAndScales) {
 TEST(PcieUtilization, LoadPercentNoMaxReturnsZero) {
   struct gpuinfo_static_info no_info = {};
   EXPECT_EQ(pcie_load_percent(1000000u, &no_info), 0u);
+}
+
+TEST(BusyUsage, ScalesAndRounds) {
+  const uint64_t second = UINT64_C(1000000000);
+  EXPECT_EQ(busy_usage_from_time_usage_round(0, 0, second), 0u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second / 2, 0, second), 50u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(3 * second + 994000000, 3 * second, second), 99u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(3 * second + 996000000, 3 * second, second), 100u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second, 0, second), 100u);
+}
+
+TEST(BusyUsage, ClampsBusyTimeLongerThanInterval) {
+  // i915 accounts the busy time in chunks: a fully busy engine can report e.g. 1.16s over a 1s interval.
+  const uint64_t second = UINT64_C(1000000000);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second + 160000000, 0, second), 100u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(10) * second, 0, second), 100u);
+}
+
+TEST(BusyUsage, ZeroIntervalReturnsZero) {
+  // No elapsed time means no measurable rate; must not divide by zero.
+  EXPECT_EQ(busy_usage_from_time_usage_round(0, 0, 0), 0u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(1000000), 0, 0), 0u);
 }
 
 TEST(InterfaceOptions, NpuDefaultPlotsRespectMaxLines) {
