@@ -14,6 +14,13 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 ARCH="$(uname -m)"
+case "$ARCH" in
+	x86_64|aarch64) ;;
+	*)
+		echo "Unsupported architecture: $ARCH (only x86_64 and aarch64 are built)" >&2
+		exit 1
+		;;
+esac
 export ARCH
 export APPIMAGE_EXTRACT_AND_RUN=1
 APPIMAGETOOL_URL="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-$ARCH.AppImage"
@@ -39,16 +46,19 @@ install_nvtop_AppDir() {
 }
 
 bundle_dependencies() {
-	local libdir="AppDir/usr/lib"
+	local libdir="AppDir/usr/lib" lib path
 
 	# Only bundle the ncurses family. Everything else (glibc, libudev, libdrm,
 	# libgcc_s, ...) must come from the host so that it stays consistent with
 	# the libraries nvtop loads at runtime.
 	mkdir -p "$libdir"
-	ldd AppDir/usr/bin/nvtop \
-		| awk '$2 == "=>" { print $3 }' \
-		| grep -E '/(libncursesw?|libtinfo|libform|libmenu|libpanel)\.so\.' \
-		| xargs -r cp -vLt "$libdir"
+	for lib in libncursesw.so.6 libncurses.so.6 libtinfo.so.6 libform.so.6 \
+		libmenu.so.6 libpanel.so.6; do
+		path="$(ldconfig -p | awk -v lib="$lib" '$1 == lib { print $NF; exit }')"
+		if [[ -n "$path" ]]; then
+			cp -vL "$path" "$libdir"
+		fi
+	done
 }
 
 configure_appdir() {
