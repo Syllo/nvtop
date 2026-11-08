@@ -3,6 +3,10 @@ name: AppImage
 on:
   release:
     types: [published]
+  pull_request:
+    paths:
+      - ".github/workflows/appimage.yml"
+      - "AppImage/**"
   workflow_dispatch:
 
 permissions:
