@@ -1,0 +1,61 @@
+name: AppImage
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: appimage-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build AppImage
+        run: |
+          docker run --rm \
+            -v "$PWD:/nvtop" \
+            -w /nvtop \
+            almalinux:8 \
+            ./AppImage/make_appimage.sh
+
+      - name: Fix file ownership
+        if: always()
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" \
+            build AppDir appimagetool nvtop-*.AppImage 2>/dev/null || true
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvtop-${{ matrix.arch }}-AppImage
+          path: nvtop-*.AppImage
+          if-no-files-found: error
+
+      - name: Attach AppImage to release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" nvtop-*.AppImage --clobber
+          else
+            echo "Release $RELEASE_TAG does not exist, skipping upload."
+          fi

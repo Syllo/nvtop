@@ -22,3 +22,7 @@ podman run --rm -it --arch arm64 -v "$PWD:/nvtop" -w /nvtop almalinux:8 ./AppIma
 
 The resulting `nvtop-<version>-<arch>.AppImage` is written to the repository
 root.
+
+GitHub Actions builds both architectures automatically when a release is
+published, and uploads the AppImages to that release. The workflow can also be
+started manually from the Actions tab; see `.github/workflows/appimage.yml`.
