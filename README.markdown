@@ -355,16 +355,20 @@ Build process for OpenSUSE:
 
 An AppImage is a standalone application. Just download the AppImage, make it executable and run it!
 
-- Go to the [release page](https://github.com/Syllo/nvtop/releases/latest) and download `nvtop-x86_64.AppImage`
+- Go to the [release page](https://github.com/Syllo/nvtop/releases/latest) and download `nvtop-<version>-x86_64.AppImage`
 
 - ```bash
   # Go to the download location ** The path may differ on your system **
   cd $HOME/Downloads
   # Make the AppImage executable
-  chmod u+x nvtop-x86_64.AppImage
+  chmod u+x nvtop-<version>-x86_64.AppImage
   # Enjoy nvtop
-  ./nvtop-x86_64.AppImage
+  ./nvtop-<version>-x86_64.AppImage
   ```
+
+The AppImage is built on AlmaLinux 8 and uses the host's glibc, udev, libdrm
+and GPU driver libraries, so it runs on glibc-based distributions with glibc
+2.28 or newer (Ubuntu 20.04+, Debian 10+, RHEL 8+).
 
 If you are curious how that works, please visit the [AppImage website](https://appimage.org/).
 
