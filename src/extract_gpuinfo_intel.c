@@ -308,8 +308,11 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   bool is_xe = gpu_info->driver == DRIVER_XE;
 
-  if (gpu_info->perf_event_fd == PERF_EVENT_FD_NOT_OPENED) {
-    if (get_perf_event_by_gpu_info(gpu_info, is_xe ? "gt-actual-frequency" : "actual-frequency",
+  // Not on xe: an open gt-actual-frequency event holds GT forcewake for as long
+  // as it exists (xe_pmu.c), so the GT never enters RC6. The sysfs act_freq read
+  // below gives the same value without that.
+  if (!is_xe && gpu_info->perf_event_fd == PERF_EVENT_FD_NOT_OPENED) {
+    if (get_perf_event_by_gpu_info(gpu_info, "actual-frequency",
                                    &gpu_info->perf_event_fd)) {
       ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_RESET, 0);
       ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_ENABLE, 0);
@@ -355,10 +358,11 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     ioctl(gpu_info->perf_event_fd, PERF_EVENT_IOC_ENABLE, 0);
   }
   if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_clock_speed)) {
-    const char *gt_cur_freq;
-    const char *gt_cur_freq_sysattr = is_xe ? "tile0/gt0/freq0/cur_freq" : "gt_cur_freq_mhz";
-    if (nvtop_device_get_sysattr_value(clock_device, gt_cur_freq_sysattr, &gt_cur_freq) >= 0) {
-      unsigned val = strtoul(gt_cur_freq, NULL, 10);
+    // xe: act_freq is the actual frequency, 0 while the GT is in RC6
+    const char *gt_freq;
+    const char *gt_freq_sysattr = is_xe ? "tile0/gt0/freq0/act_freq" : "gt_cur_freq_mhz";
+    if (nvtop_device_get_sysattr_value(clock_device, gt_freq_sysattr, &gt_freq) >= 0) {
+      unsigned val = strtoul(gt_freq, NULL, 10);
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, val);
     }
   }

@@ -24,13 +24,16 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y libncurses5-dev libncursesw5-dev libdrm-dev libsystemd-dev
+        sudo apt-get install -y libncurses5-dev libncursesw5-dev libdrm-dev libsystemd-dev libgtest-dev
 
     - name: Configure CMake
-      run: cmake -S . -B $BUILD_DIR
+      run: cmake -S . -B $BUILD_DIR -DBUILD_TESTING=ON
 
     - name: Build
       run: cmake --build $BUILD_DIR
+
+    - name: Test
+      run: ctest --test-dir $BUILD_DIR --output-on-failure
 
     - name: Install
       run: DESTDIR="$PWD/build/install" cmake --build $BUILD_DIR --target install
