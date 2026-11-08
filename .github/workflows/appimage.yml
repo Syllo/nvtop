@@ -1,0 +1,93 @@
+name: AppImage
+
+on:
+  release:
+    types: [published]
+  pull_request:
+    paths:
+      - ".github/workflows/appimage.yml"
+      - "AppImage/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: appimage-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    steps:
+      # Pull request builds must not get repository write access. The build
+      # runs untrusted PR code in a container, so no credentials are persisted
+      # in the checked-out .git directory either.
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Verify container architecture
+        run: |
+          actual="$(docker run --rm almalinux:8 uname -m)"
+          echo "Container architecture: $actual"
+          test "$actual" = "${{ matrix.arch }}"
+
+      - name: Build AppImage
+        run: |
+          docker run --rm \
+            -v "$PWD:/nvtop" \
+            -w /nvtop \
+            almalinux:8 \
+            ./AppImage/make_appimage.sh
+
+      - name: Fix file ownership
+        if: always()
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" \
+            build AppDir appimagetool nvtop-*.AppImage 2>/dev/null || true
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nvtop-${{ matrix.arch }}-AppImage
+          path: nvtop-*.AppImage
+          if-no-files-found: error
+
+  release:
+    name: Attach to release
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download AppImage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nvtop-*-AppImage
+          merge-multiple: true
+          path: artifacts
+
+      - name: Attach AppImages to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" artifacts/nvtop-*.AppImage --clobber
+          else
+            echo "Release $RELEASE_TAG does not exist; skipping."
+          fi
