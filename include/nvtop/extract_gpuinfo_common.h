@@ -287,6 +287,9 @@ extern const char drm_client_id[];
 // measurements. Cap the result at 100% instead of reporting more than the engine can do.
 inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
                                                  uint64_t time_between_measurement) {
+  // Without an elapsed time no rate can be derived; avoid dividing by zero.
+  if (time_between_measurement == 0)
+    return 0;
   uint64_t busy_time = current_use_ns - previous_use_ns;
   if (busy_time > time_between_measurement)
     return 100;

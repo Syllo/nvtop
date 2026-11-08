@@ -276,6 +276,12 @@ TEST(BusyUsage, ClampsBusyTimeLongerThanInterval) {
   EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(10) * second, 0, second), 100u);
 }
 
+TEST(BusyUsage, ZeroIntervalReturnsZero) {
+  // No elapsed time means no measurable rate; must not divide by zero.
+  EXPECT_EQ(busy_usage_from_time_usage_round(0, 0, 0), 0u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(1000000), 0, 0), 0u);
+}
+
 TEST(InterfaceOptions, NpuDefaultPlotsRespectMaxLines) {
   plot_info_to_draw npu = plot_npu_default_draw_info();
   // The NPU defaults add HVX/HMX on top of the GPU defaults.
