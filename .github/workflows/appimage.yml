@@ -27,6 +27,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verify container architecture
+        run: |
+          actual="$(docker run --rm almalinux:8 uname -m)"
+          echo "Container architecture: $actual"
+          test "$actual" = "${{ matrix.arch }}"
+
       - name: Build AppImage
         run: |
           docker run --rm \
