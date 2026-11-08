@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: appimage-${{ github.ref }}
@@ -28,8 +28,15 @@ jobs:
           - runner: ubuntu-24.04-arm
             arch: aarch64
     runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
     steps:
+      # Pull request builds must not get repository write access. The build
+      # runs untrusted PR code in a container, so no credentials are persisted
+      # in the checked-out .git directory either.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Verify container architecture
         run: |
@@ -58,14 +65,29 @@ jobs:
           path: nvtop-*.AppImage
           if-no-files-found: error
 
-      - name: Attach AppImage to release
-        if: github.ref_type == 'tag'
+  release:
+    name: Attach to release
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - name: Download AppImage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: nvtop-*-AppImage
+          merge-multiple: true
+          path: artifacts
+
+      - name: Attach AppImages to release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" nvtop-*.AppImage --clobber
+            gh release upload "$RELEASE_TAG" artifacts/nvtop-*.AppImage --clobber
           else
-            echo "Release $RELEASE_TAG does not exist, skipping upload."
+            echo "Release $RELEASE_TAG does not exist; skipping."
           fi
