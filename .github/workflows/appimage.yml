@@ -84,10 +84,15 @@ jobs:
       - name: Attach AppImages to release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.event.release.tag_name || github.ref_name }}
         run: |
-          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" artifacts/nvtop-*.AppImage --clobber
-          else
+          if ! gh release view "$RELEASE_TAG" >/dev/null; then
+            if [[ "${{ github.event_name }}" == "release" ]]; then
+              echo "::error::Release $RELEASE_TAG not found"
+              exit 1
+            fi
             echo "Release $RELEASE_TAG does not exist; skipping."
+            exit 0
           fi
+          gh release upload "$RELEASE_TAG" artifacts/nvtop-*.AppImage --clobber
