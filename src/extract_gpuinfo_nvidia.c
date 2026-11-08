@@ -194,10 +194,17 @@ static nvmlReturn_t (*nvmlDeviceGetCurrPcieLinkGeneration)(nvmlDevice_t device, 
 static nvmlReturn_t (*nvmlDeviceGetCurrPcieLinkWidth)(nvmlDevice_t device, unsigned int *currLinkWidth);
 
 // Bus type of the device (nvmlBusType_t in nvml.h, which is not included here).
-// This is the authoritative signal for whether a device is really behind a PCIe
-// link. The function may be absent on older drivers.
+// SoCs may also expose a synthetic PCIe bus; check C2C mode as well.
+// The function may be absent on older drivers.
 #define NVML_BUS_TYPE_PCIE 2
 static nvmlReturn_t (*nvmlDeviceGetBusType)(nvmlDevice_t device, unsigned int *type);
+
+// nvmlC2cModeInfo_v1_t from nvml.h. The query is optional on older drivers.
+typedef struct {
+  unsigned int isC2cEnabled;
+} nvmlC2cModeInfo_v1_t;
+
+static nvmlReturn_t (*nvmlDeviceGetC2cModeInfoV)(nvmlDevice_t device, nvmlC2cModeInfo_v1_t *info);
 
 typedef enum {
   NVML_PCIE_UTIL_TX_BYTES = 0,
@@ -800,6 +807,9 @@ static bool gpuinfo_nvidia_init_with_lib(const char *libname) {
   // previous behaviour of probing the PCIe link.
   nvmlDeviceGetBusType = dlsym(libnvidia_ml_handle, "nvmlDeviceGetBusType");
 
+  // Optional: some SoCs report PCIe even when attached through NVLink-C2C.
+  nvmlDeviceGetC2cModeInfoV = dlsym(libnvidia_ml_handle, "nvmlDeviceGetC2cModeInfoV");
+
   nvmlDeviceGetPcieThroughput = dlsym(libnvidia_ml_handle, "nvmlDeviceGetPcieThroughput");
   if (!nvmlDeviceGetPcieThroughput)
     goto init_error_clean_exit;
@@ -990,15 +1000,20 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   static_info->encode_decode_shared = false;
   // NVML reports no dedicated framebuffer (NVML_ERROR_NOT_SUPPORTED or a total
   // size of zero) on platforms where the GPU shares the system memory with the
-  // host, such as UMA platforms (e.g. DGX Spark / GB10).
+  // host, such as UMA platforms (e.g. DGX Spark / GB10 and RTX Spark N1X).
+  // Other errors do not establish the memory model: try the legacy query
+  // before leaving it unknown instead of mistaking a discrete GPU for UMA.
   static_info->memory_shared_with_host = false;
+  bool memory_info_probed = false;
   if (nvmlDeviceGetMemoryInfo_v2) {
     nvmlMemory_v2_t memory_info;
-    memory_info.version = 2;
+    memory_info.version = (unsigned int)sizeof(memory_info) | (2U << 24);
     nvmlReturn_t ret = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
+    memory_info_probed = ret == NVML_SUCCESS || ret == NVML_ERROR_NOT_SUPPORTED;
     static_info->memory_shared_with_host =
         ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
-  } else if (nvmlDeviceGetMemoryInfo) {
+  }
+  if (!memory_info_probed && nvmlDeviceGetMemoryInfo) {
     nvmlMemory_v1_t memory_info;
     nvmlReturn_t ret = nvmlDeviceGetMemoryInfo(device, &memory_info);
     static_info->memory_shared_with_host =
@@ -1171,7 +1186,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     bool got_meminfo = false;
     if (nvmlDeviceGetMemoryInfo_v2) {
       nvmlMemory_v2_t memory_info;
-      memory_info.version = 2;
+      memory_info.version = (unsigned int)sizeof(memory_info) | (2U << 24);
       last_nvml_return_status = nvmlDeviceGetMemoryInfo_v2(device, &memory_info);
       if (last_nvml_return_status == NVML_SUCCESS && memory_info.total != 0) {
         got_meminfo = true;
@@ -1194,15 +1209,20 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 
   // Pcie generation and width used by the device.
-  // Only report these when NVML confirms the device is on a PCIe bus. Some SoCs
-  // (e.g. DGX Spark / GB10) are attached over NVLink-C2C, yet the PCIe link
-  // queries still return placeholder values (GEN 1 @ 1x) that would be
-  // misleading. The bus type is authoritative here rather than the memory model.
+  // Only report these for PCIe devices without an active NVLink-C2C attach.
+  // DGX Spark / GB10 and RTX Spark N1X report PCIe with placeholder link
+  // values even though C2C is enabled. Do not infer the link from UMA alone.
   bool device_on_pcie_bus = nvmlDeviceGetBusType == NULL; // Older drivers: assume PCIe as before.
   if (nvmlDeviceGetBusType) {
     unsigned int bus_type;
     if (nvmlDeviceGetBusType(device, &bus_type) == NVML_SUCCESS)
       device_on_pcie_bus = bus_type == NVML_BUS_TYPE_PCIE;
+  }
+
+  if (device_on_pcie_bus && nvmlDeviceGetC2cModeInfoV) {
+    nvmlC2cModeInfo_v1_t c2c_mode = {0};
+    if (nvmlDeviceGetC2cModeInfoV(device, &c2c_mode) == NVML_SUCCESS && c2c_mode.isC2cEnabled)
+      device_on_pcie_bus = false;
   }
 
   if (device_on_pcie_bus) {
@@ -1458,10 +1478,35 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
           _gpu_info->processes[i].gpu_memory_usage = pinfo[i].usedGpuMemory;
         } break;
         }
-        SET_VALID(gpuinfo_process_gpu_memory_usage_valid, _gpu_info->processes[i].valid);
+        // NVML_VALUE_NOT_AVAILABLE is the all-ones sentinel, not a byte count.
+        if (_gpu_info->processes[i].gpu_memory_usage != ULLONG_MAX)
+          SET_VALID(gpuinfo_process_gpu_memory_usage_valid, _gpu_info->processes[i].valid);
       }
     }
   }
+  // NVML can return the same PID in the graphics, compute and MPS lists.
+  // Its memory is a per-process total, not an allocation for each context:
+  // counting it twice inflates UMA usage reconstructed by the generic pass.
+  unsigned unique_count = 0;
+  for (unsigned i = 0; i < _gpu_info->processes_count; ++i) {
+    struct gpu_process *process = &_gpu_info->processes[i];
+    unsigned match = 0;
+    while (match < unique_count && _gpu_info->processes[match].pid != process->pid)
+      ++match;
+    if (match == unique_count) {
+      _gpu_info->processes[unique_count++] = *process;
+    } else {
+      struct gpu_process *existing = &_gpu_info->processes[match];
+      existing->type |= process->type;
+      // The queries are not atomic; keep the larger of the two samples.
+      if (GPUINFO_PROCESS_FIELD_VALID(process, gpu_memory_usage) &&
+          (!GPUINFO_PROCESS_FIELD_VALID(existing, gpu_memory_usage) ||
+           process->gpu_memory_usage > existing->gpu_memory_usage))
+        SET_GPUINFO_PROCESS(existing, gpu_memory_usage, process->gpu_memory_usage);
+    }
+  }
+  _gpu_info->processes_count = unique_count;
+
   // If the GPU is in MIG mode; process utilization is not supported
   if (!(IS_VALID(gpuinfo_multi_instance_mode_valid, gpu_info->base.dynamic_info.valid) &&
         gpu_info->base.dynamic_info.multi_instance_mode))
