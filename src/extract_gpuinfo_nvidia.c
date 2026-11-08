@@ -331,8 +331,8 @@ typedef int NvAPI_Status;
 //   - version 1: a flat u32 array with one {frequency, present} pair per domain;
 //   - version 2: an explicit domain[] array plus the extended[] tail.
 //
-// Neither is trusted on its own: the graphics and memory entries are compared
-// against what NVML read this cycle before any extra domain is reported.
+// Neither is trusted on its own: a layout is only used once its graphics and
+// memory entries have matched what NVML read.
 typedef struct {
   unsigned int frequency; // In kHz
   unsigned int bitfield;  // Bit 0 tells whether the domain is present
@@ -496,41 +496,59 @@ static void gpuinfo_nvidia_add_extra_clocks(struct gpuinfo_dynamic_info *dynamic
   }
 }
 
-// Tries the version 2 layout first, then falls back to version 1, and only adds
-// the extra clock domains once the reported graphics/memory clocks have been
-// cross-checked against NVML. A failure here only costs the extra clocks.
-static void gpuinfo_nvidia_refresh_extra_clocks(NvPhysicalGpuHandle handle, struct gpuinfo_dynamic_info *dynamic_info,
-                                                unsigned int graphics_mhz, unsigned int memory_mhz) {
+static bool gpuinfo_nvidia_read_all_clocks(NvPhysicalGpuHandle handle, unsigned int version, unsigned int *frequency,
+                                           unsigned int *present) {
+  if (version == 2) {
+    nvapiAllClocksV2_t clocks2;
+    memset(&clocks2, 0, sizeof(clocks2));
+    clocks2.version = (unsigned int)(sizeof(clocks2) | (2u << 16));
+    if (nvapi_GPU_GetAllClocks(handle, &clocks2) != NVAPI_OK)
+      return false;
+    for (unsigned int i = 0; i < NVAPI_MAX_CLOCK_DOMAINS; ++i) {
+      frequency[i] = clocks2.domain[i].frequency;
+      present[i] = clocks2.domain[i].bitfield & 1u;
+    }
+    return true;
+  }
+
+  nvapiAllClocksV1_t clocks1;
+  memset(&clocks1, 0, sizeof(clocks1));
+  clocks1.version = (unsigned int)(sizeof(clocks1) | (1u << 16));
+  if (nvapi_GPU_GetAllClocks(handle, &clocks1) != NVAPI_OK)
+    return false;
+  for (unsigned int i = 0; i < NVAPI_MAX_CLOCK_DOMAINS; ++i) {
+    frequency[i] = clocks1.clocks[2 * i];
+    present[i] = clocks1.clocks[2 * i + 1] & 1u;
+  }
+  return true;
+}
+
+// Tries the version 2 layout first, then falls back to version 1, until one of
+// them matches the graphics/memory clocks NVML report. That layout is then kept
+// without rechecking: at idle NVML and NvAPI often report different graphics
+// clocks, so checking every refresh kept dropping the extra clocks.
+static void gpuinfo_nvidia_refresh_extra_clocks(NvPhysicalGpuHandle handle, unsigned int *layout_version,
+                                                struct gpuinfo_dynamic_info *dynamic_info, unsigned int graphics_mhz,
+                                                unsigned int memory_mhz) {
   if (!handle)
     return;
 
   unsigned int frequency[NVAPI_MAX_CLOCK_DOMAINS];
   unsigned int present[NVAPI_MAX_CLOCK_DOMAINS];
 
-  nvapiAllClocksV2_t clocks2;
-  memset(&clocks2, 0, sizeof(clocks2));
-  clocks2.version = (unsigned int)(sizeof(clocks2) | (2u << 16));
-  if (nvapi_GPU_GetAllClocks(handle, &clocks2) == NVAPI_OK) {
-    for (unsigned int i = 0; i < NVAPI_MAX_CLOCK_DOMAINS; ++i) {
-      frequency[i] = clocks2.domain[i].frequency;
-      present[i] = clocks2.domain[i].bitfield & 1u;
-    }
-    if (gpuinfo_nvidia_extra_clocks_valid(frequency, present, graphics_mhz, memory_mhz)) {
+  if (*layout_version) {
+    if (gpuinfo_nvidia_read_all_clocks(handle, *layout_version, frequency, present))
+      gpuinfo_nvidia_add_extra_clocks(dynamic_info, frequency, present);
+    return;
+  }
+
+  for (unsigned int version = 2; version > 0; --version) {
+    if (gpuinfo_nvidia_read_all_clocks(handle, version, frequency, present) &&
+        gpuinfo_nvidia_extra_clocks_valid(frequency, present, graphics_mhz, memory_mhz)) {
+      *layout_version = version;
       gpuinfo_nvidia_add_extra_clocks(dynamic_info, frequency, present);
       return;
     }
-  }
-
-  nvapiAllClocksV1_t clocks1;
-  memset(&clocks1, 0, sizeof(clocks1));
-  clocks1.version = (unsigned int)(sizeof(clocks1) | (1u << 16));
-  if (nvapi_GPU_GetAllClocks(handle, &clocks1) == NVAPI_OK) {
-    for (unsigned int i = 0; i < NVAPI_MAX_CLOCK_DOMAINS; ++i) {
-      frequency[i] = clocks1.clocks[2 * i];
-      present[i] = clocks1.clocks[2 * i + 1] & 1u;
-    }
-    if (gpuinfo_nvidia_extra_clocks_valid(frequency, present, graphics_mhz, memory_mhz))
-      gpuinfo_nvidia_add_extra_clocks(dynamic_info, frequency, present);
   }
 }
 
@@ -635,6 +653,7 @@ struct gpu_info_nvidia {
 
   nvmlDevice_t gpuhandle;
   NvPhysicalGpuHandle nvapihandle; // NULL unless NvAPI resolved this same GPU
+  unsigned int nvapi_clocks_version; // NvAPI clock layout that matched NVML, 0 until one does
   bool isInMigMode;
   unsigned long long last_utilization_timestamp;
 
@@ -1152,10 +1171,9 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // Clock domains NVML does not report, such as XBAR. Pass the clocks NVML just
   // read so the private API's layout can be cross-checked before it is trusted.
-  gpuinfo_nvidia_refresh_extra_clocks(gpu_info->nvapihandle, dynamic_info, graphics_clock_valid ? graphics_clock : 0,
-                                      GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, mem_clock_speed)
-                                          ? dynamic_info->mem_clock_speed
-                                          : 0);
+  gpuinfo_nvidia_refresh_extra_clocks(
+      gpu_info->nvapihandle, &gpu_info->nvapi_clocks_version, dynamic_info, graphics_clock_valid ? graphics_clock : 0,
+      GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, mem_clock_speed) ? dynamic_info->mem_clock_speed : 0);
 
   // CPU and Memory utilization rates
   nvmlUtilization_t utilization_percentages;

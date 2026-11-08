@@ -31,6 +31,7 @@ extern "C" {
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface.h"
 #include "nvtop/interface_layout_selection.h"
+#include "nvtop/interface_options.h"
 #include "nvtop/pcie_utilization.h"
 }
 
@@ -324,6 +325,38 @@ TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
   EXPECT_TRUE(options.dynamic_memory_units);
 
   EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
+  // An unmonitored GPU is no longer refreshed, so its process entries would
+  // otherwise keep pointers to process-cache strings freed by later refreshes.
+  // They must be dropped when monitoring is disabled.
+  struct gpu_info monitored = {};
+  struct gpu_info unmonitored = {};
+  monitored.processes_count = 3;
+  unmonitored.processes_count = 2;
+
+  LIST_HEAD(monitored_gpus);
+  LIST_HEAD(non_monitored_gpus);
+  list_add_tail(&monitored.list, &monitored_gpus);
+  list_add_tail(&unmonitored.list, &non_monitored_gpus);
+
+  nvtop_interface_option options = {};
+  options.gpu_specific_opts = static_cast<nvtop_interface_gpu_opts *>(calloc(2, sizeof(*options.gpu_specific_opts)));
+  ASSERT_NE(options.gpu_specific_opts, nullptr);
+  options.gpu_specific_opts[0].doNotMonitor = false;
+  options.gpu_specific_opts[1].doNotMonitor = true;
+
+  EXPECT_EQ(interface_check_and_fix_monitored_gpus(2, &monitored_gpus, &non_monitored_gpus, &options), 1u);
+  EXPECT_EQ(monitored.processes_count, 3u);
+  EXPECT_EQ(unmonitored.processes_count, 0u);
+
+  // Re-monitoring must not resurrect the dropped entries before the next refresh.
+  options.gpu_specific_opts[1].doNotMonitor = false;
+  EXPECT_EQ(interface_check_and_fix_monitored_gpus(2, &monitored_gpus, &non_monitored_gpus, &options), 2u);
+  EXPECT_EQ(unmonitored.processes_count, 0u);
+
+  free(options.gpu_specific_opts);
 }
 
 #ifdef THOROUGH_TESTING
