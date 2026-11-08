@@ -48,6 +48,7 @@ typedef enum nvmlReturn_enum {
   NVML_ERROR_INVALID_ARGUMENT = 2,
   NVML_ERROR_NOT_SUPPORTED = 3,
   NVML_ERROR_NO_PERMISSION = 4,
+  NVML_ERROR_NOT_FOUND = 6,
   NVML_ERROR_INSUFFICIENT_SIZE = 7,
 } nvmlReturn_t;
 
@@ -1328,42 +1329,51 @@ static void gpuinfo_nvidia_get_process_utilization(struct gpu_info_nvidia *gpu_i
     unsigned samples_count = 0;
     nvmlReturn_t retval =
         nvmlDeviceGetProcessUtilization(device, NULL, &samples_count, gpu_info->last_utilization_timestamp);
-    if (retval != NVML_ERROR_INSUFFICIENT_SIZE)
+    // No samples newer than the last timestamp means no process had non-zero
+    // utilization during the last sample period. Some drivers report that from
+    // the size probe, others from the buffered query: in both cases fall
+    // through to the loop that marks processes without a sample as idle.
+    // Other errors leave the utilization unknown.
+    if (retval != NVML_ERROR_INSUFFICIENT_SIZE && retval != NVML_ERROR_NOT_FOUND)
       return;
-    nvmlProcessUtilizationSample_t *samples = malloc(samples_count * sizeof(*samples));
-    retval = nvmlDeviceGetProcessUtilization(device, samples, &samples_count, gpu_info->last_utilization_timestamp);
-    if (retval != NVML_SUCCESS) {
-      free(samples);
-      return;
-    }
-    unsigned long long newest_timestamp_candidate = gpu_info->last_utilization_timestamp;
-    for (unsigned i = 0; i < samples_count; ++i) {
-      bool process_matched = false;
-      for (unsigned j = 0; !process_matched && j < num_processes_recovered; ++j) {
-        // Filter out samples due to inconsistency in the results returned by
-        // the function nvmlDeviceGetProcessUtilization (see bug #110 on
-        // Github). Check for a valid running process returned by
-        // nvmlDeviceGetComputeRunningProcesses or
-        // nvmlDeviceGetGraphicsRunningProcesses, filter out inconsistent
-        // utilization value greater than 100% and filter out timestamp results
-        // that are less recent than what we were asking for
-        if ((pid_t)samples[i].pid == processes[j].pid && samples[i].smUtil <= 100 && samples[i].encUtil <= 100 &&
-            samples[i].decUtil <= 100 && samples[i].timeStamp > gpu_info->last_utilization_timestamp) {
-          // Collect the largest valid timestamp for this device to filter out
-          // the samples during the next call to the function
-          // nvmlDeviceGetProcessUtilization
-          if (samples[i].timeStamp > newest_timestamp_candidate)
-            newest_timestamp_candidate = samples[i].timeStamp;
+    if (retval == NVML_ERROR_INSUFFICIENT_SIZE && samples_count > 0) {
+      nvmlProcessUtilizationSample_t *samples = malloc(samples_count * sizeof(*samples));
+      retval = nvmlDeviceGetProcessUtilization(device, samples, &samples_count, gpu_info->last_utilization_timestamp);
+      if (retval == NVML_ERROR_NOT_FOUND) {
+        samples_count = 0;
+      } else if (retval != NVML_SUCCESS) {
+        free(samples);
+        return;
+      }
+      unsigned long long newest_timestamp_candidate = gpu_info->last_utilization_timestamp;
+      for (unsigned i = 0; i < samples_count; ++i) {
+        bool process_matched = false;
+        for (unsigned j = 0; !process_matched && j < num_processes_recovered; ++j) {
+          // Filter out samples due to inconsistency in the results returned by
+          // the function nvmlDeviceGetProcessUtilization (see bug #110 on
+          // Github). Check for a valid running process returned by
+          // nvmlDeviceGetComputeRunningProcesses or
+          // nvmlDeviceGetGraphicsRunningProcesses, filter out inconsistent
+          // utilization value greater than 100% and filter out timestamp results
+          // that are less recent than what we were asking for
+          if ((pid_t)samples[i].pid == processes[j].pid && samples[i].smUtil <= 100 && samples[i].encUtil <= 100 &&
+              samples[i].decUtil <= 100 && samples[i].timeStamp > gpu_info->last_utilization_timestamp) {
+            // Collect the largest valid timestamp for this device to filter out
+            // the samples during the next call to the function
+            // nvmlDeviceGetProcessUtilization
+            if (samples[i].timeStamp > newest_timestamp_candidate)
+              newest_timestamp_candidate = samples[i].timeStamp;
 
-          SET_GPUINFO_PROCESS(&processes[j], gpu_usage, samples[i].smUtil);
-          SET_GPUINFO_PROCESS(&processes[j], encode_usage, samples[i].encUtil);
-          SET_GPUINFO_PROCESS(&processes[j], decode_usage, samples[i].decUtil);
-          process_matched = true;
+            SET_GPUINFO_PROCESS(&processes[j], gpu_usage, samples[i].smUtil);
+            SET_GPUINFO_PROCESS(&processes[j], encode_usage, samples[i].encUtil);
+            SET_GPUINFO_PROCESS(&processes[j], decode_usage, samples[i].decUtil);
+            process_matched = true;
+          }
         }
       }
+      gpu_info->last_utilization_timestamp = newest_timestamp_candidate;
+      free(samples);
     }
-    gpu_info->last_utilization_timestamp = newest_timestamp_candidate;
-    free(samples);
   }
   // Mark the ones w/o update since last sample period to 0% usage
   for (unsigned j = 0; j < num_processes_recovered; ++j) {

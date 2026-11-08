@@ -19,7 +19,8 @@ if (BUILD_TESTING AND NVIDIA_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_link_libraries(nvidiaTests PRIVATE m ${CMAKE_DL_LIBS})
   add_sanitizers(nvidiaTests)
   foreach (test_case uma_version legacy_fallback mixed_processes c2c_link unavailable_memory
-                    memory_probes pcie_preserved uma_idle)
+                    memory_probes pcie_preserved uma_idle
+                    utilization_probe_not_found utilization_buffered_not_found utilization_samples)
     add_test(NAME Nvidia.${test_case} COMMAND nvidiaTests ${test_case})
   endforeach()
 endif()
