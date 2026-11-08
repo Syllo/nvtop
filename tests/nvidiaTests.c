@@ -373,6 +373,111 @@ static bool uma_idle(void) {
   return true;
 }
 
+static unsigned utilization_calls;
+
+static nvmlReturn_t utilization_not_found(nvmlDevice_t device, nvmlProcessUtilizationSample_t *utilization,
+                                          unsigned int *count, unsigned long long last_seen) {
+  (void)device;
+  (void)utilization;
+  (void)last_seen;
+  ++utilization_calls;
+  *count = 0;
+  return NVML_ERROR_NOT_FOUND;
+}
+
+static nvmlReturn_t utilization_fetch_not_found(nvmlDevice_t device, nvmlProcessUtilizationSample_t *utilization,
+                                                unsigned int *count, unsigned long long last_seen) {
+  (void)device;
+  (void)last_seen;
+  ++utilization_calls;
+  if (!utilization) {
+    *count = 2;
+    return NVML_ERROR_INSUFFICIENT_SIZE;
+  }
+  *count = 0;
+  return NVML_ERROR_NOT_FOUND;
+}
+
+static nvmlReturn_t utilization_one_sample(nvmlDevice_t device, nvmlProcessUtilizationSample_t *utilization,
+                                           unsigned int *count, unsigned long long last_seen) {
+  (void)device;
+  ++utilization_calls;
+  if (!utilization) {
+    *count = 1;
+    return NVML_ERROR_INSUFFICIENT_SIZE;
+  }
+  *count = 1;
+  utilization[0].pid = 101;
+  utilization[0].timeStamp = last_seen + 1;
+  utilization[0].smUtil = 50;
+  utilization[0].memUtil = 0;
+  utilization[0].encUtil = 10;
+  utilization[0].decUtil = 20;
+  return NVML_SUCCESS;
+}
+
+static bool check_idle(struct gpu_process *process) {
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(process, gpu_usage));
+  CHECK(process->gpu_usage == 0);
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(process, encode_usage));
+  CHECK(process->encode_usage == 0);
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(process, decode_usage));
+  CHECK(process->decode_usage == 0);
+  return true;
+}
+
+// Some drivers report "no samples" from the size probe already.
+static bool utilization_probe_not_found(void) {
+  setup();
+  struct gpu_info_nvidia gpu = {0};
+  struct gpu_process procs[2] = {0};
+  procs[0].pid = 101;
+  procs[1].pid = 202;
+  utilization_calls = 0;
+  nvmlDeviceGetProcessUtilization = utilization_not_found;
+  gpuinfo_nvidia_get_process_utilization(&gpu, 2, procs);
+  CHECK(utilization_calls == 1);
+  for (unsigned i = 0; i < 2; ++i)
+    CHECK(check_idle(&procs[i]));
+  return true;
+}
+
+// Others report it from the buffered query instead.
+static bool utilization_buffered_not_found(void) {
+  setup();
+  struct gpu_info_nvidia gpu = {0};
+  struct gpu_process procs[2] = {0};
+  procs[0].pid = 101;
+  procs[1].pid = 202;
+  utilization_calls = 0;
+  nvmlDeviceGetProcessUtilization = utilization_fetch_not_found;
+  gpuinfo_nvidia_get_process_utilization(&gpu, 2, procs);
+  CHECK(utilization_calls == 2);
+  for (unsigned i = 0; i < 2; ++i)
+    CHECK(check_idle(&procs[i]));
+  return true;
+}
+
+// Samples must still be applied when the driver has them.
+static bool utilization_samples(void) {
+  setup();
+  struct gpu_info_nvidia gpu = {0};
+  struct gpu_process procs[2] = {0};
+  procs[0].pid = 101;
+  procs[1].pid = 202;
+  utilization_calls = 0;
+  nvmlDeviceGetProcessUtilization = utilization_one_sample;
+  gpuinfo_nvidia_get_process_utilization(&gpu, 2, procs);
+  CHECK(utilization_calls == 2);
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&procs[0], gpu_usage));
+  CHECK(procs[0].gpu_usage == 50);
+  CHECK(procs[0].encode_usage == 10);
+  CHECK(procs[0].decode_usage == 20);
+  CHECK(check_idle(&procs[1]));
+  CHECK(gpu.last_utilization_timestamp == 1);
+  return true;
+}
+
 int main(int argc, char **argv) {
   const struct {
     const char *name;
@@ -386,6 +491,9 @@ int main(int argc, char **argv) {
       {"memory_probes", memory_probes},
       {"pcie_preserved", pcie_preserved},
       {"uma_idle", uma_idle},
+      {"utilization_probe_not_found", utilization_probe_not_found},
+      {"utilization_buffered_not_found", utilization_buffered_not_found},
+      {"utilization_samples", utilization_samples},
   };
   for (unsigned i = 0; argc == 2 && i < sizeof(tests) / sizeof(*tests); ++i)
     if (!strcmp(argv[1], tests[i].name))
