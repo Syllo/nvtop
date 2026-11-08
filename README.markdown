@@ -122,6 +122,19 @@ Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
+Unified-memory systems such as DGX Spark (GB10) and RTX Spark N1X are supported
+through the same NVML backend. When NVML reports no dedicated framebuffer,
+memory capacity comes from Linux `MemTotal`, available memory from
+`MemAvailable`, and GPU usage from the visible GPU processes' allocations.
+These are different counters: total minus GPU usage is not the remaining
+allocatable system memory. Processes using both graphics and compute contexts
+are counted once. In containers, make host GPU processes visible (for example
+with `--pid=host`) to obtain complete per-process accounting.
+
+PCIe link generation and width are left unavailable when NVML reports an active
+NVLink-C2C attachment. Driver-unsupported sensors, including memory clocks, fan
+speed and link throughput, remain `N/A` rather than being estimated.
+
 The extra GPU info bar (`nvtop -i`) shows the dynamic parameters NVML does not
 report, such as the XBAR, SYS and NVD clocks, and `nvtop -X` also shows the
 static specs (shader cores, L2 cache, execution engines) and the secondary HUB,

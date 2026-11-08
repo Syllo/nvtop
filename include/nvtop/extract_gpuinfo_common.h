@@ -283,10 +283,17 @@ void gpuinfo_add_extra_clock(struct gpuinfo_dynamic_info *dynamic_info, const ch
 extern const char drm_pdev[];
 extern const char drm_client_id[];
 
+// Some drivers (e.g. i915) account the busy time in chunks, so it can advance by a bit more than the time between two
+// measurements. Cap the result at 100% instead of reporting more than the engine can do.
 inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
                                                  uint64_t time_between_measurement) {
-  return ((current_use_ns - previous_use_ns) * UINT64_C(100) + time_between_measurement / UINT64_C(2)) /
-         time_between_measurement;
+  // Without an elapsed time no rate can be derived; avoid dividing by zero.
+  if (time_between_measurement == 0)
+    return 0;
+  uint64_t busy_time = current_use_ns - previous_use_ns;
+  if (busy_time > time_between_measurement)
+    return 100;
+  return (busy_time * UINT64_C(100) + time_between_measurement / UINT64_C(2)) / time_between_measurement;
 }
 
 unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed);

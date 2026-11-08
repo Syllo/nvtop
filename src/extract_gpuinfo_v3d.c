@@ -164,8 +164,7 @@ static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struc
     HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
         V3D_CACHE_FIELD_VALID(cache_entry, engine_render) &&
-        process_info->gfx_engine_used >= cache_entry->engine_render &&
-        process_info->gfx_engine_used - cache_entry->engine_render <= time_elapsed) {
+        process_info->gfx_engine_used >= cache_entry->engine_render) {
       SET_GPUINFO_PROCESS(
           process_info, gpu_usage,
           busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));
