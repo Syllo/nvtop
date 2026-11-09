@@ -1577,31 +1577,12 @@ static const char *columnName[process_field_count] = {
     "PID", "USER", "DEV", "TYPE", "GPU", "ENC", "DEC", "GPU MEM", "CPU", "HOST MEM", "Command",
 };
 
-static void update_selected_offset_with_window_size(unsigned int *selected_row, unsigned int *offset,
-                                                    unsigned int row_available_to_draw, unsigned int num_to_draw) {
-
-  if (!num_to_draw)
-    return;
-
-  if (*selected_row > num_to_draw - 1)
-    *selected_row = num_to_draw - 1;
-
-  if (*offset > *selected_row)
-    *offset = *selected_row;
-
-  if (*offset + row_available_to_draw - 1 < *selected_row)
-    *offset = *selected_row - row_available_to_draw + 1;
-
-  while (row_available_to_draw > num_to_draw - *offset && *offset != 0)
-    *offset -= 1;
-}
-
 #define process_buffer_line_size 8192
 static char process_print_buffer[process_buffer_line_size];
 
 // Render the numeric columns (GPU / enc / dec / memory / CPU / CPU mem / command)
-// of a process row, so the layout and formatting of these columns live in one
-// place.
+// of a process, shared by the process rows and the TOTAL row so the layout and
+// formatting of these columns live in one place.
 static int format_process_numeric_fields(struct gpu_process *proc, process_field_displayed fields_to_display,
                                          bool dynamic_memory_units, int printed) {
   char memory[sizeof_process_field[process_memory] + 1];
@@ -1700,7 +1681,17 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
   getmaxyx(win, rows, cols);
   rows -= 1;
 
-  update_selected_offset_with_window_size(&process->selected_row, &process->offset, rows, all_procs.processes_count);
+  unsigned int total_process_count = all_procs.processes_count + (all_procs.processes_count > 0 ? 1 : 0);
+
+  // Scroll counting the TOTAL row so it is a real drawable entry and stays at
+  // the bottom of the window; the selected row refers to a process only and is
+  // clamped by draw_processes, so it never lands on the TOTAL row.
+  update_selected_offset_with_window_size(&process->selected_row, &process->offset, rows, total_process_count);
+  // Minimal scrolling keeps the selected process at the last window line, which
+  // would push the TOTAL row off the bottom. When the last process is in view,
+  // shift the window up by one line so the TOTAL row is drawn, as long as the
+  // selected process stays visible.
+  process->offset = keep_total_row_visible(process->selected_row, process->offset, rows, all_procs.processes_count);
   if (process->offset_column + cols >= process_buffer_line_size)
     process->offset_column = process_buffer_line_size - cols - 1;
 
@@ -1741,7 +1732,39 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
 
   static unsigned printed_last_call = 0;
   unsigned last_line_printed = 0;
-  for (unsigned int i = start_at_process; i < end_at_process && i < all_procs.processes_count; ++i) {
+  for (unsigned int i = start_at_process; i < end_at_process && i < total_process_count; ++i) {
+    if (i == all_procs.processes_count) {
+      struct gpu_process total;
+      sum_processes(all_procs, &total);
+
+      memset(process_print_buffer, 0, sizeof(process_print_buffer));
+      printed = 0;
+      if (process_is_field_displayed(process_pid, fields_to_display)) {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_pid], "TOTAL");
+      }
+      if (process_is_field_displayed(process_user, fields_to_display)) {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_user], "");
+      }
+      if (process_is_field_displayed(process_gpu_id, fields_to_display)) {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_gpu_id], "");
+      }
+      if (process_is_field_displayed(process_type, fields_to_display)) {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_type], "");
+      }
+      printed = format_process_numeric_fields(&total, fields_to_display, dynamic_memory_units, printed);
+
+      unsigned int write_at = i - start_at_process + 1;
+      mvwprintw(win, write_at, 0, "%.*s", cols, &process_print_buffer[process->offset_column]);
+      wclrtoeol(win);
+      last_line_printed = write_at;
+      // The total row is not a selectable process, so it is always drawn highlighted.
+      mvwchgat(win, write_at, 0, -1, A_STANDOUT, green_color, NULL);
+      continue;
+    }
     memset(process_print_buffer, 0, sizeof(process_print_buffer));
 
     printed = 0;
