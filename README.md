@@ -31,7 +31,7 @@ Table of Contents
   - [NVIDIA](#nvidia)
   - [Adreno](#adreno)
   - [Apple](#apple)
-  - [Ascend](#ascend) (only tested on 910B)
+  - [Ascend](#ascend)
   - [Iluvatar CoreX](#iluvatar-corex)
   - [VideoCore](#videocore)
   - [Rockchip](#rockchip)
@@ -41,14 +41,24 @@ Table of Contents
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
-    - [Ubuntu Impish (21.10) / Debian buster (stable) and more recent (stable)](#ubuntu-impish-2110-debian-buster-stable-and-more-recent)
+    - [Ubuntu Jammy (22.04), Debian bullseye (11) and more recent](#ubuntu-jammy-2204-debian-bullseye-11-and-more-recent)
+    - [Ubuntu PPA](#ubuntu-ppa)
+    - [Build process for Ubuntu / Debian](#build-process-for-ubuntu--debian)
   - [Fedora / Red Hat / CentOS](#fedora--red-hat--centos)
+    - [Fedora 43 and newer](#fedora-43-and-newer)
+    - [Red Hat Enterprise Linux 8, 9 and 10](#red-hat-enterprise-linux-8-9-and-10)
+    - [CentOS Stream, Rocky Linux, AlmaLinux](#centos-stream-rocky-linux-almalinux)
+    - [Build process for Fedora / Red Hat / CentOS](#build-process-for-fedora--red-hat--centos)
   - [OpenSUSE](#opensuse)
+    - [OpenSUSE 16.0 and newer](#opensuse-160-and-newer)
+    - [Build process for OpenSUSE](#build-process-for-opensuse)
   - [Arch Linux](#arch-linux)
   - [Gentoo](#gentoo)
   - [AppImage](#appimage)
   - [Snap](#snap)
   - [Conda-forge](#conda-forge)
+    - [conda / mamba / miniforge](#conda--mamba--miniforge)
+  - [Pixi](#pixi)
   - [Docker](#docker)
   - [WSL2](#wsl2)
 - [NVTOP Build](#nvtop-build)
@@ -235,7 +245,7 @@ If your distribution provides the snap utility, follow the [snap installation pr
 
 A standalone application is available as [AppImage](#appimage).
 
-#### Ubuntu Focal (20.04), Debian buster (stable) and more recent
+#### Ubuntu Jammy (22.04), Debian bullseye (11) and more recent
 
 ```bash
 sudo apt install nvtop
@@ -243,7 +253,7 @@ sudo apt install nvtop
 
 #### Ubuntu PPA
 
-A [PPA supporting Ubuntu 20.04 and newer](https://launchpad.net/~quentiumyt/+archive/ubuntu/nvtop) is provided by
+A [PPA supporting Ubuntu 22.04 and newer](https://launchpad.net/~quentiumyt/+archive/ubuntu/nvtop) is provided by
 [Quentin Lienhardt](https://github.com/QuentiumYT) that offers an up-to-date version of `nvtop`, enabled for NVIDIA, AMD and Intel.
 
 ```bash
@@ -251,22 +261,20 @@ sudo add-apt-repository ppa:quentiumyt/nvtop
 sudo apt install nvtop
 ```
 
-#### Older
+#### Build process for Ubuntu / Debian
 
 - AMD and Intel Dependencies
   ```bash
   sudo apt install libdrm-dev libsystemd-dev
-  # Ubuntu 18.04
-  sudo apt install libudev-dev
   ```
 
 - NVIDIA Dependency
   - NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
 
 - NVTOP Dependencies
-  - CMake, ncurses and Git
+  - CMake, ncurses, GCC and Git
   ```bash
-  sudo apt install cmake libncurses5-dev libncursesw5-dev git
+  sudo apt install cmake libncurses5-dev libncursesw5-dev gcc git
   ```
 
 - NVTOP
@@ -277,27 +285,27 @@ sudo apt install nvtop
 
 A standalone application is available as [AppImage](#appimage).
 
-#### Fedora 36 and newer
+#### Fedora 43 and newer
 
-- ```bash
-  sudo dnf install nvtop
-  ```
+```bash
+sudo dnf install nvtop
+```
 
-#### Red Hat Enterprise Linux 8 and 9
+#### Red Hat Enterprise Linux 8, 9 and 10
 
-- ```bash
-  sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E %{rhel}).noarch.rpm
-  sudo dnf install nvtop
-  ```
+```bash
+sudo dnf install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-$(rpm -E %{rhel}).noarch.rpm
+sudo dnf install nvtop
+```
 
 #### CentOS Stream, Rocky Linux, AlmaLinux
 
-- ```bash
+```bash
   sudo dnf install -y epel-release
   sudo dnf install nvtop
   ```
 
-#### Build process for Fedora / Red Hat / CentOS:
+#### Build process for Fedora / Red Hat / CentOS
 
 - AMD and Intel Dependencies
   ```bash
@@ -308,9 +316,9 @@ A standalone application is available as [AppImage](#appimage).
   - NVIDIA drivers, **CUDA required for nvml libraries** (see [RPM Fusion](https://rpmfusion.org/Howto/NVIDIA))
 
 - NVTOP Dependencies
-  - CMake, ncurses, C++ and Git
+  - CMake, ncurses, GCC and Git
   ```bash
-  sudo dnf install cmake ncurses-devel git gcc-c++
+  sudo dnf install cmake ncurses-devel gcc git
   ```
 
 - NVTOP
@@ -320,7 +328,13 @@ A standalone application is available as [AppImage](#appimage).
 
 A standalone application is available as an [AppImage](#appimage).
 
-Build process for OpenSUSE:
+#### OpenSUSE 16.0 and newer
+
+```bash
+sudo zypper install nvtop
+```
+
+#### Build process for OpenSUSE
 
 - AMD Dependency
   ```bash
@@ -331,9 +345,9 @@ Build process for OpenSUSE:
   - NVIDIA drivers (see [SUSE Support Database](https://en.opensuse.org/SDB:NVIDIA_drivers))
 
 - NVTOP Dependencies
-  - CMake, ncurses and Git
+  - CMake, ncurses, GCC and Git
     ```bash
-    sudo zypper install cmake ncurses-devel git
+    sudo zypper install cmake ncurses-devel gcc git
     ```
 
 - NVTOP
@@ -341,15 +355,15 @@ Build process for OpenSUSE:
 
 ### Arch Linux
 
-- ```bash
-  sudo pacman -S nvtop
-  ```
+```bash
+sudo pacman -S nvtop
+```
 
 ### Gentoo
 
-- ```bash
-  sudo emerge -av nvtop
-  ```
+```bash
+sudo emerge -av nvtop
+```
 
 ### AppImage
 
@@ -357,14 +371,14 @@ An AppImage is a standalone application. Just download the AppImage, make it exe
 
 - Go to the [release page](https://github.com/Syllo/nvtop/releases/latest) and download `nvtop-<version>-x86_64.AppImage` (or `nvtop-<version>-aarch64.AppImage` on ARM)
 
-- ```bash
-  # Go to the download location ** The path may differ on your system **
-  cd $HOME/Downloads
-  # Make the AppImage executable
-  chmod u+x nvtop-<version>-<arch>.AppImage
-  # Enjoy nvtop
-  ./nvtop-<version>-<arch>.AppImage
-  ```
+```bash
+# Go to the download location ** The path may differ on your system **
+cd $HOME/Downloads
+# Make the AppImage executable
+chmod u+x nvtop-<version>-<arch>.AppImage
+# Enjoy nvtop
+./nvtop-<version>-<arch>.AppImage
+```
 
 The AppImage is built on AlmaLinux 8 and uses the host's glibc, udev, libdrm
 and GPU driver libraries, so it runs on glibc-based distributions with glibc
@@ -374,17 +388,17 @@ If you are curious how that works, please visit the [AppImage website](https://a
 
 ### Snap
 
-- ```bash
-  snap install nvtop
-  # Add the capability to kill processes inside nvtop
-  snap connect nvtop:process-control
-  # Add the capability to inspect GPU information (fan, PCIe, power, etc)
-  snap connect nvtop:hardware-observe
-  # AMDGPU process list support (read /proc/<pid>)
-  snap connect nvtop:system-observe
-  # Temporary workaround to get per-process GPU usage (read /proc/<pid>/fdinfo)
-  snap connect nvtop:kubernetes-support
-  ```
+```bash
+snap install nvtop
+# Add the capability to kill processes inside nvtop
+snap connect nvtop:process-control
+# Add the capability to inspect GPU information (fan, PCIe, power, etc)
+snap connect nvtop:hardware-observe
+# AMDGPU process list support (read /proc/<pid>)
+snap connect nvtop:system-observe
+# Temporary workaround to get per-process GPU usage (read /proc/<pid>/fdinfo)
+snap connect nvtop:kubernetes-support
+```
 
 Notice: The connect commands allow
 
@@ -398,7 +412,7 @@ A [conda-forge feedstock for `nvtop`](https://github.com/conda-forge/nvtop-feeds
 conda install --channel conda-forge nvtop
 ```
 
-#### pixi
+### Pixi
 
 ```bash
 pixi global install nvtop
@@ -409,8 +423,7 @@ pixi global install nvtop
 - NVIDIA drivers (same as above)
 
 - [nvidia-docker](https://github.com/NVIDIA/nvidia-docker) (See [Container Toolkit Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker))
-
-- ```bash
+  ```bash
   git clone https://github.com/Syllo/nvtop.git && cd nvtop
   sudo docker build --tag nvtop .
   sudo docker run -it --rm --runtime=nvidia --gpus=all --pid=host nvtop
