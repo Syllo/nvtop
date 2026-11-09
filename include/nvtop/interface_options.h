@@ -54,6 +54,7 @@ typedef struct nvtop_interface_option_struct {
   bool has_all_info_bar;                            // Show the static specs and the secondary clock domains
   bool hide_processes_list;                         // Hide processes list
   bool dynamic_memory_units;                        // Scale process memory units automatically
+  bool show_total_row;                             // Show a TOTAL row summing all the processes
   unsigned char gpu_plot_color_idx[MAX_LINES_PER_PLOT]; // index into plot_color_names[] per plot slot
 } nvtop_interface_option;
 

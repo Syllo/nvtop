@@ -327,6 +327,32 @@ TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
   EXPECT_EQ(std::remove(config_path), 0);
 }
 
+TEST(InterfaceOptions, TotalRowConfig) {
+  char config_path[] = "interface-options-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+
+  // Configs written while the TOTAL row was off must keep it off on reload.
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.show_total_row = true;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_FALSE(options.show_total_row);
+
+  options.show_total_row = true;
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.show_total_row = false;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_TRUE(options.show_total_row);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
 TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
   // An unmonitored GPU is no longer refreshed, so its process entries would
   // otherwise keep pointers to process-cache strings freed by later refreshes.

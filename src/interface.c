@@ -1672,7 +1672,7 @@ static int format_process_numeric_fields(struct gpu_process *proc, process_field
 
 static void print_processes_on_screen(all_processes all_procs, struct process_window *process,
                                       enum process_field sort_criterion, process_field_displayed fields_to_display,
-                                      bool dynamic_memory_units) {
+                                      bool dynamic_memory_units, bool show_total_row) {
   WINDOW *win = process->option_window.state == nvtop_option_state_hidden ? process->process_win
                                                                           : process->process_with_option_win;
   struct gpuid_and_process *processes = all_procs.processes;
@@ -1681,7 +1681,8 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
   getmaxyx(win, rows, cols);
   rows -= 1;
 
-  unsigned int total_process_count = all_procs.processes_count + (all_procs.processes_count > 0 ? 1 : 0);
+  unsigned int total_process_count =
+      all_procs.processes_count + (show_total_row && all_procs.processes_count > 0 ? 1 : 0);
 
   // Scroll counting the TOTAL row so it is a real drawable entry and stays at
   // the bottom of the window; the selected row refers to a process only and is
@@ -1691,7 +1692,9 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
   // would push the TOTAL row off the bottom. When the last process is in view,
   // shift the window up by one line so the TOTAL row is drawn, as long as the
   // selected process stays visible.
-  process->offset = keep_total_row_visible(process->selected_row, process->offset, rows, all_procs.processes_count);
+  if (show_total_row)
+    process->offset = keep_total_row_visible(process->selected_row, process->offset, rows,
+                                             all_procs.processes_count);
   if (process->offset_column + cols >= process_buffer_line_size)
     process->offset_column = process_buffer_line_size - cols - 1;
 
@@ -1893,7 +1896,8 @@ static void draw_processes(struct list_head *devices, struct nvtop_interface *in
   sizeof_process_field[process_user] = largest_username;
 
   print_processes_on_screen(all_procs, &interface->process, interface->options.sort_processes_by,
-                            interface->options.process_fields_displayed, interface->options.dynamic_memory_units);
+                            interface->options.process_fields_displayed, interface->options.dynamic_memory_units,
+                            interface->options.show_total_row);
   free(all_procs.processes);
 }
 
