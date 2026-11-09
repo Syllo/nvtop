@@ -1,4 +1,4 @@
-name: Compile Ubuntu
+name: Compile
 
 on:
   - push
@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
 
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04, ubuntu-22.04]
+        os: [ubuntu-latest, ubuntu-24.04, ubuntu-22.04, macos-26]
 
     env:
       BUILD_DIR: build
@@ -21,10 +21,15 @@ jobs:
     steps:
     - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-    - name: Install dependencies
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
       run: |
         sudo apt-get update
         sudo apt-get install -y libncurses5-dev libncursesw5-dev libdrm-dev libsystemd-dev libgtest-dev
+
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: brew install googletest
 
     - name: Configure CMake
       run: cmake -S . -B $BUILD_DIR -DBUILD_TESTING=ON
