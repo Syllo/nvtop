@@ -132,6 +132,19 @@ Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
+Unified-memory systems such as DGX Spark (GB10) and RTX Spark N1X are supported
+through the same NVML backend. When NVML reports no dedicated framebuffer,
+memory capacity comes from Linux `MemTotal`, available memory from
+`MemAvailable`, and GPU usage from the visible GPU processes' allocations.
+These are different counters: total minus GPU usage is not the remaining
+allocatable system memory. Processes using both graphics and compute contexts
+are counted once. In containers, make host GPU processes visible (for example
+with `--pid=host`) to obtain complete per-process accounting.
+
+PCIe link generation and width are left unavailable when NVML reports an active
+NVLink-C2C attachment. Driver-unsupported sensors, including memory clocks, fan
+speed and link throughput, remain `N/A` rather than being estimated.
+
 The extra GPU info bar (`nvtop -i`) shows the dynamic parameters NVML does not
 report, such as the XBAR, SYS and NVD clocks, and `nvtop -X` also shows the
 static specs (shader cores, L2 cache, execution engines) and the secondary HUB,
@@ -356,16 +369,20 @@ sudo emerge -av nvtop
 
 An AppImage is a standalone application. Just download the AppImage, make it executable and run it!
 
-- Go to the [release page](https://github.com/Syllo/nvtop/releases/latest) and download `nvtop-*-x86_64.AppImage`
+- Go to the [release page](https://github.com/Syllo/nvtop/releases/latest) and download `nvtop-<version>-x86_64.AppImage` (or `nvtop-<version>-aarch64.AppImage` on ARM)
 
-```bash
-# Go to the download location ** The path may differ on your system **
-cd $HOME/Downloads
-# Make the AppImage executable
-chmod u+x nvtop-*-x86_64.AppImage
-# Enjoy nvtop
-./nvtop-*-x86_64.AppImage
-```
+- ```bash
+  # Go to the download location ** The path may differ on your system **
+  cd $HOME/Downloads
+  # Make the AppImage executable
+  chmod u+x nvtop-<version>-<arch>.AppImage
+  # Enjoy nvtop
+  ./nvtop-<version>-<arch>.AppImage
+  ```
+
+The AppImage is built on AlmaLinux 8 and uses the host's glibc, udev, libdrm
+and GPU driver libraries, so it runs on glibc-based distributions with glibc
+2.28 or newer (Ubuntu 20.04+, Debian 10+, RHEL 8+).
 
 If you are curious how that works, please visit the [AppImage website](https://appimage.org/).
 
