@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
 
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04, ubuntu-22.04, macos-26]
+        os: [ubuntu-26.04, ubuntu-24.04, ubuntu-22.04, macos-26]
 
     env:
       BUILD_DIR: build
@@ -30,7 +30,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libncurses5-dev libncursesw5-dev libdrm-dev libsystemd-dev libgtest-dev
+        sudo apt-get install -y libncurses-dev libdrm-dev libsystemd-dev libgtest-dev
 
     - name: Install dependencies (macOS)
       if: runner.os == 'macOS'
