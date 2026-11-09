@@ -22,6 +22,18 @@
 #ifndef INTERFACE_COMMON_H__
 #define INTERFACE_COMMON_H__
 
+#include "nvtop/extract_gpuinfo_common.h"
+
+struct gpuid_and_process {
+  unsigned gpu_id;
+  struct gpu_process *process;
+};
+
+typedef struct {
+  unsigned processes_count;
+  struct gpuid_and_process *processes;
+} all_processes;
+
 enum plot_information {
   plot_gpu_rate = 0,
   plot_gpu_mem_rate,
