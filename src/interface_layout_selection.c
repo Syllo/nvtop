@@ -380,3 +380,59 @@ void compute_sizes_from_layout(unsigned devices_count, unsigned device_header_ro
   setup_position->sizeY = rows - rows_for_header;
   setup_position->sizeX = cols;
 }
+
+// Sum the numeric fields of all processes into a pseudo-process used to render
+// the TOTAL row. Only fields reported by at least one process are marked valid
+// on the sum. Each process reports gpu_memory_percentage of its own device, so
+// the summed percentage is the share of VRAM used by all processes of a device,
+// and can exceed 100% on a multi-GPU system.
+void sum_processes(all_processes all_procs, struct gpu_process *total) {
+  memset(total, 0, sizeof(*total));
+  for (unsigned int j = 0; j < all_procs.processes_count; ++j) {
+    struct gpu_process *p = all_procs.processes[j].process;
+    if (GPUINFO_PROCESS_FIELD_VALID(p, gpu_usage))
+      SET_GPUINFO_PROCESS(total, gpu_usage, total->gpu_usage + p->gpu_usage);
+    if (GPUINFO_PROCESS_FIELD_VALID(p, encode_usage))
+      SET_GPUINFO_PROCESS(total, encode_usage, total->encode_usage + p->encode_usage);
+    if (GPUINFO_PROCESS_FIELD_VALID(p, decode_usage))
+      SET_GPUINFO_PROCESS(total, decode_usage, total->decode_usage + p->decode_usage);
+    if (GPUINFO_PROCESS_FIELD_VALID(p, gpu_memory_usage))
+      SET_GPUINFO_PROCESS(total, gpu_memory_usage, total->gpu_memory_usage + p->gpu_memory_usage);
+    if (GPUINFO_PROCESS_FIELD_VALID(p, gpu_memory_percentage))
+      SET_GPUINFO_PROCESS(total, gpu_memory_percentage,
+                          total->gpu_memory_percentage + p->gpu_memory_percentage);
+    if (GPUINFO_PROCESS_FIELD_VALID(p, cpu_usage))
+      SET_GPUINFO_PROCESS(total, cpu_usage, total->cpu_usage + p->cpu_usage);
+    if (GPUINFO_PROCESS_FIELD_VALID(p, cpu_memory_res))
+      SET_GPUINFO_PROCESS(total, cpu_memory_res, total->cpu_memory_res + p->cpu_memory_res);
+  }
+}
+
+void update_selected_offset_with_window_size(unsigned int *selected_row, unsigned int *offset,
+                                             unsigned int row_available_to_draw, unsigned int num_to_draw) {
+
+  if (!num_to_draw)
+    return;
+
+  if (*selected_row > num_to_draw - 1)
+    *selected_row = num_to_draw - 1;
+
+  if (*offset > *selected_row)
+    *offset = *selected_row;
+
+  if (*offset + row_available_to_draw - 1 < *selected_row)
+    *offset = *selected_row - row_available_to_draw + 1;
+
+  while (row_available_to_draw > num_to_draw - *offset && *offset != 0)
+    *offset -= 1;
+}
+
+unsigned int keep_total_row_visible(unsigned int selected_row, unsigned int offset,
+                                    unsigned int row_available_to_draw, unsigned int num_processes) {
+  if (num_processes >= row_available_to_draw && offset + row_available_to_draw >= num_processes) {
+    unsigned int offset_showing_total_row = num_processes - row_available_to_draw + 1;
+    if (offset_showing_total_row <= selected_row)
+      return offset_showing_total_row;
+  }
+  return offset;
+}
