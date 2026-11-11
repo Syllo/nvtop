@@ -128,6 +128,13 @@ else()
   set(ROCKCHIP_SUPPORT_DEFAULT OFF)
 endif()
 
+# Intel NPU support (intel_vpu accel driver) is only available on Linux
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(INTEL_NPU_SUPPORT_DEFAULT ON)
+else()
+  set(INTEL_NPU_SUPPORT_DEFAULT OFF)
+endif()
+
 # Tenstorrent support is only available on Linux
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(TENSTORRENT_SUPPORT_DEFAULT ON)
@@ -147,6 +154,7 @@ option(ASCEND_SUPPORT "Build support for Ascend NPUs through Ascend DCMI" ${ASCE
 option(V3D_SUPPORT "Build support for Raspberrypi through v3d" ${V3D_SUPPORT_DEFAULT})
 option(TPU_SUPPORT "Build support for Google TPUs through GRPC" ${TPU_SUPPORT_DEFAULT})
 option(ROCKCHIP_SUPPORT "Enable support for Rockchip NPU" ${ROCKCHIP_SUPPORT_DEFAULT})
+option(INTEL_NPU_SUPPORT "Build support for Intel NPUs through the intel_vpu driver" ${INTEL_NPU_SUPPORT_DEFAULT})
 option(METAX_SUPPORT "Build support for MetaX GPUs through libmxsml" ${METAX_SUPPORT_DEFAULT})
 option(ENFLAME_SUPPORT "Build support for Enflame GCUs through libefml" ${ENFLAME_SUPPORT_DEFAULT})
 option(TENSTORRENT_SUPPORT "Build support for Tenstorrent accelerators through tt-kmd" ${TENSTORRENT_SUPPORT_DEFAULT})
