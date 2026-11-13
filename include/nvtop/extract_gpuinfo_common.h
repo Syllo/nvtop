@@ -117,6 +117,11 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_ecc_corrected_valid,
   gpuinfo_ecc_uncorrected_valid,
   gpuinfo_extra_clocks_valid,
+  gpuinfo_mem_ctrl_util_rate_valid,
+  gpuinfo_video_engine_rate_valid,
+  gpuinfo_bus_util_rate_valid,
+  gpuinfo_jpeg_rate_valid,
+  gpuinfo_ofa_rate_valid,
   gpuinfo_dynamic_info_count,
 };
 
@@ -143,6 +148,11 @@ struct gpuinfo_dynamic_info {
   unsigned int effective_load_rate;   // Effective load rate in %
   unsigned int encoder_rate;          // Encoder utilization rate in %
   unsigned int decoder_rate;          // Decoder utilization rate in %
+  unsigned int mem_ctrl_util_rate;    // Memory controller utilization rate in %
+  unsigned int video_engine_rate;     // Video engine utilization rate in %
+  unsigned int bus_util_rate;         // Host bus interface utilization rate in %
+  unsigned int jpeg_rate;             // JPEG engine utilization rate in %
+  unsigned int ofa_rate;              // Optical flow accelerator utilization rate in %
   unsigned long long total_memory;    // Total memory (bytes)
   unsigned long long free_memory;     // Unallocated memory (bytes)
   unsigned long long used_memory;     // Allocated memory (bytes)

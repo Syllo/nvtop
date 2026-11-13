@@ -52,6 +52,7 @@ typedef struct nvtop_interface_option_struct {
   bool has_monitored_set_changed;                   // True if the set of monitored gpu was modified through the interface
   bool has_gpu_info_bar;                            // Show the dynamic GPU parameters (clock domains, NVLink errors)
   bool has_all_info_bar;                            // Show the static specs and the secondary clock domains
+  bool has_engine_loads;                            // Show the engine loads in the GPU info bar
   bool hide_processes_list;                         // Hide processes list
   bool dynamic_memory_units;                        // Scale process memory units automatically
   unsigned char gpu_plot_color_idx[MAX_LINES_PER_PLOT]; // index into plot_color_names[] per plot slot

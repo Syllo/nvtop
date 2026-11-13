@@ -128,6 +128,8 @@ struct gpu_info_amdgpu {
   FILE *fanSpeedFILE;   // FILE* for this device current fan speed
   FILE *tempSensorFILE; // FILE* for the hwmon GPU temperature fallback
   FILE *PCIeBW;         // FILE* for this device PCIe bandwidth over one second
+  FILE *memBusyPercent; // FILE* for this device memory controller busy share
+  FILE *vcnBusyPercent; // FILE* for this device video engine busy share
   FILE *powerCap;       // FILE* for this device power cap
   FILE *powerCapDefault;
 
@@ -254,6 +256,10 @@ static void gpuinfo_amdgpu_shutdown(void) {
       fclose(gpu_info->tempSensorFILE);
     if (gpu_info->PCIeBW)
       fclose(gpu_info->PCIeBW);
+    if (gpu_info->memBusyPercent)
+      fclose(gpu_info->memBusyPercent);
+    if (gpu_info->vcnBusyPercent)
+      fclose(gpu_info->vcnBusyPercent);
     if (gpu_info->powerCap)
       fclose(gpu_info->powerCap);
     if (gpu_info->powerCapDefault)
@@ -416,6 +422,22 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
     gpu_info->PCIeBW = fdopen(pcieBWFD, "r");
     if (!gpu_info->PCIeBW)
       close(pcieBWFD);
+  }
+
+  // Memory controller and video engine busy shares, only some GPUs and kernels provide them
+  gpu_info->memBusyPercent = NULL;
+  int memBusyFD = openat(sysfsFD, "mem_busy_percent", O_RDONLY);
+  if (memBusyFD >= 0) {
+    gpu_info->memBusyPercent = fdopen(memBusyFD, "r");
+    if (!gpu_info->memBusyPercent)
+      close(memBusyFD);
+  }
+  gpu_info->vcnBusyPercent = NULL;
+  int vcnBusyFD = openat(sysfsFD, "vcn_busy_percent", O_RDONLY);
+  if (vcnBusyFD >= 0) {
+    gpu_info->vcnBusyPercent = fdopen(vcnBusyFD, "r");
+    if (!gpu_info->vcnBusyPercent)
+      close(vcnBusyFD);
   }
 
   close(sysfsFD);
@@ -895,6 +917,15 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     last_libdrm_return_status = 1;
   if (!last_libdrm_return_status) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, out32);
+  }
+
+  // Memory controller and video engine load
+  unsigned busyPercent;
+  if (rewindAndReadPattern(gpu_info->memBusyPercent, "%u", &busyPercent) == 1 && busyPercent <= 100) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_ctrl_util_rate, busyPercent);
+  }
+  if (rewindAndReadPattern(gpu_info->vcnBusyPercent, "%u", &busyPercent) == 1 && busyPercent <= 100) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, video_engine_rate, busyPercent);
   }
 
   // Memory usage

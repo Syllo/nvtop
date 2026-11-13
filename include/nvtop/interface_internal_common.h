@@ -136,6 +136,7 @@ struct setup_window {
   WINDOW *single;
   WINDOW *split[2];
   unsigned options_selected[2];
+  unsigned metric_offset;
 };
 
 // Keep gpu information every 1 second for 10 minutes
@@ -167,6 +168,24 @@ enum device_field {
   device_extra_info,
   device_field_count,
 };
+
+inline void update_selected_offset_with_window_size(unsigned int *selected_row, unsigned int *offset,
+                                                    unsigned int row_available_to_draw, unsigned int num_to_draw) {
+  if (!num_to_draw)
+    return;
+
+  if (*selected_row > num_to_draw - 1)
+    *selected_row = num_to_draw - 1;
+
+  if (*offset > *selected_row)
+    *offset = *selected_row;
+
+  if (*offset + row_available_to_draw - 1 < *selected_row)
+    *offset = *selected_row - row_available_to_draw + 1;
+
+  while (row_available_to_draw > num_to_draw - *offset && *offset != 0)
+    *offset -= 1;
+}
 
 inline void set_attribute_between(WINDOW *win, int startY, int startX, int endX, attr_t attr, short pair) {
   int rows, cols;

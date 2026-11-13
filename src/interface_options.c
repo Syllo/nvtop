@@ -134,6 +134,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->hide_processes_list = false;
   options->has_gpu_info_bar = false;
   options->has_all_info_bar = false;
+  options->has_engine_loads = false;
   options->dynamic_memory_units = false;
   options->gpu_plot_color_idx[0] = 1;  // Cyan
   options->gpu_plot_color_idx[1] = 3;  // Yellow
@@ -182,6 +183,7 @@ static const char header_value_use_fahrenheit[] = "UseFahrenheit";
 static const char header_value_encode_decode_timer[] = "EncodeHideTimer";
 static const char header_value_gpu_info_bar[] = "GPUInfoBar";
 static const char header_value_all_info_bar[] = "AllInfoBar";
+static const char header_value_engine_loads[] = "EngineLoads";
 
 static const char chart_section[] = "ChartOption";
 static const char chart_value_reverse[] = "ReverseChart";
@@ -209,9 +211,25 @@ static const char device_pdev[] = "Pdev";
 static const char device_monitor[] = "Monitor";
 static const char device_shown_value[] = "ShownInfo";
 static const char *device_draw_vals[plot_information_count + 1] = {
-    "gpuRate",       "gpuMemRate", "encodeRate",   "decodeRate",      "temperature",
-    "powerDrawRate", "fanSpeed",   "gpuClockRate", "gpuMemClockRate", "effectiveLoadRate",
-    "pcieRxRate",    "pcieTxRate", "hvxUtilRate",  "hmxUtilRate",     "none"};
+    [plot_gpu_rate] = "gpuRate",
+    [plot_gpu_mem_rate] = "gpuMemRate",
+    [plot_encoder_rate] = "encodeRate",
+    [plot_decoder_rate] = "decodeRate",
+    [plot_mem_ctrl_util_rate] = "memCtrlUtilRate",
+    [plot_video_engine_rate] = "videoEngineRate",
+    [plot_bus_util_rate] = "busUtilRate",
+    [plot_gpu_temperature] = "temperature",
+    [plot_gpu_power_draw_rate] = "powerDrawRate",
+    [plot_fan_speed] = "fanSpeed",
+    [plot_gpu_clock_rate] = "gpuClockRate",
+    [plot_gpu_mem_clock_rate] = "gpuMemClockRate",
+    [plot_effective_load_rate] = "effectiveLoadRate",
+    [plot_pcie_rx_rate] = "pcieRxRate",
+    [plot_pcie_tx_rate] = "pcieTxRate",
+    [plot_hvx_util_rate] = "hvxUtilRate",
+    [plot_hmx_util_rate] = "hmxUtilRate",
+    [plot_information_count] = "none",
+};
 
 static int nvtop_option_ini_handler(void *user, const char *section, const char *name, const char *value) {
   struct nvtop_option_ini_data *ini_data = (struct nvtop_option_ini_data *)user;
@@ -268,6 +286,14 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
       }
       if (strcmp(value, "false") == 0) {
         ini_data->options->has_all_info_bar = false;
+      }
+    }
+    if (strcmp(name, header_value_engine_loads) == 0) {
+      if (strcmp(value, "true") == 0) {
+        ini_data->options->has_engine_loads = true;
+      }
+      if (strcmp(value, "false") == 0) {
+        ini_data->options->has_engine_loads = false;
       }
     }
   }
@@ -444,6 +470,7 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   fprintf(config_file, "%s = %e\n", header_value_encode_decode_timer, options->encode_decode_hiding_timer);
   fprintf(config_file, "%s = %s\n", header_value_gpu_info_bar, boolean_string(options->has_gpu_info_bar));
   fprintf(config_file, "%s = %s\n", header_value_all_info_bar, boolean_string(options->has_all_info_bar));
+  fprintf(config_file, "%s = %s\n", header_value_engine_loads, boolean_string(options->has_engine_loads));
 
   // Chart Options
   fprintf(config_file, "\n[%s]\n", chart_section);

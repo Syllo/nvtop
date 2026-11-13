@@ -285,8 +285,8 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
 
   // Extra GPU info bar. The reserved rows start right after the utilization
   // bar. When present, the NVLink error counters take the first one and the
-  // generic grid of clock domains and static specs fills the rows below. Only
-  // the cells the reserved rows have room for get a window; the rest stay NULL.
+  // generic grid of fields fills the rows below. Only the cells the reserved
+  // rows have room for get a window; the rest stay NULL.
   const bool nvlink_errors_row = options->has_gpu_info_bar && any_device_has_nvlink_active;
   const unsigned int info_bar_row = start_row + 3;
   if (nvlink_errors_row) {
@@ -867,10 +867,10 @@ static void add_extra_info_item(struct extra_info_item *items, unsigned *count, 
 }
 
 // Builds, in display order, the fields the extra GPU info bar shows for one
-// device: the dynamic primary clock domains when -i is on, then the static
-// specs and the secondary clock domains when -X is on. Fields the driver does
-// not report are simply not appended, so a device with nothing to show costs no
-// row at all.
+// device: the primary clock domains when -i is on, the engine loads when their
+// option is on, then the static specs and the secondary clock domains when -X
+// is on. Fields the driver does not report are simply not appended, so a device
+// with nothing to show costs no row at all.
 static unsigned collect_extra_info(const struct gpu_info *device, const nvtop_interface_option *options,
                                    struct extra_info_item *items, unsigned max_items) {
   unsigned count = 0;
@@ -884,6 +884,19 @@ static unsigned collect_extra_info(const struct gpu_info *device, const nvtop_in
       add_extra_info_item(items, &count, max_items, dynamic_info->extra_clocks[i].name,
                           dynamic_info->extra_clocks[i].speed, "MHz");
     }
+  }
+
+  if (options->has_gpu_info_bar && options->has_engine_loads) {
+    if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, mem_ctrl_util_rate))
+      add_extra_info_item(items, &count, max_items, "MEMCTL", dynamic_info->mem_ctrl_util_rate, "%");
+    if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, video_engine_rate))
+      add_extra_info_item(items, &count, max_items, "VID", dynamic_info->video_engine_rate, "%");
+    if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, bus_util_rate))
+      add_extra_info_item(items, &count, max_items, "BUS", dynamic_info->bus_util_rate, "%");
+    if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, jpeg_rate))
+      add_extra_info_item(items, &count, max_items, "JPG", dynamic_info->jpeg_rate, "%");
+    if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, ofa_rate))
+      add_extra_info_item(items, &count, max_items, "OFA", dynamic_info->ofa_rate, "%");
   }
 
   if (options->has_all_info_bar) {
@@ -912,8 +925,9 @@ static unsigned collect_extra_info(const struct gpu_info *device, const nvtop_in
 // no row at all, which is the usual case outside NVIDIA.
 static void update_extra_info_rows(struct list_head *devices, struct nvtop_interface *interface) {
   unsigned rows_needed = 0;
-  const unsigned char option_sig =
-      (interface->options.has_gpu_info_bar ? 1u : 0u) | (interface->options.has_all_info_bar ? 2u : 0u);
+  const unsigned char option_sig = (interface->options.has_gpu_info_bar ? 1u : 0u) |
+                                   (interface->options.has_all_info_bar ? 2u : 0u) |
+                                   (interface->options.has_engine_loads ? 4u : 0u);
   const bool options_changed = option_sig != interface->extra_info_option_sig;
 
   if (interface->options.has_gpu_info_bar || interface->options.has_all_info_bar) {
@@ -1284,9 +1298,9 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       }
     }
 
-    // Extra GPU info bar fields: clock domains and static specs packed into the
-    // reserved cells. Every slot the layout did not reserve is a NULL window,
-    // so nothing is drawn when the options are off or nothing is reported.
+    // Extra GPU info bar fields packed into the reserved cells. Every slot the
+    // layout did not reserve is a NULL window, so nothing is drawn when the
+    // options are off or nothing is reported.
     struct extra_info_item extra_items[MAX_EXTRA_INFO_ITEMS];
     unsigned extra_count = collect_extra_info(device, &interface->options, extra_items, MAX_EXTRA_INFO_ITEMS);
     unsigned extra_slot = 0;
@@ -1584,25 +1598,6 @@ static void filter_out_nvtop_pid(all_processes *all_procs, struct nvtop_interfac
 static const char *columnName[process_field_count] = {
     "PID", "USER", "DEV", "TYPE", "GPU", "ENC", "DEC", "GPU MEM", "CPU", "HOST MEM", "Command",
 };
-
-static void update_selected_offset_with_window_size(unsigned int *selected_row, unsigned int *offset,
-                                                    unsigned int row_available_to_draw, unsigned int num_to_draw) {
-
-  if (!num_to_draw)
-    return;
-
-  if (*selected_row > num_to_draw - 1)
-    *selected_row = num_to_draw - 1;
-
-  if (*offset > *selected_row)
-    *offset = *selected_row;
-
-  if (*offset + row_available_to_draw - 1 < *selected_row)
-    *offset = *selected_row - row_available_to_draw + 1;
-
-  while (row_available_to_draw > num_to_draw - *offset && *offset != 0)
-    *offset -= 1;
-}
 
 #define process_buffer_line_size 8192
 static char process_print_buffer[process_buffer_line_size];
@@ -2114,6 +2109,18 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
           if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate))
             data_val = device->dynamic_info.decoder_rate;
           break;
+        case plot_mem_ctrl_util_rate:
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_ctrl_util_rate))
+            data_val = device->dynamic_info.mem_ctrl_util_rate;
+          break;
+        case plot_video_engine_rate:
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, video_engine_rate))
+            data_val = device->dynamic_info.video_engine_rate;
+          break;
+        case plot_bus_util_rate:
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, bus_util_rate))
+            data_val = device->dynamic_info.bus_util_rate;
+          break;
         case plot_gpu_temperature:
           if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
             data_val = device->dynamic_info.gpu_temp;
@@ -2230,6 +2237,15 @@ static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices, c
           break;
         case plot_decoder_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u decode%%", unit, dev_id);
+          break;
+        case plot_mem_ctrl_util_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u memctl%%", unit, dev_id);
+          break;
+        case plot_video_engine_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u video%%", unit, dev_id);
+          break;
+        case plot_bus_util_rate:
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u bus%%", unit, dev_id);
           break;
         case plot_gpu_temperature:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u temp(c)", unit, dev_id);
@@ -2494,6 +2510,9 @@ bool interface_freeze_processes(struct nvtop_interface *interface) {
 }
 
 extern inline void set_attribute_between(WINDOW *win, int startY, int startX, int endX, attr_t attr, short pair);
+extern inline void update_selected_offset_with_window_size(unsigned int *selected_row, unsigned int *offset,
+                                                           unsigned int row_available_to_draw,
+                                                           unsigned int num_to_draw);
 
 int interface_update_interval(const struct nvtop_interface *interface) { return interface->options.update_interval; }
 
@@ -2617,6 +2636,13 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
   return dontShowAgainOption;
 }
 
+static void print_snapshot_rate(const char *indent, const char *name, bool valid, unsigned rate) {
+  if (valid)
+    printf("%s\"%s\": \"%u%%\",\n", indent, name, rate);
+  else
+    printf("%s\"%s\": null,\n", indent, name);
+}
+
 void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool hide_processes_option) {
   struct gpu_info *device;
 
@@ -2716,6 +2742,23 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": \"%u%%\",\n", indent_level_four, gpu_util_field, device->dynamic_info.gpu_util_rate);
     else
       printf("%s\"%s\": null,\n", indent_level_four, gpu_util_field);
+
+    // Memory controller, video engine and bus interface loads
+    print_snapshot_rate(indent_level_four, "mem_ctrl_util",
+                        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_ctrl_util_rate),
+                        device->dynamic_info.mem_ctrl_util_rate);
+    print_snapshot_rate(indent_level_four, "video_engine_util",
+                        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, video_engine_rate),
+                        device->dynamic_info.video_engine_rate);
+    print_snapshot_rate(indent_level_four, "bus_util",
+                        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, bus_util_rate),
+                        device->dynamic_info.bus_util_rate);
+
+    // JPEG and optical flow engines
+    print_snapshot_rate(indent_level_four, "jpeg_util", GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, jpeg_rate),
+                        device->dynamic_info.jpeg_rate);
+    print_snapshot_rate(indent_level_four, "ofa_util", GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ofa_rate),
+                        device->dynamic_info.ofa_rate);
 
     // Encode / Decode
     if (device->static_info.encode_decode_shared) {

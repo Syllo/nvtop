@@ -59,12 +59,17 @@ enum setup_header_options {
   setup_header_enc_dec_timer,
   setup_header_gpu_info_bar,
   setup_header_all_info_bar,
+  setup_header_engine_loads,
   setup_header_options_count
 };
 
 static const char *setup_header_option_descriptions[setup_header_options_count] = {
-    "Temperature in fahrenheit", "Keep displaying Encoder/Decoder rate (after reaching an idle state)",
-    "Display dynamic GPU info (clock domains, NVLink errors)", "Display static GPU info and secondary clock domains"};
+    "Temperature in fahrenheit",
+    "Keep displaying Encoder/Decoder rate (after reaching an idle state)",
+    "Display dynamic GPU info (clock domains, NVLink errors)",
+    "Display static GPU info and secondary clock domains",
+    "Display engine loads (memory controller, video, bus, JPEG, OFA)",
+};
 
 // Chart Options
 
@@ -80,10 +85,24 @@ static const char *setup_chart_all_gpu_description  = "Displayed all GPUs";
 static const char *setup_chart_gpu_description      = "Displayed GPU";
 
 static const char *setup_chart_gpu_value_descriptions[plot_information_count] = {
-    "%s utilization rate",  "%s memory utilization rate",    "%s encoder rate",   "%s decoder rate",
-    "%s temperature",       "Power draw rate (current/max)", "Fan speed",         "%s clock rate",
-    "%s memory clock rate", "Effective load rate",           "PCIe RX load rate", "PCIe TX load rate",
-    "HVX utilization rate", "HMX utilization rate"};
+    [plot_gpu_rate] = "%s utilization rate",
+    [plot_gpu_mem_rate] = "%s memory utilization rate",
+    [plot_encoder_rate] = "%s encoder rate",
+    [plot_decoder_rate] = "%s decoder rate",
+    [plot_mem_ctrl_util_rate] = "%s memory controller load",
+    [plot_video_engine_rate] = "%s video engine load",
+    [plot_bus_util_rate] = "%s bus interface load",
+    [plot_gpu_temperature] = "%s temperature",
+    [plot_gpu_power_draw_rate] = "Power draw rate (current/max)",
+    [plot_fan_speed] = "Fan speed",
+    [plot_gpu_clock_rate] = "%s clock rate",
+    [plot_gpu_mem_clock_rate] = "%s memory clock rate",
+    [plot_effective_load_rate] = "Effective load rate",
+    [plot_pcie_rx_rate] = "PCIe RX load rate",
+    [plot_pcie_tx_rate] = "PCIe TX load rate",
+    [plot_hvx_util_rate] = "HVX utilization rate",
+    [plot_hmx_util_rate] = "HMX utilization rate",
+};
 
 // Formats the description of a plot metric for the given compute unit label.
 // Descriptions without a unit placeholder (power, fan, ...) are returned as-is.
@@ -165,6 +184,7 @@ static char option_state_char(enum option_state state) {
 
 void alloc_setup_window(struct window_position *position, struct setup_window *setup_win) {
   setup_win->visible = false;
+  setup_win->metric_offset = 0;
   setup_win->clean_space = newwin(position->sizeY, position->sizeX, position->posY, position->posX);
 
   sizeof_setup_windows[setup_window_type_single] = position->sizeX - sizeof_setup_windows[setup_window_type_setup] - 1;
@@ -337,6 +357,15 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
       interface->setup_win.options_selected[0] == setup_header_all_info_bar) {
     mvwchgat(options_win, setup_header_all_info_bar + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
+
+  // Engine loads in the GPU info bar
+  option_state = interface->options.has_engine_loads;
+  mvwprintw(options_win, setup_header_engine_loads + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_header_option_descriptions[setup_header_engine_loads]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_header_engine_loads) {
+    mvwchgat(options_win, setup_header_engine_loads + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
   wnoutrefresh(options_win);
 }
 
@@ -486,9 +515,20 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
     mvwprintw(value_list_win, 1, 0, "Maximum of 4 metrics per GPU");
     wstandend(value_list_win);
 
+    // Scrolls like the process list
+    int pane_rows;
+    getmaxyx(value_list_win, pane_rows, maxcols);
+    const unsigned metric_rows = pane_rows > 2 ? (unsigned)(pane_rows - 2) : 0;
+    update_selected_offset_with_window_size(&interface->setup_win.options_selected[1],
+                                            &interface->setup_win.metric_offset, metric_rows, plot_information_count);
+    const unsigned first_metric = interface->setup_win.metric_offset;
+
     for (enum plot_information i = plot_gpu_rate; i < plot_information_count; ++i) {
+      if ((unsigned)i < first_metric || (unsigned)i >= first_metric + metric_rows)
+        continue;
+      const int row = (int)((unsigned)i - first_metric) + 2;
       if (interface->setup_win.options_selected[0] == chart_all_gpu) {
-        plot_info_to_draw draw_union = 0, draw_intersection = 0xffff;
+        plot_info_to_draw draw_union = 0, draw_intersection = ~0;
         for (unsigned j = 0; j < devices_count; ++j) {
           draw_union |= interface->options.gpu_specific_opts[j].to_draw;
           draw_intersection = draw_intersection & interface->options.gpu_specific_opts[j].to_draw;
@@ -506,9 +546,9 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
       }
       char description[64];
       format_metric_description(description, sizeof(description), i, unit);
-      mvwprintw(value_list_win, i + 2, 0, "[%c] %s", option_state_char(option_state), description);
+      mvwprintw(value_list_win, row, 0, "[%c] %s", option_state_char(option_state), description);
       if (interface->setup_win.indentation_level == 2 && interface->setup_win.options_selected[1] == i) {
-        mvwchgat(value_list_win, i + 2, 0, 3, A_STANDOUT, cyan_color, NULL);
+        mvwchgat(value_list_win, row, 0, 3, A_STANDOUT, cyan_color, NULL);
       }
     }
     wnoutrefresh(value_list_win);
@@ -858,6 +898,9 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
           if (interface->setup_win.options_selected[0] == setup_header_all_info_bar) {
             interface->options.has_all_info_bar = !interface->options.has_all_info_bar;
           }
+          if (interface->setup_win.options_selected[0] == setup_header_engine_loads) {
+            interface->options.has_engine_loads = !interface->options.has_engine_loads;
+          }
         }
       }
       // Chart Options
@@ -896,7 +939,7 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
                                              ? interface->setup_win.options_selected[0] - chart_gpu_list_kp
                                              : 0;
           if (interface->setup_win.options_selected[0] == chart_all_gpu_kp) {
-            plot_info_to_draw draw_intersection = 0xffff;
+            plot_info_to_draw draw_intersection = ~0;
             for (unsigned j = 0; j < interface->monitored_dev_count; ++j) {
               draw_intersection = draw_intersection & interface->options.gpu_specific_opts[j].to_draw;
             }
