@@ -102,6 +102,24 @@ source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/dr
 Hence, you will need a kernel with a version greater or equal to 5.14 to see the
 processes using AMD GPUs.
 
+ROCm/HIP submit work to the AMD compute queues through KFD (`/dev/kfd`, the
+Kernel Fusion Driver). These queues are not tracked by the amdgpu DRM context
+manager, so their work is not counted by the DRM fdinfo engine counters. When
+the kernel exposes per-process compute unit occupancy
+(`/sys/class/kfd/kfd/proc/<pid>/stats_<gpu_id>/cu_occupancy`), NVTOP includes it
+in the process GPU utilization.
+
+Per-process CU occupancy support depends on the GPU family and kernel version:
+
+* CDNA (GFX9): MI100 (gfx908) since Linux 5.11, MI200 (gfx90a) since 6.2, and
+  MI300 (gfx942) since 6.6.
+* RDNA 3 (gfx11) and RDNA 4 (gfx12/12.1) since Linux 7.3.
+* RDNA 1/2 (gfx10/10.3) since Linux 7.4.
+* GCN 1-4 (gfx6-8) is not supported.
+
+The interface also requires kernel support for KFD (`CONFIG_HSA_AMD`). NVTOP
+silently skips the KFD contribution when the file is unavailable.
+
 Support for recent GPUs are regularly mainlined into the linux kernel, so please
 use a recent-enough kernel for your GPU.
 
