@@ -178,9 +178,9 @@ Supported telemetry includes utilization, memory, clocks, temperature, power,
 PCIe link/throughput, compute process memory, and per-process PPU utilization. Metrics unavailable in the
 installed driver remain unset. Process enumeration requires the HGML v2 or
 v3 process API. Per-process utilization uses `hgmlDeviceGetProcessUtilization`
-when available, selecting the newest SM sample for each PID. Failed queries
-or refreshes without a new valid sample display `N/A`; sampled idle processes
-show `0%`.
+when available, selecting the newest SM sample for each PID. Processes without
+a fresh sample are reported as idle (`0%`) when per-process utilization is
+available; unsupported or failed queries leave the value unset.
 
 ### VideoCore
 

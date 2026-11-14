@@ -57,6 +57,7 @@ typedef enum {
 } hgmlPcieUtilCounter_t;
 
 #define HGML_SUCCESS 0
+#define HGML_ERROR_NOT_FOUND 6
 #define HGML_ERROR_INSUFFICIENT_SIZE 7
 
 static int (*hgmlInit)(void);
@@ -258,13 +259,19 @@ static void ppu_dynamic_info(struct gpu_info *base) {
 #undef DYNAMIC_QUERY
 }
 
-/* Process enumeration resets validity every refresh. Missing, unsupported or
- * old samples therefore remain N/A rather than retaining a stale busy value. */
-static void ppu_process_utilization(struct gpu_info_ppu *ppu) {
+/* Process enumeration clears validity every refresh, so an old sample can
+ * never be mistaken for a current one. Returns true when the runtime answered
+ * the query or reported no samples, meaning PIDs without a sample were idle.
+ * Returns false when per-process utilization is unavailable or the query
+ * failed, in which case ppu_processes leaves the value unset. */
+static bool ppu_process_utilization(struct gpu_info_ppu *ppu) {
   struct gpu_info *base = &ppu->base;
-  if (!hgmlDeviceGetProcessUtilization || !base->processes_count)
-    return;
+  if (!hgmlDeviceGetProcessUtilization)
+    return false;
+  if (!base->processes_count)
+    return true;
 
+  bool utilization_known = false;
   hgmlProcessUtilizationSample_t *samples = NULL;
   unsigned capacity = 0;
   for (unsigned attempt = 0; attempt < 4; ++attempt) {
@@ -279,6 +286,10 @@ static void ppu_process_utilization(struct gpu_info_ppu *ppu) {
       if (!samples)
         break;
       continue;
+    }
+    if (result == HGML_ERROR_NOT_FOUND) {
+      utilization_known = true;
+      break;
     }
     if (result != HGML_SUCCESS || count > capacity)
       break;
@@ -299,9 +310,11 @@ static void ppu_process_utilization(struct gpu_info_ppu *ppu) {
         newest = latest;
     }
     ppu->last_utilization_timestamp = newest;
+    utilization_known = true;
     break;
   }
   free(samples);
+  return utilization_known;
 }
 
 static void ppu_processes(struct gpu_info *base) {
@@ -348,7 +361,13 @@ static void ppu_processes(struct gpu_info *base) {
     break;
   }
   free(samples);
-  ppu_process_utilization(ppu);
+  if (ppu_process_utilization(ppu)) {
+    /* Mark the ones without an update since the last sample period as idle. */
+    for (unsigned i = 0; i < base->processes_count; ++i) {
+      if (!GPUINFO_PROCESS_FIELD_VALID(&base->processes[i], gpu_usage))
+        SET_GPUINFO_PROCESS(&base->processes[i], gpu_usage, 0);
+    }
+  }
 }
 
 static struct gpu_vendor gpu_vendor_ppu = {

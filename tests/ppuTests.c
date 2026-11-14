@@ -108,11 +108,14 @@ static int test_process_utilization(struct gpu_info_ppu *ppu) {
   CHECK(GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[1], gpu_usage));
   CHECK(ppu->base.processes[1].gpu_usage == 0);
   CHECK(ppu->base.processes[0].gpu_memory_usage == 512);
-  /* Repeated and out-of-range samples must not preserve the previous 73%. */
+  /* Repeated and out-of-range samples must not preserve the previous 73%;
+   * they fall back to 0% like an idle process. */
   ppu_processes(&ppu->base);
   CHECK(requested_timestamp == 30);
-  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[0], gpu_usage));
-  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[1], gpu_usage));
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[0], gpu_usage));
+  CHECK(ppu->base.processes[0].gpu_usage == 0);
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[1], gpu_usage));
+  CHECK(ppu->base.processes[1].gpu_usage == 0);
   utilization_samples[0].timeStamp = 40;
   utilization_samples[0].smUtil = 88;
   ppu_processes(&ppu->base);
@@ -122,13 +125,15 @@ static int test_process_utilization(struct gpu_info_ppu *ppu) {
   ppu_processes(&ppu->base);
   CHECK(!GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[0], gpu_usage));
   CHECK(ppu->last_utilization_timestamp == 40);
-  utilization_error = 6; // No samples found
+  utilization_error = HGML_ERROR_NOT_FOUND; // No samples: all processes were idle
   ppu_processes(&ppu->base);
-  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[0], gpu_usage));
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[0], gpu_usage));
+  CHECK(ppu->base.processes[0].gpu_usage == 0);
   utilization_error = 0;
   utilization_count = 0;
   ppu_processes(&ppu->base);
-  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[0], gpu_usage));
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&ppu->base.processes[0], gpu_usage));
+  CHECK(ppu->base.processes[0].gpu_usage == 0);
   utilization_grows = true;
   utilization_calls = 0;
   ppu_processes(&ppu->base);
