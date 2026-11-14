@@ -119,6 +119,7 @@ enum setup_proc_list_options {
   setup_proc_list_hide_process_list,
   setup_proc_list_hide_nvtop_process,
   setup_proc_list_dynamic_memory_units,
+  setup_proc_list_total_row,
   setup_proc_list_sort_ascending,
   setup_proc_list_sort_by,
   setup_proc_list_display,
@@ -129,6 +130,7 @@ static const char *setup_proc_list_option_description[setup_proc_list_options_co
     "Don't display the process list",
     "Hide nvtop in the process list",
     "Dynamic memory units",
+    "Show TOTAL row",
     "Sort Ascending",
     "Sort by",
     "Field Displayed"};
@@ -577,6 +579,13 @@ static void draw_setup_window_proc_list(struct nvtop_interface *interface) {
       interface->setup_win.options_selected[0] == setup_proc_list_dynamic_memory_units) {
     mvwchgat(option_list_win, setup_proc_list_dynamic_memory_units + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
+  option_state = interface->options.show_total_row;
+  mvwprintw(option_list_win, setup_proc_list_total_row + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_proc_list_option_description[setup_proc_list_total_row]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_proc_list_total_row) {
+    mvwchgat(option_list_win, setup_proc_list_total_row + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
   option_state = !interface->options.sort_descending_order;
   mvwprintw(option_list_win, setup_proc_list_sort_ascending + 1, 0, "[%c] %s", option_state_char(option_state),
             setup_proc_list_option_description[setup_proc_list_sort_ascending]);
@@ -949,6 +958,8 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
             interface->options.hide_processes_list = !interface->options.hide_processes_list;
           } else if (interface->setup_win.options_selected[0] == setup_proc_list_dynamic_memory_units) {
             interface->options.dynamic_memory_units = !interface->options.dynamic_memory_units;
+          } else if (interface->setup_win.options_selected[0] == setup_proc_list_total_row) {
+            interface->options.show_total_row = !interface->options.show_total_row;
           } else if (interface->setup_win.options_selected[0] == setup_proc_list_sort_by) {
             handle_setup_win_keypress(KEY_RIGHT, interface);
           }

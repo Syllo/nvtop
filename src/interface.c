@@ -1309,14 +1309,6 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
   }
 }
 
-typedef struct {
-  unsigned processes_count;
-  struct gpuid_and_process {
-    unsigned gpu_id;
-    struct gpu_process *process;
-  } *processes;
-} all_processes;
-
 static all_processes all_processes_array(struct list_head *devices) {
   unsigned total_processes_count = 0;
   struct gpu_info *device;
@@ -1585,31 +1577,102 @@ static const char *columnName[process_field_count] = {
     "PID", "USER", "DEV", "TYPE", "GPU", "ENC", "DEC", "GPU MEM", "CPU", "HOST MEM", "Command",
 };
 
-static void update_selected_offset_with_window_size(unsigned int *selected_row, unsigned int *offset,
-                                                    unsigned int row_available_to_draw, unsigned int num_to_draw) {
-
-  if (!num_to_draw)
-    return;
-
-  if (*selected_row > num_to_draw - 1)
-    *selected_row = num_to_draw - 1;
-
-  if (*offset > *selected_row)
-    *offset = *selected_row;
-
-  if (*offset + row_available_to_draw - 1 < *selected_row)
-    *offset = *selected_row - row_available_to_draw + 1;
-
-  while (row_available_to_draw > num_to_draw - *offset && *offset != 0)
-    *offset -= 1;
-}
-
 #define process_buffer_line_size 8192
 static char process_print_buffer[process_buffer_line_size];
 
+// Render the numeric columns (GPU / enc / dec / memory / CPU / CPU mem / command)
+// of a process, shared by the process rows and the TOTAL row so the layout and
+// formatting of these columns live in one place.
+static int format_process_numeric_fields(struct gpu_process *proc, process_field_displayed fields_to_display,
+                                         bool dynamic_memory_units, int printed) {
+  char memory[sizeof_process_field[process_memory] + 1];
+  char cpu_percent[sizeof_process_field[process_cpu_usage] + 1];
+  char cpu_mem[sizeof_process_field[process_cpu_mem_usage] + 1];
+
+  if (process_is_field_displayed(process_gpu_rate, fields_to_display)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_usage)) {
+      printed +=
+          snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", proc->gpu_usage);
+    } else {
+      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "N/A  ");
+    }
+  }
+
+  if (process_is_field_displayed(process_enc_rate, fields_to_display)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(proc, encode_usage)) {
+      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ",
+                          proc->encode_usage);
+    } else {
+      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "N/A  ");
+    }
+  }
+
+  if (process_is_field_displayed(process_dec_rate, fields_to_display)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(proc, decode_usage)) {
+      printed +=
+          snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", proc->decode_usage);
+    } else {
+      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "N/A  ");
+    }
+  }
+
+  if (process_is_field_displayed(process_memory, fields_to_display)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_memory_usage)) {
+      if (dynamic_memory_units) {
+        char formatted_memory[sizeof(memory)];
+        format_bytes(formatted_memory, sizeof(formatted_memory), proc->gpu_memory_usage);
+        if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_memory_percentage)) {
+          snprintf(memory, sizeof(memory), "%s %3u%%", formatted_memory, proc->gpu_memory_percentage);
+        } else {
+          snprintf(memory, sizeof(memory), "%s", formatted_memory);
+        }
+      } else if (GPUINFO_PROCESS_FIELD_VALID(proc, gpu_memory_percentage)) {
+        snprintf(memory, 9 + 1, "%6uMiB", (unsigned)(proc->gpu_memory_usage / 1048576));
+        snprintf(memory + 9, sizeof_process_field[process_memory] - 9 + 1, " %3u%%", proc->gpu_memory_percentage);
+      } else {
+        snprintf(memory, sizeof_process_field[process_memory], "%6uMiB", (unsigned)(proc->gpu_memory_usage / 1048576));
+      }
+    } else {
+      snprintf(memory, sizeof_process_field[process_memory], "%s", "N/A");
+    }
+    printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[process_memory], memory);
+  }
+
+  if (process_is_field_displayed(process_cpu_usage, fields_to_display)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(proc, cpu_usage))
+      snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1, "%u%%", proc->cpu_usage);
+    else
+      snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1, "   N/A");
+    printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[process_cpu_usage], cpu_percent);
+  }
+
+  if (process_is_field_displayed(process_cpu_mem_usage, fields_to_display)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(proc, cpu_memory_res)) {
+      if (dynamic_memory_units)
+        format_bytes(cpu_mem, sizeof(cpu_mem), proc->cpu_memory_res);
+      else
+        snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "%zuMiB", proc->cpu_memory_res / 1048576);
+    } else {
+      snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "N/A");
+    }
+    printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                        sizeof_process_field[process_cpu_mem_usage], cpu_mem);
+  }
+
+  if (process_is_field_displayed(process_command, fields_to_display)) {
+    if (GPUINFO_PROCESS_FIELD_VALID(proc, cmdline))
+      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%.*s",
+                          process_buffer_line_size - printed, proc->cmdline);
+  }
+
+  return printed;
+}
+
 static void print_processes_on_screen(all_processes all_procs, struct process_window *process,
                                       enum process_field sort_criterion, process_field_displayed fields_to_display,
-                                      bool dynamic_memory_units) {
+                                      bool dynamic_memory_units, bool show_total_row) {
   WINDOW *win = process->option_window.state == nvtop_option_state_hidden ? process->process_win
                                                                           : process->process_with_option_win;
   struct gpuid_and_process *processes = all_procs.processes;
@@ -1618,7 +1681,20 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
   getmaxyx(win, rows, cols);
   rows -= 1;
 
-  update_selected_offset_with_window_size(&process->selected_row, &process->offset, rows, all_procs.processes_count);
+  unsigned int total_process_count =
+      all_procs.processes_count + (show_total_row && all_procs.processes_count > 0 ? 1 : 0);
+
+  // Scroll counting the TOTAL row so it is a real drawable entry and stays at
+  // the bottom of the window; the selected row refers to a process only and is
+  // clamped by draw_processes, so it never lands on the TOTAL row.
+  update_selected_offset_with_window_size(&process->selected_row, &process->offset, rows, total_process_count);
+  // Minimal scrolling keeps the selected process at the last window line, which
+  // would push the TOTAL row off the bottom. When the last process is in view,
+  // shift the window up by one line so the TOTAL row is drawn, as long as the
+  // selected process stays visible.
+  if (show_total_row)
+    process->offset = keep_total_row_visible(process->selected_row, process->offset, rows,
+                                             all_procs.processes_count);
   if (process->offset_column + cols >= process_buffer_line_size)
     process->offset_column = process_buffer_line_size - cols - 1;
 
@@ -1626,9 +1702,6 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
 
   char pid_str[sizeof_process_field[process_pid] + 1];
   char guid_str[sizeof_process_field[process_gpu_id] + 1];
-  char memory[sizeof_process_field[process_memory] + 1];
-  char cpu_percent[sizeof_process_field[process_cpu_usage] + 1];
-  char cpu_mem[sizeof_process_field[process_cpu_mem_usage] + 1];
 
   unsigned int start_at_process = process->offset;
   unsigned int end_at_process = start_at_process + rows;
@@ -1662,7 +1735,39 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
 
   static unsigned printed_last_call = 0;
   unsigned last_line_printed = 0;
-  for (unsigned int i = start_at_process; i < end_at_process && i < all_procs.processes_count; ++i) {
+  for (unsigned int i = start_at_process; i < end_at_process && i < total_process_count; ++i) {
+    if (i == all_procs.processes_count) {
+      struct gpu_process total;
+      sum_processes(all_procs, &total);
+
+      memset(process_print_buffer, 0, sizeof(process_print_buffer));
+      printed = 0;
+      if (process_is_field_displayed(process_pid, fields_to_display)) {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_pid], "TOTAL");
+      }
+      if (process_is_field_displayed(process_user, fields_to_display)) {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_user], "");
+      }
+      if (process_is_field_displayed(process_gpu_id, fields_to_display)) {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_gpu_id], "");
+      }
+      if (process_is_field_displayed(process_type, fields_to_display)) {
+        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
+                            sizeof_process_field[process_type], "");
+      }
+      printed = format_process_numeric_fields(&total, fields_to_display, dynamic_memory_units, printed);
+
+      unsigned int write_at = i - start_at_process + 1;
+      mvwprintw(win, write_at, 0, "%.*s", cols, &process_print_buffer[process->offset_column]);
+      wclrtoeol(win);
+      last_line_printed = write_at;
+      // The total row is not a selectable process, so it is always drawn highlighted.
+      mvwchgat(win, write_at, 0, -1, A_STANDOUT, green_color, NULL);
+      continue;
+    }
     memset(process_print_buffer, 0, sizeof(process_print_buffer));
 
     printed = 0;
@@ -1708,89 +1813,7 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
       }
     }
 
-    if (process_is_field_displayed(process_gpu_rate, fields_to_display)) {
-      unsigned gpu_usage = 0;
-      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_usage)) {
-        gpu_usage = processes[i].process->gpu_usage;
-        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", gpu_usage);
-      } else {
-        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "N/A  ");
-      }
-    }
-
-    if (process_is_field_displayed(process_enc_rate, fields_to_display)) {
-      unsigned encoder_rate = 0;
-      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, encode_usage)) {
-        encoder_rate = processes[i].process->encode_usage;
-        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", encoder_rate);
-      } else {
-        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "N/A  ");
-      }
-    }
-
-    if (process_is_field_displayed(process_dec_rate, fields_to_display)) {
-      unsigned decode_rate = 0;
-      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, decode_usage)) {
-        decode_rate = processes[i].process->decode_usage;
-        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3u%% ", decode_rate);
-      } else {
-        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "N/A  ");
-      }
-    }
-
-    if (process_is_field_displayed(process_memory, fields_to_display)) {
-      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_usage)) {
-        if (dynamic_memory_units) {
-          char formatted_memory[sizeof(memory)];
-          format_bytes(formatted_memory, sizeof(formatted_memory), processes[i].process->gpu_memory_usage);
-          if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_percentage)) {
-            snprintf(memory, sizeof(memory), "%s %3u%%", formatted_memory, processes[i].process->gpu_memory_percentage);
-          } else {
-            snprintf(memory, sizeof(memory), "%s", formatted_memory);
-          }
-        } else if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, gpu_memory_percentage)) {
-          snprintf(memory, 9 + 1, "%6uMiB", (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
-          snprintf(memory + 9, sizeof_process_field[process_memory] - 9 + 1, " %3u%%",
-                   processes[i].process->gpu_memory_percentage);
-        } else {
-          snprintf(memory, sizeof_process_field[process_memory], "%6uMiB",
-                   (unsigned)(processes[i].process->gpu_memory_usage / 1048576));
-        }
-      } else {
-        snprintf(memory, sizeof_process_field[process_memory], "%s", "N/A");
-      }
-      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
-                          sizeof_process_field[process_memory], memory);
-    }
-
-    if (process_is_field_displayed(process_cpu_usage, fields_to_display)) {
-      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, cpu_usage))
-        snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1, "%u%%", processes[i].process->cpu_usage);
-      else
-        snprintf(cpu_percent, sizeof_process_field[process_cpu_usage] + 1, "   N/A");
-      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
-                          sizeof_process_field[process_cpu_usage], cpu_percent);
-    }
-
-    if (process_is_field_displayed(process_cpu_mem_usage, fields_to_display)) {
-      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, cpu_memory_res)) {
-        if (dynamic_memory_units)
-          format_bytes(cpu_mem, sizeof(cpu_mem), processes[i].process->cpu_memory_res);
-        else
-          snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "%zuMiB",
-                   processes[i].process->cpu_memory_res / 1048576);
-      } else {
-        snprintf(cpu_mem, sizeof_process_field[process_cpu_mem_usage] + 1, "N/A");
-      }
-      printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
-                          sizeof_process_field[process_cpu_mem_usage], cpu_mem);
-    }
-
-    if (process_is_field_displayed(process_command, fields_to_display)) {
-      if (GPUINFO_PROCESS_FIELD_VALID(processes[i].process, cmdline))
-        printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%.*s",
-                            process_buffer_line_size - printed, processes[i].process->cmdline);
-    }
+    printed = format_process_numeric_fields(processes[i].process, fields_to_display, dynamic_memory_units, printed);
 
     unsigned int write_at = i - start_at_process + 1;
     mvwprintw(win, write_at, 0, "%.*s", cols, &process_print_buffer[process->offset_column]);
@@ -1873,7 +1896,8 @@ static void draw_processes(struct list_head *devices, struct nvtop_interface *in
   sizeof_process_field[process_user] = largest_username;
 
   print_processes_on_screen(all_procs, &interface->process, interface->options.sort_processes_by,
-                            interface->options.process_fields_displayed, interface->options.dynamic_memory_units);
+                            interface->options.process_fields_displayed, interface->options.dynamic_memory_units,
+                            interface->options.show_total_row);
   free(all_procs.processes);
 }
 

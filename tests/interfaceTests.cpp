@@ -327,6 +327,32 @@ TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
   EXPECT_EQ(std::remove(config_path), 0);
 }
 
+TEST(InterfaceOptions, TotalRowConfig) {
+  char config_path[] = "interface-options-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+
+  // Configs written while the TOTAL row was off must keep it off on reload.
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.show_total_row = true;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_FALSE(options.show_total_row);
+
+  options.show_total_row = true;
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.show_total_row = false;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_TRUE(options.show_total_row);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
 TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
   // An unmonitored GPU is no longer refreshed, so its process entries would
   // otherwise keep pointers to process-cache strings freed by later refreshes.
@@ -357,6 +383,124 @@ TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
   EXPECT_EQ(unmonitored.processes_count, 0u);
 
   free(options.gpu_specific_opts);
+}
+
+TEST(InterfaceScroll, UpdateSelectedOffset) {
+  // No entries: nothing moves.
+  unsigned selected = 0, offset = 0;
+  update_selected_offset_with_window_size(&selected, &offset, 10, 0);
+  EXPECT_EQ(selected, 0u);
+  EXPECT_EQ(offset, 0u);
+
+  // Fewer entries than lines: the list starts at the top.
+  selected = 3;
+  offset = 0;
+  update_selected_offset_with_window_size(&selected, &offset, 10, 5);
+  EXPECT_EQ(selected, 3u);
+  EXPECT_EQ(offset, 0u);
+
+  // Selection past the end is clamped to the last entry.
+  selected = 9;
+  offset = 0;
+  update_selected_offset_with_window_size(&selected, &offset, 10, 5);
+  EXPECT_EQ(selected, 4u);
+  EXPECT_EQ(offset, 0u);
+
+  // Selection above the window pulls the offset down to the selection.
+  selected = 2;
+  offset = 9;
+  update_selected_offset_with_window_size(&selected, &offset, 5, 20);
+  EXPECT_EQ(selected, 2u);
+  EXPECT_EQ(offset, 2u);
+
+  // Selection below the window scrolls minimally.
+  selected = 15;
+  offset = 0;
+  update_selected_offset_with_window_size(&selected, &offset, 5, 20);
+  EXPECT_EQ(offset, 11u);
+
+  // Not enough entries left below the offset to fill the window: scroll back.
+  selected = 17;
+  offset = 16;
+  update_selected_offset_with_window_size(&selected, &offset, 5, 18);
+  EXPECT_EQ(offset, 13u);
+}
+
+TEST(InterfaceScroll, KeepTotalRowVisible) {
+  // Window entirely above the last process: TOTAL stays out of view.
+  EXPECT_EQ(keep_total_row_visible(0, 0, 3, 5), 0u);
+
+  // Last process in view and selection inside the shifted window: shift up by one.
+  EXPECT_EQ(keep_total_row_visible(4, 2, 3, 5), 3u);
+
+  // Shift would scroll the selection out of view: keep the offset.
+  EXPECT_EQ(keep_total_row_visible(2, 2, 3, 5), 2u);
+
+  // Exactly as many processes as lines with the selection at the top: the TOTAL
+  // row is not shown until the selection moves (the window cannot scroll).
+  EXPECT_EQ(keep_total_row_visible(0, 0, 3, 3), 0u);
+
+  // Single line window: the TOTAL row cannot share the line with a process.
+  EXPECT_EQ(keep_total_row_visible(0, 0, 1, 1), 0u);
+  EXPECT_EQ(keep_total_row_visible(2, 2, 1, 3), 2u);
+
+  // All processes already fit in the window: nothing to do.
+  EXPECT_EQ(keep_total_row_visible(1, 0, 3, 2), 0u);
+}
+
+TEST(InterfaceTotalRow, SumProcesses) {
+  // The TOTAL row sums GPU, encoder, decoder, GPU memory, VRAM percentage, CPU
+  // and CPU memory across all processes. Each process reports VRAM percentage of
+  // its own device, so the summed percentage is the share of VRAM in use.
+  struct gpu_process p1 = {};
+  SET_GPUINFO_PROCESS(&p1, gpu_usage, 10);
+  SET_GPUINFO_PROCESS(&p1, encode_usage, 5);
+  SET_GPUINFO_PROCESS(&p1, decode_usage, 3);
+  SET_GPUINFO_PROCESS(&p1, gpu_memory_usage, 1000);
+  SET_GPUINFO_PROCESS(&p1, gpu_memory_percentage, 7);
+  SET_GPUINFO_PROCESS(&p1, cpu_usage, 20);
+  SET_GPUINFO_PROCESS(&p1, cpu_memory_res, 4000);
+
+  struct gpu_process p2 = {};
+  SET_GPUINFO_PROCESS(&p2, gpu_usage, 30);
+  SET_GPUINFO_PROCESS(&p2, decode_usage, 2);
+  SET_GPUINFO_PROCESS(&p2, gpu_memory_usage, 2000);
+  SET_GPUINFO_PROCESS(&p2, gpu_memory_percentage, 9);
+  SET_GPUINFO_PROCESS(&p2, cpu_usage, 40);
+  SET_GPUINFO_PROCESS(&p2, cpu_memory_res, 1000);
+
+  struct gpuid_and_process procs[2] = {{0, &p1}, {1, &p2}};
+  all_processes all_procs = {2, procs};
+
+  struct gpu_process total = {};
+  sum_processes(all_procs, &total);
+
+  EXPECT_TRUE(GPUINFO_PROCESS_FIELD_VALID(&total, gpu_usage));
+  EXPECT_EQ(total.gpu_usage, 40u);
+  EXPECT_EQ(total.encode_usage, 5u); // only p1 reports encode usage
+  EXPECT_EQ(total.decode_usage, 5u);
+  EXPECT_EQ(total.gpu_memory_usage, 3000ULL);
+  EXPECT_EQ(total.cpu_usage, 60u);
+  EXPECT_EQ(total.cpu_memory_res, 5000u);
+  EXPECT_TRUE(GPUINFO_PROCESS_FIELD_VALID(&total, gpu_memory_percentage));
+  EXPECT_EQ(total.gpu_memory_percentage, 16u); // 7% + 9% of the device memory
+
+  // Fields reported by no process stay invalid, so the TOTAL row shows N/A for them.
+  struct gpu_process p3 = {};
+  struct gpu_process p4 = {};
+  struct gpuid_and_process procs_na[2] = {{0, &p3}, {1, &p4}};
+  all_processes empty_procs = {2, procs_na};
+  struct gpu_process total_na = {};
+  sum_processes(empty_procs, &total_na);
+  EXPECT_FALSE(GPUINFO_PROCESS_FIELD_VALID(&total_na, gpu_usage));
+}
+
+TEST(InterfaceTotalRow, SumProcessesEmpty) {
+  struct gpu_process total = {};
+  all_processes empty = {0, nullptr};
+  sum_processes(empty, &total);
+  EXPECT_EQ(total.gpu_usage, 0u);
+  EXPECT_EQ(total.gpu_memory_usage, 0ULL);
 }
 
 #ifdef THOROUGH_TESTING
