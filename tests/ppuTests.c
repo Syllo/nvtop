@@ -55,15 +55,85 @@ static int test_pci_info(const char *bus_id, int status, const char *expected_pd
   return 0;
 }
 
+static int test_pci_info_missing_symbol(void) {
+  LIST_HEAD(devices);
+  unsigned count;
+  hgmlDeviceGetCount = device_count;
+  hgmlDeviceGetHandleByIndex = device_handle;
+  hgmlDeviceGetPciInfo = NULL;
+  CHECK(ppu_get_devices(&devices, &count));
+  CHECK(count == 1);
+  CHECK(!strcmp(ppu_devices[0].base.pdev, "ppu-0"));
+  list_del(&ppu_devices[0].base.list);
+  ppu_shutdown();
+  return 0;
+}
+
 static bool fail_metrics;
 static bool invalid_memory;
+static unsigned memory_v1_calls;
 static int memory_query(hgmlDevice_t device, hgmlMemory_t *memory) {
   (void)device;
+  ++memory_v1_calls;
   if (invalid_memory)
     *memory = (hgmlMemory_t){.total = 4096, .used = 8192, .free = 0};
   else
     *memory = (hgmlMemory_t){.total = 4096, .used = 1024, .free = 3072};
   return fail_metrics ? 3 : 0;
+}
+static unsigned memory_v2_calls;
+static int memory_v2_status;
+static unsigned long long memory_v2_total = 8192;
+static unsigned long long memory_v2_used = 2048;
+static int memory_v2_query(hgmlDevice_t device, hgmlMemory_v2_t *memory) {
+  (void)device;
+  ++memory_v2_calls;
+  if (memory->version != HGML_MEMORY_V2_VERSION)
+    return 25; // HGML_ERROR_ARGUMENT_VERSION_MISMATCH
+  if (memory_v2_status)
+    return memory_v2_status;
+  memory->total = memory_v2_total;
+  memory->reserved = 0;
+  memory->used = memory_v2_used;
+  memory->free = memory_v2_total - memory_v2_used;
+  return 0;
+}
+static int test_memory_v2(struct gpu_info_ppu *ppu) {
+  hgmlDeviceGetMemoryInfo = memory_query;
+  hgmlDeviceGetMemoryInfo_v2 = memory_v2_query;
+  memory_v1_calls = 0;
+  memory_v2_calls = 0;
+  memory_v2_status = 0;
+  ppu_dynamic_info(&ppu->base);
+  CHECK(memory_v2_calls == 1);
+  CHECK(memory_v1_calls == 0);
+  CHECK(ppu->base.dynamic_info.total_memory == memory_v2_total);
+  CHECK(ppu->base.dynamic_info.used_memory == memory_v2_used);
+  CHECK(ppu->base.dynamic_info.free_memory == memory_v2_total - memory_v2_used);
+  CHECK(ppu->base.dynamic_info.mem_util_rate == 25);
+
+  memory_v2_status = 3; // Unsupported; fall back to the v1 query.
+  memory_v1_calls = 0;
+  memory_v2_calls = 0;
+  ppu_dynamic_info(&ppu->base);
+  CHECK(memory_v2_calls == 1);
+  CHECK(memory_v1_calls == 1);
+  CHECK(ppu->base.dynamic_info.total_memory == 4096);
+  CHECK(ppu->base.dynamic_info.used_memory == 1024);
+  CHECK(ppu->base.dynamic_info.mem_util_rate == 25);
+
+  hgmlDeviceGetMemoryInfo_v2 = NULL;
+  hgmlDeviceGetMemoryInfo = memory_query;
+  ppu_dynamic_info(&ppu->base);
+  CHECK(ppu->base.dynamic_info.total_memory == 4096);
+
+  hgmlDeviceGetMemoryInfo = NULL;
+  ppu_dynamic_info(&ppu->base);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu->base.dynamic_info, total_memory));
+
+  hgmlDeviceGetMemoryInfo = memory_query;
+  memory_v2_status = 0;
+  return 0;
 }
 static unsigned utilization_gpu = 42;
 static int utilization_query(hgmlDevice_t device, hgmlUtilization_t *utilization) {
@@ -302,6 +372,7 @@ int main(int argc, char **argv) {
   CHECK(test_pci_info("00000000:A8:00.8", 0, "ppu-0") == 0);
   CHECK(test_pci_info("not-a-pci-address", 0, "ppu-0") == 0);
   CHECK(test_pci_info("00000000:A8:00.1", 3, "ppu-0") == 0);
+  CHECK(test_pci_info_missing_symbol() == 0);
   CHECK(test_error_reporting() == 0);
 
   struct gpu_info_ppu ppu = {0};
@@ -326,6 +397,7 @@ int main(int argc, char **argv) {
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, free_memory));
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, mem_util_rate));
   invalid_memory = false;
+  CHECK(test_memory_v2(&ppu) == 0);
   fail_metrics = true;
   ppu_dynamic_info(&ppu.base);
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, total_memory));

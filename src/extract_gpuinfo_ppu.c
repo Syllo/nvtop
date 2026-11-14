@@ -28,6 +28,13 @@ typedef struct {
   unsigned globalPpuId;
 } hgmlPciInfo_t;
 typedef struct { unsigned long long total, free, used; } hgmlMemory_t;
+typedef struct {
+  unsigned version;
+  unsigned long long total;
+  unsigned long long reserved;
+  unsigned long long free;
+  unsigned long long used;
+} hgmlMemory_v2_t;
 typedef struct { unsigned gpu, memory; } hgmlUtilization_t;
 typedef struct {
   unsigned pid;
@@ -61,6 +68,7 @@ typedef enum {
 #define HGML_SUCCESS 0
 #define HGML_ERROR_NOT_FOUND 6
 #define HGML_ERROR_INSUFFICIENT_SIZE 7
+#define HGML_MEMORY_V2_VERSION ((unsigned)sizeof(hgmlMemory_v2_t) | (2U << 24))
 
 static int (*hgmlInit)(void);
 static int (*hgmlShutdown)(void);
@@ -69,6 +77,7 @@ static int (*hgmlDeviceGetHandleByIndex)(unsigned, hgmlDevice_t *);
 static int (*hgmlDeviceGetName)(hgmlDevice_t, char *, unsigned);
 static int (*hgmlDeviceGetPciInfo)(hgmlDevice_t, hgmlPciInfo_t *);
 static int (*hgmlDeviceGetMemoryInfo)(hgmlDevice_t, hgmlMemory_t *);
+static int (*hgmlDeviceGetMemoryInfo_v2)(hgmlDevice_t, hgmlMemory_v2_t *);
 static int (*hgmlDeviceGetUtilizationRates)(hgmlDevice_t, hgmlUtilization_t *);
 static int (*hgmlDeviceGetComputeRunningProcesses)(hgmlDevice_t, unsigned *, hgmlProcessInfo_t *);
 static int (*hgmlDeviceGetProcessUtilization)(hgmlDevice_t, hgmlProcessUtilizationSample_t *, unsigned *,
@@ -162,6 +171,7 @@ static bool ppu_init(void) {
   LOAD_OPTIONAL(hgmlErrorString);
   LOAD_OPTIONAL(hgmlDeviceGetName);
   LOAD_OPTIONAL(hgmlDeviceGetMemoryInfo);
+  LOAD_OPTIONAL(hgmlDeviceGetMemoryInfo_v2);
   LOAD_OPTIONAL(hgmlDeviceGetUtilizationRates);
   LOAD_OPTIONAL(hgmlDeviceGetProcessUtilization);
   LOAD_OPTIONAL(hgmlDeviceGetClockInfo);
@@ -178,6 +188,8 @@ static bool ppu_init(void) {
   LOAD_OPTIONAL(hgmlDeviceGetFanSpeed);
 #undef LOAD_OPTIONAL
   hgmlDeviceGetPciInfo = ppu_symbol("hgmlDeviceGetPciInfo_v3", "hgmlDeviceGetPciInfo_v2");
+  if (!hgmlDeviceGetPciInfo)
+    hgmlDeviceGetPciInfo = ppu_symbol("hgmlDeviceGetPciInfo", NULL);
   hgmlDeviceGetComputeRunningProcesses =
       ppu_symbol("hgmlDeviceGetComputeRunningProcesses_v3", "hgmlDeviceGetComputeRunningProcesses_v2");
   /* The unversioned process API has a different array stride; never use it
@@ -264,13 +276,33 @@ static void ppu_dynamic_info(struct gpu_info *base) {
   if (hgmlDeviceGetUtilizationRates && hgmlDeviceGetUtilizationRates(ppu->handle, &utilization) == HGML_SUCCESS &&
       utilization.gpu <= 100)
     SET_GPUINFO_DYNAMIC(info, gpu_util_rate, utilization.gpu);
-  hgmlMemory_t memory;
-  if (hgmlDeviceGetMemoryInfo && hgmlDeviceGetMemoryInfo(ppu->handle, &memory) == HGML_SUCCESS &&
-      memory.total && memory.used <= memory.total && memory.free <= memory.total) {
-    SET_GPUINFO_DYNAMIC(info, total_memory, memory.total);
-    SET_GPUINFO_DYNAMIC(info, used_memory, memory.used);
-    SET_GPUINFO_DYNAMIC(info, free_memory, memory.free);
-    SET_GPUINFO_DYNAMIC(info, mem_util_rate, (unsigned)(100.0 * memory.used / memory.total));
+  unsigned long long mem_total = 0, mem_used = 0, mem_free = 0;
+  bool have_memory = false;
+  if (hgmlDeviceGetMemoryInfo_v2) {
+    hgmlMemory_v2_t memory_v2 = {.version = HGML_MEMORY_V2_VERSION};
+    if (hgmlDeviceGetMemoryInfo_v2(ppu->handle, &memory_v2) == HGML_SUCCESS && memory_v2.total &&
+        memory_v2.used <= memory_v2.total && memory_v2.free <= memory_v2.total) {
+      mem_total = memory_v2.total;
+      mem_used = memory_v2.used;
+      mem_free = memory_v2.free;
+      have_memory = true;
+    }
+  }
+  if (!have_memory && hgmlDeviceGetMemoryInfo) {
+    hgmlMemory_t memory;
+    if (hgmlDeviceGetMemoryInfo(ppu->handle, &memory) == HGML_SUCCESS && memory.total &&
+        memory.used <= memory.total && memory.free <= memory.total) {
+      mem_total = memory.total;
+      mem_used = memory.used;
+      mem_free = memory.free;
+      have_memory = true;
+    }
+  }
+  if (have_memory) {
+    SET_GPUINFO_DYNAMIC(info, total_memory, mem_total);
+    SET_GPUINFO_DYNAMIC(info, used_memory, mem_used);
+    SET_GPUINFO_DYNAMIC(info, free_memory, mem_free);
+    SET_GPUINFO_DYNAMIC(info, mem_util_rate, (unsigned)(100.0 * mem_used / mem_total));
   }
   unsigned value;
 #define DYNAMIC_QUERY(field, function, ...) \
