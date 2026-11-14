@@ -1,4 +1,5 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -7,6 +8,10 @@
 #include "../src/extract_gpuinfo_ppu.c"
 void register_gpu_vendor(struct gpu_vendor *vendor) { (void)vendor; }
 
+/* HGML defines the device handle as a one-pointer wrapper struct. */
+_Static_assert(sizeof(hgmlDevice_t) == sizeof(void *), "unexpected HGML device handle size");
+_Static_assert(offsetof(hgmlDevice_t, handle) == 0, "unexpected HGML device handle layout");
+
 #define CHECK(condition) do { if (!(condition)) { \
   fprintf(stderr, "Failed at line %d: %s\n", __LINE__, #condition); return 1; \
 } } while (0)
@@ -14,7 +19,7 @@ void register_gpu_vendor(struct gpu_vendor *vendor) { (void)vendor; }
 static int device_count(unsigned *count) { *count = 1; return 0; }
 static int device_handle(unsigned index, hgmlDevice_t *device) {
   (void)index;
-  *device = NULL;
+  device->handle = NULL;
   return 0;
 }
 static int pci_query(hgmlDevice_t device, hgmlPciInfo_t *pci) {

@@ -13,7 +13,9 @@
  * ordinary Linux builds do not require vendor development packages.
  * In particular, HGML PCI info has an extra globalPpuId field versus NVML.
  */
-typedef struct hgmlDevice_st *hgmlDevice_t;
+typedef struct {
+  struct hgmlDevice_st *handle;
+} hgmlDevice_t;
 typedef struct {
   char busIdLegacy[16];
   unsigned domain, bus, device, pciDeviceId, pciSubSystemId;
