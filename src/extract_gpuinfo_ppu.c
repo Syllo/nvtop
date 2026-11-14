@@ -38,6 +38,24 @@ typedef struct {
   unsigned smUtil, memUtil, encUtil, decUtil;
 } hgmlProcessUtilizationSample_t;
 
+typedef enum {
+  HGML_CLOCK_GRAPHICS = 0,
+  HGML_CLOCK_SM = 1,
+  HGML_CLOCK_MEM = 2,
+  HGML_CLOCK_VIDEO = 3,
+} hgmlClockType_t;
+typedef enum {
+  HGML_TEMPERATURE_THRESHOLD_SHUTDOWN = 0,
+  HGML_TEMPERATURE_THRESHOLD_SLOWDOWN = 1,
+} hgmlTemperatureThresholds_t;
+typedef enum {
+  HGML_TEMPERATURE_GPU = 0,
+} hgmlTemperatureSensors_t;
+typedef enum {
+  HGML_PCIE_UTIL_TX_BYTES = 0,
+  HGML_PCIE_UTIL_RX_BYTES = 1,
+} hgmlPcieUtilCounter_t;
+
 #define HGML_SUCCESS 0
 #define HGML_ERROR_INSUFFICIENT_SIZE 7
 
@@ -52,11 +70,11 @@ static int (*hgmlDeviceGetUtilizationRates)(hgmlDevice_t, hgmlUtilization_t *);
 static int (*hgmlDeviceGetComputeRunningProcesses)(hgmlDevice_t, unsigned *, hgmlProcessInfo_t *);
 static int (*hgmlDeviceGetProcessUtilization)(hgmlDevice_t, hgmlProcessUtilizationSample_t *, unsigned *,
                                             unsigned long long);
-static int (*hgmlDeviceGetClockInfo)(hgmlDevice_t, unsigned, unsigned *);
-static int (*hgmlDeviceGetMaxClockInfo)(hgmlDevice_t, unsigned, unsigned *);
-static int (*hgmlDeviceGetTemperature)(hgmlDevice_t, unsigned, unsigned *);
-static int (*hgmlDeviceGetTemperatureThreshold)(hgmlDevice_t, unsigned, unsigned *);
-static int (*hgmlDeviceGetPcieThroughput)(hgmlDevice_t, unsigned, unsigned *);
+static int (*hgmlDeviceGetClockInfo)(hgmlDevice_t, hgmlClockType_t, unsigned *);
+static int (*hgmlDeviceGetMaxClockInfo)(hgmlDevice_t, hgmlClockType_t, unsigned *);
+static int (*hgmlDeviceGetTemperature)(hgmlDevice_t, hgmlTemperatureSensors_t, unsigned *);
+static int (*hgmlDeviceGetTemperatureThreshold)(hgmlDevice_t, hgmlTemperatureThresholds_t, unsigned *);
+static int (*hgmlDeviceGetPcieThroughput)(hgmlDevice_t, hgmlPcieUtilCounter_t, unsigned *);
 static int (*hgmlDeviceGetPowerUsage)(hgmlDevice_t, unsigned *);
 static int (*hgmlDeviceGetEnforcedPowerLimit)(hgmlDevice_t, unsigned *);
 static int (*hgmlDeviceGetCurrPcieLinkGeneration)(hgmlDevice_t, unsigned *);
@@ -196,8 +214,10 @@ static void ppu_static_info(struct gpu_info *base) {
     SET_GPUINFO_STATIC(info, field, value)
   STATIC_QUERY(max_pcie_gen, hgmlDeviceGetMaxPcieLinkGeneration);
   STATIC_QUERY(max_pcie_link_width, hgmlDeviceGetMaxPcieLinkWidth);
-  STATIC_QUERY(temperature_shutdown_threshold, hgmlDeviceGetTemperatureThreshold, 0);
-  STATIC_QUERY(temperature_slowdown_threshold, hgmlDeviceGetTemperatureThreshold, 1);
+  STATIC_QUERY(temperature_shutdown_threshold, hgmlDeviceGetTemperatureThreshold,
+               HGML_TEMPERATURE_THRESHOLD_SHUTDOWN);
+  STATIC_QUERY(temperature_slowdown_threshold, hgmlDeviceGetTemperatureThreshold,
+               HGML_TEMPERATURE_THRESHOLD_SLOWDOWN);
 #undef STATIC_QUERY
 }
 
@@ -221,19 +241,19 @@ static void ppu_dynamic_info(struct gpu_info *base) {
 #define DYNAMIC_QUERY(field, function, ...) \
   if (function && function(ppu->handle, ##__VA_ARGS__, &value) == HGML_SUCCESS) \
     SET_GPUINFO_DYNAMIC(info, field, value)
-  /* PPUs expose their compute clock as HGML_CLOCK_SM (1), not GRAPHICS. */
-  DYNAMIC_QUERY(gpu_clock_speed, hgmlDeviceGetClockInfo, 1);
-  DYNAMIC_QUERY(mem_clock_speed, hgmlDeviceGetClockInfo, 2);
-  DYNAMIC_QUERY(gpu_clock_speed_max, hgmlDeviceGetMaxClockInfo, 1);
-  DYNAMIC_QUERY(mem_clock_speed_max, hgmlDeviceGetMaxClockInfo, 2);
-  DYNAMIC_QUERY(gpu_temp, hgmlDeviceGetTemperature, 0);
+  /* PPUs expose their compute clock as HGML_CLOCK_SM, not HGML_CLOCK_GRAPHICS. */
+  DYNAMIC_QUERY(gpu_clock_speed, hgmlDeviceGetClockInfo, HGML_CLOCK_SM);
+  DYNAMIC_QUERY(mem_clock_speed, hgmlDeviceGetClockInfo, HGML_CLOCK_MEM);
+  DYNAMIC_QUERY(gpu_clock_speed_max, hgmlDeviceGetMaxClockInfo, HGML_CLOCK_SM);
+  DYNAMIC_QUERY(mem_clock_speed_max, hgmlDeviceGetMaxClockInfo, HGML_CLOCK_MEM);
+  DYNAMIC_QUERY(gpu_temp, hgmlDeviceGetTemperature, HGML_TEMPERATURE_GPU);
   /* HGML returns power in mW and PCIe throughput in KB/s. */
   DYNAMIC_QUERY(power_draw, hgmlDeviceGetPowerUsage);
   DYNAMIC_QUERY(power_draw_max, hgmlDeviceGetEnforcedPowerLimit);
   DYNAMIC_QUERY(pcie_link_gen, hgmlDeviceGetCurrPcieLinkGeneration);
   DYNAMIC_QUERY(pcie_link_width, hgmlDeviceGetCurrPcieLinkWidth);
-  DYNAMIC_QUERY(pcie_tx, hgmlDeviceGetPcieThroughput, 0);
-  DYNAMIC_QUERY(pcie_rx, hgmlDeviceGetPcieThroughput, 1);
+  DYNAMIC_QUERY(pcie_tx, hgmlDeviceGetPcieThroughput, HGML_PCIE_UTIL_TX_BYTES);
+  DYNAMIC_QUERY(pcie_rx, hgmlDeviceGetPcieThroughput, HGML_PCIE_UTIL_RX_BYTES);
   DYNAMIC_QUERY(fan_speed, hgmlDeviceGetFanSpeed);
 #undef DYNAMIC_QUERY
 }

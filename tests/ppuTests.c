@@ -44,11 +44,11 @@ static int utilization_query(hgmlDevice_t device, hgmlUtilization_t *utilization
   *utilization = (hgmlUtilization_t){.gpu = 42, .memory = 99};
   return fail_metrics ? 3 : 0;
 }
-static int clock_query(hgmlDevice_t device, unsigned type, unsigned *clock) {
+static int clock_query(hgmlDevice_t device, hgmlClockType_t type, unsigned *clock) {
   (void)device;
-  if (type != 1 && type != 2)
+  if (type != HGML_CLOCK_SM && type != HGML_CLOCK_MEM)
     return 3;
-  *clock = type == 1 ? 200 : 1800;
+  *clock = type == HGML_CLOCK_SM ? 200 : 1800;
   return 0;
 }
 static unsigned process_calls;
