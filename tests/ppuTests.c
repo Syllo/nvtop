@@ -12,6 +12,10 @@ void register_gpu_vendor(struct gpu_vendor *vendor) { (void)vendor; }
 _Static_assert(sizeof(hgmlDevice_t) == sizeof(void *), "unexpected HGML device handle size");
 _Static_assert(offsetof(hgmlDevice_t, handle) == 0, "unexpected HGML device handle layout");
 
+/* HGML API version 13 trades four busId bytes for the extra globalPpuId field. */
+_Static_assert(sizeof(hgmlPciInfo_t) == 68, "unexpected HGML PCI info size");
+_Static_assert(offsetof(hgmlPciInfo_t, globalPpuId) == 64, "unexpected HGML PCI info layout");
+
 #define CHECK(condition) do { if (!(condition)) { \
   fprintf(stderr, "Failed at line %d: %s\n", __LINE__, #condition); return 1; \
 } } while (0)

@@ -9,9 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* HGML ABI from the PPU SDK hgml.h. Keep these independent of the SDK so
- * ordinary Linux builds do not require vendor development packages.
- * In particular, HGML PCI info has an extra globalPpuId field versus NVML.
+/* HGML ABI transcribed from the PPU SDK hgml.h (API version 13). Keep these
+ * independent of the SDK so ordinary Linux builds do not require vendor
+ * development packages. Recheck this block when the SDK bumps its API
+ * version. In particular, HGML PCI info trades four bytes of busId for the
+ * extra globalPpuId field of NVML's struct, so busId is 28 bytes rather than
+ * 32.
  */
 typedef struct {
   struct hgmlDevice_st *handle;
@@ -19,7 +22,7 @@ typedef struct {
 typedef struct {
   char busIdLegacy[16];
   unsigned domain, bus, device, pciDeviceId, pciSubSystemId;
-  char busId[32];
+  char busId[28]; /* HGML_DEVICE_PCI_BUS_ID_BUFFER_SIZE is (32 - 4) */
   unsigned globalPpuId;
 } hgmlPciInfo_t;
 typedef struct { unsigned long long total, free, used; } hgmlMemory_t;
