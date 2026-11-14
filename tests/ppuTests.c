@@ -76,6 +76,34 @@ static int test_pci_info_missing_symbol(void) {
   return 0;
 }
 
+static int test_double_enumeration(void) {
+  LIST_HEAD(first);
+  LIST_HEAD(second);
+  unsigned count;
+  hgmlDeviceGetCount = device_count;
+  hgmlDeviceGetHandleByIndex = device_handle;
+  hgmlDeviceGetPciInfo = NULL;
+  CHECK(ppu_get_devices(&first, &count));
+  CHECK(count == 1);
+  CHECK(!ppu_get_devices(&second, &count));
+  CHECK(count == 0);
+  CHECK(strstr(ppu_last_error(), "already enumerated") != NULL);
+  list_del(&ppu_devices[0].base.list);
+  ppu_shutdown();
+  return 0;
+}
+
+static int test_shutdown_clears_symbols(void) {
+  hgmlDeviceGetCount = device_count;
+  hgmlDeviceGetHandleByIndex = device_handle;
+  hgmlDeviceGetPciInfo = pci_query;
+  ppu_shutdown();
+  CHECK(hgmlDeviceGetCount == NULL);
+  CHECK(hgmlDeviceGetHandleByIndex == NULL);
+  CHECK(hgmlDeviceGetPciInfo == NULL);
+  return 0;
+}
+
 static bool fail_metrics;
 static bool invalid_memory;
 static unsigned memory_v1_calls;
@@ -450,6 +478,8 @@ int main(int argc, char **argv) {
   CHECK(test_pci_info("not-a-pci-address", 0, "ppu-0") == 0);
   CHECK(test_pci_info("00000000:A8:00.1", 3, "ppu-0") == 0);
   CHECK(test_pci_info_missing_symbol() == 0);
+  CHECK(test_double_enumeration() == 0);
+  CHECK(test_shutdown_clears_symbols() == 0);
   CHECK(test_error_reporting() == 0);
 
   struct gpu_info_ppu ppu = {0};

@@ -119,6 +119,36 @@ static char ppu_error_buffer[256];
 static const char *ppu_error = "HGML is not initialized";
 static struct gpu_vendor gpu_vendor_ppu;
 
+static void ppu_clear_symbols(void) {
+#define CLEAR_SYMBOL(name) name = NULL
+  CLEAR_SYMBOL(hgmlInit);
+  CLEAR_SYMBOL(hgmlShutdown);
+  CLEAR_SYMBOL(hgmlDeviceGetCount);
+  CLEAR_SYMBOL(hgmlDeviceGetHandleByIndex);
+  CLEAR_SYMBOL(hgmlDeviceGetName);
+  CLEAR_SYMBOL(hgmlDeviceGetPciInfo);
+  CLEAR_SYMBOL(hgmlDeviceGetMemoryInfo);
+  CLEAR_SYMBOL(hgmlDeviceGetMemoryInfo_v2);
+  CLEAR_SYMBOL(hgmlDeviceGetUtilizationRates);
+  CLEAR_SYMBOL(hgmlDeviceGetComputeRunningProcesses);
+  CLEAR_SYMBOL(hgmlDeviceGetProcessUtilization);
+  CLEAR_SYMBOL(hgmlDeviceGetClockInfo);
+  CLEAR_SYMBOL(hgmlDeviceGetMaxClockInfo);
+  CLEAR_SYMBOL(hgmlDeviceGetTemperature);
+  CLEAR_SYMBOL(hgmlDeviceGetTemperatureV);
+  CLEAR_SYMBOL(hgmlDeviceGetTemperatureThreshold);
+  CLEAR_SYMBOL(hgmlDeviceGetPcieThroughput);
+  CLEAR_SYMBOL(hgmlDeviceGetPowerUsage);
+  CLEAR_SYMBOL(hgmlDeviceGetEnforcedPowerLimit);
+  CLEAR_SYMBOL(hgmlDeviceGetCurrPcieLinkGeneration);
+  CLEAR_SYMBOL(hgmlDeviceGetCurrPcieLinkWidth);
+  CLEAR_SYMBOL(hgmlDeviceGetMaxPcieLinkGeneration);
+  CLEAR_SYMBOL(hgmlDeviceGetMaxPcieLinkWidth);
+  CLEAR_SYMBOL(hgmlDeviceGetFanSpeed);
+  CLEAR_SYMBOL(hgmlErrorString);
+#undef CLEAR_SYMBOL
+}
+
 static void ppu_shutdown(void) {
   free(ppu_devices);
   ppu_devices = NULL;
@@ -128,6 +158,7 @@ static void ppu_shutdown(void) {
   if (hgml_library)
     dlclose(hgml_library);
   hgml_library = NULL;
+  ppu_clear_symbols();
   if (!ppu_error)
     ppu_error = "HGML is not initialized";
 }
@@ -158,6 +189,11 @@ static void ppu_set_hgml_error(int status, const char *message) {
 }
 
 static bool ppu_init(void) {
+  if (hgml_initialized) {
+    ppu_error = NULL;
+    return true;
+  }
+  ppu_clear_symbols();
   const char *paths[] = {"libhgml.so.1", "libhgml.so", "/usr/local/PPU_SDK/lib/libhgml.so",
                          "/usr/local/PPU_SDK/targets/x86_64-linux/lib/libhgml.so",
                          "/usr/local/PPU_SDK/targets/aarch64-linux/lib/libhgml.so"};
@@ -224,6 +260,10 @@ static const char *ppu_last_error(void) {
 static bool ppu_get_devices(struct list_head *devices, unsigned *count) {
   unsigned available = 0;
   *count = 0;
+  if (ppu_devices) {
+    ppu_set_error("PPU devices are already enumerated");
+    return false;
+  }
   int status = hgmlDeviceGetCount(&available);
   if (status != HGML_SUCCESS) {
     ppu_set_hgml_error(status, "HGML device enumeration failed");
