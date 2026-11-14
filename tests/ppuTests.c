@@ -26,22 +26,49 @@ static int device_handle(unsigned index, hgmlDevice_t *device) {
   device->handle = NULL;
   return 0;
 }
+static const char *pci_bus_id = "00000000:A8:00.1";
+static int pci_status;
 static int pci_query(hgmlDevice_t device, hgmlPciInfo_t *pci) {
   (void)device;
-  strcpy(pci->busId, "00000000:A8:00.1");
+  if (pci_status)
+    return pci_status;
+  snprintf(pci->busId, sizeof(pci->busId), "%s", pci_bus_id);
   pci->globalPpuId = 42;
   return 0;
 }
 
+static int test_pci_info(const char *bus_id, int status, const char *expected_pdev) {
+  LIST_HEAD(devices);
+  unsigned count;
+  pci_bus_id = bus_id;
+  pci_status = status;
+  hgmlDeviceGetCount = device_count;
+  hgmlDeviceGetHandleByIndex = device_handle;
+  hgmlDeviceGetPciInfo = pci_query;
+  CHECK(ppu_get_devices(&devices, &count));
+  CHECK(count == 1);
+  CHECK(!strcmp(ppu_devices[0].base.pdev, expected_pdev));
+  list_del(&ppu_devices[0].base.list);
+  ppu_shutdown();
+  pci_bus_id = "00000000:A8:00.1";
+  pci_status = 0;
+  return 0;
+}
+
 static bool fail_metrics;
+static bool invalid_memory;
 static int memory_query(hgmlDevice_t device, hgmlMemory_t *memory) {
   (void)device;
-  *memory = (hgmlMemory_t){.total = 4096, .used = 1024, .free = 3072};
+  if (invalid_memory)
+    *memory = (hgmlMemory_t){.total = 4096, .used = 8192, .free = 0};
+  else
+    *memory = (hgmlMemory_t){.total = 4096, .used = 1024, .free = 3072};
   return fail_metrics ? 3 : 0;
 }
+static unsigned utilization_gpu = 42;
 static int utilization_query(hgmlDevice_t device, hgmlUtilization_t *utilization) {
   (void)device;
-  *utilization = (hgmlUtilization_t){.gpu = 42, .memory = 99};
+  *utilization = (hgmlUtilization_t){.gpu = utilization_gpu, .memory = 99};
   return fail_metrics ? 3 : 0;
 }
 static int clock_query(hgmlDevice_t device, hgmlClockType_t type, unsigned *clock) {
@@ -51,13 +78,68 @@ static int clock_query(hgmlDevice_t device, hgmlClockType_t type, unsigned *cloc
   *clock = type == HGML_CLOCK_SM ? 200 : 1800;
   return 0;
 }
+static int name_query(hgmlDevice_t device, char *name, unsigned length) {
+  (void)device;
+  snprintf(name, length, "PPU-ZW810E");
+  return 0;
+}
+static int max_pcie_gen_query(hgmlDevice_t device, unsigned *value) {
+  (void)device;
+  *value = 5;
+  return 0;
+}
+static int max_pcie_width_query(hgmlDevice_t device, unsigned *value) {
+  (void)device;
+  *value = 16;
+  return 0;
+}
+static int temperature_threshold_query(hgmlDevice_t device, hgmlTemperatureThresholds_t type, unsigned *value) {
+  (void)device;
+  if (type == HGML_TEMPERATURE_THRESHOLD_SHUTDOWN)
+    *value = 90;
+  else if (type == HGML_TEMPERATURE_THRESHOLD_SLOWDOWN)
+    *value = 85;
+  else
+    return 3;
+  return 0;
+}
+
+static int test_static_info(struct gpu_info_ppu *ppu) {
+  hgmlDeviceGetName = name_query;
+  hgmlDeviceGetMaxPcieLinkGeneration = max_pcie_gen_query;
+  hgmlDeviceGetMaxPcieLinkWidth = max_pcie_width_query;
+  hgmlDeviceGetTemperatureThreshold = temperature_threshold_query;
+  ppu_static_info(&ppu->base);
+  CHECK(!strcmp(ppu->base.static_info.device_name, "PPU-ZW810E"));
+  CHECK(GPUINFO_STATIC_FIELD_VALID(&ppu->base.static_info, device_name));
+  CHECK(ppu->base.static_info.max_pcie_gen == 5);
+  CHECK(GPUINFO_STATIC_FIELD_VALID(&ppu->base.static_info, max_pcie_gen));
+  CHECK(ppu->base.static_info.max_pcie_link_width == 16);
+  CHECK(GPUINFO_STATIC_FIELD_VALID(&ppu->base.static_info, max_pcie_link_width));
+  CHECK(ppu->base.static_info.temperature_shutdown_threshold == 90);
+  CHECK(GPUINFO_STATIC_FIELD_VALID(&ppu->base.static_info, temperature_shutdown_threshold));
+  CHECK(ppu->base.static_info.temperature_slowdown_threshold == 85);
+  CHECK(GPUINFO_STATIC_FIELD_VALID(&ppu->base.static_info, temperature_slowdown_threshold));
+
+  /* Fall back to a generic name when the runtime cannot report one. */
+  hgmlDeviceGetName = NULL;
+  ppu_static_info(&ppu->base);
+  CHECK(!strcmp(ppu->base.static_info.device_name, "T-Head PPU"));
+  CHECK(GPUINFO_STATIC_FIELD_VALID(&ppu->base.static_info, device_name));
+  return 0;
+}
+
 static unsigned process_calls;
-static bool fail_processes, grow_forever;
+static bool fail_processes, grow_forever, no_processes;
 static int process_query(hgmlDevice_t device, unsigned *count, hgmlProcessInfo_t *processes) {
   (void)device;
   ++process_calls;
   if (fail_processes)
     return 3;
+  if (no_processes) {
+    *count = 0;
+    return 0;
+  }
   if (!processes || process_calls == 2 || grow_forever) {
     *count += 1;
     return HGML_ERROR_INSUFFICIENT_SIZE;
@@ -196,17 +278,14 @@ static int live_test(void) {
 int main(int argc, char **argv) {
   if (argc == 2 && !strcmp(argv[1], "--live"))
     return live_test();
-  LIST_HEAD(devices);
-  unsigned count;
-  hgmlDeviceGetCount = device_count;
-  hgmlDeviceGetHandleByIndex = device_handle;
-  hgmlDeviceGetPciInfo = pci_query;
-  CHECK(ppu_get_devices(&devices, &count));
-  CHECK(count == 1);
-  CHECK(!strcmp(ppu_devices[0].base.pdev, "0000:a8:00.1"));
-  list_del(&ppu_devices[0].base.list);
-  ppu_shutdown();
+  CHECK(test_pci_info("00000000:A8:00.1", 0, "0000:a8:00.1") == 0);
+  CHECK(test_pci_info("00010000:A8:00.1", 0, "ppu-0") == 0);
+  CHECK(test_pci_info("00000000:A8:00.8", 0, "ppu-0") == 0);
+  CHECK(test_pci_info("not-a-pci-address", 0, "ppu-0") == 0);
+  CHECK(test_pci_info("00000000:A8:00.1", 3, "ppu-0") == 0);
+
   struct gpu_info_ppu ppu = {0};
+  CHECK(test_static_info(&ppu) == 0);
   hgmlDeviceGetClockInfo = clock_query;
   hgmlDeviceGetMemoryInfo = memory_query;
   hgmlDeviceGetUtilizationRates = utilization_query;
@@ -216,6 +295,17 @@ int main(int argc, char **argv) {
   CHECK(ppu.base.dynamic_info.gpu_util_rate == 42);
   CHECK(ppu.base.dynamic_info.mem_util_rate == 25);
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, gpu_temp));
+  utilization_gpu = 101;
+  ppu_dynamic_info(&ppu.base);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, gpu_util_rate));
+  utilization_gpu = 42;
+  invalid_memory = true;
+  ppu_dynamic_info(&ppu.base);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, total_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, used_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, free_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, mem_util_rate));
+  invalid_memory = false;
   fail_metrics = true;
   ppu_dynamic_info(&ppu.base);
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, total_memory));
@@ -239,6 +329,13 @@ int main(int argc, char **argv) {
   ppu_processes(&ppu.base);
   CHECK(process_calls == 4);
   CHECK(ppu.base.processes_count == 0);
+  grow_forever = false;
+  no_processes = true;
+  process_calls = 0;
+  ppu_processes(&ppu.base);
+  CHECK(process_calls == 1);
+  CHECK(ppu.base.processes_count == 0);
+  no_processes = false;
   free(ppu.base.processes);
   CHECK(!strcmp(processing_unit_name(gpu_processing_unit_ppu), "PPU"));
   ppu_shutdown();
