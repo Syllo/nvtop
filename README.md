@@ -312,9 +312,9 @@ sudo apt install nvtop
   - NVIDIA drivers (see [Ubuntu Wiki](https://help.ubuntu.com/community/BinaryDriverHowto/Nvidia) or [Ubuntu PPA](https://launchpad.net/~graphics-drivers/+archive/ubuntu/ppa) or [Debian Wiki](https://wiki.debian.org/NvidiaGraphicsDrivers#NVIDIA_Proprietary_Driver))
 
 - NVTOP Dependencies
-  - CMake, ncurses, GCC and Git
+  - CMake, ncurses, GCC/G++ and Git
   ```bash
-  sudo apt install cmake libncurses5-dev libncursesw5-dev gcc git
+  sudo apt install cmake libncurses5-dev libncursesw5-dev gcc g++ git
   ```
 
 - NVTOP
@@ -341,9 +341,9 @@ sudo dnf install nvtop
 #### CentOS Stream, Rocky Linux, AlmaLinux
 
 ```bash
-  sudo dnf install -y epel-release
-  sudo dnf install nvtop
-  ```
+sudo dnf install -y epel-release
+sudo dnf install nvtop
+```
 
 #### Build process for Fedora / Red Hat / CentOS
 
@@ -356,9 +356,9 @@ sudo dnf install nvtop
   - NVIDIA drivers, **CUDA required for nvml libraries** (see [RPM Fusion](https://rpmfusion.org/Howto/NVIDIA))
 
 - NVTOP Dependencies
-  - CMake, ncurses, GCC and Git
+  - CMake, ncurses, GCC/G++ and Git
   ```bash
-  sudo dnf install cmake ncurses-devel gcc git
+  sudo dnf install cmake ncurses-devel gcc gcc-c++ git
   ```
 
 - NVTOP
@@ -385,9 +385,9 @@ sudo zypper install nvtop
   - NVIDIA drivers (see [SUSE Support Database](https://en.opensuse.org/SDB:NVIDIA_drivers))
 
 - NVTOP Dependencies
-  - CMake, ncurses, GCC and Git
+  - CMake, ncurses, GCC/G++ and Git
     ```bash
-    sudo zypper install cmake ncurses-devel gcc git
+    sudo zypper install cmake ncurses-devel gcc gcc-c++ git
     ```
 
 - NVTOP
