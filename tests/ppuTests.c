@@ -104,6 +104,25 @@ static int temperature_threshold_query(hgmlDevice_t device, hgmlTemperatureThres
   return 0;
 }
 
+static const char *error_string_query(int status) {
+  (void)status;
+  return "mocked HGML error";
+}
+
+static int test_error_reporting(void) {
+  hgmlErrorString = NULL;
+  ppu_set_hgml_error(3, "PPU operation failed");
+  CHECK(strstr(ppu_last_error(), "PPU operation failed") != NULL);
+  CHECK(strstr(ppu_last_error(), "HGML error 3") != NULL);
+
+  hgmlErrorString = error_string_query;
+  ppu_set_hgml_error(3, "PPU operation failed");
+  CHECK(!strcmp(ppu_last_error(), "PPU operation failed: mocked HGML error"));
+  hgmlErrorString = NULL;
+  ppu_error = NULL;
+  return 0;
+}
+
 static int test_static_info(struct gpu_info_ppu *ppu) {
   hgmlDeviceGetName = name_query;
   hgmlDeviceGetMaxPcieLinkGeneration = max_pcie_gen_query;
@@ -283,6 +302,7 @@ int main(int argc, char **argv) {
   CHECK(test_pci_info("00000000:A8:00.8", 0, "ppu-0") == 0);
   CHECK(test_pci_info("not-a-pci-address", 0, "ppu-0") == 0);
   CHECK(test_pci_info("00000000:A8:00.1", 3, "ppu-0") == 0);
+  CHECK(test_error_reporting() == 0);
 
   struct gpu_info_ppu ppu = {0};
   CHECK(test_static_info(&ppu) == 0);

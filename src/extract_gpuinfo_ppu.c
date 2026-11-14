@@ -6,6 +6,7 @@
 #include "nvtop/extract_gpuinfo_common.h"
 
 #include <dlfcn.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -84,6 +85,7 @@ static int (*hgmlDeviceGetCurrPcieLinkWidth)(hgmlDevice_t, unsigned *);
 static int (*hgmlDeviceGetMaxPcieLinkGeneration)(hgmlDevice_t, unsigned *);
 static int (*hgmlDeviceGetMaxPcieLinkWidth)(hgmlDevice_t, unsigned *);
 static int (*hgmlDeviceGetFanSpeed)(hgmlDevice_t, unsigned *);
+static const char *(*hgmlErrorString)(int);
 
 struct gpu_info_ppu {
   struct gpu_info base;
@@ -93,6 +95,7 @@ struct gpu_info_ppu {
 static struct gpu_info_ppu *ppu_devices;
 static void *hgml_library;
 static bool hgml_initialized;
+static char ppu_error_buffer[256];
 static const char *ppu_error = "HGML is not initialized";
 static struct gpu_vendor gpu_vendor_ppu;
 
@@ -105,11 +108,33 @@ static void ppu_shutdown(void) {
   if (hgml_library)
     dlclose(hgml_library);
   hgml_library = NULL;
+  if (!ppu_error)
+    ppu_error = "HGML is not initialized";
 }
 
 static void *ppu_symbol(const char *preferred, const char *fallback) {
   void *symbol = dlsym(hgml_library, preferred);
   return symbol || !fallback ? symbol : dlsym(hgml_library, fallback);
+}
+
+static void ppu_set_error(const char *message) {
+  snprintf(ppu_error_buffer, sizeof(ppu_error_buffer), "%s", message);
+  ppu_error = ppu_error_buffer;
+}
+
+static void ppu_set_error_detail(const char *message, const char *detail) {
+  snprintf(ppu_error_buffer, sizeof(ppu_error_buffer), "%s: %s", message, detail);
+  ppu_error = ppu_error_buffer;
+}
+
+static void ppu_set_hgml_error(int status, const char *message) {
+  const char *detail = hgmlErrorString ? hgmlErrorString(status) : NULL;
+  if (detail) {
+    ppu_set_error_detail(message, detail);
+  } else {
+    snprintf(ppu_error_buffer, sizeof(ppu_error_buffer), "%s (HGML error %d)", message, status);
+    ppu_error = ppu_error_buffer;
+  }
 }
 
 static bool ppu_init(void) {
@@ -119,7 +144,8 @@ static bool ppu_init(void) {
   for (unsigned i = 0; i < sizeof(paths) / sizeof(paths[0]) && !hgml_library; ++i)
     hgml_library = dlopen(paths[i], RTLD_LAZY | RTLD_LOCAL);
   if (!hgml_library) {
-    ppu_error = "Could not load libhgml.so";
+    const char *error = dlerror();
+    ppu_set_error_detail("Could not load libhgml.so", error ? error : "unknown dynamic loader error");
     return false;
   }
   hgmlInit = ppu_symbol("hgmlInit_v2", "hgmlInit");
@@ -127,11 +153,13 @@ static bool ppu_init(void) {
   hgmlDeviceGetCount = ppu_symbol("hgmlDeviceGetCount_v2", "hgmlDeviceGetCount");
   hgmlDeviceGetHandleByIndex = ppu_symbol("hgmlDeviceGetHandleByIndex_v2", "hgmlDeviceGetHandleByIndex");
   if (!hgmlInit || !hgmlShutdown || !hgmlDeviceGetCount || !hgmlDeviceGetHandleByIndex) {
-    ppu_error = "Missing required HGML entry points";
+    ppu_set_error("Missing required HGML entry points (hgmlInit, hgmlShutdown, hgmlDeviceGetCount, "
+                  "hgmlDeviceGetHandleByIndex)");
     ppu_shutdown();
     return false;
   }
 #define LOAD_OPTIONAL(name) name = ppu_symbol(#name, NULL)
+  LOAD_OPTIONAL(hgmlErrorString);
   LOAD_OPTIONAL(hgmlDeviceGetName);
   LOAD_OPTIONAL(hgmlDeviceGetMemoryInfo);
   LOAD_OPTIONAL(hgmlDeviceGetUtilizationRates);
@@ -154,29 +182,34 @@ static bool ppu_init(void) {
       ppu_symbol("hgmlDeviceGetComputeRunningProcesses_v3", "hgmlDeviceGetComputeRunningProcesses_v2");
   /* The unversioned process API has a different array stride; never use it
    * with hgmlProcessInfo_t. */
-  if (hgmlInit() != HGML_SUCCESS) {
-    ppu_error = "HGML initialization failed";
+  int status = hgmlInit();
+  if (status != HGML_SUCCESS) {
+    ppu_set_hgml_error(status, "HGML initialization failed");
     ppu_shutdown();
     return false;
   }
   hgml_initialized = true;
+  ppu_error = NULL;
   return true;
 }
 
-static const char *ppu_last_error(void) { return ppu_error; }
+static const char *ppu_last_error(void) {
+  return ppu_error ? ppu_error : "An unanticipated error occurred while accessing T-Head PPU information";
+}
 
 static bool ppu_get_devices(struct list_head *devices, unsigned *count) {
   unsigned available = 0;
   *count = 0;
-  if (hgmlDeviceGetCount(&available) != HGML_SUCCESS) {
-    ppu_error = "HGML device enumeration failed";
+  int status = hgmlDeviceGetCount(&available);
+  if (status != HGML_SUCCESS) {
+    ppu_set_hgml_error(status, "HGML device enumeration failed");
     return false;
   }
   if (!available)
     return true;
   ppu_devices = calloc(available, sizeof(*ppu_devices));
   if (!ppu_devices) {
-    ppu_error = "Could not allocate PPU devices";
+    ppu_set_error_detail("Could not allocate PPU devices", strerror(errno));
     return false;
   }
   for (unsigned i = 0; i < available; ++i) {
