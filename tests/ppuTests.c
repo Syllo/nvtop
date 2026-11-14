@@ -224,6 +224,7 @@ int main(int argc, char **argv) {
   ppu_processes(&ppu.base);
   CHECK(process_calls == 3);
   CHECK(ppu.base.processes_count == 2);
+  CHECK(ppu.base.processes_array_size == ppu.base.processes_count + COMMON_PROCESS_LINEAR_REALLOC_INC);
   CHECK(ppu.base.processes[0].pid == 123);
   CHECK(ppu.base.processes[0].gpu_memory_usage == 512);
   CHECK(GPUINFO_PROCESS_FIELD_VALID(&ppu.base.processes[0], gpu_memory_usage));

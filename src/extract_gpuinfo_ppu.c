@@ -2,6 +2,7 @@
  * Copyright (C) 2026 The NVTOP Contributors
  */
 
+#include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
 
 #include <dlfcn.h>
@@ -342,12 +343,14 @@ static void ppu_processes(struct gpu_info *base) {
     if (result != HGML_SUCCESS || count > capacity)
       break;
     if (count > base->processes_array_size) {
-      struct gpu_process *processes = calloc(count, sizeof(*processes));
+      if (count > UINT_MAX - COMMON_PROCESS_LINEAR_REALLOC_INC)
+        break;
+      unsigned new_size = count + COMMON_PROCESS_LINEAR_REALLOC_INC;
+      struct gpu_process *processes = reallocarray(base->processes, new_size, sizeof(*processes));
       if (!processes)
         break;
-      free(base->processes);
       base->processes = processes;
-      base->processes_array_size = count;
+      base->processes_array_size = new_size;
     }
     for (unsigned i = 0; i < count; ++i) {
       struct gpu_process *process = &base->processes[i];
