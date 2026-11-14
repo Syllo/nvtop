@@ -102,7 +102,10 @@ unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct lis
     numMonitored++;
   }
   list_for_each_entry(device, monitoredGpu, list) { processinfo_enable_disable_callback_for(device, true); }
-  list_for_each_entry(device, nonMonitoredGpu, list) { processinfo_enable_disable_callback_for(device, false); }
+  list_for_each_entry(device, nonMonitoredGpu, list) {
+    processinfo_enable_disable_callback_for(device, false);
+    device->processes_count = 0;
+  }
   return numMonitored;
 }
 
