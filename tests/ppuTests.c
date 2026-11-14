@@ -181,6 +181,77 @@ static int temperature_threshold_query(hgmlDevice_t device, hgmlTemperatureThres
   return 0;
 }
 
+static unsigned temperature_v_calls;
+static int temperature_v_status;
+static int temperature_v_value;
+static int temperature_v_query(hgmlDevice_t device, hgmlTemperature_t *temperature) {
+  (void)device;
+  ++temperature_v_calls;
+  if (temperature->version != HGML_TEMPERATURE_V1_VERSION || temperature->sensorType != HGML_TEMPERATURE_GPU)
+    return 25; // HGML_ERROR_ARGUMENT_VERSION_MISMATCH
+  if (temperature_v_status)
+    return temperature_v_status;
+  temperature->temperature = temperature_v_value;
+  return 0;
+}
+
+static unsigned temperature_calls;
+static int temperature_query(hgmlDevice_t device, hgmlTemperatureSensors_t sensor, unsigned *temperature) {
+  (void)device;
+  ++temperature_calls;
+  if (sensor != HGML_TEMPERATURE_GPU)
+    return 2; // HGML_ERROR_INVALID_ARGUMENT
+  *temperature = 61;
+  return 0;
+}
+
+static int test_temperature_api(struct gpu_info_ppu *ppu) {
+  hgmlDeviceGetTemperatureV = temperature_v_query;
+  hgmlDeviceGetTemperature = temperature_query;
+  temperature_v_status = 0;
+  temperature_v_value = 55;
+  temperature_v_calls = 0;
+  temperature_calls = 0;
+  /* Prefer the versioned query and skip the deprecated one. */
+  ppu_dynamic_info(&ppu->base);
+  CHECK(temperature_v_calls == 1);
+  CHECK(temperature_calls == 0);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&ppu->base.dynamic_info, gpu_temp));
+  CHECK(ppu->base.dynamic_info.gpu_temp == 55);
+
+  /* A failed versioned query falls back to the deprecated entry point. */
+  temperature_v_status = 3; // HGML_ERROR_NOT_SUPPORTED
+  temperature_v_calls = 0;
+  temperature_calls = 0;
+  ppu_dynamic_info(&ppu->base);
+  CHECK(temperature_v_calls == 1);
+  CHECK(temperature_calls == 1);
+  CHECK(ppu->base.dynamic_info.gpu_temp == 61);
+
+  /* A negative temperature means the sensor is unavailable; do not guess. */
+  temperature_v_status = 0;
+  temperature_v_value = -1;
+  temperature_v_calls = 0;
+  temperature_calls = 0;
+  ppu_dynamic_info(&ppu->base);
+  CHECK(temperature_v_calls == 1);
+  CHECK(temperature_calls == 0);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu->base.dynamic_info, gpu_temp));
+
+  /* Older runtimes only expose the deprecated entry point. */
+  temperature_v_value = 55;
+  hgmlDeviceGetTemperatureV = NULL;
+  temperature_calls = 0;
+  ppu_dynamic_info(&ppu->base);
+  CHECK(temperature_calls == 1);
+  CHECK(ppu->base.dynamic_info.gpu_temp == 61);
+
+  hgmlDeviceGetTemperature = NULL;
+  ppu_dynamic_info(&ppu->base);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu->base.dynamic_info, gpu_temp));
+  return 0;
+}
+
 static const char *error_string_query(int status) {
   (void)status;
   return "mocked HGML error";
@@ -404,6 +475,7 @@ int main(int argc, char **argv) {
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, mem_util_rate));
   invalid_memory = false;
   CHECK(test_memory_v2(&ppu) == 0);
+  CHECK(test_temperature_api(&ppu) == 0);
   fail_metrics = true;
   ppu_dynamic_info(&ppu.base);
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&ppu.base.dynamic_info, total_memory));

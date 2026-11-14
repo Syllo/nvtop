@@ -64,6 +64,11 @@ typedef enum {
 typedef enum {
   HGML_TEMPERATURE_GPU = 0,
 } hgmlTemperatureSensors_t;
+typedef struct {
+  unsigned version;
+  hgmlTemperatureSensors_t sensorType;
+  int temperature;
+} hgmlTemperature_t;
 typedef enum {
   HGML_PCIE_UTIL_TX_BYTES = 0,
   HGML_PCIE_UTIL_RX_BYTES = 1,
@@ -73,6 +78,7 @@ typedef enum {
 #define HGML_ERROR_NOT_FOUND 6
 #define HGML_ERROR_INSUFFICIENT_SIZE 7
 #define HGML_MEMORY_V2_VERSION ((unsigned)sizeof(hgmlMemory_v2_t) | (2U << 24))
+#define HGML_TEMPERATURE_V1_VERSION ((unsigned)sizeof(hgmlTemperature_t) | (1U << 24))
 
 static int (*hgmlInit)(void);
 static int (*hgmlShutdown)(void);
@@ -89,6 +95,7 @@ static int (*hgmlDeviceGetProcessUtilization)(hgmlDevice_t, hgmlProcessUtilizati
 static int (*hgmlDeviceGetClockInfo)(hgmlDevice_t, hgmlClockType_t, unsigned *);
 static int (*hgmlDeviceGetMaxClockInfo)(hgmlDevice_t, hgmlClockType_t, unsigned *);
 static int (*hgmlDeviceGetTemperature)(hgmlDevice_t, hgmlTemperatureSensors_t, unsigned *);
+static int (*hgmlDeviceGetTemperatureV)(hgmlDevice_t, hgmlTemperature_t *);
 static int (*hgmlDeviceGetTemperatureThreshold)(hgmlDevice_t, hgmlTemperatureThresholds_t, unsigned *);
 static int (*hgmlDeviceGetPcieThroughput)(hgmlDevice_t, hgmlPcieUtilCounter_t, unsigned *);
 static int (*hgmlDeviceGetPowerUsage)(hgmlDevice_t, unsigned *);
@@ -181,6 +188,7 @@ static bool ppu_init(void) {
   LOAD_OPTIONAL(hgmlDeviceGetClockInfo);
   LOAD_OPTIONAL(hgmlDeviceGetMaxClockInfo);
   LOAD_OPTIONAL(hgmlDeviceGetTemperature);
+  LOAD_OPTIONAL(hgmlDeviceGetTemperatureV);
   LOAD_OPTIONAL(hgmlDeviceGetTemperatureThreshold);
   LOAD_OPTIONAL(hgmlDeviceGetPcieThroughput);
   LOAD_OPTIONAL(hgmlDeviceGetPowerUsage);
@@ -315,7 +323,20 @@ static void ppu_dynamic_info(struct gpu_info *base) {
   DYNAMIC_QUERY(mem_clock_speed, hgmlDeviceGetClockInfo, HGML_CLOCK_MEM);
   DYNAMIC_QUERY(gpu_clock_speed_max, hgmlDeviceGetMaxClockInfo, HGML_CLOCK_SM);
   DYNAMIC_QUERY(mem_clock_speed_max, hgmlDeviceGetMaxClockInfo, HGML_CLOCK_MEM);
-  DYNAMIC_QUERY(gpu_temp, hgmlDeviceGetTemperature, HGML_TEMPERATURE_GPU);
+  /* hgmlDeviceGetTemperature is deprecated as of HGML API 13: prefer the
+   * versioned query and fall back for older runtimes. A negative value from
+   * the versioned query means the sensor is unavailable, not a failure. */
+  bool temperature_handled = false;
+  if (hgmlDeviceGetTemperatureV) {
+    hgmlTemperature_t temperature = {.version = HGML_TEMPERATURE_V1_VERSION, .sensorType = HGML_TEMPERATURE_GPU};
+    if (hgmlDeviceGetTemperatureV(ppu->handle, &temperature) == HGML_SUCCESS) {
+      temperature_handled = true;
+      if (temperature.temperature >= 0)
+        SET_GPUINFO_DYNAMIC(info, gpu_temp, (unsigned)temperature.temperature);
+    }
+  }
+  if (!temperature_handled)
+    DYNAMIC_QUERY(gpu_temp, hgmlDeviceGetTemperature, HGML_TEMPERATURE_GPU);
   /* HGML returns power in mW and PCIe throughput in KB/s. */
   DYNAMIC_QUERY(power_draw, hgmlDeviceGetPowerUsage);
   DYNAMIC_QUERY(power_draw_max, hgmlDeviceGetEnforcedPowerLimit);
