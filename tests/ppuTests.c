@@ -16,11 +16,18 @@ _Static_assert(offsetof(hgmlDevice_t, handle) == 0, "unexpected HGML device hand
 _Static_assert(sizeof(hgmlPciInfo_t) == 68, "unexpected HGML PCI info size");
 _Static_assert(offsetof(hgmlPciInfo_t, globalPpuId) == 64, "unexpected HGML PCI info layout");
 
-#define CHECK(condition) do { if (!(condition)) { \
-  fprintf(stderr, "Failed at line %d: %s\n", __LINE__, #condition); return 1; \
-} } while (0)
+#define CHECK(condition)                                                                                               \
+  do {                                                                                                                 \
+    if (!(condition)) {                                                                                                \
+      fprintf(stderr, "Failed at line %d: %s\n", __LINE__, #condition);                                                \
+      return 1;                                                                                                        \
+    }                                                                                                                  \
+  } while (0)
 
-static int device_count(unsigned *count) { *count = 1; return 0; }
+static int device_count(unsigned *count) {
+  *count = 1;
+  return 0;
+}
 static int device_handle(unsigned index, hgmlDevice_t *device) {
   (void)index;
   device->handle = NULL;
@@ -244,8 +251,8 @@ static unsigned utilization_count, utilization_calls;
 static unsigned long long requested_timestamp;
 static int utilization_error;
 static bool utilization_grows;
-static int process_utilization_query(hgmlDevice_t device, hgmlProcessUtilizationSample_t *samples,
-                                     unsigned *count, unsigned long long since) {
+static int process_utilization_query(hgmlDevice_t device, hgmlProcessUtilizationSample_t *samples, unsigned *count,
+                                     unsigned long long since) {
   (void)device;
   ++utilization_calls;
   requested_timestamp = since;
@@ -332,10 +339,9 @@ static int live_test(void) {
     ppu_processes(device);
     CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory));
     CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw));
-    printf("%s %s %s memory=%llu/%llu util=%u temp=%u power_mW=%u limit_mW=%u processes=%u\n",
-           DEVICE_UNIT_NAME(device), device->pdev, device->static_info.device_name,
-           device->dynamic_info.used_memory, device->dynamic_info.total_memory,
-           device->dynamic_info.gpu_util_rate, device->dynamic_info.gpu_temp,
+    printf("%s %s %s memory=%llu/%llu util=%u temp=%u power_mW=%u limit_mW=%u processes=%u\n", DEVICE_UNIT_NAME(device),
+           device->pdev, device->static_info.device_name, device->dynamic_info.used_memory,
+           device->dynamic_info.total_memory, device->dynamic_info.gpu_util_rate, device->dynamic_info.gpu_temp,
            device->dynamic_info.power_draw, device->dynamic_info.power_draw_max, device->processes_count);
   }
   /* Allow HGML to collect a sample, then exercise multiple incremental reads. */

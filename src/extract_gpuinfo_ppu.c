@@ -27,7 +27,9 @@ typedef struct {
   char busId[28]; /* HGML_DEVICE_PCI_BUS_ID_BUFFER_SIZE is (32 - 4) */
   unsigned globalPpuId;
 } hgmlPciInfo_t;
-typedef struct { unsigned long long total, free, used; } hgmlMemory_t;
+typedef struct {
+  unsigned long long total, free, used;
+} hgmlMemory_t;
 typedef struct {
   unsigned version;
   unsigned long long total;
@@ -35,7 +37,9 @@ typedef struct {
   unsigned long long free;
   unsigned long long used;
 } hgmlMemory_v2_t;
-typedef struct { unsigned gpu, memory; } hgmlUtilization_t;
+typedef struct {
+  unsigned gpu, memory;
+} hgmlUtilization_t;
 typedef struct {
   unsigned pid;
   unsigned long long usedGpuMemory;
@@ -81,7 +85,7 @@ static int (*hgmlDeviceGetMemoryInfo_v2)(hgmlDevice_t, hgmlMemory_v2_t *);
 static int (*hgmlDeviceGetUtilizationRates)(hgmlDevice_t, hgmlUtilization_t *);
 static int (*hgmlDeviceGetComputeRunningProcesses)(hgmlDevice_t, unsigned *, hgmlProcessInfo_t *);
 static int (*hgmlDeviceGetProcessUtilization)(hgmlDevice_t, hgmlProcessUtilizationSample_t *, unsigned *,
-                                            unsigned long long);
+                                              unsigned long long);
 static int (*hgmlDeviceGetClockInfo)(hgmlDevice_t, hgmlClockType_t, unsigned *);
 static int (*hgmlDeviceGetMaxClockInfo)(hgmlDevice_t, hgmlClockType_t, unsigned *);
 static int (*hgmlDeviceGetTemperature)(hgmlDevice_t, hgmlTemperatureSensors_t, unsigned *);
@@ -148,8 +152,8 @@ static void ppu_set_hgml_error(int status, const char *message) {
 
 static bool ppu_init(void) {
   const char *paths[] = {"libhgml.so.1", "libhgml.so", "/usr/local/PPU_SDK/lib/libhgml.so",
-                        "/usr/local/PPU_SDK/targets/x86_64-linux/lib/libhgml.so",
-                        "/usr/local/PPU_SDK/targets/aarch64-linux/lib/libhgml.so"};
+                         "/usr/local/PPU_SDK/targets/x86_64-linux/lib/libhgml.so",
+                         "/usr/local/PPU_SDK/targets/aarch64-linux/lib/libhgml.so"};
   for (unsigned i = 0; i < sizeof(paths) / sizeof(paths[0]) && !hgml_library; ++i)
     hgml_library = dlopen(paths[i], RTLD_LAZY | RTLD_LOCAL);
   if (!hgml_library) {
@@ -236,8 +240,8 @@ static bool ppu_get_devices(struct list_head *devices, unsigned *count) {
       pci.busId[sizeof(pci.busId) - 1] = '\0';
       /* HGML uses an eight-digit domain. Normalize it to Linux PCI notation
        * so the function number is not truncated in the common pdev buffer. */
-      if (sscanf(pci.busId, "%x:%x:%x.%x", &domain, &bus, &slot, &function) == 4 &&
-          domain <= 0xffff && bus <= 0xff && slot <= 0x1f && function <= 7)
+      if (sscanf(pci.busId, "%x:%x:%x.%x", &domain, &bus, &slot, &function) == 4 && domain <= 0xffff && bus <= 0xff &&
+          slot <= 0x1f && function <= 7)
         snprintf(ppu->base.pdev, sizeof(ppu->base.pdev), "%04x:%02x:%02x.%x", domain, bus, slot, function);
     }
     list_add_tail(&ppu->base.list, devices);
@@ -256,15 +260,13 @@ static void ppu_static_info(struct gpu_info *base) {
   info->device_name[sizeof(info->device_name) - 1] = '\0';
   SET_VALID(gpuinfo_device_name_valid, info->valid);
   unsigned value;
-#define STATIC_QUERY(field, function, ...) \
-  if (function && function(ppu->handle, ##__VA_ARGS__, &value) == HGML_SUCCESS) \
-    SET_GPUINFO_STATIC(info, field, value)
+#define STATIC_QUERY(field, function, ...)                                                                             \
+  if (function && function(ppu->handle, ##__VA_ARGS__, &value) == HGML_SUCCESS)                                        \
+  SET_GPUINFO_STATIC(info, field, value)
   STATIC_QUERY(max_pcie_gen, hgmlDeviceGetMaxPcieLinkGeneration);
   STATIC_QUERY(max_pcie_link_width, hgmlDeviceGetMaxPcieLinkWidth);
-  STATIC_QUERY(temperature_shutdown_threshold, hgmlDeviceGetTemperatureThreshold,
-               HGML_TEMPERATURE_THRESHOLD_SHUTDOWN);
-  STATIC_QUERY(temperature_slowdown_threshold, hgmlDeviceGetTemperatureThreshold,
-               HGML_TEMPERATURE_THRESHOLD_SLOWDOWN);
+  STATIC_QUERY(temperature_shutdown_threshold, hgmlDeviceGetTemperatureThreshold, HGML_TEMPERATURE_THRESHOLD_SHUTDOWN);
+  STATIC_QUERY(temperature_slowdown_threshold, hgmlDeviceGetTemperatureThreshold, HGML_TEMPERATURE_THRESHOLD_SLOWDOWN);
 #undef STATIC_QUERY
 }
 
@@ -290,8 +292,8 @@ static void ppu_dynamic_info(struct gpu_info *base) {
   }
   if (!have_memory && hgmlDeviceGetMemoryInfo) {
     hgmlMemory_t memory;
-    if (hgmlDeviceGetMemoryInfo(ppu->handle, &memory) == HGML_SUCCESS && memory.total &&
-        memory.used <= memory.total && memory.free <= memory.total) {
+    if (hgmlDeviceGetMemoryInfo(ppu->handle, &memory) == HGML_SUCCESS && memory.total && memory.used <= memory.total &&
+        memory.free <= memory.total) {
       mem_total = memory.total;
       mem_used = memory.used;
       mem_free = memory.free;
@@ -305,9 +307,9 @@ static void ppu_dynamic_info(struct gpu_info *base) {
     SET_GPUINFO_DYNAMIC(info, mem_util_rate, (unsigned)(100.0 * mem_used / mem_total));
   }
   unsigned value;
-#define DYNAMIC_QUERY(field, function, ...) \
-  if (function && function(ppu->handle, ##__VA_ARGS__, &value) == HGML_SUCCESS) \
-    SET_GPUINFO_DYNAMIC(info, field, value)
+#define DYNAMIC_QUERY(field, function, ...)                                                                            \
+  if (function && function(ppu->handle, ##__VA_ARGS__, &value) == HGML_SUCCESS)                                        \
+  SET_GPUINFO_DYNAMIC(info, field, value)
   /* PPUs expose their compute clock as HGML_CLOCK_SM, not HGML_CLOCK_GRAPHICS. */
   DYNAMIC_QUERY(gpu_clock_speed, hgmlDeviceGetClockInfo, HGML_CLOCK_SM);
   DYNAMIC_QUERY(mem_clock_speed, hgmlDeviceGetClockInfo, HGML_CLOCK_MEM);
