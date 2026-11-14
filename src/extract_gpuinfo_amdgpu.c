@@ -1155,16 +1155,14 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
           AMDGPU_CACHE_FIELD_VALID(cache_entry, gfx_engine_used) &&
           // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
-          process_info->gfx_engine_used >= cache_entry->gfx_engine_used &&
-          process_info->gfx_engine_used - cache_entry->gfx_engine_used <= time_elapsed) {
+          process_info->gfx_engine_used >= cache_entry->gfx_engine_used) {
         SET_GPUINFO_PROCESS(process_info, gpu_usage,
                             busy_usage_from_time_usage_round(process_info->gfx_engine_used,
                                                              cache_entry->gfx_engine_used, time_elapsed));
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used) &&
           AMDGPU_CACHE_FIELD_VALID(cache_entry, compute_engine_used) &&
-          process_info->compute_engine_used >= cache_entry->compute_engine_used &&
-          process_info->compute_engine_used - cache_entry->compute_engine_used <= time_elapsed) {
+          process_info->compute_engine_used >= cache_entry->compute_engine_used) {
         unsigned gfx_usage = GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage) ? process_info->gpu_usage : 0;
         SET_GPUINFO_PROCESS(process_info, gpu_usage,
                             gfx_usage + busy_usage_from_time_usage_round(process_info->compute_engine_used,
@@ -1173,16 +1171,14 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used) &&
           AMDGPU_CACHE_FIELD_VALID(cache_entry, dec_engine_used) &&
-          process_info->dec_engine_used >= cache_entry->dec_engine_used &&
-          process_info->dec_engine_used - cache_entry->dec_engine_used <= time_elapsed) {
+          process_info->dec_engine_used >= cache_entry->dec_engine_used) {
         SET_GPUINFO_PROCESS(process_info, decode_usage,
                             busy_usage_from_time_usage_round(process_info->dec_engine_used,
                                                              cache_entry->dec_engine_used, time_elapsed));
       }
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used) &&
           AMDGPU_CACHE_FIELD_VALID(cache_entry, enc_engine_used) &&
-          process_info->enc_engine_used >= cache_entry->enc_engine_used &&
-          process_info->enc_engine_used - cache_entry->enc_engine_used <= time_elapsed) {
+          process_info->enc_engine_used >= cache_entry->enc_engine_used) {
         SET_GPUINFO_PROCESS(process_info, encode_usage,
                             busy_usage_from_time_usage_round(process_info->enc_engine_used,
                                                              cache_entry->enc_engine_used, time_elapsed));
