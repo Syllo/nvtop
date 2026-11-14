@@ -134,6 +134,12 @@ struct gpu_info_amdgpu {
   nvtop_device *amdgpuDevice; // The AMDGPU driver device
   nvtop_device *hwmonDevice;  // The AMDGPU driver hwmon device
 
+  // KFD topology node belonging to this GPU. The GPU id is the key used by the
+  // per-process /sys/class/kfd/kfd/proc/<pid>/stats_<gpu_id> directory; it is
+  // not the topology node directory index.
+  unsigned int kfd_gpu_id;
+  unsigned int kfd_cu_count;
+
   struct amdgpu_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
 
   // Used to compute the actual fan speed
@@ -688,6 +694,60 @@ static const char *gpuinfo_amdgpu_kfd_architecture(const char *node_path) {
   return amdgpu_architecture_from_gfx_target(gfx_target);
 }
 
+static bool readUnsignedFromFile(const char *path, unsigned int *value) {
+  FILE *file = fopen(path, "r");
+  if (!file)
+    return false;
+
+  unsigned int file_value;
+  bool success = fscanf(file, "%u", &file_value) == 1;
+  fclose(file);
+
+  if (success)
+    *value = file_value;
+  return success;
+}
+
+// Read the KFD gpu_id and compute unit count for a topology node. The per-process
+// stats directory is named after the gpu_id (not the topology node directory
+// index), and cu_occupancy is a number of compute units, so both are needed to
+// convert the KFD value into a percentage.
+static bool gpuinfo_amdgpu_kfd_usage_info(const char *node_path, unsigned int *gpu_id, unsigned int *cu_count) {
+  char gpu_id_path[PATH_MAX];
+  snprintf(gpu_id_path, sizeof(gpu_id_path), "%s/gpu_id", node_path);
+  if (!readUnsignedFromFile(gpu_id_path, gpu_id))
+    return false;
+
+  char properties_path[PATH_MAX];
+  snprintf(properties_path, sizeof(properties_path), "%s/properties", node_path);
+
+  FILE *properties = fopen(properties_path, "r");
+  if (!properties)
+    return false;
+
+  unsigned int simd_count = 0;
+  unsigned int simd_per_cu = 0;
+  char line[256];
+  while (fgets(line, sizeof(line), properties)) {
+    if (sscanf(line, "simd_count %u", &simd_count) == 1)
+      continue;
+    sscanf(line, "simd_per_cu %u", &simd_per_cu);
+  }
+  fclose(properties);
+
+  if (simd_count == 0 || simd_per_cu == 0)
+    return false;
+
+  *cu_count = simd_count / simd_per_cu;
+  return *cu_count > 0;
+}
+
+static bool gpuinfo_amdgpu_kfd_cu_occupancy(unsigned int gpu_id, pid_t pid, unsigned int *cu_occupancy) {
+  char path[PATH_MAX];
+  snprintf(path, sizeof(path), "/sys/class/kfd/kfd/proc/%d/stats_%u/cu_occupancy", (int)pid, gpu_id);
+  return readUnsignedFromFile(path, cu_occupancy);
+}
+
 static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_amdgpu *gpu_info = container_of(_gpu_info, struct gpu_info_amdgpu, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
@@ -797,6 +857,12 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
       strncpy(static_info->device_architecture, arch_name, MAX_DEVICE_NAME - 1);
       static_info->device_architecture[MAX_DEVICE_NAME - 1] = '\0';
       SET_VALID(gpuinfo_device_architecture_valid, static_info->valid);
+    }
+
+    unsigned int gpu_id, cu_count;
+    if (gpuinfo_amdgpu_kfd_usage_info(kfd_node_path, &gpu_id, &cu_count)) {
+      gpu_info->kfd_gpu_id = gpu_id;
+      gpu_info->kfd_cu_count = cu_count;
     }
   }
 
@@ -1247,4 +1313,37 @@ static void gpuinfo_amdgpu_get_running_processes(struct gpu_info *_gpu_info) {
   // for us. This avoids going through /proc multiple times per update for multiple GPUs.
   struct gpu_info_amdgpu *gpu_info = container_of(_gpu_info, struct gpu_info_amdgpu, base);
   swap_process_cache_for_next_update(gpu_info);
+
+  // DRM contexts (OpenGL, Vulkan, OpenCL) are already accounted for by the
+  // fdinfo engine counters above. KFD (HSA/ROCm) queues are the AMD compute
+  // queues and are not tracked by the amdgpu context manager, so their work
+  // never shows up there; use the per-process KFD compute unit occupancy to
+  // account for it.
+  if (gpu_info->kfd_gpu_id == 0 || gpu_info->kfd_cu_count == 0)
+    return;
+
+  for (unsigned i = 0; i < _gpu_info->processes_count; ++i) {
+    struct gpu_process *process = &_gpu_info->processes[i];
+    unsigned int cu_occupancy;
+
+    if (!gpuinfo_amdgpu_kfd_cu_occupancy(gpu_info->kfd_gpu_id, process->pid, &cu_occupancy))
+      continue;
+
+    bool had_drm_usage = GPUINFO_PROCESS_FIELD_VALID(process, gpu_usage);
+
+    unsigned int usage = (cu_occupancy * 100 + gpu_info->kfd_cu_count / 2) / gpu_info->kfd_cu_count;
+    if (usage > 100)
+      usage = 100;
+
+    unsigned int drm_usage = had_drm_usage ? process->gpu_usage : 0;
+    unsigned int total_usage = drm_usage + usage;
+    SET_GPUINFO_PROCESS(process, gpu_usage, total_usage > 100 ? 100 : total_usage);
+
+    // The generic fdinfo sweep defaults processes without any DRM engine usage
+    // to graphical. A process known to KFD is a compute process instead.
+    if (process->type == gpu_process_graphical)
+      process->type = had_drm_usage ? gpu_process_graphical_compute : gpu_process_compute;
+    else if (process->type == gpu_process_unknown)
+      process->type = gpu_process_compute;
+  }
 }
