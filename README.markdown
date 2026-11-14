@@ -10,9 +10,10 @@ htop-familiar way.
 
 Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
 M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
-proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver),
-Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver).
-Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML).
+proprietary drivers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore
+(Linux v3d driver), Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver),
+Tenstorrent (Linux tt-kmd driver), Iluvatar CoreX (ixML / libixml), T-Head PPU
+(HGML).
 
 Because a picture is worth a thousand words:
 
@@ -188,12 +189,13 @@ or `libhgml.so` through the dynamic loader, then checks the standard
 add its library directory to `LD_LIBRARY_PATH`.
 
 Supported telemetry includes utilization, memory, clocks, temperature, power,
-PCIe link/throughput, compute process memory, and per-process PPU utilization. Metrics unavailable in the
-installed driver remain unset. Process enumeration requires the HGML v2 or
-v3 process API. Per-process utilization uses `hgmlDeviceGetProcessUtilization`
-when available, selecting the newest SM sample for each PID. Processes without
-a fresh sample are reported as idle (`0%`) when per-process utilization is
-available; unsupported or failed queries leave the value unset.
+PCIe link/throughput, compute process memory, and per-process PPU utilization.
+Metrics unavailable in the installed driver remain unset. Process enumeration
+uses the HGML v2 or v3 compute process API. Per-process utilization uses
+`hgmlDeviceGetProcessUtilization` when available, selecting the newest SM
+sample for each PID. Processes without a fresh sample are reported as idle
+(`0%`) when per-process utilization is available; unsupported or failed
+queries leave the value unset.
 
 ### VideoCore
 
@@ -243,6 +245,8 @@ Several libraries are required in order for NVTOP to display GPU info:
   * This queries the GPU for info.
 * For Enflame: the *Enflame Management Library* (*EFML*) which comes with the GCU driver.
 * For Iluvatar CoreX: the *ixML* runtime library (`libixml.so`) which comes with the driver.
+  * This backend loads the library dynamically at runtime.
+* For T-Head PPU: the *HGML* runtime library (`libhgml.so`) which comes with the PPU SDK.
   * This backend loads the library dynamically at runtime.
 
 ## Distribution Specific Installation Process
