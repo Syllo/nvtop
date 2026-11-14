@@ -1,5 +1,7 @@
 /*
  *
+ * Copyright (C) 2026 Jukrapope Jitpimolmard <jukrapope@kku.ac.th>
+ *
  * Intel NPU (intel_vpu / ivpu accel driver) support for nvtop.
  *
  * Nvtop is free software: you can redistribute it and/or modify
@@ -42,6 +44,8 @@ struct gpu_info_intel_npu {
 static struct gpu_info_intel_npu *intel_npu_info = NULL;
 static unsigned intel_npu_count = 0;
 
+extern struct gpu_vendor gpu_vendor_intel_npu;
+
 static bool read_ull(const char *dir, const char *file, unsigned long long *value) {
   char path[PATH_MAX];
   snprintf(path, sizeof(path), "%s/%s", dir, file);
@@ -78,6 +82,7 @@ static bool is_intel_vpu(const char *sysfs_dev) {
   return strcmp(base ? base + 1 : target, "intel_vpu") == 0;
 }
 
+// PCI IDs handled by the in-kernel intel_vpu driver (drivers/accel/ivpu/ivpu_drv.h).
 static const char *npu_generation(unsigned device_id) {
   switch (device_id) {
   case 0x7d1d:
@@ -88,6 +93,10 @@ static const char *npu_generation(unsigned device_id) {
     return "Lunar Lake";
   case 0xb03e:
     return "Panther Lake";
+  case 0xfd3e:
+    return "Wildcat Lake";
+  case 0xd71d:
+    return "Nova Lake";
   default:
     return NULL;
   }
@@ -104,7 +113,6 @@ static void gpuinfo_intel_npu_shutdown(void) {
 static const char *gpuinfo_intel_npu_last_error_string(void) { return "Intel NPU error"; }
 
 static bool gpuinfo_intel_npu_get_device_handles(struct list_head *devices, unsigned *count) {
-  extern struct gpu_vendor gpu_vendor_intel_npu;
   *count = 0;
 
   DIR *dir = opendir(ACCEL_CLASS);
@@ -133,9 +141,9 @@ static bool gpuinfo_intel_npu_get_device_handles(struct list_head *devices, unsi
     char resolved[PATH_MAX];
     if (realpath(sysfs_dev, resolved)) {
       const char *pci = strrchr(resolved, '/');
-      snprintf(npu->base.pdev, PDEV_LEN, "%s", pci ? pci + 1 : resolved);
+      snprintf(npu->base.pdev, PDEV_LEN, "%.*s", PDEV_LEN - 1, pci ? pci + 1 : resolved);
     } else {
-      snprintf(npu->base.pdev, PDEV_LEN, "%s", entry->d_name);
+      snprintf(npu->base.pdev, PDEV_LEN, "%.*s", PDEV_LEN - 1, entry->d_name);
     }
 
     unsigned long long dev_id = 0;
@@ -167,11 +175,13 @@ static void gpuinfo_intel_npu_populate_static_info(struct gpu_info *_gpu_info) {
   static_info->memory_shared_with_host = true;
 
   const char *gen = npu_generation(npu->pci_device_id);
-  if (gen)
+  if (gen) {
     snprintf(static_info->device_name, sizeof(static_info->device_name), "Intel NPU (%s)", gen);
-  else
-    snprintf(static_info->device_name, sizeof(static_info->device_name), "Intel NPU [8086:%04x]",
-             npu->pci_device_id);
+    snprintf(static_info->device_architecture, sizeof(static_info->device_architecture), "%s", gen);
+    SET_VALID(gpuinfo_device_architecture_valid, static_info->valid);
+  } else {
+    snprintf(static_info->device_name, sizeof(static_info->device_name), "Intel NPU [8086:%04x]", npu->pci_device_id);
+  }
   SET_VALID(gpuinfo_device_name_valid, static_info->valid);
 }
 
@@ -225,9 +235,7 @@ static void gpuinfo_intel_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 }
 
-static void gpuinfo_intel_npu_get_running_processes(struct gpu_info *_gpu_info) {
-  _gpu_info->processes_count = 0;
-}
+static void gpuinfo_intel_npu_get_running_processes(struct gpu_info *_gpu_info) { _gpu_info->processes_count = 0; }
 
 struct gpu_vendor gpu_vendor_intel_npu = {.init = gpuinfo_intel_npu_init,
                                           .shutdown = gpuinfo_intel_npu_shutdown,
