@@ -31,11 +31,15 @@ if (BUILD_TESTING AND GTest_FOUND)
   # Create a library for testing
   add_library(testLib
     ${PROJECT_SOURCE_DIR}/src/interface_layout_selection.c
-    ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c
     ${PROJECT_SOURCE_DIR}/src/interface_options.c
     ${PROJECT_SOURCE_DIR}/src/pcie_utilization.c
     ${PROJECT_SOURCE_DIR}/src/ini.c
   )
+  if (UNIX AND NOT APPLE)
+    target_sources(testLib PRIVATE ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c)
+  elseif (APPLE)
+    target_sources(testLib PRIVATE ${PROJECT_SOURCE_DIR}/src/extract_processinfo_mac.c)
+  endif()
   target_include_directories(testLib PUBLIC
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_BINARY_DIR}/include)
@@ -53,4 +57,16 @@ if (BUILD_TESTING AND GTest_FOUND)
   endif()
 
 
+endif()
+
+if(BUILD_TESTING AND PPU_SUPPORT)
+  add_executable(ppuTests ppuTests.c)
+  target_include_directories(ppuTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(ppuTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET ppuTests PROPERTY C_STANDARD 11)
+  target_link_libraries(ppuTests PRIVATE ${CMAKE_DL_LIBS})
+  add_sanitizers(ppuTests)
+  add_test(NAME ppuTests COMMAND ppuTests)
 endif()

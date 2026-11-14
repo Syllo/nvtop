@@ -10,9 +10,10 @@ htop-familiar way.
 
 Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
 M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
-proprietary divers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver),
-Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver).
-Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Iluvatar CoreX (ixML / libixml).
+proprietary drivers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore
+(Linux v3d driver), Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver),
+Tenstorrent (Linux tt-kmd driver), Iluvatar CoreX (ixML / libixml), T-Head PPU
+(HGML).
 
 Because a picture is worth a thousand words:
 
@@ -33,6 +34,7 @@ Table of Contents
   - [Apple](#apple)
   - [Ascend](#ascend)
   - [Iluvatar CoreX](#iluvatar-corex)
+  - [T-Head PPU](#t-head-ppu)
   - [VideoCore](#videocore)
   - [Rockchip](#rockchip)
   - [MetaX](#metax)
@@ -109,6 +111,24 @@ AMD introduced the fdinfo interface in kernel 5.14 ([browse kernel
 source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/drivers/gpu/drm/amd/amdgpu/amdgpu_fdinfo.c?h=linux-5.14.y)).
 Hence, you will need a kernel with a version greater or equal to 5.14 to see the
 processes using AMD GPUs.
+
+ROCm/HIP submit work to the AMD compute queues through KFD (`/dev/kfd`, the
+Kernel Fusion Driver). These queues are not tracked by the amdgpu DRM context
+manager, so their work is not counted by the DRM fdinfo engine counters. When
+the kernel exposes per-process compute unit occupancy
+(`/sys/class/kfd/kfd/proc/<pid>/stats_<gpu_id>/cu_occupancy`), NVTOP includes it
+in the process GPU utilization.
+
+Per-process CU occupancy support depends on the GPU family and kernel version:
+
+* CDNA (GFX9): MI100 (gfx908) since Linux 5.11, MI200 (gfx90a) since 6.2, and
+  MI300 (gfx942) since 6.6.
+* RDNA 3 (gfx11) and RDNA 4 (gfx12/12.1) since Linux 7.3.
+* RDNA 1/2 (gfx10/10.3) since Linux 7.4.
+* GCN 1-4 (gfx6-8) is not supported.
+
+The interface also requires kernel support for KFD (`CONFIG_HSA_AMD`). NVTOP
+silently skips the KFD contribution when the file is unavailable.
 
 Support for recent GPUs are regularly mainlined into the linux kernel, so please
 use a recent-enough kernel for your GPU.
@@ -187,6 +207,24 @@ The backend dynamically loads `libixml.so` from `/usr/local/corex/lib`,
 runtime exposes an NVML-compatible API surface used by NVTOP to query device,
 power, PCIe, clock, temperature, memory, and process information.
 
+### T-Head PPU
+
+NVTOP supports T-Head (平头哥) PPUs through the HGML runtime, tested on
+PPU-ZW810E hardware. Enable with `-DPPU_SUPPORT=ON` (the Linux default).
+No vendor headers are required to build. The backend loads `libhgml.so.1`
+or `libhgml.so` through the dynamic loader, then checks the standard
+`/usr/local/PPU_SDK` library directories. For a custom SDK installation,
+add its library directory to `LD_LIBRARY_PATH`.
+
+Supported telemetry includes utilization, memory, clocks, temperature, power,
+PCIe link/throughput, compute process memory, and per-process PPU utilization.
+Metrics unavailable in the installed driver remain unset. Process enumeration
+uses the HGML v2 or v3 compute process API. Per-process utilization uses
+`hgmlDeviceGetProcessUtilization` when available, selecting the newest SM
+sample for each PID. Processes without a fresh sample are reported as idle
+(`0%`) when per-process utilization is available; unsupported or failed
+queries leave the value unset.
+
 ### VideoCore
 
 NVTOP supports VideoCore (testing on raspberrypi 4B).
@@ -235,6 +273,8 @@ Several libraries are required in order for NVTOP to display GPU info:
   * This queries the GPU for info.
 * For Enflame: the *Enflame Management Library* (*EFML*) which comes with the GCU driver.
 * For Iluvatar CoreX: the *ixML* runtime library (`libixml.so`) which comes with the driver.
+  * This backend loads the library dynamically at runtime.
+* For T-Head PPU: the *HGML* runtime library (`libhgml.so`) which comes with the PPU SDK.
   * This backend loads the library dynamically at runtime.
 
 ## Distribution Specific Installation Process

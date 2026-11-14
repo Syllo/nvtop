@@ -206,6 +206,10 @@ if(TENSTORRENT_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_tenstorrent.c)
 endif()
 
+if(PPU_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_ppu.c)
+endif()
+
 if(IXML_SUPPORT)
   message(STATUS "Building with Iluvatar CoreX GPU support")
   target_sources(nvtop PRIVATE extract_gpuinfo_ixml.c)

@@ -34,7 +34,7 @@ jobs:
       # Pull request builds must not get repository write access. The build
       # runs untrusted PR code in a container, so no credentials are persisted
       # in the checked-out .git directory either.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -59,7 +59,7 @@ jobs:
             build AppDir appimagetool nvtop-*.AppImage 2>/dev/null || true
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nvtop-${{ matrix.arch }}-AppImage
           path: nvtop-*.AppImage
@@ -75,7 +75,7 @@ jobs:
       actions: read
     steps:
       - name: Download AppImage artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: nvtop-*-AppImage
           merge-multiple: true

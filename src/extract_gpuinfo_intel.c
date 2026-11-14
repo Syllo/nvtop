@@ -179,13 +179,15 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   struct nvtop_device *parent;
   if (nvtop_device_get_parent(dev, &parent) < 0)
     return;
-  // Consider enabled Intel cards using the i915 or xe driver
-  const char *vendor, *driver, *enabled;
+  // Consider Intel cards using the i915 or xe driver. Do not rely on the
+  // "enable" sysfs attribute: it exposes the PCI enable count
+  // (pci_dev.enable_cnt), not a boolean. It can be greater than one, and xe
+  // can drop it to zero during D3cold runtime suspend while the driver stays
+  // bound.
+  const char *vendor, *driver;
   if (nvtop_device_get_sysattr_value(parent, "vendor", &vendor) < 0 || strcmp(vendor, VENDOR_INTEL_STR))
     return;
   if (nvtop_device_get_driver(parent, &driver) < 0 || (strcmp(driver, "i915") && strcmp(driver, "xe")))
-    return;
-  if (nvtop_device_get_sysattr_value(parent, "enable", &enabled) < 0 || strcmp(enabled, "1"))
     return;
 
   struct gpu_info_intel *thisGPU = &gpu_infos[intel_gpu_count++];

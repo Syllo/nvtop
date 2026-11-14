@@ -224,6 +224,7 @@ struct gpu_info;
 enum gpu_processing_unit {
   gpu_processing_unit_gpu = 0,
   gpu_processing_unit_npu,
+  gpu_processing_unit_ppu,
   gpu_processing_unit_count,
 };
 
@@ -260,7 +261,7 @@ struct gpu_info {
 
 // Short 3-character label for a processing unit (e.g. "GPU", "NPU")
 static inline const char *processing_unit_name(enum gpu_processing_unit unit) {
-  static const char *const names[gpu_processing_unit_count] = {"GPU", "NPU"};
+  static const char *const names[gpu_processing_unit_count] = {"GPU", "NPU", "PPU"};
   return (unsigned)unit < gpu_processing_unit_count ? names[unit] : names[gpu_processing_unit_gpu];
 }
 
