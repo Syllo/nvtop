@@ -58,3 +58,15 @@ if (BUILD_TESTING AND GTest_FOUND)
 
 
 endif()
+
+if(BUILD_TESTING AND PPU_SUPPORT)
+  add_executable(ppuTests ppuTests.c)
+  target_include_directories(ppuTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(ppuTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET ppuTests PROPERTY C_STANDARD 11)
+  target_link_libraries(ppuTests PRIVATE ${CMAKE_DL_LIBS})
+  add_sanitizers(ppuTests)
+  add_test(NAME ppuTests COMMAND ppuTests)
+endif()

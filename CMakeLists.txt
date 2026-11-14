@@ -114,9 +114,11 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(TPU_SUPPORT_DEFAULT ON)
   endif()
   set(ENFLAME_SUPPORT_DEFAULT ON)
+  set(PPU_SUPPORT_DEFAULT ON)
 else()
   set(TPU_SUPPORT_DEFAULT OFF)
   set(ENFLAME_SUPPORT_DEFAULT OFF)
+  set(PPU_SUPPORT_DEFAULT OFF)
 endif()
 
 # Rockchip support is only available on Linux on arm
@@ -151,6 +153,8 @@ option(METAX_SUPPORT "Build support for MetaX GPUs through libmxsml" ${METAX_SUP
 option(ENFLAME_SUPPORT "Build support for Enflame GCUs through libefml" ${ENFLAME_SUPPORT_DEFAULT})
 option(TENSTORRENT_SUPPORT "Build support for Tenstorrent accelerators through tt-kmd" ${TENSTORRENT_SUPPORT_DEFAULT})
 option(IXML_SUPPORT "Build support for Iluvatar CoreX GPUs through libixml" ${IXML_SUPPORT_DEFAULT})
+
+option(PPU_SUPPORT "Build support for T-Head PPUs through libhgml" ${PPU_SUPPORT_DEFAULT})
 
 add_subdirectory(src)
 
