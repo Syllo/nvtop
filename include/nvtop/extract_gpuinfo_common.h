@@ -110,6 +110,7 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_fan_speed_valid,
   gpuinfo_fan_rpm_valid,
   gpuinfo_gpu_temp_valid,
+  gpuinfo_mem_temp_valid,
   gpuinfo_power_draw_valid,
   gpuinfo_power_draw_max_valid,
   gpuinfo_effective_load_rate_valid,
@@ -155,6 +156,7 @@ struct gpuinfo_dynamic_info {
   unsigned int fan_speed;             // Fan speed percentage
   unsigned int fan_rpm;               // Fan speed RPM
   unsigned int gpu_temp;              // GPU temperature °Celsius
+  unsigned int mem_temp;              // Memory (HBM) temperature °Celsius
   unsigned int power_draw;            // Power usage in milliwatts
   unsigned int power_draw_max;        // Max power usage in milliwatts
   bool multi_instance_mode;           // True if the GPU is in multi-instance mode
@@ -334,5 +336,13 @@ bool nvtop_get_ecc_support(struct gpu_info *gpu_info);
 // ECC probe — call before initialize_curses so the layout only reserves room for
 // the ECC field when a monitored GPU actually supports ECC.
 bool nvtop_probe_ecc_list(struct list_head *devices);
+
+// Memory (HBM) temperature support: true if the GPU reports NVML_FI_DEV_MEMORY_TEMP
+// (datacenter GPUs). Consumer GPUs do not report it.
+bool nvtop_get_mem_temp_support(struct gpu_info *gpu_info);
+
+// Memory temperature probe — call before initialize_curses so the temperature field
+// is only widened when a monitored GPU reports a memory temperature.
+bool nvtop_probe_mem_temp_list(struct list_head *devices);
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

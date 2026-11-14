@@ -27,3 +27,8 @@ bool nvtop_get_ecc_support(struct gpu_info *gpu_info) {
   (void)gpu_info;
   return false;
 }
+
+bool nvtop_get_mem_temp_support(struct gpu_info *gpu_info) {
+  (void)gpu_info;
+  return false;
+}

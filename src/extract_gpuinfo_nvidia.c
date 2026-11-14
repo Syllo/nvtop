@@ -101,6 +101,9 @@ typedef struct nvmlFieldValue_st {
 #ifndef NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL 45
 #endif
+#ifndef NVML_FI_DEV_MEMORY_TEMP
+#define NVML_FI_DEV_MEMORY_TEMP 82
+#endif
 #ifndef NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL 160
 #endif
@@ -1011,6 +1014,23 @@ static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigne
   return true;
 }
 
+// Reads NVML_FI_DEV_MEMORY_TEMP. Consumer GPUs return NVML_ERROR_NOT_SUPPORTED for this field.
+static bool nvidia_read_mem_temp(nvmlDevice_t device, unsigned int *mem_temp) {
+  if (!nvmlDeviceGetFieldValues)
+    return false;
+  nvmlFieldValue_t field;
+  memset(&field, 0, sizeof(field));
+  field.fieldId = NVML_FI_DEV_MEMORY_TEMP;
+  if (nvmlDeviceGetFieldValues(device, 1, &field) != NVML_SUCCESS || field.nvmlReturn != NVML_SUCCESS)
+    return false;
+  unsigned int value =
+      field.valueType == NVML_VALUE_TYPE_UNSIGNED_LONG_LONG ? (unsigned int)field.value.ullVal : field.value.uiVal;
+  if (value == 0 || value >= 200)
+    return false;
+  *mem_temp = value;
+  return true;
+}
+
 static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
@@ -1274,6 +1294,11 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &dynamic_info->gpu_temp);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
+
+  // Memory (HBM) temperature — only reported by datacenter GPUs (V100/A100/H100)
+  unsigned int mem_temp;
+  if (nvidia_read_mem_temp(device, &mem_temp))
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_temp, mem_temp);
 
   // Device power usage
   last_nvml_return_status = nvmlDeviceGetPowerUsage(device, &dynamic_info->power_draw);
@@ -1887,4 +1912,14 @@ bool nvtop_get_ecc_support(struct gpu_info *_gpu_info) {
   nvmlReturn_t ret =
       nvmlDeviceGetTotalEccErrors(gpu_info->gpuhandle, NVML_MEMORY_ERROR_TYPE_CORRECTED, NVML_VOLATILE_ECC, &ecc_count);
   return ret == NVML_SUCCESS;
+}
+
+bool nvtop_get_mem_temp_support(struct gpu_info *_gpu_info) {
+  // Memory temperature is an NVIDIA-specific NVML field query
+  if (strcmp(_gpu_info->vendor->name, "NVIDIA"))
+    return false;
+
+  struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
+  unsigned int mem_temp;
+  return nvidia_read_mem_temp(gpu_info->gpuhandle, &mem_temp);
 }

@@ -124,6 +124,26 @@ bool nvtop_probe_ecc_list(struct list_head *devices) {
   return has_ecc;
 }
 
+// True if any monitored device reports a memory (HBM) temperature. The temperature
+// field is then widened from "TEMP  40°C" to "TEMP  40°C HBM 38°C".
+static bool any_device_has_mem_temp = false;
+
+bool nvtop_probe_mem_temp_list(struct list_head *devices) {
+  // Memory temperature support is a static hardware property: skip re-probing once found.
+  if (any_device_has_mem_temp)
+    return true;
+
+  struct gpu_info *gpu;
+  list_for_each_entry(gpu, devices, list) {
+    if (nvtop_get_mem_temp_support(gpu)) {
+      any_device_has_mem_temp = true;
+      break;
+    }
+  }
+  sizeof_device_field[device_temperature] = any_device_has_mem_temp ? 19 : 10;
+  return any_device_has_mem_temp;
+}
+
 static unsigned int sizeof_process_field[process_field_count] = {
     [process_pid] = 7,       [process_user] = 4,          [process_gpu_id] = 3,   [process_type] = 8,
     [process_gpu_rate] = 4,  [process_enc_rate] = 4,      [process_dec_rate] = 4,
@@ -1071,6 +1091,19 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       draw_temp_color(dev->temperature, device->dynamic_info.gpu_temp,
                       device->static_info.temperature_slowdown_threshold,
                       !interface->options.temperature_in_fahrenheit);
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_temp)) {
+        unsigned int mt = device->dynamic_info.mem_temp;
+        // HBM2 throttles around 85°C on V100: yellow from 80, red from 85
+        wcolor_set(dev->temperature, cyan_color, NULL);
+        wprintw(dev->temperature, " HBM");
+        wcolor_set(dev->temperature, mt >= 85 ? red_color : (mt >= 80 ? yellow_color : green_color), NULL);
+        wprintw(dev->temperature, "%3u",
+                interface->options.temperature_in_fahrenheit ? (unsigned)(32 + nearbyint(mt * 1.8)) : mt);
+        wstandend(dev->temperature);
+        waddch(dev->temperature, ACS_DEGREE);
+        waddch(dev->temperature, interface->options.temperature_in_fahrenheit ? 'F' : 'C');
+        wnoutrefresh(dev->temperature);
+      }
     } else {
       mvwprintw(dev->temperature, 0, 0, "TEMP N/A");
       waddch(dev->temperature, ACS_DEGREE);
