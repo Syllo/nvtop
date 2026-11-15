@@ -712,12 +712,19 @@ static void format_bytes(char *buffer, size_t size, uint64_t bytes) {
     snprintf(buffer, size, "%.2f%s%s", value, memory_prefix[unit], suffix);
 }
 
+/*
+ * Temperatures are kept in degrees Celsius and only converted for display.
+ * (9 / 5 = 1.8, and adding 2 before dividing by 5 rounds to the nearest degree
+ * without going through floating point.)
+ */
+static unsigned int celsius_to_fahrenheit(unsigned int celsius) { return (celsius * 9 + 2) / 5 + 32; }
+
 static void draw_temp_color(WINDOW *win, unsigned int temp, unsigned int temp_slowdown, bool celsius) {
   unsigned int temp_convert;
   if (celsius)
     temp_convert = temp;
   else
-    temp_convert = (unsigned)(32 + nearbyint(temp * 1.8));
+    temp_convert = celsius_to_fahrenheit(temp);
   wcolor_set(win, cyan_color, NULL);
   mvwprintw(win, 0, 0, "TEMP");
 
@@ -2617,6 +2624,129 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
   return dontShowAgainOption;
 }
 
+/*
+ * The extracted temperatures are in degrees Celsius: convert them to the unit
+ * the user asked for.
+ */
+static unsigned snapshot_temperature(unsigned int celsius, bool use_fahrenheit) {
+  return use_fahrenheit ? celsius_to_fahrenheit(celsius) : celsius;
+}
+
+/*
+ * Number of bytes of the well formed UTF-8 sequence at the start of string, or
+ * 0 when the bytes there are not one.
+ *
+ * The bytes are decoded the way RFC 3629 describes them, and the result is then
+ * checked to be a Unicode scalar value: an overlong encoding (the same
+ * character written with more bytes than needed), a UTF-16 surrogate half or a
+ * value above U+10FFFF is rejected. JSON requires well formed UTF-8 and strict
+ * readers (CPython, Go, JavaScript) reject those, so being strict here is what
+ * keeps the snapshot parseable.
+ */
+static size_t utf8_sequence_length(const unsigned char *string) {
+  const unsigned char first = string[0];
+
+  if (first < 0x80)
+    return 1; // ASCII
+
+  // The number of leading one bits gives the length, and with it the smallest
+  // character that length may encode: 2 bytes start at U+0080 (0x80), 3 bytes
+  // at U+0800, 4 bytes at U+10000. Anything below that would be overlong.
+  size_t length;
+  unsigned int smallest;
+  if ((first & 0xE0) == 0xC0) {
+    length = 2; // 110xxxxx
+    smallest = 0x80;
+  } else if ((first & 0xF0) == 0xE0) {
+    length = 3; // 1110xxxx
+    smallest = 0x800;
+  } else if ((first & 0xF8) == 0xF0) {
+    length = 4; // 11110xxx
+    smallest = 0x10000;
+  } else {
+    // 0xxxxxxx and 10xxxxxx are handled above, the remaining lead bytes
+    // (0xF8 to 0xFF, 11111xxx) do not occur in UTF-8
+    return 0;
+  }
+
+  // Gather the six payload bits carried by each continuation byte, the lead
+  // byte contributing the 7, 5, 4 or 3 bits that are left after its prefix
+  unsigned int codepoint = first & (0x7F >> length);
+  for (size_t i = 1; i < length; ++i) {
+    const unsigned char continuation = string[i];
+    if ((continuation & 0xC0) != 0x80)
+      return 0; // Not a 10xxxxxx byte, or the end of the string
+    codepoint = (codepoint << 6) | (continuation & 0x3F);
+  }
+
+  if (codepoint < smallest)
+    return 0; // Overlong encoding
+  if (codepoint > 0x10FFFF)
+    return 0; // Outside the Unicode codespace
+  if (codepoint >= 0xD800 && codepoint <= 0xDFFF)
+    return 0; // UTF-16 surrogate half, not a character
+  return length;
+}
+
+/*
+ * A process command line comes from /proc and can contain any byte. JSON
+ * strings can contain neither raw control characters nor invalid UTF-8:
+ * escape the former and replace the bytes that are not part of a valid
+ * sequence, so the document stays parseable by strict readers.
+ */
+static void print_json_string(const char *string) {
+  const unsigned char *cursor = (const unsigned char *)string;
+  putchar('"');
+  while (*cursor) {
+    switch (*cursor) {
+    case '"':
+      fputs("\\\"", stdout);
+      ++cursor;
+      continue;
+    case '\\':
+      fputs("\\\\", stdout);
+      ++cursor;
+      continue;
+    case '\b':
+      fputs("\\b", stdout);
+      ++cursor;
+      continue;
+    case '\f':
+      fputs("\\f", stdout);
+      ++cursor;
+      continue;
+    case '\n':
+      fputs("\\n", stdout);
+      ++cursor;
+      continue;
+    case '\r':
+      fputs("\\r", stdout);
+      ++cursor;
+      continue;
+    case '\t':
+      fputs("\\t", stdout);
+      ++cursor;
+      continue;
+    default:
+      break;
+    }
+    if (*cursor < 0x20 || *cursor == 0x7F) {
+      printf("\\u%04x", *cursor);
+      ++cursor;
+      continue;
+    }
+    size_t length = utf8_sequence_length(cursor);
+    if (length == 0) {
+      fputs("\\ufffd", stdout);
+      ++cursor;
+      continue;
+    }
+    fwrite(cursor, 1, length, stdout);
+    cursor += length;
+  }
+  putchar('"');
+}
+
 void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool hide_processes_option) {
   struct gpu_info *device;
 
@@ -2643,22 +2773,67 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     printf("%s{\n", indent_level_two);
 
     // Device Name
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name))
-      printf("%s\"%s\": \"%s\",\n", indent_level_four, device_name_field, device->static_info.device_name);
-    else
-      printf("%s\"%s\": null,\n", indent_level_four, device_name_field);
+    printf("%s\"%s\": ", indent_level_four, device_name_field);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name)) {
+      print_json_string(device->static_info.device_name);
+      printf(",\n");
+    } else {
+      printf("null,\n");
+    }
 
     // Device Architecture
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_architecture))
-      printf("%s\"%s\": \"%s\",\n", indent_level_four, device_architecture_field, device->static_info.device_architecture);
-    else
-      printf("%s\"%s\": null,\n", indent_level_four, device_architecture_field);
+    printf("%s\"%s\": ", indent_level_four, device_architecture_field);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_architecture)) {
+      print_json_string(device->static_info.device_architecture);
+      printf(",\n");
+    } else {
+      printf("null,\n");
+    }
 
     // Memory Type
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, memory_type))
-      printf("%s\"memory_type\": \"%s\",\n", indent_level_four, device->static_info.memory_type);
+    printf("%s\"memory_type\": ", indent_level_four);
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, memory_type)) {
+      print_json_string(device->static_info.memory_type);
+      printf(",\n");
+    } else {
+      printf("null,\n");
+    }
+
+    // PCI address, unset for devices that are not on a PCI bus
+    if (device->pdev[0] != '\0')
+      printf("%s\"pci\": \"%s\",\n", indent_level_four, device->pdev);
     else
-      printf("%s\"memory_type\": null,\n", indent_level_four);
+      printf("%s\"pci\": null,\n", indent_level_four);
+
+    printf("%s\"integrated_graphics\": %s,\n", indent_level_four,
+           device->static_info.integrated_graphics ? "true" : "false");
+    printf("%s\"encode_decode_shared\": %s,\n", indent_level_four,
+           device->static_info.encode_decode_shared ? "true" : "false");
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, max_pcie_gen))
+      printf("%s\"max_pcie_gen\": %u,\n", indent_level_four, device->static_info.max_pcie_gen);
+    else
+      printf("%s\"max_pcie_gen\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, max_pcie_link_width))
+      printf("%s\"max_pcie_link_width\": %u,\n", indent_level_four, device->static_info.max_pcie_link_width);
+    else
+      printf("%s\"max_pcie_link_width\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, n_shared_cores))
+      printf("%s\"n_shared_cores\": %u,\n", indent_level_four, device->static_info.n_shared_cores);
+    else
+      printf("%s\"n_shared_cores\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, l2cache_size))
+      printf("%s\"l2cache_size\": %u,\n", indent_level_four, device->static_info.l2cache_size);
+    else
+      printf("%s\"l2cache_size\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, n_exec_engines))
+      printf("%s\"n_exec_engines\": %u,\n", indent_level_four, device->static_info.n_exec_engines);
+    else
+      printf("%s\"n_exec_engines\": null,\n", indent_level_four);
 
     // GPU Clock Speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed))
@@ -2666,11 +2841,23 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"%s\": null,\n", indent_level_four, gpu_clock_field);
 
+    // Maximum GPU Clock Speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed_max))
+      printf("%s\"gpu_clock_max\": \"%uMHz\",\n", indent_level_four, device->dynamic_info.gpu_clock_speed_max);
+    else
+      printf("%s\"gpu_clock_max\": null,\n", indent_level_four);
+
     // MEM Clock Speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed))
       printf("%s\"%s\": \"%uMHz\",\n", indent_level_four, mem_clock_field, device->dynamic_info.mem_clock_speed);
     else
       printf("%s\"%s\": null,\n", indent_level_four, mem_clock_field);
+
+    // Maximum MEM Clock Speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed_max))
+      printf("%s\"mem_clock_max\": \"%uMHz\",\n", indent_level_four, device->dynamic_info.mem_clock_speed_max);
+    else
+      printf("%s\"mem_clock_max\": null,\n", indent_level_four);
 
     // Vendor specific clock domains, keyed by the name the vendor gives them
     unsigned extra_clock_count =
@@ -2682,16 +2869,27 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
 
     // GPU Temperature
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
-      unsigned int temp_convert;
-      if (!use_fahrenheit_option)
-        temp_convert = device->dynamic_info.gpu_temp;
-      else
-        temp_convert = (unsigned)(32 + nearbyint(device->dynamic_info.gpu_temp * 1.8));
-
-      printf("%s\"%s\": \"%u%s\",\n", indent_level_four, temp_field, temp_convert, use_fahrenheit_option ? "F" : "C");
+      printf("%s\"%s\": \"%u%s\",\n", indent_level_four, temp_field,
+             snapshot_temperature(device->dynamic_info.gpu_temp, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
     } else {
       printf("%s\"%s\": null,\n", indent_level_four, temp_field);
     }
+
+    // Slowdown and shutdown thresholds
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_slowdown_threshold))
+      printf("%s\"temp_slowdown_threshold\": \"%u%s\",\n", indent_level_four,
+             snapshot_temperature(device->static_info.temperature_slowdown_threshold, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
+    else
+      printf("%s\"temp_slowdown_threshold\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_shutdown_threshold))
+      printf("%s\"temp_shutdown_threshold\": \"%u%s\",\n", indent_level_four,
+             snapshot_temperature(device->static_info.temperature_shutdown_threshold, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
+    else
+      printf("%s\"temp_shutdown_threshold\": null,\n", indent_level_four);
 
     // Fan speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed))
@@ -2705,11 +2903,23 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"%s\": null,\n", indent_level_four, fan_field);
 
+    // Fan RPM, on top of the percentage above
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm))
+      printf("%s\"fan_rpm\": \"%uRPM\",\n", indent_level_four, device->dynamic_info.fan_rpm);
+    else
+      printf("%s\"fan_rpm\": null,\n", indent_level_four);
+
     // Power draw
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw))
       printf("%s\"%s\": \"%uW\",\n", indent_level_four, power_field, device->dynamic_info.power_draw / 1000);
     else
       printf("%s\"%s\": null,\n", indent_level_four, power_field);
+
+    // Maximum power draw
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
+      printf("%s\"power_draw_max\": \"%uW\",\n", indent_level_four, device->dynamic_info.power_draw_max / 1000);
+    else
+      printf("%s\"power_draw_max\": null,\n", indent_level_four);
 
     // GPU Utilization
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate))
@@ -2754,9 +2964,49 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": null,\n", indent_level_four, mem_used_field);
     // Memory Available
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, free_memory))
-      printf("%s\"%s\": \"%llu\"", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
+      printf("%s\"%s\": \"%llu\",\n", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
     else
-      printf("%s\"%s\": null", indent_level_four, mem_free_field);
+      printf("%s\"%s\": null,\n", indent_level_four, mem_free_field);
+
+    // PCIe link status
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen))
+      printf("%s\"pcie_link_gen\": %u,\n", indent_level_four, device->dynamic_info.pcie_link_gen);
+    else
+      printf("%s\"pcie_link_gen\": null,\n", indent_level_four);
+
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_width))
+      printf("%s\"pcie_link_width\": %u,\n", indent_level_four, device->dynamic_info.pcie_link_width);
+    else
+      printf("%s\"pcie_link_width\": null,\n", indent_level_four);
+
+    // PCIe throughput, in KiB/s
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
+      printf("%s\"pcie_rx\": \"%uKiB/s\",\n", indent_level_four, device->dynamic_info.pcie_rx);
+    else
+      printf("%s\"pcie_rx\": null,\n", indent_level_four);
+
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
+      printf("%s\"pcie_tx\": \"%uKiB/s\",\n", indent_level_four, device->dynamic_info.pcie_tx);
+    else
+      printf("%s\"pcie_tx\": null,\n", indent_level_four);
+
+    // Effective load rate
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate))
+      printf("%s\"effective_load_rate\": \"%u%%\",\n", indent_level_four, device->dynamic_info.effective_load_rate);
+    else
+      printf("%s\"effective_load_rate\": null,\n", indent_level_four);
+
+    // ECC error counters
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_corrected))
+      printf("%s\"ecc_corrected\": \"%llu\",\n", indent_level_four, device->dynamic_info.ecc_corrected);
+    else
+      printf("%s\"ecc_corrected\": null,\n", indent_level_four);
+
+    // Last field unless the process list follows
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_uncorrected))
+      printf("%s\"ecc_uncorrected\": \"%llu\"", indent_level_four, device->dynamic_info.ecc_uncorrected);
+    else
+      printf("%s\"ecc_uncorrected\": null", indent_level_four);
 
     // Processes
     if (hide_processes_option) {
@@ -2772,31 +3022,9 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
         printf("%s\"pid\": \"%d\",\n", indent_level_eight, proc->pid);
 
         if (GPUINFO_PROCESS_FIELD_VALID(proc, cmdline) && proc->cmdline) {
-          printf("%s\"cmdline\": \"", indent_level_eight);
-          for (char *li = proc->cmdline; *li != '\0'; li++) {
-            // We need to escape some characters for for json strings
-            if (*li == '\n') {
-              printf("\\n");
-              continue;
-            } else if (*li == '\b') {
-              printf("\\b");
-              continue;
-            } else if (*li == '\f') {
-              printf("\\f");
-              continue;
-            } else if (*li == '\r') {
-              printf("\\r");
-              continue;
-            } else if (*li == '\t') {
-              printf("\\t");
-              continue;
-            }
-            // escaping backslash and quotes
-            if (*li == '\\' || *li == '"')
-              printf("\\");
-            printf("%c", *li);
-          }
-          printf("\",\n");
+          printf("%s\"cmdline\": ", indent_level_eight);
+          print_json_string(proc->cmdline);
+          printf(",\n");
         } else {
           printf("%s\"cmdline\": null,\n", indent_level_eight);
         }
@@ -2826,10 +3054,12 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
 
         // GPU memory usage
         printf("%s\"user\": ", indent_level_eight);
-        if (GPUINFO_PROCESS_FIELD_VALID(proc, user_name))
-          printf("\"%s\",\n", proc->user_name);
-        else
+        if (GPUINFO_PROCESS_FIELD_VALID(proc, user_name) && proc->user_name) {
+          print_json_string(proc->user_name);
+          printf(",\n");
+        } else {
           printf("null,\n");
+        }
 
         // GPU usage
         printf("%s\"gpu_usage\": ", indent_level_eight);
