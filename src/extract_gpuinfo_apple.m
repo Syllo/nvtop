@@ -288,41 +288,40 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (!sample_valid)
     return;
 
-  if (sample.gpu_util_rate_valid || sample.gpu_activity_rate_valid) {
-    // Apple Silicon publishes "Device Utilization %"; discrete AMD cards pin
-    // that key at 0 and report real load under "GPU Activity(%)". Either side
-    // may be missing, so pick the larger valid reading and clamp to 100.
-    unsigned rate = 0;
-    if (sample.gpu_util_rate_valid && sample.gpu_util_rate > rate)
-      rate = sample.gpu_util_rate;
-    if (sample.gpu_activity_rate_valid && sample.gpu_activity_rate > rate)
+  const bool unified_memory = [gpu_info->device hasUnifiedMemory];
+
+  if (sample.gpu_util_rate_valid || (!unified_memory && sample.gpu_activity_rate_valid)) {
+    // Apple Silicon publishes "Device Utilization %". Discrete AMD cards pin
+    // that key at 0 and report real load under "GPU Activity(%)", so prefer the
+    // activity counter there. The parser already caps both readings at 100.
+    unsigned rate = sample.gpu_util_rate_valid ? sample.gpu_util_rate : 0;
+    if (!unified_memory && sample.gpu_activity_rate_valid &&
+        (!sample.gpu_util_rate_valid || sample.gpu_activity_rate > rate))
       rate = sample.gpu_activity_rate;
-    if (rate > 100)
-      rate = 100;
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, rate);
   }
 
-  // Discrete AMD readings. These are populated only when the corresponding
-  // PerformanceStatistics key exists, so missing values simply leave the
-  // *_valid bits unset in the dynamic_info and nvtop renders them as N/A.
-  if (sample.used_memory_valid)
+  // Discrete AMD readings. Apple Silicon publishes none of these keys; gate
+  // them on non-unified memory so a future macOS release exposing one of them
+  // cannot change how the Apple Silicon telemetry above is reported.
+  if (!unified_memory && sample.used_memory_valid)
     SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, sample.used_memory);
-  if (sample.gpu_temp_valid)
+  if (!unified_memory && sample.gpu_temp_valid)
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, sample.gpu_temp);
-  if (sample.power_draw_valid)
+  if (!unified_memory && sample.power_draw_valid)
     SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, sample.power_draw_mw);
-  if (sample.gpu_clock_speed_valid)
+  if (!unified_memory && sample.gpu_clock_speed_valid)
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, sample.gpu_clock_speed);
-  if (sample.mem_clock_speed_valid)
+  if (!unified_memory && sample.mem_clock_speed_valid)
     SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed, sample.mem_clock_speed);
-  if (sample.fan_speed_valid)
+  if (!unified_memory && sample.fan_speed_valid)
     SET_GPUINFO_DYNAMIC(dynamic_info, fan_speed, sample.fan_speed);
 
-  if ([gpu_info->device hasUnifiedMemory]) {
+  if (unified_memory) {
     // [gpu_info->device currentAllocatedSize] returns the amount of memory allocated by this process, not
     // as allocated on the GPU globally. The performance statistics dictionary has the real value that we
     // are interested in, the amount of system memory allocated by the GPU.
-    if (sample.allocated_system_memory_valid && !sample.used_memory_valid)
+    if (sample.allocated_system_memory_valid)
       SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, sample.allocated_system_memory);
 
     // Unified-memory GPUs share the system's physical memory with the CPU. The Metal
