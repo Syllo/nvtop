@@ -296,7 +296,11 @@ rx/tx throughput, and the processes using each device with their device memory.
   framework publishes in `/dev/shm/mem_usage_accelN` (as `hl-smi` shows it), or N/A when the framework does not
   publish it. The process utilization is the device utilization when a single process can be identified as the
   compute context (one device holder, or the single process publishing the framework memory).
-* The power limit is the one of the main (54V) power supply; `hl-smi` adds the auxiliary 12V supply to its cap.
+* Chip temperature is read from the hwmon channels that the driver's `/etc/sensors.d/hl_sensors.conf` labels
+  `On Chip ...`, avoiding a memory leak in HLML's temperature call. Only that file is read; relabeling or ignoring the
+  sensors in other `sensors.d` files is not followed. If the file is absent or yields no matching sensors, nvtop falls
+  back to the HLML call.
+* The power limit is that of the main (54 V) power supply; `hl-smi` adds the auxiliary 12 V supply to its cap.
 
 Build
 -----

@@ -254,11 +254,28 @@ static int test_process_utilization_attribution(void) {
   return 0;
 }
 
+static int test_pci_chip_address(void) {
+  unsigned address = 0;
+  CHECK(pci_chip_address("0000:19:00.0", &address));
+  CHECK(address == 0x1900);
+  CHECK(pci_chip_address("0001:19:00.1", &address));
+  CHECK(address == 0x11901);
+  CHECK(!pci_chip_address("0000:19:00", &address));
+  CHECK(!pci_chip_address("not-a-bdf", &address));
+  CHECK(!pci_chip_address("0000:100:00.0", &address));
+  CHECK(!pci_chip_address("0000:19:20.0", &address));
+  CHECK(!pci_chip_address("0000:19:00.8", &address));
+  CHECK(!pci_chip_address("10000:19:00.0", &address));
+  CHECK(!pci_chip_address(NULL, &address));
+  return 0;
+}
+
 int main(void) {
   CHECK(test_double_enumeration() == 0);
   CHECK(test_abi_growth_tolerance() == 0);
   CHECK(test_process_memory_without_shm() == 0);
   CHECK(test_process_utilization_attribution() == 0);
+  CHECK(test_pci_chip_address() == 0);
   puts("Gaudi backend tests passed");
   return 0;
 }

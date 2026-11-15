@@ -414,10 +414,33 @@ static const char *gpuinfo_gaudi_last_error_string(void) {
 #define GAUDI_MAX_HWMON_CHANNELS 128
 
 /*
- * HLML reports the chip temperature as the hottest of the hwmon sensors labelled "On Chip ..." in the lm-sensors
- * configuration installed with the driver. hlml_device_get_temperature leaks memory at each call (sensors_get_label in
- * libhlml), which adds up quickly in a long running monitor, so we read the same hwmon channels directly.
+ * HLML classifies the hwmon temperature channels with a hardcoded per-ASIC
+ * map (the ON_AIP entries in gaudi2_temp_type etc.) and returns the hottest
+ * channel of that group. The lm-sensors configuration shipped with the driver
+ * labels those channels "On Chip ...", but libsensors is only used for the
+ * labels: hlml_device_get_temperature calls sensors_get_label() for every
+ * sensor on every call, leaking about 260 bytes per call. To avoid that leak
+ * we use the labels to identify the same channels and read their hwmon
+ * values directly.
+ *
+ * Only the driver's configuration file is read. HLML does not use the labels
+ * to classify the sensors, so relabeling or ignoring them in another
+ * sensors.d file does not change HLML's result and is intentionally not
+ * followed here.
  */
+
+// libsensors names a PCI hwmon chip "<name>-pci-<address>", with
+// address = (domain << 16) + (bus << 8) + (slot << 3) + function.
+static bool pci_chip_address(const char *bdf, unsigned *address) {
+  unsigned domain, bus, slot, function;
+  if (!bdf || sscanf(bdf, "%x:%x:%x.%x", &domain, &bus, &slot, &function) != 4)
+    return false;
+  if (domain > 0xffff || bus > 0xff || slot > 0x1f || function > 0x7)
+    return false;
+  *address = (domain << 16) + (bus << 8) + (slot << 3) + function;
+  return true;
+}
+
 static void find_chip_temperature_sensors(struct gpu_info_gaudi *gpu_info) {
   char hwmon_parent[96];
   snprintf(hwmon_parent, sizeof(hwmon_parent), "%s/hwmon", gpu_info->sysfs_path);
@@ -435,8 +458,10 @@ static void find_chip_temperature_sensors(struct gpu_info_gaudi *gpu_info) {
   if (!gpu_info->hwmon_path[0])
     return;
 
-  // The hwmon name is the board type (e.g. HL225), matched by the "chip" statements as "HL225-pci-*"
-  char name_path[160], chip_id[80];
+  // The hwmon name is the board type (e.g. HL225). libsensors names the chip
+  // "<name>-pci-<address>"; use the real address so exact "chip" statements
+  // match as well as the wildcard ones.
+  char name_path[160], chip_id[96];
   snprintf(name_path, sizeof(name_path), "%s/name", gpu_info->hwmon_path);
   FILE *name_file = fopen(name_path, "r");
   if (!name_file)
@@ -447,7 +472,11 @@ static void find_chip_temperature_sensors(struct gpu_info_gaudi *gpu_info) {
   name[strcspn(name, "\n")] = '\0';
   if (!has_name || !name[0])
     return;
-  snprintf(chip_id, sizeof(chip_id), "%s-pci-0", name);
+  unsigned chip_address;
+  if (pci_chip_address(gpu_info->base.pdev, &chip_address))
+    snprintf(chip_id, sizeof(chip_id), "%s-pci-%04x", name, chip_address);
+  else
+    snprintf(chip_id, sizeof(chip_id), "%s-pci-0", name);
 
   FILE *conf = fopen(HL_SENSORS_CONF, "r");
   if (!conf)
