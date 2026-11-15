@@ -1250,9 +1250,9 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
 #if defined(__APPLE__)
     // On Apple, replace the always-N/A RX/TX display with the chassis
-    // slot + (for multi-die cards) die index. The string fits inside the
-    // existing 46-column PCIe window.
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot)) {
+    // slot + (for multi-die cards) die index. Integrated GPUs have no slot,
+    // and the label fits inside the existing 46-column PCIe window.
+    if (!device->static_info.integrated_graphics && GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot)) {
       wcolor_set(dev->pcie_info, magenta_color, NULL);
       wprintw(dev->pcie_info, " slot: ");
       wstandend(dev->pcie_info);
@@ -2799,12 +2799,10 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     const char *mem_total_field = "mem_total";
     const char *mem_used_field = "mem_used";
     const char *mem_free_field = "mem_free";
-#if defined(__APPLE__)
     const char *pci_bus_field = "pci_bus";
     const char *pci_slot_field = "pci_slot";
     const char *apple_slot_field = "apple_slot";
     const char *mpx_die_index_field = "mpx_die_index";
-#endif
 
     printf("%s{\n", indent_level_two);
 
@@ -3004,32 +3002,31 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"%s\": null,\n", indent_level_four, mem_free_field);
 
-#if defined(__APPLE__)
-    // PCI bus / slot (from gpuinfo_static_info on Apple)
+    // PCI address and Apple chassis metadata. The keys are emitted on every
+    // platform so the snapshot schema does not depend on the build; backends
+    // that do not know a value leave the matching valid bit clear.
     if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, pci_bus_id))
-      printf("%s\"%s\": \"%u\",\n", indent_level_four, pci_bus_field, device->static_info.pci_bus_id);
+      printf("%s\"%s\": %u,\n", indent_level_four, pci_bus_field, device->static_info.pci_bus_id);
     else
       printf("%s\"%s\": null,\n", indent_level_four, pci_bus_field);
     if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, pci_slot_id))
-      printf("%s\"%s\": \"%u\",\n", indent_level_four, pci_slot_field, device->static_info.pci_slot_id);
+      printf("%s\"%s\": %u,\n", indent_level_four, pci_slot_field, device->static_info.pci_slot_id);
     else
       printf("%s\"%s\": null,\n", indent_level_four, pci_slot_field);
-    // Apple chassis slot label from AAPL,slot-name on the closest PCI
-    // bridge (Slot-1, Slot-3, …, Slot-8 on a MacPro7,1). For a W6800X
-    // Duo both dies report the same apple_slot — disambiguate them via
-    // mpx_die_index (0-indexed, parsed from GD<y> in the AMD driver's
-    // attached-gpu-control-path).
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot))
-      printf("%s\"%s\": \"%s\",\n", indent_level_four, apple_slot_field,
-             device->static_info.apple_slot);
-    else
+    // Chassis slot label (AAPL,slot-name, e.g. "Slot-1" on a Mac Pro). For
+    // multi-die cards the two dies share the label; mpx_die_index tells them
+    // apart (parsed from the GD<nn> ACPI segment).
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot)) {
+      printf("%s\"%s\": ", indent_level_four, apple_slot_field);
+      print_json_string(device->static_info.apple_slot);
+      printf(",\n");
+    } else {
       printf("%s\"%s\": null,\n", indent_level_four, apple_slot_field);
+    }
     if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, mpx_die_index))
-      printf("%s\"%s\": \"%u\",\n", indent_level_four, mpx_die_index_field,
-             device->static_info.mpx_die_index);
+      printf("%s\"%s\": %u,\n", indent_level_four, mpx_die_index_field, device->static_info.mpx_die_index);
     else
       printf("%s\"%s\": null,\n", indent_level_four, mpx_die_index_field);
-#endif
 
     // PCIe link status
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen))
