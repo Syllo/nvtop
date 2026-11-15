@@ -1250,15 +1250,27 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
 #if defined(__APPLE__)
     // On Apple, replace the always-N/A RX/TX display with the chassis
-    // slot + (for multi-die cards) die index. Integrated GPUs have no slot,
-    // and the label fits inside the existing 46-column PCIe window.
+    // slot + (for multi-die cards) die index. Integrated GPUs have no slot.
+    // The label is budgeted against the remaining window columns so a long
+    // AAPL,slot-name cannot clip the /dieN disambiguator.
     if (!device->static_info.integrated_graphics && GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot)) {
       wcolor_set(dev->pcie_info, magenta_color, NULL);
       wprintw(dev->pcie_info, " slot: ");
       wstandend(dev->pcie_info);
-      wprintw(dev->pcie_info, "%s", device->static_info.apple_slot);
-      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, mpx_die_index))
-        wprintw(dev->pcie_info, "/die%u", device->static_info.mpx_die_index);
+
+      char die_suffix[16] = "";
+      int die_width = 0;
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, mpx_die_index)) {
+        die_width = snprintf(die_suffix, sizeof(die_suffix), "/die%u", device->static_info.mpx_die_index);
+        if (die_width < 0 || (size_t)die_width >= sizeof(die_suffix)) {
+          die_suffix[0] = '\0';
+          die_width = 0;
+        }
+      }
+      const int available = getmaxx(dev->pcie_info) - getcurx(dev->pcie_info) - die_width;
+      if (available > 0)
+        wprintw(dev->pcie_info, "%.*s", available, device->static_info.apple_slot);
+      wprintw(dev->pcie_info, "%s", die_suffix);
     }
 #else
     wcolor_set(dev->pcie_info, magenta_color, NULL);

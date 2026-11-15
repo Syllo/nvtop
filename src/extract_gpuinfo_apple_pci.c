@@ -39,7 +39,8 @@
 //     negotiated link (decoded by gpuinfo_apple_decode_pcie_link_status).
 //   * "AAPL,slot-name": Apple's chassis slot label, on the GPU's own
 //     IOPCIDevice ("Slot-1" on a MacPro7,1, "PCI Slot 2" on earlier Macs).
-//   * "acpi-path": the ACPI path whose GD<nn> segment identifies the die of a
+//   * "acpi-path" / "attached-gpu-control-path": the ACPI and IOService paths.
+//     Either may carry the GD<nn> segment that identifies the die of a
 //     multi-die card (W6800X/W6900X Duo).
 //
 // Apple Silicon accelerators are not PCI devices, so the parent lookup finds
@@ -156,12 +157,14 @@ bool gpuinfo_apple_pci_query(io_service_t gpu_service, struct gpuinfo_apple_pci_
 
   info->slot_valid = find_slot_name(pci_device, info->slot, sizeof(info->slot));
 
-  char acpi_path[256];
-  if (read_string(pci_device, CFSTR("acpi-path"), acpi_path, sizeof(acpi_path))) {
-    info->die_index_valid = gpuinfo_apple_parse_die_index(acpi_path, &info->die_index);
-  } else if (read_string(pci_device, CFSTR("attached-gpu-control-path"), acpi_path, sizeof(acpi_path))) {
-    info->die_index_valid = gpuinfo_apple_parse_die_index(acpi_path, &info->die_index);
-  }
+  // The GD<nn> die segment may live in either path, so consult both rather
+  // than treating the control path as a fallback for a missing acpi-path:
+  // every Intel Mac publishes acpi-path, but it does not always carry GD<nn>.
+  char path[256];
+  if (read_string(pci_device, CFSTR("acpi-path"), path, sizeof(path)))
+    info->die_index_valid = gpuinfo_apple_parse_die_index(path, &info->die_index);
+  if (!info->die_index_valid && read_string(pci_device, CFSTR("attached-gpu-control-path"), path, sizeof(path)))
+    info->die_index_valid = gpuinfo_apple_parse_die_index(path, &info->die_index);
 
   IOObjectRelease(pci_device);
 

@@ -76,9 +76,10 @@ bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
   id temp_value = [performance_statistics objectForKey:@"Temperature(C)"];
   if ([temp_value respondsToSelector:@selector(doubleValue)]) {
     const double t = [temp_value doubleValue];
-    // Only accept physically plausible readings. Negative values are rejected
-    // rather than clamped: the rounded value is stored as unsigned.
-    if (isfinite(t) && t >= 0.0 && t <= 200.0) {
+    // Zero is the driver's "no sensor" sentinel (the SMC path also treats
+    // <= 0 °C as unavailable), and negative values are rejected rather than
+    // clamped because the rounded value is stored as unsigned.
+    if (isfinite(t) && t > 0.0 && t <= 200.0) {
       sample->gpu_temp = (unsigned)(t + 0.5);
       sample->gpu_temp_valid = true;
     }

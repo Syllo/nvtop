@@ -160,6 +160,11 @@ TEST(AppleDynamicInfo, RejectsImplausibleDiscreteAmdValues) {
         @"Total Power(W)" : @1200.0,
       },
     };
+    NSDictionary *zero_temperature = @{
+      @"PerformanceStatistics" : @{
+        @"Temperature(C)" : @0.0,
+      },
+    };
     struct gpuinfo_apple_performance_sample sample;
 
     ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)negative_values, &sample));
@@ -171,6 +176,9 @@ TEST(AppleDynamicInfo, RejectsImplausibleDiscreteAmdValues) {
     ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)out_of_range_values, &sample));
     EXPECT_FALSE(sample.gpu_temp_valid);
     EXPECT_FALSE(sample.power_draw_valid);
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)zero_temperature, &sample));
+    EXPECT_FALSE(sample.gpu_temp_valid);
   }
 }
 
@@ -671,6 +679,7 @@ TEST(ApplePciInfo, ParsesPciDebugAddress) {
   EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("not-a-bdf", &bus, &device));
   EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:2", &bus, &device));
   EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:40:0", &bus, &device));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:2:8", &bus, &device));
   EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf(NULL, &bus, &device));
 }
 
@@ -696,9 +705,12 @@ TEST(ApplePciInfo, DecodesSlotName) {
   const uint8_t mac_pro_slot[] = {'S', 'l', 'o', 't', '-', '1', 0, 0};
   const uint8_t padded_slot[] = {'P', 'C', 'I', ' ', 'S', 'l', 'o', 't', ' ', '2', 0xAA, 0xAA};
   const uint8_t empty_slot[] = {0, 0};
+  const uint8_t embedded_nul[] = {'S', 'l', 'o', 't', 0, '1', '1'};
+  const uint8_t exact_fit[] = {'S', 'l', 'o', 't', '-', '1', '2', '3', '4', '5', '6', '7'};
   const uint8_t too_long[] = "a slot label that does not fit";
   char slot[32];
   char small[8];
+  char exact[13];
 
   EXPECT_TRUE(gpuinfo_apple_decode_slot_name(mac_pro_slot, sizeof(mac_pro_slot), slot, sizeof(slot)));
   EXPECT_STREQ(slot, "Slot-1");
@@ -706,8 +718,15 @@ TEST(ApplePciInfo, DecodesSlotName) {
   EXPECT_TRUE(gpuinfo_apple_decode_slot_name(padded_slot, sizeof(padded_slot), slot, sizeof(slot)));
   EXPECT_STREQ(slot, "PCI Slot 2");
 
+  // The property must be one NUL-terminated (or exactly-sized) C string; an
+  // embedded NUL means the data is not a usable label.
+  EXPECT_FALSE(gpuinfo_apple_decode_slot_name(embedded_nul, sizeof(embedded_nul), slot, sizeof(slot)));
   EXPECT_FALSE(gpuinfo_apple_decode_slot_name(empty_slot, sizeof(empty_slot), slot, sizeof(slot)));
   EXPECT_FALSE(gpuinfo_apple_decode_slot_name(too_long, sizeof(too_long) - 1, small, sizeof(small)));
+
+  // Exactly slot_size - 1 printable bytes fit without truncation.
+  EXPECT_TRUE(gpuinfo_apple_decode_slot_name(exact_fit, sizeof(exact_fit), exact, sizeof(exact)));
+  EXPECT_STREQ(exact, "Slot-1234567");
 }
 
 TEST(ApplePciInfo, ParsesDieIndex) {
