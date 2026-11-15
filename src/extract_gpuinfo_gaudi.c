@@ -936,9 +936,10 @@ static void gpuinfo_gaudi_get_running_processes(struct gpu_info *_gpu_info) {
     process->pid = entry->pid;
     if (entry->memory_valid) {
       SET_GPUINFO_PROCESS(process, gpu_memory_usage, entry->memory);
-    } else if (count == 1 && GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory)) {
-      SET_GPUINFO_PROCESS(process, gpu_memory_usage, dynamic_info->used_memory);
     }
+    // If the framework did not publish its usage in the shm file, leave the
+    // process memory unset (N/A) instead of reporting the device-wide used
+    // memory, which also contains the 768 MiB the device reserves.
     // A Gaudi device runs a single compute context: the device load is the load of this process
     if (count == 1 && GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate))
       SET_GPUINFO_PROCESS(process, gpu_usage, dynamic_info->gpu_util_rate);

@@ -153,9 +153,47 @@ static int test_abi_growth_tolerance(void) {
   return 0;
 }
 
+static int test_process_memory_without_shm(void) {
+  LIST_HEAD(devices);
+  unsigned count = 0;
+
+  shutdown_calls = 0;
+  install_fake_hlml();
+  CHECK(gpuinfo_gaudi_get_device_handles(&devices, &count));
+  CHECK(count == 1);
+
+  /* One process on the device, but the framework did not publish an shm value. */
+  scan_generation = 5;
+  gaudi_devices[0].scan_generation_used = 4;
+  SET_GPUINFO_DYNAMIC(&gaudi_devices[0].base.dynamic_info, used_memory, 4096);
+  CHECK(record_scan_entry(1234, 0, false, 0));
+  gpuinfo_gaudi_get_running_processes(&gaudi_devices[0].base);
+  CHECK(gaudi_devices[0].base.processes_count == 1);
+  CHECK(gaudi_devices[0].base.processes[0].pid == 1234);
+  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[0], gpu_memory_usage));
+
+  /* A value published in the shm file is still reported. */
+  scan_generation = 6;
+  scan_entries_count = 0;
+  CHECK(record_scan_entry(5678, 0, true, 2048));
+  gpuinfo_gaudi_get_running_processes(&gaudi_devices[0].base);
+  CHECK(gaudi_devices[0].base.processes_count == 1);
+  CHECK(gaudi_devices[0].base.processes[0].pid == 5678);
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[0], gpu_memory_usage));
+  CHECK(gaudi_devices[0].base.processes[0].gpu_memory_usage == 2048);
+
+  free(gaudi_devices[0].base.processes);
+  gaudi_devices[0].base.processes = NULL;
+  list_del(&gaudi_devices[0].base.list);
+  gpuinfo_gaudi_shutdown();
+  CHECK(shutdown_calls == 1);
+  return 0;
+}
+
 int main(void) {
   CHECK(test_double_enumeration() == 0);
   CHECK(test_abi_growth_tolerance() == 0);
+  CHECK(test_process_memory_without_shm() == 0);
   puts("Gaudi backend tests passed");
   return 0;
 }

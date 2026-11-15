@@ -292,9 +292,9 @@ rx/tx throughput, and the processes using each device with their device memory.
 * Some HLML queries go through the device firmware and take tens of milliseconds, so the device information is sampled
   by a background thread and lags behind by at most one refresh interval.
 * Processes are found by scanning `/proc` for the `/dev/accel/accelN` device nodes, hence you need to run nvtop as root
-  to see the processes of other users. Gaudi runs one compute context per device: the process memory is the one the
-  framework publishes in `/dev/shm/mem_usage_accelN` (as `hl-smi` shows it) and the process utilization is the device
-  utilization.
+  to see the processes of other users. Gaudi runs one compute context per device: the process memory is the value the
+  framework publishes in `/dev/shm/mem_usage_accelN` (as `hl-smi` shows it), or N/A when the framework does not
+  publish it. The process utilization is the device utilization.
 * The power limit is the one of the main (54V) power supply; `hl-smi` adds the auxiliary 12V supply to its cap.
 
 Build
