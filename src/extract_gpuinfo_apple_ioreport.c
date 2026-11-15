@@ -64,13 +64,28 @@ struct gpuinfo_apple_ioreport {
   CFMutableDictionaryRef energy_channels;
   CFDictionaryRef previous_energy_sample;
   nvtop_time previous_sample_time;
+  nvtop_time last_power_sample_time;
+  unsigned last_power_draw;
+  bool power_sample_attempted;
+  bool last_power_draw_valid;
   IOReportSubscriptionRef performance_state_subscription;
   CFMutableDictionaryRef performance_state_channels;
   CFDictionaryRef previous_performance_state_sample;
+  nvtop_time last_clock_sample_time;
+  unsigned last_clock_speed;
+  unsigned last_max_clock_speed;
+  bool clock_sample_attempted;
+  bool last_clock_speed_valid;
   unsigned *gpu_frequencies;
   size_t gpu_frequency_count;
   unsigned max_gpu_frequency;
 };
+
+// Energy counters are coarse (mJ on some chips) and nvtop can refresh every 100 ms in
+// snapshot mode, where a short delta can round to zero or to a full step. Keep a one
+// second window, like the SMC telemetry, so the delta is meaningful and the private
+// interface is not polled ten times more often than the interface displays.
+static const uint64_t gpuinfo_apple_ioreport_minimum_sample_interval = UINT64_C(1000000000);
 
 static bool gpuinfo_apple_ioreport_load_symbol(void *library, const char *name, void *destination,
                                                size_t destination_size) {
@@ -395,16 +410,28 @@ bool gpuinfo_apple_ioreport_get_power_draw(struct gpuinfo_apple_ioreport *iorepo
   if (!ioreport || !ioreport->energy_api_available || !ioreport->energy_subscription || !power_draw)
     return false;
 
-  CFDictionaryRef current_sample =
-      ioreport->api.create_samples(ioreport->energy_subscription, ioreport->energy_channels, NULL);
-  if (!current_sample)
-    return false;
-
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
+  const uint64_t since_last_sample = nvtop_difftime_u64(ioreport->last_power_sample_time, current_time);
+  if (ioreport->power_sample_attempted && since_last_sample < gpuinfo_apple_ioreport_minimum_sample_interval) {
+    if (ioreport->last_power_draw_valid)
+      *power_draw = ioreport->last_power_draw;
+    return ioreport->last_power_draw_valid;
+  }
+  ioreport->last_power_sample_time = current_time;
+  ioreport->power_sample_attempted = true;
+
+  CFDictionaryRef current_sample =
+      ioreport->api.create_samples(ioreport->energy_subscription, ioreport->energy_channels, NULL);
+  if (!current_sample) {
+    ioreport->last_power_draw_valid = false;
+    return false;
+  }
+
   if (!ioreport->previous_energy_sample) {
     ioreport->previous_energy_sample = current_sample;
     ioreport->previous_sample_time = current_time;
+    ioreport->last_power_draw_valid = false;
     return false;
   }
 
@@ -415,12 +442,17 @@ bool gpuinfo_apple_ioreport_get_power_draw(struct gpuinfo_apple_ioreport *iorepo
 
   CFDictionaryRef energy_delta = ioreport->api.create_samples_delta(previous_sample, current_sample, NULL);
   CFRelease(previous_sample);
-  if (!energy_delta)
+  if (!energy_delta) {
+    ioreport->last_power_draw_valid = false;
     return false;
+  }
 
   const uint64_t elapsed = nvtop_difftime_u64(previous_time, current_time);
   const bool power_draw_valid = gpuinfo_apple_ioreport_parse_power_draw(ioreport, energy_delta, elapsed, power_draw);
   CFRelease(energy_delta);
+  ioreport->last_power_draw_valid = power_draw_valid;
+  if (power_draw_valid)
+    ioreport->last_power_draw = *power_draw;
   return power_draw_valid;
 }
 
@@ -434,9 +466,17 @@ static bool gpuinfo_apple_ioreport_parse_gpu_clock_speed(struct gpuinfo_apple_io
   if (!channels_value || CFGetTypeID(channels_value) != CFArrayGetTypeID())
     return false;
 
-  uint64_t *residencies = calloc(ioreport->gpu_frequency_count, sizeof(*residencies));
-  if (!residencies)
+  const size_t frequency_count = ioreport->gpu_frequency_count;
+  if (frequency_count > SIZE_MAX / 2)
     return false;
+
+  // One allocation for the multi-die aggregate and a per-channel buffer, so each
+  // residency is read once and a channel is still only folded in when complete.
+  uint64_t *scratch = calloc(2 * frequency_count, sizeof(*scratch));
+  if (!scratch)
+    return false;
+  uint64_t *residencies = scratch;
+  uint64_t *channel_residencies = scratch + frequency_count;
 
   bool residency_valid = false;
   CFArrayRef channels = channels_value;
@@ -446,7 +486,7 @@ static bool gpuinfo_apple_ioreport_parse_gpu_clock_speed(struct gpuinfo_apple_io
       continue;
 
     const int state_count = ioreport->api.state_get_count(channel_value);
-    if (state_count < 2 || (size_t)state_count < ioreport->gpu_frequency_count)
+    if (state_count < 2 || (size_t)state_count < frequency_count)
       continue;
 
     CFStringRef first_state = ioreport->api.state_get_name_for_index(channel_value, 0);
@@ -457,25 +497,31 @@ static bool gpuinfo_apple_ioreport_parse_gpu_clock_speed(struct gpuinfo_apple_io
     // State zero maps to voltage-states9's zero-frequency entry. Aggregate the subsequent
     // active-state residencies across channels before calculating a multi-die average.
     bool channel_valid = true;
-    for (size_t state = 1; state < ioreport->gpu_frequency_count; ++state) {
+    for (size_t state = 1; state < frequency_count; ++state) {
       const int64_t residency = ioreport->api.state_get_residency(channel_value, (int)state);
-      if (residency < 0 || UINT64_MAX - residencies[state] < (uint64_t)residency) {
+      if (residency < 0) {
         channel_valid = false;
         break;
       }
+      channel_residencies[state] = (uint64_t)residency;
+    }
+
+    for (size_t state = 1; channel_valid && state < frequency_count; ++state) {
+      if (UINT64_MAX - residencies[state] < channel_residencies[state])
+        channel_valid = false;
     }
     if (!channel_valid)
       continue;
 
-    for (size_t state = 1; state < ioreport->gpu_frequency_count; ++state)
-      residencies[state] += (uint64_t)ioreport->api.state_get_residency(channel_value, (int)state);
+    for (size_t state = 1; state < frequency_count; ++state)
+      residencies[state] += channel_residencies[state];
     residency_valid = true;
   }
 
   const bool clock_speed_valid =
-      residency_valid && gpuinfo_apple_calculate_gpu_clock_speed(residencies, ioreport->gpu_frequencies,
-                                                                 ioreport->gpu_frequency_count, clock_speed);
-  free(residencies);
+      residency_valid &&
+      gpuinfo_apple_calculate_gpu_clock_speed(residencies, ioreport->gpu_frequencies, frequency_count, clock_speed);
+  free(scratch);
   return clock_speed_valid;
 }
 
@@ -485,13 +531,29 @@ bool gpuinfo_apple_ioreport_get_gpu_clock_speed(struct gpuinfo_apple_ioreport *i
       !clock_speed || !max_clock_speed)
     return false;
 
+  nvtop_time current_time;
+  nvtop_get_current_time(&current_time);
+  const uint64_t since_last_sample = nvtop_difftime_u64(ioreport->last_clock_sample_time, current_time);
+  if (ioreport->clock_sample_attempted && since_last_sample < gpuinfo_apple_ioreport_minimum_sample_interval) {
+    if (ioreport->last_clock_speed_valid) {
+      *clock_speed = ioreport->last_clock_speed;
+      *max_clock_speed = ioreport->last_max_clock_speed;
+    }
+    return ioreport->last_clock_speed_valid;
+  }
+  ioreport->last_clock_sample_time = current_time;
+  ioreport->clock_sample_attempted = true;
+
   CFDictionaryRef current_sample = ioreport->api.create_samples(ioreport->performance_state_subscription,
                                                                 ioreport->performance_state_channels, NULL);
-  if (!current_sample)
+  if (!current_sample) {
+    ioreport->last_clock_speed_valid = false;
     return false;
+  }
 
   if (!ioreport->previous_performance_state_sample) {
     ioreport->previous_performance_state_sample = current_sample;
+    ioreport->last_clock_speed_valid = false;
     return false;
   }
 
@@ -499,12 +561,18 @@ bool gpuinfo_apple_ioreport_get_gpu_clock_speed(struct gpuinfo_apple_ioreport *i
   ioreport->previous_performance_state_sample = current_sample;
   CFDictionaryRef state_delta = ioreport->api.create_samples_delta(previous_sample, current_sample, NULL);
   CFRelease(previous_sample);
-  if (!state_delta)
+  if (!state_delta) {
+    ioreport->last_clock_speed_valid = false;
     return false;
+  }
 
   const bool clock_speed_valid = gpuinfo_apple_ioreport_parse_gpu_clock_speed(ioreport, state_delta, clock_speed);
   CFRelease(state_delta);
-  if (clock_speed_valid)
+  if (clock_speed_valid) {
     *max_clock_speed = ioreport->max_gpu_frequency;
+    ioreport->last_clock_speed = *clock_speed;
+    ioreport->last_max_clock_speed = *max_clock_speed;
+  }
+  ioreport->last_clock_speed_valid = clock_speed_valid;
   return clock_speed_valid;
 }
