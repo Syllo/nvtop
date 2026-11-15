@@ -25,7 +25,8 @@
  * Several HLML queries go through the device firmware and are slow (PCIe throughput takes ~25ms per call and per
  * direction), so the dynamic information is sampled by a background thread and the interface only copies the latest
  * sample. After the first synchronous sample, HLML is only ever called from that thread so we do not rely on libhlml
- * being thread safe.
+ * being thread safe. The static information is populated before that first refresh and may call HLML from the main
+ * thread; do not re-populate it at runtime after the sampler has started.
  *
  * HLML does not list processes. Like hl-smi, we scan /proc for file descriptors opened on the /dev/accel/accelN compute
  * node. Gaudi allows a single compute context per device; the framework (Synapse) publishes the memory used by this
@@ -628,6 +629,10 @@ static bool read_pcie_link(const struct gpu_info_gaudi *gpu_info, const char *sp
   return true;
 }
 
+// Calls HLML for the device name and temperature thresholds. It must run
+// before the first dynamic refresh starts the sampler thread; after that point
+// the sampler is the only HLML caller. nvtop populates static info before the
+// first refresh.
 static void gpuinfo_gaudi_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_gaudi *gpu_info = container_of(_gpu_info, struct gpu_info_gaudi, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
