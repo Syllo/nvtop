@@ -631,6 +631,79 @@ static bool read_pcie_link(const struct gpu_info_gaudi *gpu_info, const char *sp
   return true;
 }
 
+// libhlml reports device_type from sysfs in upper case. Map the known ASIC
+// strings to their display names; keep the old lower-casing fallback for
+// future devices. The architecture is the ASIC family; the family is what the
+// device name starts with and may include the board variant.
+static const struct {
+  const char *device_type;
+  const char *architecture;
+  const char *family;
+} gaudi_asic_names[] = {
+    {"GOYA", "Goya", "Goya"},
+    {"GAUDI", "Gaudi", "Gaudi"},
+    {"GAUDI SEC", "Gaudi SEC", "Gaudi SEC"},
+    {"GAUDI HL2000M", "Gaudi", "Gaudi HL2000M"},
+    {"GAUDI HL2000M SEC", "Gaudi SEC", "Gaudi HL2000M SEC"},
+    {"GAUDI2", "Gaudi2", "Gaudi2"},
+    {"GAUDI2B", "Gaudi2B", "Gaudi2B"},
+    {"GAUDI2C", "Gaudi2C", "Gaudi2C"},
+    {"GAUDI2D", "Gaudi2D", "Gaudi2D"},
+    {"GAUDI3", "Gaudi3", "Gaudi3"},
+    {"GAUDI3 FPGA", "Gaudi3 FPGA", "Gaudi3 FPGA"},
+    {"GAUDI3 HL-338", "Gaudi3", "Gaudi3 HL-338"},
+};
+
+static void normalize_device_type(const char *device_type, char *architecture, size_t architecture_size, char *family,
+                                  size_t family_size) {
+  for (size_t i = 0; i < sizeof(gaudi_asic_names) / sizeof(gaudi_asic_names[0]); ++i) {
+    if (strcmp(device_type, gaudi_asic_names[i].device_type) == 0) {
+      snprintf(architecture, architecture_size, "%s", gaudi_asic_names[i].architecture);
+      snprintf(family, family_size, "%s", gaudi_asic_names[i].family);
+      return;
+    }
+  }
+  snprintf(architecture, architecture_size, "%s", device_type);
+  for (char *c = architecture + 1; *c; ++c)
+    *c = (char)tolower((unsigned char)*c);
+  snprintf(family, family_size, "%s", architecture);
+}
+
+// Whether the family already ends with the board name, ignoring case and
+// separators such as the dash in "HL-338" or "HL2000M".
+static bool ends_with_ignore_case(const char *family, const char *board_name) {
+  size_t family_index = strlen(family);
+  size_t board_index = strlen(board_name);
+  while (board_index > 0) {
+    while (board_index > 0 && !isalnum((unsigned char)board_name[board_index - 1]))
+      --board_index;
+    if (board_index == 0)
+      break;
+    while (family_index > 0 && !isalnum((unsigned char)family[family_index - 1]))
+      --family_index;
+    if (family_index == 0)
+      return false;
+    if (tolower((unsigned char)family[family_index - 1]) != tolower((unsigned char)board_name[board_index - 1]))
+      return false;
+    --family_index;
+    --board_index;
+  }
+  return true;
+}
+
+static void compose_device_name(const char *family, const char *board_name, char *device_name,
+                                size_t device_name_size) {
+  if (family[0] && board_name[0] && !ends_with_ignore_case(family, board_name))
+    snprintf(device_name, device_name_size, "%s %s", family, board_name);
+  else
+    snprintf(device_name, device_name_size, "%s", family[0] ? family : board_name);
+}
+
+static const char *device_memory_type(const char *family) {
+  // Goya, which HLML can also enumerate, is the one Habana ASIC using DDR.
+  return strncmp(family, "Goya", 4) == 0 ? "DDR4" : "HBM";
+}
+
 // Calls HLML for the device name and temperature thresholds. It must run
 // before the first dynamic refresh starts the sampler thread; after that point
 // the sampler is the only HLML caller. nvtop populates static info before the
@@ -645,27 +718,25 @@ static void gpuinfo_gaudi_populate_static_info(struct gpu_info *_gpu_info) {
 
   // e.g. "Gaudi2 HL-225": the family comes from sysfs (GAUDI2), the board name from HLML
   char board_name[MAX_DEVICE_NAME] = "";
+  char device_type[32] = "";
+  char architecture[32] = "";
   char family[32] = "";
   last_hlml_return_status = hlml_device_get_name(gpu_info->handle, board_name, sizeof(board_name));
   if (last_hlml_return_status != HLML_SUCCESS)
     board_name[0] = '\0';
-  if (read_device_attribute(gpu_info, "device_type", family, sizeof(family))) {
-    for (char *c = family + 1; *c; ++c)
-      *c = (char)tolower((unsigned char)*c);
-  }
-  if (family[0] && board_name[0])
-    snprintf(static_info->device_name, MAX_DEVICE_NAME, "%s %s", family, board_name);
-  else
-    snprintf(static_info->device_name, MAX_DEVICE_NAME, "%s", board_name[0] ? board_name : family);
+  if (read_device_attribute(gpu_info, "device_type", device_type, sizeof(device_type)))
+    normalize_device_type(device_type, architecture, sizeof(architecture), family, sizeof(family));
+  compose_device_name(family, board_name, static_info->device_name, MAX_DEVICE_NAME);
   if (static_info->device_name[0])
     SET_VALID(gpuinfo_device_name_valid, static_info->valid);
-  if (family[0]) {
-    snprintf(static_info->device_architecture, MAX_DEVICE_NAME, "%s", family);
+  if (architecture[0]) {
+    snprintf(static_info->device_architecture, MAX_DEVICE_NAME, "%s", architecture);
     SET_VALID(gpuinfo_device_architecture_valid, static_info->valid);
   }
 
-  // Every Gaudi generation uses HBM, which is also what hl-smi reports
-  snprintf(static_info->memory_type, sizeof(static_info->memory_type), "HBM");
+  // Every Gaudi generation uses HBM, which is also what hl-smi reports.
+  // Goya, which HLML can also enumerate, uses DDR4.
+  snprintf(static_info->memory_type, sizeof(static_info->memory_type), "%s", device_memory_type(family));
   SET_VALID(gpuinfo_memory_type_valid, static_info->valid);
 
   unsigned max_gen, max_width;

@@ -13,7 +13,7 @@ M2 support), Huawei (Ascend), Intel (Linux i915/Xe GPU drivers and the NPU
 through intel_vpu), NVIDIA (Linux proprietary drivers), Qualcomm Adreno (Linux
 MSM driver), Broadcom VideoCore (Linux v3d driver), Rockchip, MetaX (MXSML
 driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver),
-Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML), Intel Gaudi (Linux
+Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML), Intel Gaudi and Goya (Linux
 habanalabs driver).
 
 Because a picture is worth a thousand words:
@@ -300,6 +300,7 @@ rx/tx throughput, and the processes using each device with their device memory.
   `On Chip ...`, avoiding a memory leak in HLML's temperature call. Only that file is read; relabeling or ignoring the
   sensors in other `sensors.d` files is not followed. If the file is absent or yields no matching sensors, nvtop falls
   back to the HLML call.
+* HLML also enumerates Goya devices; nvtop reports them as Goya with DDR4 memory.
 * The power limit is that of the main (54 V) power supply; `hl-smi` adds the auxiliary 12 V supply to its cap.
 
 Build

@@ -270,12 +270,61 @@ static int test_pci_chip_address(void) {
   return 0;
 }
 
+static int test_device_naming(void) {
+  char architecture[64];
+  char family[64];
+  char name[64];
+
+  normalize_device_type("GAUDI2", architecture, sizeof(architecture), family, sizeof(family));
+  CHECK(!strcmp(architecture, "Gaudi2"));
+  CHECK(!strcmp(family, "Gaudi2"));
+  normalize_device_type("GAUDI2B", architecture, sizeof(architecture), family, sizeof(family));
+  CHECK(!strcmp(architecture, "Gaudi2B"));
+  CHECK(!strcmp(family, "Gaudi2B"));
+  normalize_device_type("GAUDI3 HL-338", architecture, sizeof(architecture), family, sizeof(family));
+  CHECK(!strcmp(architecture, "Gaudi3"));
+  CHECK(!strcmp(family, "Gaudi3 HL-338"));
+  normalize_device_type("GAUDI HL2000M", architecture, sizeof(architecture), family, sizeof(family));
+  CHECK(!strcmp(architecture, "Gaudi"));
+  CHECK(!strcmp(family, "Gaudi HL2000M"));
+  normalize_device_type("GOYA", architecture, sizeof(architecture), family, sizeof(family));
+  CHECK(!strcmp(architecture, "Goya"));
+  CHECK(!strcmp(family, "Goya"));
+  normalize_device_type("FUTURE1B", architecture, sizeof(architecture), family, sizeof(family));
+  CHECK(!strcmp(architecture, "Future1b"));
+  CHECK(!strcmp(family, "Future1b"));
+
+  CHECK(ends_with_ignore_case("Gaudi3 HL-338", "HL-338"));
+  CHECK(ends_with_ignore_case("Gaudi3 HL-338", "hl-338"));
+  CHECK(ends_with_ignore_case("Gaudi HL2000M", "HL-2000M"));
+  CHECK(!ends_with_ignore_case("Gaudi2", "HL-225"));
+  CHECK(!ends_with_ignore_case("Gaudi3 HL-338", "HL-3380"));
+
+  compose_device_name("Gaudi2", "HL-225", name, sizeof(name));
+  CHECK(!strcmp(name, "Gaudi2 HL-225"));
+  compose_device_name("Gaudi3 HL-338", "HL-338", name, sizeof(name));
+  CHECK(!strcmp(name, "Gaudi3 HL-338"));
+  compose_device_name("Gaudi HL2000M", "HL-2000M", name, sizeof(name));
+  CHECK(!strcmp(name, "Gaudi HL2000M"));
+  compose_device_name("Gaudi2", "", name, sizeof(name));
+  CHECK(!strcmp(name, "Gaudi2"));
+  compose_device_name("", "HL-225", name, sizeof(name));
+  CHECK(!strcmp(name, "HL-225"));
+  compose_device_name("", "", name, sizeof(name));
+  CHECK(!strcmp(name, ""));
+
+  CHECK(!strcmp(device_memory_type("Goya"), "DDR4"));
+  CHECK(!strcmp(device_memory_type("Gaudi2"), "HBM"));
+  return 0;
+}
+
 int main(void) {
   CHECK(test_double_enumeration() == 0);
   CHECK(test_abi_growth_tolerance() == 0);
   CHECK(test_process_memory_without_shm() == 0);
   CHECK(test_process_utilization_attribution() == 0);
   CHECK(test_pci_chip_address() == 0);
+  CHECK(test_device_naming() == 0);
   puts("Gaudi backend tests passed");
   return 0;
 }
