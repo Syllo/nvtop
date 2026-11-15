@@ -908,8 +908,14 @@ static void gpuinfo_gaudi_get_running_processes(struct gpu_info *_gpu_info) {
   gpu_info->scan_generation_used = scan_generation;
 
   unsigned count = 0;
-  for (unsigned i = 0; i < scan_entries_count; ++i)
-    count += scan_entries[i].device_index == device_index;
+  unsigned shm_owners = 0;
+  for (unsigned i = 0; i < scan_entries_count; ++i) {
+    if (scan_entries[i].device_index != device_index)
+      continue;
+    ++count;
+    if (scan_entries[i].memory_valid)
+      ++shm_owners;
+  }
 
   _gpu_info->processes_count = 0;
   if (count == 0)
@@ -940,8 +946,15 @@ static void gpuinfo_gaudi_get_running_processes(struct gpu_info *_gpu_info) {
     // If the framework did not publish its usage in the shm file, leave the
     // process memory unset (N/A) instead of reporting the device-wide used
     // memory, which also contains the 768 MiB the device reserves.
-    // A Gaudi device runs a single compute context: the device load is the load of this process
-    if (count == 1 && GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate))
+    //
+    // Gaudi runs a single compute context per device. If only one process has
+    // the compute node open, the device load is its load. If several processes
+    // have it open (an inherited fd after a fork), the one publishing the
+    // framework's memory is the process running the context; other holders are
+    // not attributed the load. With no such process, the device load cannot be
+    // split and stays unset.
+    if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) &&
+        (count == 1 || (shm_owners == 1 && entry->memory_valid)))
       SET_GPUINFO_PROCESS(process, gpu_usage, dynamic_info->gpu_util_rate);
   }
 }

@@ -190,10 +190,75 @@ static int test_process_memory_without_shm(void) {
   return 0;
 }
 
+static void prepare_scan(struct gpu_info_gaudi *gpu) {
+  static unsigned generation;
+  ++generation;
+  scan_generation = generation;
+  gpu->scan_generation_used = generation - 1;
+  scan_entries_count = 0;
+}
+
+static int test_process_utilization_attribution(void) {
+  LIST_HEAD(devices);
+  unsigned count = 0;
+
+  shutdown_calls = 0;
+  install_fake_hlml();
+  CHECK(gpuinfo_gaudi_get_device_handles(&devices, &count));
+  CHECK(count == 1);
+  SET_GPUINFO_DYNAMIC(&gaudi_devices[0].base.dynamic_info, gpu_util_rate, 42);
+
+  /* One holder: the device utilization belongs to that process. */
+  prepare_scan(&gaudi_devices[0]);
+  CHECK(record_scan_entry(100, 0, false, 0));
+  gpuinfo_gaudi_get_running_processes(&gaudi_devices[0].base);
+  CHECK(gaudi_devices[0].base.processes_count == 1);
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[0], gpu_usage));
+  CHECK(gaudi_devices[0].base.processes[0].gpu_usage == 42);
+
+  /* Two holders, one shm owner: the shm owner runs the compute context. */
+  prepare_scan(&gaudi_devices[0]);
+  CHECK(record_scan_entry(200, 0, false, 0));
+  CHECK(record_scan_entry(201, 0, true, 2048));
+  gpuinfo_gaudi_get_running_processes(&gaudi_devices[0].base);
+  CHECK(gaudi_devices[0].base.processes_count == 2);
+  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[0], gpu_usage));
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[1], gpu_usage));
+  CHECK(gaudi_devices[0].base.processes[1].gpu_usage == 42);
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[1], gpu_memory_usage));
+  CHECK(gaudi_devices[0].base.processes[1].gpu_memory_usage == 2048);
+
+  /* Two holders, no shm owner: the device load cannot be attributed. */
+  prepare_scan(&gaudi_devices[0]);
+  CHECK(record_scan_entry(300, 0, false, 0));
+  CHECK(record_scan_entry(301, 0, false, 0));
+  gpuinfo_gaudi_get_running_processes(&gaudi_devices[0].base);
+  CHECK(gaudi_devices[0].base.processes_count == 2);
+  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[0], gpu_usage));
+  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[1], gpu_usage));
+
+  /* Two holders publishing the same inherited shm: still ambiguous. */
+  prepare_scan(&gaudi_devices[0]);
+  CHECK(record_scan_entry(400, 0, true, 2048));
+  CHECK(record_scan_entry(401, 0, true, 2048));
+  gpuinfo_gaudi_get_running_processes(&gaudi_devices[0].base);
+  CHECK(gaudi_devices[0].base.processes_count == 2);
+  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[0], gpu_usage));
+  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&gaudi_devices[0].base.processes[1], gpu_usage));
+
+  free(gaudi_devices[0].base.processes);
+  gaudi_devices[0].base.processes = NULL;
+  list_del(&gaudi_devices[0].base.list);
+  gpuinfo_gaudi_shutdown();
+  CHECK(shutdown_calls == 1);
+  return 0;
+}
+
 int main(void) {
   CHECK(test_double_enumeration() == 0);
   CHECK(test_abi_growth_tolerance() == 0);
   CHECK(test_process_memory_without_shm() == 0);
+  CHECK(test_process_utilization_attribution() == 0);
   puts("Gaudi backend tests passed");
   return 0;
 }

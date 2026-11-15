@@ -294,7 +294,8 @@ rx/tx throughput, and the processes using each device with their device memory.
 * Processes are found by scanning `/proc` for the `/dev/accel/accelN` device nodes, hence you need to run nvtop as root
   to see the processes of other users. Gaudi runs one compute context per device: the process memory is the value the
   framework publishes in `/dev/shm/mem_usage_accelN` (as `hl-smi` shows it), or N/A when the framework does not
-  publish it. The process utilization is the device utilization.
+  publish it. The process utilization is the device utilization when a single process can be identified as the
+  compute context (one device holder, or the single process publishing the framework memory).
 * The power limit is the one of the main (54V) power supply; `hl-smi` adds the auxiliary 12V supply to its cap.
 
 Build
