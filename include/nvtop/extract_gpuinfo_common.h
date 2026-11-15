@@ -63,13 +63,10 @@ enum gpuinfo_static_info_valid {
   gpuinfo_n_exec_engines_valid,
   gpuinfo_engine_count_valid,
   gpuinfo_memory_type_valid,
-  gpuinfo_peer_group_id_valid,
-  gpuinfo_peer_count_valid,
   gpuinfo_pci_bus_id_valid,
   gpuinfo_pci_slot_id_valid,
   gpuinfo_apple_slot_valid,
   gpuinfo_mpx_die_index_valid,
-  gpuinfo_fabric_topology_valid,
   gpuinfo_static_info_count,
 };
 
@@ -90,30 +87,19 @@ struct gpuinfo_static_info {
   bool encode_decode_shared;
   bool memory_shared_with_host; // True if device memory is shared with the host (e.g. UMA)
   char memory_type[8];
-  // Apple-platform-only fields surfaced by the macOS backend. Metal exposes
-  // them on every MTLDevice, but other backends leave them invalid; do not
-  // read them unless the matching *_valid bit is set.
-  uint64_t peer_group_id; // Metal peer group; 0 = no fabric link
-  unsigned peer_count;    // Number of GPUs sharing peer_group_id
-  unsigned pci_bus_id;    // PCI bus number of the GPU's bridge (IOPCIBridge)
-  unsigned pci_slot_id;   // PCI device number within the bus
-  // Apple's authoritative slot label as exposed on the closest
-  // IOPCI2PCIBridge carrying the AAPL,slot-name property ("Slot-1",
-  // "Slot-3", …, "Slot-8"). On a MacPro7,1 this is the chassis-wide
-  // PCIe slot index the Mac Pro service manual uses (and that About
-  // This Mac → PCI Cards displays). For a W6800X Duo both dies share
-  // the same apple_slot — use mpx_die_index below to disambiguate.
+  // PCI address and chassis metadata, currently populated by the macOS backend
+  // from the GPU's IOPCIDevice. Other backends leave these invalid; do not read
+  // them unless the matching *_valid bit is set.
+  unsigned pci_bus_id;  // PCI bus number
+  unsigned pci_slot_id; // PCI device number on that bus (function is assumed 0)
+  // Chassis slot label published by Apple as AAPL,slot-name on the GPU's
+  // IOPCIDevice ("Slot-1" on a MacPro7,1, "PCI Slot 2" on other Intel Macs).
+  // Multi-die cards share the slot label; mpx_die_index disambiguates them.
   char apple_slot[12];
-  // 0-indexed die position inside the slot, parsed from the GD<y>
-  // segment of the AMD driver's attached-gpu-control-path /
-  // acpi-path. 0 for single-die cards; 0 or 1 for a W6800X/W6900X Duo.
+  // 0-indexed die position inside the slot, parsed from the GD<y> ACPI device
+  // segment of the AMD driver path. 0 for single-die cards; 0 or 1 for a
+  // W6800X/W6900X Duo.
   unsigned mpx_die_index;
-  // Free-form short string used by the macOS backend for the chassis-wide
-  // Infinity Fabric connectivity topology (e.g. "single 4-way bridge",
-  // "dual 2-way bridges", "1 independent GPU"). Other backends leave this
-  // empty and the valid bit clear. This is separate from
-  // device_architecture, which reports the GPU generation elsewhere.
-  char fabric_topology[64];
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 

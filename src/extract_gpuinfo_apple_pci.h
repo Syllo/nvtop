@@ -48,16 +48,6 @@ struct gpuinfo_apple_pci_full {
   // service path is unavailable.
   char control_path[128];
   char acpi_path[128];
-  // XGMI Infinity Fabric hive for linked cards (Radeon Pro W6800X Duo,
-  // W6900X Duo, …). All cards in the same hive report the same XGMI_HiveID.
-  char xgmi_hive[24];
-  bool xgmi_hive_valid;
-  unsigned xgmi_hive_size;
-  bool xgmi_hive_size_valid;
-  char xgmi_node[24];
-  bool xgmi_node_valid;
-  unsigned xgmi_node_index;
-  bool xgmi_node_index_valid;
   // Apple publishes a stable, chassis-wide "Slot-N" identifier on every
   // IOPCI2PCIBridge as the AAPL,slot-name data property (base64-encoded
   // UTF-8, e.g. U2xvdC0xAA== → "Slot-1"). We walk up from the GPU's PCI
@@ -91,11 +81,5 @@ bool gpuinfo_apple_pci_lookup(uint64_t registry_id, unsigned *bus_id, unsigned *
 // Rich lookup populating the struct above. Returns true if at least one of
 // the *_valid fields was filled in.
 bool gpuinfo_apple_pci_full(uint64_t registry_id, struct gpuinfo_apple_pci_full *out);
-
-// Chassis-derived PCIe gen best guess. macOS does not publish the current
-// negotiated PCIe gen in the IORegistry; we do know the chassis. Returns
-// 3 for AMD dGPUs on a MacPro7,1, 0 ("not reported") otherwise. Callers
-// render 0 as "N/A".
-unsigned gpuinfo_apple_pci_link_gen_chassis(int is_intel_mac_pro, int is_amd_dgpu);
 
 #endif // EXTRACT_GPUINFO_APPLE_PCI_H_

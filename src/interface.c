@@ -49,14 +49,7 @@
 // device_ecc is sized for "ECC 999/99": corrected is capped at 3 digits, uncorrected at 2
 static unsigned int sizeof_device_field[device_field_count] = {
     [device_name] = 11,          [device_fan_speed] = 11,  [device_temperature] = 10, [device_power] = 15,
-    [device_ecc] = 10,           [device_clock] = 11,      [device_mem_clock] = 12,
-#if defined(__APPLE__)
-    // Wide enough for "PCIe GEN g@wx", the AAPL,slot-name label and the
-    // Infinity Fabric topology string on Apple dGPUs.
-    [device_pcie] = 62,
-#else
-    [device_pcie] = 46,
-#endif
+    [device_ecc] = 10,           [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,
     [device_nvlink_errors] = 33, [device_extra_info] = 15,
 };
 
@@ -1236,9 +1229,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     }
 
     // PCIe gen/width is shown on every platform; on Apple the RX/TX part is
-    // replaced with the chassis slot label (AAPL,slot-name, e.g. "Slot-1"),
-    // the die index for Duos, and the chassis-wide Infinity Fabric topology
-    // ("single 4-way bridge" for two linked Duos on a MacPro7,1, etc.).
+    // replaced with the chassis slot label (AAPL,slot-name, e.g. "Slot-1")
+    // and the die index for multi-die cards.
     werase(dev->pcie_info);
     if (device->static_info.integrated_graphics) {
       wcolor_set(dev->pcie_info, cyan_color, NULL);
@@ -1258,10 +1250,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
 #if defined(__APPLE__)
     // On Apple, replace the always-N/A RX/TX display with the chassis
-    // slot + (for Duos) die index and Infinity Fabric topology label.
-    // The string fits inside the 62-column window. We keep the magenta
-    // "slot: " prefix so the layout reads consistently with the upstream
-    // "RX: … TX: …" labels it replaces.
+    // slot + (for multi-die cards) die index. The string fits inside the
+    // existing 46-column PCIe window.
     if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot)) {
       wcolor_set(dev->pcie_info, magenta_color, NULL);
       wprintw(dev->pcie_info, " slot: ");
@@ -1269,8 +1259,6 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       wprintw(dev->pcie_info, "%s", device->static_info.apple_slot);
       if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, mpx_die_index))
         wprintw(dev->pcie_info, "/die%u", device->static_info.mpx_die_index);
-      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, fabric_topology))
-        wprintw(dev->pcie_info, " %s", device->static_info.fabric_topology);
     }
 #else
     wcolor_set(dev->pcie_info, magenta_color, NULL);
@@ -2816,8 +2804,6 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     const char *pci_slot_field = "pci_slot";
     const char *apple_slot_field = "apple_slot";
     const char *mpx_die_index_field = "mpx_die_index";
-    const char *topology_field = "if_topology";
-    const char *hive_size_field = "xgmi_hive_size";
 #endif
 
     printf("%s{\n", indent_level_two);
@@ -3043,20 +3029,6 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
              device->static_info.mpx_die_index);
     else
       printf("%s\"%s\": null,\n", indent_level_four, mpx_die_index_field);
-    // Infinity Fabric connectivity topology for the whole machine
-    // (single 4-way bridge, dual 2-way bridges, …). Computed once in
-    // populate_static_info from per-GPU peerGroupID / XGMI_HiveSize.
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, fabric_topology))
-      printf("%s\"%s\": \"%s\",\n", indent_level_four, topology_field,
-             device->static_info.fabric_topology);
-    else
-      printf("%s\"%s\": null,\n", indent_level_four, topology_field);
-    // XGMI hive size — number of GPUs sharing this card's peerGroupID.
-    // 0 / N/A for cards without an Infinity Fabric link.
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, peer_group_id))
-      printf("%s\"%s\": \"%u\",\n", indent_level_four, hive_size_field, device->static_info.peer_count);
-    else
-      printf("%s\"%s\": null,\n", indent_level_four, hive_size_field);
 #endif
 
     // PCIe link status

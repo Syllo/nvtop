@@ -45,18 +45,6 @@
 //     + slot; on USB4 / Thunderbolt enclosures the leaf is UPSB/DSxx.
 //   * "acpi-path": same identifier but in the IOACPIPlane namespace, often
 //     slightly cleaner to display.
-//   * "XGMI_HiveID" / "XGMI_HiveSize" / "XGMI_NodeIndex": Infinity Fabric
-//     topology for cards that are linked on an XGMI hive (Radeon Pro W6800X
-//     Duo, W6900X Duo, …). All cards sharing a hive report the same
-//     XGMI_HiveID; XGMI_HiveSize is the number of linked devices.
-//
-// PCIe link generation is not in the registry on macOS. The AMD driver
-// publishes PCI config space registers through IODeviceMapper but never
-// queries the *current* negotiated gen/width into a CFProperty; the
-// underlying chassis (MacPro7,1) hard-wires PCIe 3.0 for every MPX bay
-// and the only PCIe 4.0 source is the USB-C / Thunderbolt tunnel.
-// gpuinfo_apple_pci_link_gen returns a chassis-derived best guess
-// (PCIe 3.0 for AMD dGPUs on MacPro7,1, N/A for Apple Silicon iGPUs).
 
 struct gpuinfo_apple_pci {
   // Reserved for future caching; matches the ioreport/smc pattern.
@@ -327,57 +315,5 @@ bool gpuinfo_apple_pci_full(uint64_t registry_id, struct gpuinfo_apple_pci_full 
 
   IOObjectRelease(pci_device);
 
-  // XGMI hive metadata lives on the IOAccelerator itself, not the PCI device.
-  matching = IORegistryEntryIDMatching(registry_id);
-  if (!matching)
-    return out->bus_valid || out->child_index_valid; // partial success is OK
-  gpu_service = IOServiceGetMatchingService(kIOMainPortDefault, matching);
-  if (!MACH_PORT_VALID(gpu_service))
-    return out->bus_valid || out->child_index_valid;
-
-  io_service_t accel = gpu_service;
-  uint8_t hive_buf[8];
-  CFTypeRef ref = IORegistryEntryCreateCFProperty(accel, CFSTR("XGMI_HiveID"),
-                                                  kCFAllocatorDefault, 0);
-  if (ref && CFGetTypeID(ref) == CFDataGetTypeID() && CFDataGetLength((CFDataRef)ref) == 8) {
-    CFDataGetBytes((CFDataRef)ref, CFRangeMake(0, 8), hive_buf);
-    snprintf(out->xgmi_hive, sizeof(out->xgmi_hive),
-             "%02x%02x%02x%02x-%02x%02x-%02x%02x",
-             hive_buf[0], hive_buf[1], hive_buf[2], hive_buf[3],
-             hive_buf[4], hive_buf[5], hive_buf[6], hive_buf[7]);
-    out->xgmi_hive_valid = true;
-  }
-  if (ref) CFRelease(ref);
-
-  ref = IORegistryEntryCreateCFProperty(accel, CFSTR("XGMI_NodeID"),
-                                        kCFAllocatorDefault, 0);
-  if (ref && CFGetTypeID(ref) == CFDataGetTypeID() && CFDataGetLength((CFDataRef)ref) == 8) {
-    CFDataGetBytes((CFDataRef)ref, CFRangeMake(0, 8), hive_buf);
-    snprintf(out->xgmi_node, sizeof(out->xgmi_node),
-             "%02x%02x%02x%02x-%02x%02x-%02x%02x",
-             hive_buf[0], hive_buf[1], hive_buf[2], hive_buf[3],
-             hive_buf[4], hive_buf[5], hive_buf[6], hive_buf[7]);
-    out->xgmi_node_valid = true;
-  }
-  if (ref) CFRelease(ref);
-
-  out->xgmi_hive_size_valid = read_cf_number(accel, "XGMI_HiveSize", &v);
-  out->xgmi_hive_size = out->xgmi_hive_size_valid ? (unsigned)v : 0;
-  out->xgmi_node_index_valid = read_cf_number(accel, "XGMI_NodeIndex", &v);
-  out->xgmi_node_index = out->xgmi_node_index_valid ? (unsigned)v : 0;
-
-  IOObjectRelease(accel);
-
-  return out->bus_valid || out->child_index_valid || out->xgmi_hive_valid;
-}
-
-unsigned gpuinfo_apple_pci_link_gen_chassis(int is_intel_mac_pro, int is_amd_dgpu) {
-  // macOS does not expose the current negotiated PCIe gen. We do know the
-  // chassis: a MacPro7,1 has PCIe 3.0 in every MPX bay and the AMD dGPUs
-  // (W6800X/W6900X/…) are themselves PCIe 3.0 cards. Apple Silicon iGPUs
-  // have no PCIe slot; eGPUs over Thunderbolt may negotiate gen 3 or gen 4
-  // but we cannot tell which, so we return 0 ("not reported").
-  if (is_amd_dgpu && is_intel_mac_pro)
-    return 3;
-  return 0;
+  return out->bus_valid || out->child_index_valid;
 }
