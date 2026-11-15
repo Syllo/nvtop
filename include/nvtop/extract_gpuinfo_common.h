@@ -73,8 +73,8 @@ struct gpuinfo_static_info {
   char device_architecture[MAX_DEVICE_NAME];
   unsigned max_pcie_gen;
   unsigned max_pcie_link_width;
-  unsigned temperature_shutdown_threshold;
-  unsigned temperature_slowdown_threshold;
+  unsigned temperature_shutdown_threshold; // Shutdown threshold in degrees Celsius
+  unsigned temperature_slowdown_threshold; // Slowdown threshold in degrees Celsius
   unsigned n_shared_cores;
   unsigned l2cache_size;
   unsigned n_exec_engines;
