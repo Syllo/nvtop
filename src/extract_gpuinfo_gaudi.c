@@ -223,8 +223,10 @@ struct gpu_info_gaudi {
   unsigned chip_sensors[GAUDI_MAX_CHIP_SENSORS]; // hwmon temperature channels located on the chip
   unsigned scan_generation_used;
 
-  // Protected by sampler_lock once the sampler thread is running
-  bool monitored;
+  // Protected by sampler_lock once the sampler thread is running.
+  // refresh_requested is a one-shot request set by refresh_dynamic_info and
+  // cleared by the sampler when it picks the device up.
+  bool refresh_requested;
   bool has_sample;
   struct gpuinfo_dynamic_info sample;
 };
@@ -239,7 +241,7 @@ static pthread_t sampler_thread;
 static bool sampler_started;
 static bool sampler_failed;
 static bool sampler_stop;
-static bool sample_requested;
+static bool sample_pending;
 
 // Result of the last /proc scan
 struct gaudi_process_entry {
@@ -386,7 +388,7 @@ static void gpuinfo_gaudi_shutdown(void) {
     sampler_stop = false;
   }
   sampler_failed = false;
-  sample_requested = false;
+  sample_pending = false;
 
   if (libhlml_handle) {
     hlml_shutdown();
@@ -748,13 +750,14 @@ static void *gaudi_sampler_main(void *arg) {
   (void)arg;
   pthread_mutex_lock(&sampler_lock);
   while (!sampler_stop) {
-    while (!sampler_stop && !sample_requested)
+    while (!sampler_stop && !sample_pending)
       pthread_cond_wait(&sampler_cond, &sampler_lock);
 
     for (unsigned i = 0; !sampler_stop && i < gaudi_device_count; ++i) {
       struct gpu_info_gaudi *gpu_info = &gaudi_devices[i];
-      if (!gpu_info->monitored)
+      if (!gpu_info->refresh_requested)
         continue;
+      gpu_info->refresh_requested = false;
       pthread_mutex_unlock(&sampler_lock);
       struct gpuinfo_dynamic_info sample;
       gaudi_sample_device(gpu_info, &sample);
@@ -762,8 +765,12 @@ static void *gaudi_sampler_main(void *arg) {
       gpu_info->sample = sample;
       gpu_info->has_sample = true;
     }
-    // The interface refreshes every device in a burst; requests made while sampling are served by this round
-    sample_requested = false;
+    // Requests that arrived while sampling were picked up above if their turn
+    // had not come yet. Any remaining request, for a device already visited,
+    // keeps the sampler busy for another round.
+    sample_pending = false;
+    for (unsigned i = 0; i < gaudi_device_count; ++i)
+      sample_pending = sample_pending || gaudi_devices[i].refresh_requested;
   }
   pthread_mutex_unlock(&sampler_lock);
   return NULL;
@@ -794,8 +801,8 @@ static void gpuinfo_gaudi_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 
   pthread_mutex_lock(&sampler_lock);
-  gpu_info->monitored = true;
-  sample_requested = true;
+  gpu_info->refresh_requested = true;
+  sample_pending = true;
   pthread_cond_signal(&sampler_cond);
   *dynamic_info = gpu_info->sample;
   pthread_mutex_unlock(&sampler_lock);
