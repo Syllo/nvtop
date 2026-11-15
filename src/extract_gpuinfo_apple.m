@@ -357,9 +357,11 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
   _gpu_info->processes_count = 0;
   gpuinfo_apple_swap_process_cache_for_next_update(gpu_info);
 
-  // We can find out which processes are running on a particular GPU using the IO Registry. The
-  // IOService associated to the MTLDevice has "AGXDeviceUserClient" child nodes, which hold some
-  // basic information about processes that are running on the GPU.
+  // Processes using a particular GPU appear as user-client children of the
+  // IOService associated to the MTLDevice. Apple Silicon exposes AGX* clients
+  // and AMD dGPUs expose AMDRadeonX*_AMDAccel* clients; the chip-generation
+  // prefix varies between drivers (X4000/X5000/X6000), so match the family and
+  // then require the IOUserClientCreator property every user client carries.
 
   io_iterator_t iterator;
   if (IORegistryEntryGetChildIterator(gpu_info->gpu_service, kIOServicePlane, &iterator) != kIOReturnSuccess) {
@@ -374,66 +376,73 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
       IOObjectRelease(child);
       continue;
     }
-    // Apple Silicon (AGX) and Intel Mac Pro AMD dGPUs (AMDRadeonX6000)
-    // both expose user-client children carrying IOUserClientCreator. The
-    // creator string has the same "pid <pid>, <name>" format on both;
-    // gpuinfo_apple_parse_process_sample picks the PID out of it.
-    const bool is_agx_client = strncmp(class_name, "AGXDeviceUserClient", sizeof(class_name)) == 0;
-    const bool is_amd_client =
-        strncmp(class_name, "AMDRadeonX6000_AMDAccelDevice", sizeof(class_name)) == 0 ||
-        strncmp(class_name, "AMDRadeonX6000_AMDAccelSharedUserClient", sizeof(class_name)) == 0;
-    if (!is_agx_client && !is_amd_client) {
+    // Apple Silicon exposes AGX* user clients; AMD dGPUs expose
+    // AMDRadeonX*_AMDAccel* user clients whose chip-generation prefix varies
+    // (X4000 for Polaris, X5000 for Vega, X6000 for RDNA). Match the driver
+    // family instead of exact class names, then require the IOUserClientCreator
+    // property that every real user client carries.
+    const bool is_accel_client = strncmp(class_name, "AGX", 3) == 0 || strstr(class_name, "AMDAccel") != NULL;
+    if (!is_accel_client) {
       IOObjectRelease(child);
       continue;
     }
 
+    CFTypeRef creator = IORegistryEntryCreateCFProperty(child, CFSTR("IOUserClientCreator"), kCFAllocatorDefault, 0);
+    if (!creator) {
+      IOObjectRelease(child);
+      continue;
+    }
+    CFRelease(creator);
+
     CFMutableDictionaryRef cf_props;
-    if (IORegistryEntryCreateCFProperties(child, &cf_props, kCFAllocatorDefault, kNilOptions) == kIOReturnSuccess) {
-      struct gpuinfo_apple_process_sample sample = {0};
-      if (gpuinfo_apple_parse_process_sample(cf_props, &sample)) {
-          bool gpu_usage_valid = false;
-          unsigned gpu_usage = 0;
-          uint64_t registry_entry_id = 0;
-          if (IORegistryEntryGetRegistryEntryID(child, &registry_entry_id) == kIOReturnSuccess) {
-            const struct apple_process_cache_id client_id = {.registry_entry_id = registry_entry_id,
-                                                              .pid = sample.pid};
-            struct apple_process_info_cache *cache_entry;
-            HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &client_id, cache_entry);
-            if (cache_entry) {
-              HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
-              // A new or closed AppUsage entry changes the summed counter by a whole
-              // queue's lifetime, which is not a rate over this interval. Re-baseline
-              // instead, like the counter-reset case handled by
-              // gpuinfo_apple_calculate_gpu_usage.
-              if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time) &&
-                  cache_entry->gpu_time_queue_count == sample.gpu_time_queue_count) {
-                const uint64_t time_elapsed =
-                    nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
-                gpu_usage_valid = gpuinfo_apple_calculate_gpu_usage(cache_entry->gpu_time, sample.gpu_time,
-                                                                    time_elapsed, &gpu_usage);
-              }
-            } else {
-              cache_entry = calloc(1, sizeof(*cache_entry));
-              if (cache_entry)
-                cache_entry->client_id = client_id;
-            }
+    if (IORegistryEntryCreateCFProperties(child, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
+      IOObjectRelease(child);
+      continue;
+    }
 
-            if (cache_entry) {
-              RESET_ALL(cache_entry->valid);
-              if (sample.gpu_time_valid) {
-                SET_APPLE_CACHE(cache_entry, gpu_time, sample.gpu_time);
-                cache_entry->gpu_time_queue_count = sample.gpu_time_queue_count;
-              }
-              cache_entry->last_measurement_tstamp = current_time;
-              HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
-            }
+    struct gpuinfo_apple_process_sample sample = {0};
+    if (gpuinfo_apple_parse_process_sample(cf_props, &sample)) {
+      bool gpu_usage_valid = false;
+      unsigned gpu_usage = 0;
+      uint64_t registry_entry_id = 0;
+      if (IORegistryEntryGetRegistryEntryID(child, &registry_entry_id) == kIOReturnSuccess) {
+        const struct apple_process_cache_id client_id = {.registry_entry_id = registry_entry_id,
+                                                          .pid = sample.pid};
+        struct apple_process_info_cache *cache_entry;
+        HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &client_id, cache_entry);
+        if (cache_entry) {
+          HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
+          // A new or closed AppUsage entry changes the summed counter by a whole
+          // queue's lifetime, which is not a rate over this interval. Re-baseline
+          // instead, like the counter-reset case handled by
+          // gpuinfo_apple_calculate_gpu_usage.
+          if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time) &&
+              cache_entry->gpu_time_queue_count == sample.gpu_time_queue_count) {
+            const uint64_t time_elapsed =
+                nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
+            gpu_usage_valid =
+                gpuinfo_apple_calculate_gpu_usage(cache_entry->gpu_time, sample.gpu_time, time_elapsed, &gpu_usage);
           }
-
-          gpuinfo_apple_add_process(_gpu_info, sample.pid, gpu_usage_valid, gpu_usage);
+        } else {
+          cache_entry = calloc(1, sizeof(*cache_entry));
+          if (cache_entry)
+            cache_entry->client_id = client_id;
         }
-        CFRelease(cf_props);
+
+        if (cache_entry) {
+          RESET_ALL(cache_entry->valid);
+          if (sample.gpu_time_valid) {
+            SET_APPLE_CACHE(cache_entry, gpu_time, sample.gpu_time);
+            cache_entry->gpu_time_queue_count = sample.gpu_time_queue_count;
+          }
+          cache_entry->last_measurement_tstamp = current_time;
+          HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
+        }
       }
 
+      gpuinfo_apple_add_process(_gpu_info, sample.pid, gpu_usage_valid, gpu_usage);
+    }
+    CFRelease(cf_props);
     IOObjectRelease(child);
   }
 
