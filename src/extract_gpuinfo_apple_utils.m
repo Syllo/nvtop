@@ -76,7 +76,9 @@ bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
   id temp_value = [performance_statistics objectForKey:@"Temperature(C)"];
   if ([temp_value respondsToSelector:@selector(doubleValue)]) {
     const double t = [temp_value doubleValue];
-    if (isfinite(t) && t >= -50.0 && t <= 200.0) {
+    // Only accept physically plausible readings. Negative values are rejected
+    // rather than clamped: the rounded value is stored as unsigned.
+    if (isfinite(t) && t >= 0.0 && t <= 200.0) {
       sample->gpu_temp = (unsigned)(t + 0.5);
       sample->gpu_temp_valid = true;
     }
@@ -85,7 +87,7 @@ bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
   if ([power_value respondsToSelector:@selector(doubleValue)]) {
     const double w = [power_value doubleValue];
     if (isfinite(w) && w >= 0.0 && w <= 1000.0) {
-      // nvtop stores power in milliwatts; the driver reports whole watts.
+      // nvtop stores power in milliwatts.
       sample->power_draw_mw = (unsigned)(w * 1000.0 + 0.5);
       sample->power_draw_valid = true;
     }

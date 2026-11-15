@@ -109,6 +109,71 @@ TEST(AppleDynamicInfo, IgnoresMalformedValuesAndCapsUtilization) {
   }
 }
 
+TEST(AppleDynamicInfo, ParsesDiscreteAmdStatistics) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"PerformanceStatistics" : @{
+        @"Device Utilization %" : @0,
+        @"GPU Activity(%)" : @37,
+        @"inUseVidMemoryBytes" : @8589934592ULL,
+        @"Temperature(C)" : @61.4,
+        @"Total Power(W)" : @43.6,
+        @"Core Clock(MHz)" : @2291,
+        @"Memory Clock(MHz)" : @1984,
+        @"Fan Speed(%)" : @42,
+      },
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_TRUE(sample.gpu_util_rate_valid);
+    EXPECT_EQ(sample.gpu_util_rate, 0u);
+    EXPECT_TRUE(sample.gpu_activity_rate_valid);
+    EXPECT_EQ(sample.gpu_activity_rate, 37u);
+    EXPECT_TRUE(sample.used_memory_valid);
+    EXPECT_EQ(sample.used_memory, UINT64_C(8589934592));
+    EXPECT_TRUE(sample.gpu_temp_valid);
+    EXPECT_EQ(sample.gpu_temp, 61u);
+    EXPECT_TRUE(sample.power_draw_valid);
+    EXPECT_EQ(sample.power_draw_mw, 43600u);
+    EXPECT_TRUE(sample.gpu_clock_speed_valid);
+    EXPECT_EQ(sample.gpu_clock_speed, 2291u);
+    EXPECT_TRUE(sample.mem_clock_speed_valid);
+    EXPECT_EQ(sample.mem_clock_speed, 1984u);
+    EXPECT_TRUE(sample.fan_speed_valid);
+    EXPECT_EQ(sample.fan_speed, 42u);
+  }
+}
+
+TEST(AppleDynamicInfo, RejectsImplausibleDiscreteAmdValues) {
+  @autoreleasepool {
+    NSDictionary *negative_values = @{
+      @"PerformanceStatistics" : @{
+        @"Temperature(C)" : @(-12.5),
+        @"Total Power(W)" : @(-1.0),
+        @"Fan Speed(%)" : @250,
+      },
+    };
+    NSDictionary *out_of_range_values = @{
+      @"PerformanceStatistics" : @{
+        @"Temperature(C)" : @260.0,
+        @"Total Power(W)" : @1200.0,
+      },
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)negative_values, &sample));
+    EXPECT_FALSE(sample.gpu_temp_valid);
+    EXPECT_FALSE(sample.power_draw_valid);
+    EXPECT_TRUE(sample.fan_speed_valid);
+    EXPECT_EQ(sample.fan_speed, 100u);
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)out_of_range_values, &sample));
+    EXPECT_FALSE(sample.gpu_temp_valid);
+    EXPECT_FALSE(sample.power_draw_valid);
+  }
+}
+
 TEST(ApplePowerInfo, ConvertsEnergyUnitsToNanojoules) {
   uint64_t energy;
 
