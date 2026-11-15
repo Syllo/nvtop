@@ -159,6 +159,7 @@ static void *libhlml_handle;
 static hlml_return_t last_hlml_return_status = HLML_SUCCESS;
 static char didnt_call_gpuinfo_init[] = "The Gaudi extraction has not been initialized, please call "
                                         "gpuinfo_gaudi_init\n";
+static char already_enumerated_error[] = "The Gaudi devices are already enumerated\n";
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
 #define GAUDI_MAX_CHIP_SENSORS 16
@@ -471,6 +472,10 @@ static bool gpuinfo_gaudi_get_device_handles(struct list_head *devices, unsigned
   *count = 0;
   if (!libhlml_handle)
     return false;
+  if (gaudi_devices) {
+    local_error_string = already_enumerated_error;
+    return false;
+  }
 
   unsigned num_devices;
   last_hlml_return_status = hlml_device_get_count(&num_devices);
