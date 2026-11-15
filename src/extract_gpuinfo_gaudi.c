@@ -54,13 +54,17 @@
 
 /*
  * Subset of habanalabs/hlml.h, transcribed from the 1.24 SDK, declared here so
- * that building nvtop does not require the Habana SDK headers. The output
- * structures are part of the libhlml ABI: the library writes the size of its
- * own structure into the object passed by the caller, so the layout must match
- * the header exactly. The assertions below document that ABI and catch
- * accidental edits, but they cannot detect a newer libhlml that has grown one
- * of these structures, because the vendor header is not available at build
- * time. Keep this block in sync with the SDK when it bumps its API.
+ * that building nvtop does not require the Habana SDK headers.
+ *
+ * The output structures are part of the libhlml ABI: the library writes the
+ * size of its own structure into the object passed by the caller, and the API
+ * has no size negotiation. A newer library that grew a structure would
+ * therefore overwrite whatever follows nvtop's object. Each output structure
+ * ends with a reserved tail, much larger than any plausible addition, so that
+ * ABI growth lands in our object instead of on the stack. The assertions below
+ * document the transcribed 1.24 prefix and catch accidental edits; they cannot
+ * check the vendor structure size, so bump the reserve if a future header
+ * outgrows it.
  */
 
 typedef enum {
@@ -85,6 +89,12 @@ typedef void *hlml_device_t;
 #define HLML_PCI_ADDR_LEN ((HLML_PCI_DOMAIN_LEN) + 10)
 #define HLML_PCI_LINK_INFO_LEN 10
 
+// 6x the largest known structure (hlml_pci_info_t, 84 bytes). The query
+// structures hold a handful of counters; a future version is very unlikely to
+// need more than this. The static assertion below refuses to let it shrink.
+#define HLML_ABI_RESERVED_SIZE 512
+_Static_assert(HLML_ABI_RESERVED_SIZE >= 256, "the reserved space for HLML ABI growth is too small");
+
 // Part of the hlml_pci_info_t ABI; this backend reads the link state from sysfs.
 typedef struct {
   char link_speed[HLML_PCI_LINK_INFO_LEN];
@@ -100,8 +110,9 @@ typedef struct {
   unsigned int domain;
   unsigned int pci_device_id;
   hlml_pci_cap_t caps;
-  unsigned int pci_rev;       // Part of the ABI; unused
-  unsigned int pci_subsys_id; // Part of the ABI; unused
+  unsigned int pci_rev;                           // Part of the ABI; unused
+  unsigned int pci_subsys_id;                     // Part of the ABI; unused
+  unsigned char reserved[HLML_ABI_RESERVED_SIZE]; // Absorbs growth in a newer libhlml; never read
 } hlml_pci_info_t;
 
 typedef enum {
@@ -110,13 +121,15 @@ typedef enum {
 
 typedef struct {
   unsigned int aip;
-  unsigned int memory; // Part of the ABI; HLML reports it as a percentage of used memory
+  unsigned int memory;                            // Part of the ABI; HLML reports it as a percentage of used memory
+  unsigned char reserved[HLML_ABI_RESERVED_SIZE]; // Absorbs growth in a newer libhlml; never read
 } hlml_utilization_t;
 
 typedef struct {
   unsigned long long free;
   unsigned long long total;
   unsigned long long used;
+  unsigned char reserved[HLML_ABI_RESERVED_SIZE]; // Absorbs growth in a newer libhlml; never read
 } hlml_memory_t;
 
 typedef enum {
@@ -140,8 +153,9 @@ struct hlml_shm_data {
   uint64_t used_mem_in_bytes;
 } __attribute__((packed));
 
-// The sizes and offsets of the structures libhlml writes into. These document
-// the transcribed 1.24 ABI: update them together with the definitions above.
+// The transcribed 1.24 prefix of the structures libhlml writes into, and the
+// total size with the reserved tail. Keep the offsets in sync with the
+// definitions above; the reserve may grow if a future SDK outgrows it.
 _Static_assert(sizeof(hlml_pci_cap_t) == 40, "hlml_pci_cap_t does not match the HLML 1.24 ABI");
 _Static_assert(offsetof(hlml_pci_info_t, bus_id) == 4, "hlml_pci_info_t.bus_id does not match the HLML 1.24 ABI");
 _Static_assert(offsetof(hlml_pci_info_t, device) == 24, "hlml_pci_info_t.device does not match the HLML 1.24 ABI");
@@ -149,9 +163,16 @@ _Static_assert(offsetof(hlml_pci_info_t, caps) == 36, "hlml_pci_info_t.caps does
 _Static_assert(offsetof(hlml_pci_info_t, pci_rev) == 76, "hlml_pci_info_t.pci_rev does not match the HLML 1.24 ABI");
 _Static_assert(offsetof(hlml_pci_info_t, pci_subsys_id) == 80,
                "hlml_pci_info_t.pci_subsys_id does not match the HLML 1.24 ABI");
-_Static_assert(sizeof(hlml_pci_info_t) == 84, "hlml_pci_info_t does not match the HLML 1.24 ABI");
-_Static_assert(sizeof(hlml_utilization_t) == 8, "hlml_utilization_t does not match the HLML 1.24 ABI");
-_Static_assert(sizeof(hlml_memory_t) == 24, "hlml_memory_t does not match the HLML 1.24 ABI");
+_Static_assert(offsetof(hlml_pci_info_t, reserved) == 84, "hlml_pci_info_t prefix does not match the HLML 1.24 ABI");
+_Static_assert(sizeof(hlml_pci_info_t) == 84 + HLML_ABI_RESERVED_SIZE,
+               "hlml_pci_info_t reserved tail is not accounted for");
+_Static_assert(offsetof(hlml_utilization_t, reserved) == 8,
+               "hlml_utilization_t prefix does not match the HLML 1.24 ABI");
+_Static_assert(sizeof(hlml_utilization_t) == 8 + HLML_ABI_RESERVED_SIZE,
+               "hlml_utilization_t reserved tail is not accounted for");
+_Static_assert(offsetof(hlml_memory_t, reserved) == 24, "hlml_memory_t prefix does not match the HLML 1.24 ABI");
+_Static_assert(sizeof(hlml_memory_t) == 24 + HLML_ABI_RESERVED_SIZE,
+               "hlml_memory_t reserved tail is not accounted for");
 _Static_assert(sizeof(struct hlml_shm_data) == 24, "hlml_shm_data does not match the HLML shared memory ABI");
 
 #define HLML_SHM_PATH_PREFIX "/dev/shm/mem_usage_accel"
