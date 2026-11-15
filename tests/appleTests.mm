@@ -297,6 +297,7 @@ TEST(AppleProcessInfo, ParsesAndSumsAppUsage) {
     EXPECT_EQ(sample.pid, 42);
     EXPECT_TRUE(sample.gpu_time_valid);
     EXPECT_EQ(sample.gpu_time, 200u);
+    EXPECT_EQ(sample.gpu_time_queue_count, 3u);
   }
 }
 
@@ -309,10 +310,12 @@ TEST(AppleProcessInfo, PreservesPidWhenAppUsageIsUnavailable) {
     ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)missing_usage, &sample));
     EXPECT_EQ(sample.pid, 7);
     EXPECT_FALSE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
 
     ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)empty_usage, &sample));
     EXPECT_EQ(sample.pid, 8);
     EXPECT_FALSE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
   }
 }
 
@@ -332,6 +335,27 @@ TEST(AppleProcessInfo, IgnoresMalformedAppUsageEntries) {
     ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
     EXPECT_TRUE(sample.gpu_time_valid);
     EXPECT_EQ(sample.gpu_time, 25u);
+    EXPECT_EQ(sample.gpu_time_queue_count, 1u);
+  }
+}
+
+TEST(AppleProcessInfo, ReportsNoQueueWhenAppUsageIsEntirelyMalformed) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"IOUserClientCreator" : @"pid 42, test",
+      @"AppUsage" : @[
+        @"not a dictionary",
+        @{@"API" : @"Metal"},
+        @{@"accumulatedGPUTime" : @(-1)},
+      ],
+    };
+    struct gpuinfo_apple_process_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_EQ(sample.pid, 42);
+    EXPECT_FALSE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time, 0u);
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
   }
 }
 

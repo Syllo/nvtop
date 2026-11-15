@@ -36,6 +36,9 @@ extern "C" {
 struct gpuinfo_apple_process_sample {
   pid_t pid;
   uint64_t gpu_time;
+  // Number of AppUsage entries summed into gpu_time. Only meaningful when
+  // gpu_time_valid is set.
+  unsigned gpu_time_queue_count;
   bool gpu_time_valid;
 };
 

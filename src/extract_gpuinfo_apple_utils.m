@@ -85,6 +85,7 @@ bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuin
     return true;
 
   uint64_t total_gpu_time = 0;
+  unsigned queue_count = 0;
   for (id app_info in app_usage) {
     if (![app_info isKindOfClass:[NSDictionary class]])
       continue;
@@ -98,10 +99,12 @@ bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuin
       return true;
     }
     total_gpu_time += gpu_time;
-    sample->gpu_time_valid = true;
+    ++queue_count;
   }
 
   sample->gpu_time = total_gpu_time;
+  sample->gpu_time_queue_count = queue_count;
+  sample->gpu_time_valid = queue_count > 0;
   return true;
 }
 

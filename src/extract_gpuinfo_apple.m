@@ -55,6 +55,9 @@ struct __attribute__((__packed__)) apple_process_cache_id {
 struct apple_process_info_cache {
   struct apple_process_cache_id client_id;
   uint64_t gpu_time;
+  // Number of AppUsage entries represented by gpu_time; only meaningful while
+  // gpu_time is valid. A delta requires it to match the new sample's count.
+  unsigned gpu_time_queue_count;
   nvtop_time last_measurement_tstamp;
   unsigned char valid[(apple_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
   UT_hash_handle hh;
@@ -328,7 +331,12 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
             HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &client_id, cache_entry);
             if (cache_entry) {
               HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
-              if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time)) {
+              // A new or closed AppUsage entry changes the summed counter by a whole
+              // queue's lifetime, which is not a rate over this interval. Re-baseline
+              // instead, like the counter-reset case handled by
+              // gpuinfo_apple_calculate_gpu_usage.
+              if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time) &&
+                  cache_entry->gpu_time_queue_count == sample.gpu_time_queue_count) {
                 const uint64_t time_elapsed =
                     nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
                 gpu_usage_valid = gpuinfo_apple_calculate_gpu_usage(cache_entry->gpu_time, sample.gpu_time,
@@ -342,8 +350,10 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
 
             if (cache_entry) {
               RESET_ALL(cache_entry->valid);
-              if (sample.gpu_time_valid)
+              if (sample.gpu_time_valid) {
                 SET_APPLE_CACHE(cache_entry, gpu_time, sample.gpu_time);
+                cache_entry->gpu_time_queue_count = sample.gpu_time_queue_count;
+              }
               cache_entry->last_measurement_tstamp = current_time;
               HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
             }
