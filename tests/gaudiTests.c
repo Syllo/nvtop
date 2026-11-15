@@ -1,8 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 #include <dlfcn.h>
+#include <fcntl.h>
+#include <ftw.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 /* Exercise the backend with deterministic HLML responses, without a driver. */
 #include "../src/extract_gpuinfo_gaudi.c"
@@ -325,6 +331,246 @@ static int test_aip_channel_count(void) {
   return 0;
 }
 
+static int test_temperature_config(void) {
+  char path[] = "gaudi-sensors-XXXXXX";
+  int fd = mkstemp(path);
+  CHECK(fd >= 0);
+  const char *config = "chip \"TEST-pci-*\"\n"
+                       "    label temp1 \"On Chip 0\"\n"
+                       "    label temp2 \"On Chip 1\"\n"
+                       "    label temp3 \"HBM 0\"\n"
+                       "    ignore temp2\n"
+                       "    set temp1_max 90\n"
+                       "chip \"OTHER-pci-*\"\n"
+                       "    label temp4 \"On Chip 9\"\n";
+  ssize_t written = write(fd, config, strlen(config));
+  close(fd);
+  CHECK(written == (ssize_t)strlen(config));
+
+  bool on_chip[GAUDI_MAX_HWMON_CHANNELS] = {false};
+  bool ignored[GAUDI_MAX_HWMON_CHANNELS] = {false};
+  parse_temperature_config(path, "TEST-pci-1900", on_chip, ignored);
+  unlink(path);
+
+  CHECK(on_chip[1]);
+  CHECK(on_chip[2]);
+  CHECK(!on_chip[3]);
+  CHECK(!on_chip[4]);
+  CHECK(ignored[2]);
+  CHECK(!ignored[1]);
+
+  unsigned sensors[GAUDI_MAX_CHIP_SENSORS];
+  CHECK(select_chip_sensors(on_chip, ignored, sensors, GAUDI_MAX_CHIP_SENSORS) == 1);
+  CHECK(sensors[0] == 1);
+  CHECK(!aip_channel_count_matches("GAUDI2", 1));
+  return 0;
+}
+
+static int test_path_index(void) {
+  CHECK(path_index("/dev/accel/accel12", "accel") == 12);
+  CHECK(path_index("/dev/accel/accel3 (deleted)", "accel") == 3);
+  CHECK(path_index("/dev/accel/accel_controlD0", "accel") == -1);
+  CHECK(path_index("/dev/accel/accel", "accel") == -1);
+  CHECK(path_index("/dev/accel/accel12x", "accel") == -1);
+  CHECK(path_index("/dev/shm/mem_usage_accel5", "mem_usage_accel") == 5);
+  CHECK(path_index("/dev/shm/mem_usage_accel5 (deleted)", "mem_usage_accel") == 5);
+  CHECK(path_index("accel0", "accel") == 0);
+  CHECK(path_index("/tmp/not-accel0", "accel") == -1);
+  return 0;
+}
+
+static int remove_tree_entry(const char *path, const struct stat *statbuf, int type, struct FTW *ftw) {
+  (void)statbuf;
+  (void)type;
+  (void)ftw;
+  return remove(path);
+}
+
+static const struct gaudi_process_entry *find_scan_entry(pid_t pid) {
+  for (unsigned i = 0; i < scan_entries_count; ++i) {
+    if (scan_entries[i].pid == pid)
+      return &scan_entries[i];
+  }
+  return NULL;
+}
+
+static int write_shm_file(const char *path, uint64_t used) {
+  int fd = open(path, O_CREAT | O_WRONLY | O_TRUNC, 0600);
+  if (fd < 0)
+    return -1;
+  struct hlml_shm_data data = {.version = 1, .timestamp = 0, .used_mem_in_bytes = used};
+  ssize_t written = write(fd, &data, sizeof(data));
+  close(fd);
+  return written == (ssize_t)sizeof(data) ? 0 : -1;
+}
+
+static int test_fake_proc_scan(void) {
+  char root[] = "gaudi-proc-XXXXXX";
+  char root_abs[PATH_MAX];
+  char path[PATH_MAX];
+  char target[PATH_MAX];
+  const char *pids[] = {"123", "456", "457", "458", "460", "789"};
+  struct stat null_stat;
+
+  CHECK(mkdtemp(root) != NULL);
+  CHECK(realpath(root, root_abs) != NULL);
+
+  snprintf(path, sizeof(path), "%s/dev", root_abs);
+  CHECK(mkdir(path, 0700) == 0);
+  snprintf(path, sizeof(path), "%s/dev/accel", root_abs);
+  CHECK(mkdir(path, 0700) == 0);
+  snprintf(path, sizeof(path), "%s/dev/shm", root_abs);
+  CHECK(mkdir(path, 0700) == 0);
+
+  for (size_t i = 0; i < sizeof(pids) / sizeof(pids[0]); ++i) {
+    snprintf(path, sizeof(path), "%s/%s", root_abs, pids[i]);
+    CHECK(mkdir(path, 0700) == 0);
+    snprintf(path, sizeof(path), "%s/%s/fd", root_abs, pids[i]);
+    CHECK(mkdir(path, 0700) == 0);
+  }
+
+  snprintf(path, sizeof(path), "%s/dev/accel/accel0", root_abs);
+  CHECK(symlink("/dev/null", path) == 0);
+  snprintf(path, sizeof(path), "%s/dev/accel/accel1", root_abs);
+  CHECK(symlink("/dev/zero", path) == 0);
+  snprintf(path, sizeof(path), "%s/dev/accel/accel5", root_abs);
+  CHECK(symlink("/dev/null", path) == 0);
+
+  snprintf(path, sizeof(path), "%s/dev/shm/mem_usage_accel0", root_abs);
+  CHECK(write_shm_file(path, 12345) == 0);
+  snprintf(path, sizeof(path), "%s/dev/shm/mem_usage_accel5", root_abs);
+  CHECK(write_shm_file(path, 54321) == 0);
+  snprintf(path, sizeof(path), "%s/dev/shm/mem_usage_accel6", root_abs);
+  CHECK(write_shm_file(path, 60000) == 0);
+
+  /* pid 123: accel0 and shm0, matched by index. */
+  snprintf(target, sizeof(target), "%s/dev/accel/accel0", root_abs);
+  snprintf(path, sizeof(path), "%s/123/fd/0", root_abs);
+  CHECK(symlink(target, path) == 0);
+  snprintf(target, sizeof(target), "%s/dev/shm/mem_usage_accel0", root_abs);
+  snprintf(path, sizeof(path), "%s/123/fd/1", root_abs);
+  CHECK(symlink(target, path) == 0);
+
+  /* pid 456: accel0 and shm5; one device and one shm use the fallback. */
+  snprintf(target, sizeof(target), "%s/dev/accel/accel0", root_abs);
+  snprintf(path, sizeof(path), "%s/456/fd/0", root_abs);
+  CHECK(symlink(target, path) == 0);
+  snprintf(target, sizeof(target), "%s/dev/shm/mem_usage_accel5", root_abs);
+  snprintf(path, sizeof(path), "%s/456/fd/1", root_abs);
+  CHECK(symlink(target, path) == 0);
+
+  /* pid 457: different device node. */
+  snprintf(target, sizeof(target), "%s/dev/accel/accel1", root_abs);
+  snprintf(path, sizeof(path), "%s/457/fd/0", root_abs);
+  CHECK(symlink(target, path) == 0);
+
+  /* pid 458: accel0 without shm. */
+  snprintf(target, sizeof(target), "%s/dev/accel/accel0", root_abs);
+  snprintf(path, sizeof(path), "%s/458/fd/0", root_abs);
+  CHECK(symlink(target, path) == 0);
+
+  /* pid 460: accel0 with two unrelated shm files; no match and no fallback. */
+  snprintf(target, sizeof(target), "%s/dev/accel/accel0", root_abs);
+  snprintf(path, sizeof(path), "%s/460/fd/0", root_abs);
+  CHECK(symlink(target, path) == 0);
+  snprintf(target, sizeof(target), "%s/dev/shm/mem_usage_accel5", root_abs);
+  snprintf(path, sizeof(path), "%s/460/fd/1", root_abs);
+  CHECK(symlink(target, path) == 0);
+  snprintf(target, sizeof(target), "%s/dev/shm/mem_usage_accel6", root_abs);
+  snprintf(path, sizeof(path), "%s/460/fd/2", root_abs);
+  CHECK(symlink(target, path) == 0);
+
+  /* pid 789: remapped accel5 plus shm0 and shm6, matched through the host minor. */
+  snprintf(target, sizeof(target), "%s/dev/accel/accel5", root_abs);
+  snprintf(path, sizeof(path), "%s/789/fd/0", root_abs);
+  CHECK(symlink(target, path) == 0);
+  snprintf(target, sizeof(target), "%s/dev/shm/mem_usage_accel0", root_abs);
+  snprintf(path, sizeof(path), "%s/789/fd/1", root_abs);
+  CHECK(symlink(target, path) == 0);
+  snprintf(target, sizeof(target), "%s/dev/shm/mem_usage_accel6", root_abs);
+  snprintf(path, sizeof(path), "%s/789/fd/2", root_abs);
+  CHECK(symlink(target, path) == 0);
+
+  CHECK(stat("/dev/null", &null_stat) == 0);
+  free(gaudi_devices);
+  gaudi_devices = calloc(1, sizeof(*gaudi_devices));
+  CHECK(gaudi_devices != NULL);
+  gaudi_device_count = 1;
+  gaudi_devices[0].rdev = null_stat.st_rdev;
+  gaudi_devices[0].rdev_valid = true;
+  gaudi_devices[0].minor = 0;
+  gaudi_devices[0].minor_valid = true;
+
+  free(scan_entries);
+  scan_entries = NULL;
+  scan_entries_count = 0;
+  scan_entries_size = 0;
+  scan_generation = 0;
+  gaudi_proc_root = root_abs;
+
+  gaudi_scan_processes();
+
+  CHECK(scan_entries_count == 5);
+  const struct gaudi_process_entry *entry = find_scan_entry(123);
+  CHECK(entry != NULL && entry->device_index == 0 && entry->memory_valid);
+  CHECK(entry->memory == 12345);
+
+  entry = find_scan_entry(456);
+  CHECK(entry != NULL && entry->memory_valid);
+  CHECK(entry->memory == 54321);
+  CHECK(find_scan_entry(457) == NULL);
+  entry = find_scan_entry(458);
+  CHECK(entry != NULL && !entry->memory_valid);
+  entry = find_scan_entry(460);
+  CHECK(entry != NULL && !entry->memory_valid);
+  entry = find_scan_entry(789);
+  CHECK(entry != NULL && entry->memory_valid);
+  CHECK(entry->memory == 12345);
+
+  gaudi_proc_root = "/proc";
+  free(gaudi_devices);
+  gaudi_devices = NULL;
+  gaudi_device_count = 0;
+  free(scan_entries);
+  scan_entries = NULL;
+  scan_entries_count = 0;
+  scan_entries_size = 0;
+  scan_generation = 0;
+  CHECK(nftw(root_abs, remove_tree_entry, 64, FTW_DEPTH | FTW_PHYS) == 0);
+  return 0;
+}
+
+static int test_sampler_request(void) {
+  free(gaudi_devices);
+  gaudi_devices = calloc(2, sizeof(*gaudi_devices));
+  CHECK(gaudi_devices != NULL);
+  gaudi_device_count = 2;
+
+  gaudi_devices[0].refresh_requested = true;
+  CHECK(gaudi_take_sample_request(&gaudi_devices[0]));
+  CHECK(!gaudi_devices[0].refresh_requested);
+  CHECK(!gaudi_take_sample_request(&gaudi_devices[0]));
+  CHECK(!gaudi_any_sample_request());
+
+  gaudi_devices[1].refresh_requested = true;
+  CHECK(gaudi_any_sample_request());
+  CHECK(gaudi_take_sample_request(&gaudi_devices[1]));
+  CHECK(!gaudi_any_sample_request());
+
+  gaudi_devices[0].refresh_requested = true;
+  gaudi_devices[1].refresh_requested = true;
+  CHECK(gaudi_any_sample_request());
+  CHECK(gaudi_take_sample_request(&gaudi_devices[0]));
+  CHECK(gaudi_any_sample_request());
+  CHECK(gaudi_take_sample_request(&gaudi_devices[1]));
+  CHECK(!gaudi_any_sample_request());
+
+  free(gaudi_devices);
+  gaudi_devices = NULL;
+  gaudi_device_count = 0;
+  return 0;
+}
+
 int main(void) {
   CHECK(test_double_enumeration() == 0);
   CHECK(test_abi_growth_tolerance() == 0);
@@ -333,6 +579,10 @@ int main(void) {
   CHECK(test_pci_chip_address() == 0);
   CHECK(test_device_naming() == 0);
   CHECK(test_aip_channel_count() == 0);
+  CHECK(test_temperature_config() == 0);
+  CHECK(test_path_index() == 0);
+  CHECK(test_fake_proc_scan() == 0);
+  CHECK(test_sampler_request() == 0);
   puts("Gaudi backend tests passed");
   return 0;
 }

@@ -216,6 +216,7 @@ struct gaudi_process_entry {
   unsigned long long memory;
 };
 static unsigned scan_generation;
+static const char *gaudi_proc_root = "/proc";
 static unsigned scan_entries_count;
 static unsigned scan_entries_size;
 static struct gaudi_process_entry *scan_entries;
@@ -449,6 +450,51 @@ static bool aip_channel_count_matches(const char *device_type, unsigned selected
   return expected == 0 || selected == expected;
 }
 
+static void parse_temperature_config(const char *config_path, const char *chip_id, bool *on_chip, bool *ignored) {
+  FILE *conf = fopen(config_path, "r");
+  if (!conf)
+    return;
+  bool in_matching_chip = false;
+  char line[512];
+  while (fgets(line, sizeof(line), conf)) {
+    char *statement = line;
+    while (isspace((unsigned char)*statement))
+      statement++;
+    unsigned channel;
+    char label[64];
+    if (strncmp(statement, "chip", 4) == 0 && isspace((unsigned char)statement[4])) {
+      in_matching_chip = false;
+      char *pattern = statement + 4;
+      while ((pattern = strchr(pattern, '"')) != NULL) {
+        char *pattern_end = strchr(pattern + 1, '"');
+        if (!pattern_end)
+          break;
+        *pattern_end = '\0';
+        in_matching_chip = in_matching_chip || fnmatch(pattern + 1, chip_id, 0) == 0;
+        pattern = pattern_end + 1;
+      }
+    } else if (!in_matching_chip) {
+      continue;
+    } else if (sscanf(statement, "label temp%u \"%63[^\"]\"", &channel, label) == 2) {
+      if (channel < GAUDI_MAX_HWMON_CHANNELS && strncmp(label, "On Chip", 7) == 0)
+        on_chip[channel] = true;
+    } else if (sscanf(statement, "ignore temp%u", &channel) == 1) {
+      if (channel < GAUDI_MAX_HWMON_CHANNELS)
+        ignored[channel] = true;
+    }
+  }
+  fclose(conf);
+}
+
+static unsigned select_chip_sensors(const bool *on_chip, const bool *ignored, unsigned *sensors, unsigned max) {
+  unsigned count = 0;
+  for (unsigned channel = 0; channel < GAUDI_MAX_HWMON_CHANNELS && count < max; ++channel) {
+    if (on_chip[channel] && !ignored[channel])
+      sensors[count++] = channel;
+  }
+  return count;
+}
+
 // libsensors names a PCI hwmon chip "<name>-pci-<address>", with
 // address = (domain << 16) + (bus << 8) + (slot << 3) + function.
 static bool pci_chip_address(const char *bdf, unsigned *address) {
@@ -500,47 +546,10 @@ static void find_chip_temperature_sensors(struct gpu_info_gaudi *gpu_info) {
   else
     snprintf(chip_id, sizeof(chip_id), "%s-pci-0", name);
 
-  FILE *conf = fopen(HL_SENSORS_CONF, "r");
-  if (!conf)
-    return;
   bool on_chip[GAUDI_MAX_HWMON_CHANNELS] = {false};
   bool ignored[GAUDI_MAX_HWMON_CHANNELS] = {false};
-  bool in_matching_chip = false;
-  char line[512];
-  while (fgets(line, sizeof(line), conf)) {
-    char *statement = line;
-    while (isspace((unsigned char)*statement))
-      statement++;
-    unsigned channel;
-    char label[64];
-    if (strncmp(statement, "chip", 4) == 0 && isspace((unsigned char)statement[4])) {
-      in_matching_chip = false;
-      char *pattern = statement + 4;
-      while ((pattern = strchr(pattern, '"')) != NULL) {
-        char *pattern_end = strchr(pattern + 1, '"');
-        if (!pattern_end)
-          break;
-        *pattern_end = '\0';
-        in_matching_chip = in_matching_chip || fnmatch(pattern + 1, chip_id, 0) == 0;
-        pattern = pattern_end + 1;
-      }
-    } else if (!in_matching_chip) {
-      continue;
-    } else if (sscanf(statement, "label temp%u \"%63[^\"]\"", &channel, label) == 2) {
-      if (channel < GAUDI_MAX_HWMON_CHANNELS && strncmp(label, "On Chip", 7) == 0)
-        on_chip[channel] = true;
-    } else if (sscanf(statement, "ignore temp%u", &channel) == 1) {
-      if (channel < GAUDI_MAX_HWMON_CHANNELS)
-        ignored[channel] = true;
-    }
-  }
-  fclose(conf);
-
-  for (unsigned channel = 0; channel < GAUDI_MAX_HWMON_CHANNELS && gpu_info->n_chip_sensors < GAUDI_MAX_CHIP_SENSORS;
-       ++channel) {
-    if (on_chip[channel] && !ignored[channel])
-      gpu_info->chip_sensors[gpu_info->n_chip_sensors++] = channel;
-  }
+  parse_temperature_config(HL_SENSORS_CONF, chip_id, on_chip, ignored);
+  gpu_info->n_chip_sensors = select_chip_sensors(on_chip, ignored, gpu_info->chip_sensors, GAUDI_MAX_CHIP_SENSORS);
 
   if (!aip_channel_count_matches(device_type, gpu_info->n_chip_sensors)) {
     // A partial or relabeled configuration would report the maximum of the
@@ -844,6 +853,21 @@ static void gaudi_sample_device(struct gpu_info_gaudi *gpu_info, struct gpuinfo_
     SET_GPUINFO_DYNAMIC(dynamic_info, power_draw_max, power);
 }
 
+// The caller holds sampler_lock.
+static bool gaudi_take_sample_request(struct gpu_info_gaudi *gpu_info) {
+  if (!gpu_info->refresh_requested)
+    return false;
+  gpu_info->refresh_requested = false;
+  return true;
+}
+
+static bool gaudi_any_sample_request(void) {
+  bool pending = false;
+  for (unsigned i = 0; i < gaudi_device_count; ++i)
+    pending = pending || gaudi_devices[i].refresh_requested;
+  return pending;
+}
+
 static void *gaudi_sampler_main(void *arg) {
   (void)arg;
   pthread_mutex_lock(&sampler_lock);
@@ -853,9 +877,8 @@ static void *gaudi_sampler_main(void *arg) {
 
     for (unsigned i = 0; !sampler_stop && i < gaudi_device_count; ++i) {
       struct gpu_info_gaudi *gpu_info = &gaudi_devices[i];
-      if (!gpu_info->refresh_requested)
+      if (!gaudi_take_sample_request(gpu_info))
         continue;
-      gpu_info->refresh_requested = false;
       pthread_mutex_unlock(&sampler_lock);
       struct gpuinfo_dynamic_info sample;
       gaudi_sample_device(gpu_info, &sample);
@@ -865,9 +888,7 @@ static void *gaudi_sampler_main(void *arg) {
     // Requests that arrived while sampling were picked up above if their turn
     // had not come yet. Any remaining request, for a device already visited,
     // keeps the sampler busy for another round.
-    sample_pending = false;
-    for (unsigned i = 0; i < gaudi_device_count; ++i)
-      sample_pending = sample_pending || gaudi_devices[i].refresh_requested;
+    sample_pending = gaudi_any_sample_request();
   }
   pthread_mutex_unlock(&sampler_lock);
   return NULL;
@@ -943,7 +964,7 @@ static void gaudi_scan_processes(void) {
   scan_entries_count = 0;
   scan_generation++;
 
-  DIR *proc_dir = opendir("/proc");
+  DIR *proc_dir = opendir(gaudi_proc_root);
   if (!proc_dir)
     return;
 
@@ -953,8 +974,8 @@ static void gaudi_scan_processes(void) {
       continue;
     pid_t pid = (pid_t)atoi(proc_dent->d_name);
 
-    char fd_dir_path[sizeof(proc_dent->d_name) + sizeof("/proc//fd")];
-    snprintf(fd_dir_path, sizeof(fd_dir_path), "/proc/%s/fd", proc_dent->d_name);
+    char fd_dir_path[512];
+    snprintf(fd_dir_path, sizeof(fd_dir_path), "%s/%s/fd", gaudi_proc_root, proc_dent->d_name);
     DIR *fd_dir = opendir(fd_dir_path);
     if (!fd_dir)
       continue;
