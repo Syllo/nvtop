@@ -878,14 +878,14 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
     unsigned criticalTemp;
     int nReadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_crit", "%u", &criticalTemp);
     if (nReadPatterns == 1) {
-      SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, criticalTemp);
+      SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, criticalTemp / 1000);
     }
 
     // Emergency/shutdown temperature
     unsigned emergencyTemp;
     nReadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_emergency", "%u", &emergencyTemp);
     if (nReadPatterns == 1) {
-      SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergencyTemp);
+      SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergencyTemp / 1000);
     }
   }
 
