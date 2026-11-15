@@ -31,22 +31,8 @@ static hlml_return_t fake_device_handle(unsigned index, hlml_device_t *device) {
   return HLML_SUCCESS;
 }
 
-static hlml_return_t fake_pci_info(hlml_device_t device, hlml_pci_info_t *pci) {
-  (void)device;
-  memset(pci, 0, sizeof(*pci));
-  snprintf(pci->bus_id, sizeof(pci->bus_id), "0000:19:00.0");
-  return HLML_SUCCESS;
-}
-
 /* Emulate a newer libhlml whose structure grew by this many bytes. */
 #define HLML_TEST_ABI_GROWTH 256
-
-static hlml_return_t growing_pci_info(hlml_device_t device, hlml_pci_info_t *pci) {
-  (void)device;
-  memset(pci, 0xA5, offsetof(hlml_pci_info_t, reserved) + HLML_TEST_ABI_GROWTH);
-  snprintf(pci->bus_id, sizeof(pci->bus_id), "0000:19:00.0");
-  return HLML_SUCCESS;
-}
 
 static hlml_return_t growing_utilization(hlml_device_t device, hlml_utilization_t *utilization) {
   (void)device;
@@ -83,7 +69,6 @@ static void install_fake_hlml(void) {
   hlml_shutdown = fake_shutdown;
   hlml_device_get_count = fake_device_count;
   hlml_device_get_handle_by_index = fake_device_handle;
-  hlml_device_get_pci_info = fake_pci_info;
   hlml_device_get_minor_number = fake_minor_number;
 }
 
@@ -99,6 +84,7 @@ static int test_double_enumeration(void) {
   CHECK(gpuinfo_gaudi_get_device_handles(&first, &count));
   CHECK(count == 1);
   CHECK(gaudi_device_count == 1);
+  CHECK(!strcmp(gaudi_devices[0].base.pdev, "gaudi-0"));
   CHECK(!list_empty(&first));
 
   /* Repeated enumeration must be rejected instead of indexing past the new array. */
@@ -130,13 +116,11 @@ static int test_abi_growth_tolerance(void) {
 
   shutdown_calls = 0;
   install_fake_hlml();
-  hlml_device_get_pci_info = growing_pci_info;
   hlml_device_get_utilization_rates = growing_utilization;
   hlml_device_get_memory_info = growing_memory_info;
 
   CHECK(gpuinfo_gaudi_get_device_handles(&devices, &count));
   CHECK(count == 1);
-  CHECK(!strcmp(gaudi_devices[0].base.pdev, "0000:19:00.0"));
 
   gaudi_sample_device(&gaudi_devices[0], &dynamic);
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&dynamic, gpu_util_rate));

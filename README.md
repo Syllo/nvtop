@@ -293,9 +293,9 @@ rx/tx throughput, and the processes using each device with their device memory.
   by a background thread and lags behind by at most one refresh interval.
 * Processes are found by scanning `/proc` for the `/dev/accel/accelN` device nodes, hence you need to run nvtop as root
   to see the processes of other users. Gaudi runs one compute context per device: the process memory is the value the
-  framework publishes in `/dev/shm/mem_usage_accelN` (as `hl-smi` shows it), or N/A when the framework does not
-  publish it. The process utilization is the device utilization when a single process can be identified as the
-  compute context (one device holder, or the single process publishing the framework memory).
+  framework integration (e.g. PyTorch or Paddle) publishes in `/dev/shm/mem_usage_accelN` (as `hl-smi` shows it), or
+  N/A when it does not publish it. The process utilization is the device utilization when a single process can be
+  identified as the compute context (one device holder, or the single process publishing the framework memory).
 * Chip temperature is read from the hwmon channels that the driver's `/etc/sensors.d/hl_sensors.conf` labels
   `On Chip ...`, avoiding a memory leak in HLML's temperature call. Only that file is read; relabeling or ignoring the
   sensors in other `sensors.d` files is not followed. If the file is absent, yields no matching sensors, or selects a

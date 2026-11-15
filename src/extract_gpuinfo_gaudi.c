@@ -29,9 +29,10 @@
  * thread; do not re-populate it at runtime after the sampler has started.
  *
  * HLML does not list processes. Like hl-smi, we scan /proc for file descriptors opened on the /dev/accel/accelN compute
- * node. Gaudi allows a single compute context per device; the framework (Synapse) publishes the memory used by this
- * context in the shared memory file /dev/shm/mem_usage_accelN, which the process keeps open, so we read it through
- * /proc/<pid>/fd to get the process memory usage (this works for processes living in containers too).
+ * node. Gaudi allows a single compute context per device; the framework integration (e.g. PyTorch or Paddle) publishes
+ * the memory used by this context in the shared memory file /dev/shm/mem_usage_accelN, which the process keeps open, so
+ * we read it through /proc/<pid>/fd to get the process memory usage (this works for processes living in containers
+ * too).
  */
 
 #include "nvtop/common.h"
@@ -86,35 +87,11 @@ typedef enum {
 
 typedef void *hlml_device_t;
 
-#define HLML_PCI_DOMAIN_LEN 9
-#define HLML_PCI_ADDR_LEN ((HLML_PCI_DOMAIN_LEN) + 10)
-#define HLML_PCI_LINK_INFO_LEN 10
-
-// 6x the largest known structure (hlml_pci_info_t, 84 bytes). The query
-// structures hold a handful of counters; a future version is very unlikely to
-// need more than this. The static assertion below refuses to let it shrink.
+// Much larger than the remaining query structures (24 and 8 bytes). They hold
+// a handful of counters; a future version is very unlikely to need more than
+// this. The static assertion below refuses to let the reserve shrink.
 #define HLML_ABI_RESERVED_SIZE 512
 _Static_assert(HLML_ABI_RESERVED_SIZE >= 256, "the reserved space for HLML ABI growth is too small");
-
-// Part of the hlml_pci_info_t ABI; this backend reads the link state from sysfs.
-typedef struct {
-  char link_speed[HLML_PCI_LINK_INFO_LEN];
-  char link_width[HLML_PCI_LINK_INFO_LEN];
-  char link_max_speed[HLML_PCI_LINK_INFO_LEN];
-  char link_max_width[HLML_PCI_LINK_INFO_LEN];
-} hlml_pci_cap_t;
-
-typedef struct {
-  unsigned int bus;
-  char bus_id[HLML_PCI_ADDR_LEN];
-  unsigned int device;
-  unsigned int domain;
-  unsigned int pci_device_id;
-  hlml_pci_cap_t caps;
-  unsigned int pci_rev;                           // Part of the ABI; unused
-  unsigned int pci_subsys_id;                     // Part of the ABI; unused
-  unsigned char reserved[HLML_ABI_RESERVED_SIZE]; // Absorbs growth in a newer libhlml; never read
-} hlml_pci_info_t;
 
 typedef enum {
   HLML_CLOCK_SOC = 0,
@@ -157,16 +134,6 @@ struct hlml_shm_data {
 // The transcribed 1.24 prefix of the structures libhlml writes into, and the
 // total size with the reserved tail. Keep the offsets in sync with the
 // definitions above; the reserve may grow if a future SDK outgrows it.
-_Static_assert(sizeof(hlml_pci_cap_t) == 40, "hlml_pci_cap_t does not match the HLML 1.24 ABI");
-_Static_assert(offsetof(hlml_pci_info_t, bus_id) == 4, "hlml_pci_info_t.bus_id does not match the HLML 1.24 ABI");
-_Static_assert(offsetof(hlml_pci_info_t, device) == 24, "hlml_pci_info_t.device does not match the HLML 1.24 ABI");
-_Static_assert(offsetof(hlml_pci_info_t, caps) == 36, "hlml_pci_info_t.caps does not match the HLML 1.24 ABI");
-_Static_assert(offsetof(hlml_pci_info_t, pci_rev) == 76, "hlml_pci_info_t.pci_rev does not match the HLML 1.24 ABI");
-_Static_assert(offsetof(hlml_pci_info_t, pci_subsys_id) == 80,
-               "hlml_pci_info_t.pci_subsys_id does not match the HLML 1.24 ABI");
-_Static_assert(offsetof(hlml_pci_info_t, reserved) == 84, "hlml_pci_info_t prefix does not match the HLML 1.24 ABI");
-_Static_assert(sizeof(hlml_pci_info_t) == 84 + HLML_ABI_RESERVED_SIZE,
-               "hlml_pci_info_t reserved tail is not accounted for");
 _Static_assert(offsetof(hlml_utilization_t, reserved) == 8,
                "hlml_utilization_t prefix does not match the HLML 1.24 ABI");
 _Static_assert(sizeof(hlml_utilization_t) == 8 + HLML_ABI_RESERVED_SIZE,
@@ -176,14 +143,11 @@ _Static_assert(sizeof(hlml_memory_t) == 24 + HLML_ABI_RESERVED_SIZE,
                "hlml_memory_t reserved tail is not accounted for");
 _Static_assert(sizeof(struct hlml_shm_data) == 24, "hlml_shm_data does not match the HLML shared memory ABI");
 
-#define HLML_SHM_PATH_PREFIX "/dev/shm/mem_usage_accel"
-
 static hlml_return_t (*hlml_init)(void);
 static hlml_return_t (*hlml_shutdown)(void);
 static hlml_return_t (*hlml_device_get_count)(unsigned int *device_count);
 static hlml_return_t (*hlml_device_get_handle_by_index)(unsigned int index, hlml_device_t *device);
 static hlml_return_t (*hlml_device_get_name)(hlml_device_t device, char *name, unsigned int length);
-static hlml_return_t (*hlml_device_get_pci_info)(hlml_device_t device, hlml_pci_info_t *pci);
 static hlml_return_t (*hlml_device_get_minor_number)(hlml_device_t device, unsigned int *minor_number);
 static hlml_return_t (*hlml_device_get_utilization_rates)(hlml_device_t device, hlml_utilization_t *utilization);
 static hlml_return_t (*hlml_device_get_memory_info)(hlml_device_t device, hlml_memory_t *memory);
@@ -207,6 +171,7 @@ static hlml_return_t last_hlml_return_status = HLML_SUCCESS;
 static char didnt_call_gpuinfo_init[] = "The Gaudi extraction has not been initialized, please call "
                                         "gpuinfo_gaudi_init\n";
 static char already_enumerated_error[] = "The Gaudi devices are already enumerated\n";
+static char dynamic_loader_error[256];
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
 #define GAUDI_MAX_CHIP_SENSORS 16
@@ -215,6 +180,7 @@ struct gpu_info_gaudi {
   struct gpu_info base;
   hlml_device_t handle;
   unsigned minor;
+  bool minor_valid;
   bool rdev_valid;
   dev_t rdev; // Device number of /dev/accel/accel<minor>
   char sysfs_path[64];
@@ -227,7 +193,6 @@ struct gpu_info_gaudi {
   // refresh_requested is a one-shot request set by refresh_dynamic_info and
   // cleared by the sampler when it picks the device up.
   bool refresh_requested;
-  bool has_sample;
   struct gpuinfo_dynamic_info sample;
 };
 
@@ -310,6 +275,30 @@ static const char *hlml_error_string(hlml_return_t status) {
   }
 }
 
+static void clear_hlml_symbols(void) {
+  hlml_init = NULL;
+  hlml_shutdown = NULL;
+  hlml_device_get_count = NULL;
+  hlml_device_get_handle_by_index = NULL;
+  hlml_device_get_name = NULL;
+  hlml_device_get_minor_number = NULL;
+  hlml_device_get_utilization_rates = NULL;
+  hlml_device_get_memory_info = NULL;
+  hlml_device_get_clock_info = NULL;
+  hlml_device_get_max_clock_info = NULL;
+  hlml_device_get_temperature = NULL;
+  hlml_device_get_temperature_threshold = NULL;
+  hlml_device_get_power_usage = NULL;
+  hlml_device_get_power_management_limit = NULL;
+  hlml_device_get_pcie_throughput = NULL;
+}
+
+static void set_loader_error(void) {
+  const char *error = dlerror();
+  snprintf(dynamic_loader_error, sizeof(dynamic_loader_error), "%s", error ? error : "unknown dynamic loader error");
+  local_error_string = dynamic_loader_error;
+}
+
 /*
  *
  * This function loads the libhlml.so shared object, initializes the
@@ -329,7 +318,7 @@ static bool gpuinfo_gaudi_init(void) {
   if (!libhlml_handle)
     libhlml_handle = dlopen("/usr/lib/habanalabs/libhlml.so", RTLD_LAZY);
   if (!libhlml_handle) {
-    local_error_string = dlerror();
+    set_loader_error();
     return false;
   }
 
@@ -346,7 +335,6 @@ static bool gpuinfo_gaudi_init(void) {
   LOAD_REQUIRED(hlml_device_get_count);
   LOAD_REQUIRED(hlml_device_get_handle_by_index);
   LOAD_REQUIRED(hlml_device_get_name);
-  LOAD_REQUIRED(hlml_device_get_pci_info);
   LOAD_REQUIRED(hlml_device_get_minor_number);
   LOAD_REQUIRED(hlml_device_get_utilization_rates);
   LOAD_REQUIRED(hlml_device_get_memory_info);
@@ -367,6 +355,7 @@ static bool gpuinfo_gaudi_init(void) {
     local_error_string = hlml_error_string(last_hlml_return_status);
     dlclose(libhlml_handle);
     libhlml_handle = NULL;
+    clear_hlml_symbols();
     return false;
   }
 
@@ -374,9 +363,10 @@ static bool gpuinfo_gaudi_init(void) {
   return true;
 
 init_error_clean_exit:
-  local_error_string = dlerror();
+  set_loader_error();
   dlclose(libhlml_handle);
   libhlml_handle = NULL;
+  clear_hlml_symbols();
   return false;
 }
 
@@ -399,6 +389,7 @@ static void gpuinfo_gaudi_shutdown(void) {
     libhlml_handle = NULL;
     local_error_string = didnt_call_gpuinfo_init;
   }
+  clear_hlml_symbols();
 
   free(gaudi_devices);
   gaudi_devices = NULL;
@@ -609,21 +600,21 @@ static bool gpuinfo_gaudi_get_device_handles(struct list_head *devices, unsigned
 
     gpu_info->base.vendor = &gpu_vendor_gaudi;
 
-    hlml_pci_info_t pci_info;
-    if (hlml_device_get_pci_info(gpu_info->handle, &pci_info) == HLML_SUCCESS) {
-      strncpy(gpu_info->base.pdev, pci_info.bus_id, PDEV_LEN - 1);
-      gpu_info->base.pdev[PDEV_LEN - 1] = '\0';
-    }
+    snprintf(gpu_info->base.pdev, sizeof(gpu_info->base.pdev), "gaudi-%x", i);
 
     if (hlml_device_get_minor_number(gpu_info->handle, &gpu_info->minor) == HLML_SUCCESS) {
       char dev_path[64];
       struct stat dev_stat;
+      gpu_info->minor_valid = true;
       snprintf(dev_path, sizeof(dev_path), "/dev/accel/accel%u", gpu_info->minor);
       if (stat(dev_path, &dev_stat) == 0 && S_ISCHR(dev_stat.st_mode)) {
         gpu_info->rdev = dev_stat.st_rdev;
         gpu_info->rdev_valid = true;
       }
       snprintf(gpu_info->sysfs_path, sizeof(gpu_info->sysfs_path), "/sys/class/accel/accel%u/device", gpu_info->minor);
+      char pci_addr[PDEV_LEN] = "";
+      if (read_device_attribute(gpu_info, "pci_addr", pci_addr, sizeof(pci_addr)) && pci_addr[0])
+        snprintf(gpu_info->base.pdev, sizeof(gpu_info->base.pdev), "%s", pci_addr);
       find_chip_temperature_sensors(gpu_info);
     }
 
@@ -756,6 +747,7 @@ static void gpuinfo_gaudi_populate_static_info(struct gpu_info *_gpu_info) {
   char architecture[32] = "";
   char family[32] = "";
   last_hlml_return_status = hlml_device_get_name(gpu_info->handle, board_name, sizeof(board_name));
+  board_name[sizeof(board_name) - 1] = '\0';
   if (last_hlml_return_status != HLML_SUCCESS)
     board_name[0] = '\0';
   if (read_device_attribute(gpu_info, "device_type", device_type, sizeof(device_type)))
@@ -815,7 +807,8 @@ static void gaudi_sample_device(struct gpu_info_gaudi *gpu_info, struct gpuinfo_
     SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory.total);
     SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory.used);
     SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, memory.free);
-    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, (unsigned)(memory.used * 100 / memory.total));
+    unsigned mem_util = (unsigned)(memory.used * 100 / memory.total);
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, mem_util > 100 ? 100 : mem_util);
   }
 
   // HLML does not report the current link on Gaudi2, sysfs does
@@ -868,7 +861,6 @@ static void *gaudi_sampler_main(void *arg) {
       gaudi_sample_device(gpu_info, &sample);
       pthread_mutex_lock(&sampler_lock);
       gpu_info->sample = sample;
-      gpu_info->has_sample = true;
     }
     // Requests that arrived while sampling were picked up above if their turn
     // had not come yet. Any remaining request, for a device already visited,
@@ -894,7 +886,6 @@ static void gpuinfo_gaudi_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     // First refresh: sample synchronously so that the first frame has data, then hand over to the sampler thread
     for (unsigned i = 0; i < gaudi_device_count; ++i) {
       gaudi_sample_device(&gaudi_devices[i], &gaudi_devices[i].sample);
-      gaudi_devices[i].has_sample = true;
     }
     if (pthread_create(&sampler_thread, NULL, gaudi_sampler_main, NULL) != 0) {
       // Keep sampling synchronously
@@ -930,14 +921,19 @@ static bool record_scan_entry(pid_t pid, unsigned device_index, bool memory_vali
   return true;
 }
 
-// Index N of a "<prefix>N" path, or -1
+// Index N of a basename "<prefix>N", or -1. Accepts a " (deleted)" suffix.
 static int path_index(const char *path, const char *prefix) {
+  const char *name = strrchr(path, '/');
+  name = name ? name + 1 : path;
   size_t prefix_len = strlen(prefix);
-  if (strncmp(path, prefix, prefix_len) != 0 || !isdigit((unsigned char)path[prefix_len]))
+  size_t name_len = strlen(name);
+  if (name_len <= prefix_len || strncmp(name, prefix, prefix_len) != 0 || !isdigit((unsigned char)name[prefix_len]))
     return -1;
   char *end;
-  long index = strtol(path + prefix_len, &end, 10);
-  return *end == '\0' ? (int)index : -1;
+  long index = strtol(name + prefix_len, &end, 10);
+  if (*end != '\0' && strcmp(end, " (deleted)") != 0)
+    return -1;
+  return (int)index;
 }
 
 #define GAUDI_MAX_FD_PER_PROCESS 8
@@ -994,26 +990,27 @@ static void gaudi_scan_processes(void) {
           ssize_t len = readlinkat(dirfd(fd_dir), fd_dent->d_name, link, sizeof(link) - 1);
           link[len > 0 ? len : 0] = '\0';
           device_index[n_devices] = i;
-          device_ns_index[n_devices] = path_index(link, "/dev/accel/accel");
+          device_ns_index[n_devices] = path_index(link, "accel");
           n_devices++;
           break;
         }
       } else if (S_ISREG(fd_stat.st_mode) && fd_stat.st_size >= (off_t)sizeof(struct hlml_shm_data) &&
-                 fd_stat.st_size <= 4096 && n_shm < GAUDI_MAX_FD_PER_PROCESS) {
-        // Later versions of the shared memory layout may append fields
+                 n_shm < GAUDI_MAX_FD_PER_PROCESS) {
         char link[256];
         ssize_t len = readlinkat(dirfd(fd_dir), fd_dent->d_name, link, sizeof(link) - 1);
         if (len <= 0)
           continue;
         link[len] = '\0';
-        int ns_index = path_index(link, HLML_SHM_PATH_PREFIX);
+        int ns_index = path_index(link, "mem_usage_accel");
         if (ns_index < 0)
           continue;
         int shm_fd = openat(dirfd(fd_dir), fd_dent->d_name, O_RDONLY);
         if (shm_fd < 0)
           continue;
         struct hlml_shm_data shm_data;
-        if (pread(shm_fd, &shm_data, sizeof(shm_data), 0) == (ssize_t)sizeof(shm_data) && shm_data.version >= 1) {
+        // Version 1 is the only layout we understand; a newer layout needs
+        // explicit support.
+        if (pread(shm_fd, &shm_data, sizeof(shm_data), 0) == (ssize_t)sizeof(shm_data) && shm_data.version == 1) {
           shm_ns_index[n_shm] = ns_index;
           shm_used[n_shm] = shm_data.used_mem_in_bytes;
           n_shm++;
@@ -1027,7 +1024,11 @@ static void gaudi_scan_processes(void) {
       bool memory_valid = false;
       unsigned long long memory = 0;
       for (unsigned j = 0; !memory_valid && j < n_shm; ++j) {
-        if (device_ns_index[i] >= 0 && device_ns_index[i] == shm_ns_index[j]) {
+        // Prefer the process-visible index; also try the host minor in case a
+        // container remapped the accel node.
+        if ((device_ns_index[i] >= 0 && device_ns_index[i] == shm_ns_index[j]) ||
+            (gaudi_devices[device_index[i]].minor_valid &&
+             shm_ns_index[j] == (int)gaudi_devices[device_index[i]].minor)) {
           memory_valid = true;
           memory = shm_used[j];
         }
