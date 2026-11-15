@@ -1227,7 +1227,18 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     // PICe throughput
     werase(dev->pcie_info);
-    if (device->static_info.integrated_graphics) {
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count)) {
+      // The device is attached over NVLink-C2C instead of PCIe, so reporting a
+      // PCIe generation and width would describe a link it does not use. NVML
+      // exposes no byte throughput counter for C2C either, so only the link
+      // count is shown, styled like the PCIe link it replaces.
+      wcolor_set(dev->pcie_info, cyan_color, NULL);
+      mvwprintw(dev->pcie_info, 0, 0, "C2C ");
+      wcolor_set(dev->pcie_info, magenta_color, NULL);
+      wprintw(dev->pcie_info, "LINK ");
+      wstandend(dev->pcie_info);
+      wprintw(dev->pcie_info, "%ux", device->static_info.c2c_link_count);
+    } else if (device->static_info.integrated_graphics) {
       wcolor_set(dev->pcie_info, cyan_color, NULL);
       mvwprintw(dev->pcie_info, 0, 0, "Integrated %s", DEVICE_UNIT_NAME(device));
     } else {
@@ -1243,20 +1254,22 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         wprintw(dev->pcie_info, "N/A");
     }
 
-    wcolor_set(dev->pcie_info, magenta_color, NULL);
-    wprintw(dev->pcie_info, " RX: ");
-    wstandend(dev->pcie_info);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
-      print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
-    else
-      wprintw(dev->pcie_info, "N/A");
-    wcolor_set(dev->pcie_info, magenta_color, NULL);
-    wprintw(dev->pcie_info, " TX: ");
-    wstandend(dev->pcie_info);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
-      print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
-    else
-      wprintw(dev->pcie_info, "N/A");
+    if (!GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count)) {
+      wcolor_set(dev->pcie_info, magenta_color, NULL);
+      wprintw(dev->pcie_info, " RX: ");
+      wstandend(dev->pcie_info);
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
+        print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
+      else
+        wprintw(dev->pcie_info, "N/A");
+      wcolor_set(dev->pcie_info, magenta_color, NULL);
+      wprintw(dev->pcie_info, " TX: ");
+      wstandend(dev->pcie_info);
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
+        print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
+      else
+        wprintw(dev->pcie_info, "N/A");
+    }
 
     wnoutrefresh(dev->pcie_info);
 
@@ -2989,6 +3002,12 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"pcie_tx\": \"%uKiB/s\",\n", indent_level_four, device->dynamic_info.pcie_tx);
     else
       printf("%s\"pcie_tx\": null,\n", indent_level_four);
+
+    // NVLink-C2C attachment, when the device uses one instead of a PCIe link
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count))
+      printf("%s\"c2c_link_count\": %u,\n", indent_level_four, device->static_info.c2c_link_count);
+    else
+      printf("%s\"c2c_link_count\": null,\n", indent_level_four);
 
     // Effective load rate
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate))

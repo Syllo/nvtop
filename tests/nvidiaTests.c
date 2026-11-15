@@ -23,6 +23,7 @@ static unsigned long long memory_total;
 static bool unavailable_process_memory;
 static bool unavailable_graphics_memory;
 static unsigned process_version;
+static unsigned c2c_link_count_value;
 
 static nvmlReturn_t memory_v2(nvmlDevice_t device, nvmlMemory_v2_t *memory) {
   (void)device;
@@ -101,8 +102,10 @@ static void setup(void) {
   unavailable_process_memory = false;
   unavailable_graphics_memory = false;
   process_version = 3;
+  c2c_link_count_value = 0;
   nvmlDeviceGetBusType = NULL;
   nvmlDeviceGetC2cModeInfoV = NULL;
+  nvmlDeviceGetFieldValues = NULL;
   memset(nvmlDeviceGetGraphicsRunningProcesses, 0, sizeof(nvmlDeviceGetGraphicsRunningProcesses));
   memset(nvmlDeviceGetComputeRunningProcesses, 0, sizeof(nvmlDeviceGetComputeRunningProcesses));
   memset(nvmlDeviceGetMPSComputeRunningProcesses, 0, sizeof(nvmlDeviceGetMPSComputeRunningProcesses));
@@ -128,11 +131,17 @@ static bool uma_version(void) {
   gpuinfo_nvidia_populate_static_info(&gpu.base);
   CHECK(memory_v2_version == ((unsigned)sizeof(nvmlMemory_v2_t) | (2U << 24)));
   CHECK(gpu.base.static_info.memory_shared_with_host);
+  // A shared-memory device has no add-in board, so it has no GPU fan.
+  CHECK(gpu.base.static_info.integrated_graphics);
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, total_memory));
   CHECK(gpu.base.dynamic_info.total_memory > 0);
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, free_memory));
-  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
+  // The whole pool is used memory, host allocations included: total and free
+  // come from /proc/meminfo and must stay consistent with each other.
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
+  CHECK(gpu.base.dynamic_info.used_memory == gpu.base.dynamic_info.total_memory - gpu.base.dynamic_info.free_memory);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, mem_util_rate));
   return true;
 }
 
@@ -196,7 +205,8 @@ static bool mixed_processes(void) {
 
     LIST_HEAD(devices);
     list_add_tail(&gpu.base.list, &devices);
-    gpu.base.static_info.memory_shared_with_host = true;
+    // A backend that reports only the total falls back to the process list for
+    // used memory, which is where the duplicate-PID merge matters.
     SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, total_memory, 1000);
     gpuinfo_fix_dynamic_info_from_process_info(&devices);
     CHECK(gpu.base.dynamic_info.used_memory == 650);
@@ -261,6 +271,54 @@ static bool c2c_link(void) {
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_gen));
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_width));
+  return true;
+}
+
+// The C2C link count is reported through the field-value interface; when it is
+// available the PCIe link is a placeholder and must not be shown either.
+static nvmlReturn_t field_values(nvmlDevice_t device, unsigned count, nvmlFieldValue_t *values) {
+  (void)device;
+  for (unsigned i = 0; i < count; ++i) {
+    values[i].nvmlReturn = NVML_ERROR_NOT_SUPPORTED;
+    if (values[i].fieldId == NVML_FI_DEV_C2C_LINK_COUNT && c2c_link_count_value > 0) {
+      values[i].valueType = NVML_VALUE_TYPE_UNSIGNED_INT;
+      values[i].value.ullVal = c2c_link_count_value;
+      values[i].nvmlReturn = NVML_SUCCESS;
+    }
+  }
+  return NVML_SUCCESS;
+}
+
+static bool c2c_link_count(void) {
+  setup();
+  struct gpu_info_nvidia gpu = {0};
+  c2c_link_count_value = 8;
+  nvmlDeviceGetFieldValues = field_values;
+  // GB10 answers the PCIe queries with successful placeholder values.
+  nvmlDeviceGetMaxPcieLinkGeneration = nvmlDeviceGetMaxPcieLinkWidth = unsupported_uint;
+  nvmlDeviceGetBusType = pcie_bus;
+  nvmlDeviceGetCurrPcieLinkGeneration = nvmlDeviceGetCurrPcieLinkWidth = pcie_link;
+
+  gpuinfo_nvidia_populate_static_info(&gpu.base);
+  CHECK(GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, c2c_link_count));
+  CHECK(gpu.base.static_info.c2c_link_count == 8);
+
+  gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_gen));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_width));
+
+  // A device without C2C links keeps reporting its PCIe link.
+  setup();
+  memset(&gpu, 0, sizeof(gpu));
+  c2c_link_count_value = 0;
+  nvmlDeviceGetFieldValues = field_values;
+  nvmlDeviceGetBusType = pcie_bus;
+  nvmlDeviceGetCurrPcieLinkGeneration = nvmlDeviceGetCurrPcieLinkWidth = pcie_link;
+  gpuinfo_nvidia_populate_static_info(&gpu.base);
+  CHECK(!GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, c2c_link_count));
+  gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_gen));
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_width));
   return true;
 }
 
@@ -367,8 +425,11 @@ static bool uma_idle(void) {
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
   gpuinfo_fix_dynamic_info_from_process_info(&devices);
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
-  CHECK(gpu.base.dynamic_info.used_memory == 0);
-  CHECK(gpu.base.dynamic_info.mem_util_rate == 0);
+  // Used memory reflects the whole pool, not just this device's processes, so
+  // the generic pass keeps the value the refresh just wrote.
+  CHECK(gpu.base.dynamic_info.used_memory == gpu.base.dynamic_info.total_memory - gpu.base.dynamic_info.free_memory);
+  CHECK(gpu.base.dynamic_info.mem_util_rate ==
+        (unsigned)(gpu.base.dynamic_info.used_memory * 100 / gpu.base.dynamic_info.total_memory));
   list_del(&gpu.base.list);
   return true;
 }
@@ -487,6 +548,7 @@ int main(int argc, char **argv) {
       {"legacy_fallback", legacy_fallback},
       {"mixed_processes", mixed_processes},
       {"c2c_link", c2c_link},
+      {"c2c_link_count", c2c_link_count},
       {"unavailable_memory", unavailable_memory},
       {"memory_probes", memory_probes},
       {"pcie_preserved", pcie_preserved},

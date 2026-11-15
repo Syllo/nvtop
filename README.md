@@ -174,17 +174,21 @@ successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
 Unified-memory systems such as DGX Spark (GB10) and RTX Spark N1X are supported
-through the same NVML backend. When NVML reports no dedicated framebuffer,
-memory capacity comes from Linux `MemTotal`, available memory from
-`MemAvailable`, and GPU usage from the visible GPU processes' allocations.
-These are different counters: total minus GPU usage is not the remaining
-allocatable system memory. Processes using both graphics and compute contexts
-are counted once. In containers, make host GPU processes visible (for example
-with `--pid=host`) to obtain complete per-process accounting.
+through the same NVML backend. When NVML reports no dedicated framebuffer, the
+GPU has no memory pool of its own, so the header reports the system pool the
+host shares with it: capacity from Linux `MemTotal`, free from `MemAvailable`,
+and used as the difference between the two. Used therefore covers allocations by
+host processes too, which is the point: they consume the same memory and leave
+less for the GPU. Per-process GPU allocations are still listed separately. In
+containers, make host GPU processes visible (for example with `--pid=host`) to
+obtain complete per-process accounting.
 
-PCIe link generation and width are left unavailable when NVML reports an active
-NVLink-C2C attachment. Driver-unsupported sensors, including memory clocks, fan
-speed and link throughput, remain `N/A` rather than being estimated.
+These devices are also integrated with the host, so the header shows `CPU-FAN`
+instead of a GPU fan speed, and `C2C LINK <n>x` instead of the PCIe generation and
+width for a device attached over NVLink-C2C. NVML answers the PCIe link queries
+on those SoCs with placeholder values, so the link is left unreported rather
+than shown. Driver-unsupported sensors, including memory clocks, power limits
+and PCIe throughput, remain `N/A` rather than being estimated.
 
 The extra GPU info bar (`nvtop -i`) shows the dynamic parameters NVML does not
 report, such as the XBAR, SYS and NVD clocks, and `nvtop -X` also shows the

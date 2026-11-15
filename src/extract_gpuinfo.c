@@ -141,15 +141,6 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
     bool needGpuDecode = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, decoder_rate);
     bool needGPUMemory = !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) &&
                          GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory);
-    // A device whose memory is shared with the host (e.g. UMA) reports the
-    // total and free amounts but cannot report the used amount itself; it is
-    // reconstructed from the process list below. Start from zero so an idle
-    // device reports 0. Devices that only cannot measure used (e.g. Apple
-    // without per-process accounting) do not set the flag and keep reporting it
-    // as unknown.
-    bool sharedHostMemory = needGPUMemory && device->static_info.memory_shared_with_host;
-    if (sharedHostMemory)
-      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, 0);
     if (needGpuRate || needGpuEncode || needGpuDecode || needGPUMemory) {
       for (unsigned processIdx = 0; processIdx < device->processes_count; ++processIdx) {
         struct gpu_process *process_info = &device->processes[processIdx];
@@ -196,9 +187,12 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
       unsigned long long free = dynamic_info->total_memory - dynamic_info->used_memory;
       SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, free);
     }
-    // A shared-memory device cannot report the used amount itself, so derive the
-    // utilization rate for the graph from the reconstructed sum.
-    if (sharedHostMemory && !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, mem_util_rate) &&
+    // When a backend reports the pool's total but not its used amount, the
+    // process list is the only source for used memory. Backends that do report
+    // used themselves (unified memory backed by system counters included) keep
+    // that value, since it also covers allocations the process list cannot see.
+    // The graph's memory rate is derived from whatever used memory is reported.
+    if (needGPUMemory && !GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, mem_util_rate) &&
         GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) && dynamic_info->total_memory > 0) {
       SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, dynamic_info->used_memory * 100 / dynamic_info->total_memory);
     }

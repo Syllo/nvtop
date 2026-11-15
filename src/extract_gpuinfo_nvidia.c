@@ -207,6 +207,11 @@ typedef struct {
 
 static nvmlReturn_t (*nvmlDeviceGetC2cModeInfoV)(nvmlDevice_t device, nvmlC2cModeInfo_v1_t *info);
 
+// NVLink-C2C link count from nvml.h, queried through nvmlDeviceGetFieldValues.
+// A C2C link replaces the PCIe link between the GPU and the CPU on SoCs such
+// as GB10, where the PCIe link queries answer with placeholder values.
+#define NVML_FI_DEV_C2C_LINK_COUNT 170
+
 typedef enum {
   NVML_PCIE_UTIL_TX_BYTES = 0,
   NVML_PCIE_UTIL_RX_BYTES = 1,
@@ -585,12 +590,16 @@ static const char *local_error_string = didnt_call_gpuinfo_init;
 
 // On UMA platforms the GPU has no dedicated framebuffer and shares the system
 // memory pool with the host, so there is no framebuffer size to query. Report
-// the whole system RAM as the total capacity and what the kernel says is still
-// allocatable as free. The used memory is deliberately left unset here: the
-// generic process accounting in
-// gpuinfo_fix_dynamic_info_from_process_info() fills it with the sum of the
-// running processes' GPU allocations, which is the only per-device figure NVML
-// exposes on these platforms.
+// the whole system RAM as the total capacity, what the kernel says is still
+// allocatable as free, and the difference as used.
+//
+// There is only one memory pool, so "used" has to mean the same thing as it
+// does on a discrete GPU: memory that is not available to new allocations.
+// That includes host processes, which is why used is not limited to the GPU
+// processes' own allocations (those are still shown per process). Reporting
+// only the GPU allocations against a MemTotal-sized capacity would advertise
+// headroom the machine does not have: on DGX Spark / GB10 a loaded system can
+// show tens of GiB of host memory held while the bar claims it is free.
 static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_info) {
   FILE *meminfo = fopen("/proc/meminfo", "r");
   if (!meminfo)
@@ -621,19 +630,57 @@ static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_
 
   unsigned long long total_memory = total_memory_kb * 1024;
   unsigned long long free_memory = available_memory_kb * 1024;
+  unsigned long long used_memory = total_memory - free_memory;
 
   SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
   SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, free_memory);
-
-  // The used memory is recomputed from the process list every refresh by the
-  // generic pass, so invalidate it (and the derived rate) for it to fill in.
-  RESET_GPUINFO_DYNAMIC(dynamic_info, used_memory);
-  RESET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate);
+  SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_memory);
+  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, (unsigned)(used_memory * 100 / total_memory));
 
   return true;
 }
 
 // Processes GPU Utilization
+
+// Reads a single NVML field value of the unsigned long long kind. Returns false
+// when the entry point is missing, the call fails, or the field itself reports
+// an error, so callers never see a partially valid value.
+static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int field_id, unsigned int scope_id,
+                                               unsigned long long *value) {
+  if (!nvmlDeviceGetFieldValues)
+    return false;
+  nvmlFieldValue_t field = {0};
+  field.fieldId = field_id;
+  field.scopeId = scope_id;
+  if (nvmlDeviceGetFieldValues(device, 1, &field) != NVML_SUCCESS || field.nvmlReturn != NVML_SUCCESS)
+    return false;
+  *value = field.value.ullVal;
+  return true;
+}
+
+// Number of NVLink-C2C links the GPU is attached over. The C2C mode query only
+// says whether the attachment is enabled; the link count is what the header can
+// display in place of a PCIe link. Devices without a C2C attach report either a
+// failed query or a count of zero, and both mean "no links".
+static unsigned gpuinfo_nvidia_c2c_link_count(nvmlDevice_t device) {
+  unsigned long long count = 0;
+  if (!gpuinfo_nvidia_get_field_value_u64(device, NVML_FI_DEV_C2C_LINK_COUNT, 0, &count))
+    return 0;
+  return count > UINT_MAX ? UINT_MAX : (unsigned)count;
+}
+
+// True when the GPU is attached over NVLink-C2C rather than PCIe. The link
+// count is the direct statement of the attachment, but some drivers expose the
+// older boolean instead, so both are consulted. A failed query is never read as
+// an attach, which keeps discrete GPUs on the PCIe path.
+static bool gpuinfo_nvidia_uses_c2c(nvmlDevice_t device, unsigned link_count) {
+  if (link_count > 0)
+    return true;
+  if (!nvmlDeviceGetC2cModeInfoV)
+    return false;
+  nvmlC2cModeInfo_v1_t c2c_mode = {0};
+  return nvmlDeviceGetC2cModeInfoV(device, &c2c_mode) == NVML_SUCCESS && c2c_mode.isC2cEnabled != 0;
+}
 
 typedef struct {
   unsigned int pid;
@@ -1039,7 +1086,15 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
     static_info->memory_shared_with_host =
         ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
   }
+  // A device sharing the system memory pool with the host is by definition
+  // integrated with it: there is no add-in board and therefore no GPU fan,
+  // which the interface renders as "CPU-FAN" like the other integrated GPUs.
+  static_info->integrated_graphics = static_info->memory_shared_with_host;
+  static_info->c2c_link_count = gpuinfo_nvidia_c2c_link_count(device);
   RESET_ALL(static_info->valid);
+
+  if (static_info->c2c_link_count > 0)
+    SET_VALID(gpuinfo_c2c_link_count_valid, static_info->valid);
 
   last_nvml_return_status = nvmlDeviceGetName(device, static_info->device_name, MAX_DEVICE_NAME);
   if (last_nvml_return_status == NVML_SUCCESS)
@@ -1102,13 +1157,18 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  last_nvml_return_status = nvmlDeviceGetMaxPcieLinkGeneration(device, &static_info->max_pcie_gen);
-  if (last_nvml_return_status == NVML_SUCCESS)
-    SET_VALID(gpuinfo_max_pcie_gen_valid, static_info->valid);
+  // The PCIe link queries answer with placeholder values on a C2C-attached
+  // device (GB10 reports "Max Gen 1 / Max Width 16x" while the actual link is an
+  // NVLink-C2C with no PCIe topology behind it), so leave them unknown there.
+  if (!gpuinfo_nvidia_uses_c2c(device, static_info->c2c_link_count)) {
+    last_nvml_return_status = nvmlDeviceGetMaxPcieLinkGeneration(device, &static_info->max_pcie_gen);
+    if (last_nvml_return_status == NVML_SUCCESS)
+      SET_VALID(gpuinfo_max_pcie_gen_valid, static_info->valid);
 
-  last_nvml_return_status = nvmlDeviceGetMaxPcieLinkWidth(device, &static_info->max_pcie_link_width);
-  if (last_nvml_return_status == NVML_SUCCESS)
-    SET_VALID(gpuinfo_max_pcie_link_width_valid, static_info->valid);
+    last_nvml_return_status = nvmlDeviceGetMaxPcieLinkWidth(device, &static_info->max_pcie_link_width);
+    if (last_nvml_return_status == NVML_SUCCESS)
+      SET_VALID(gpuinfo_max_pcie_link_width_valid, static_info->valid);
+  }
 
   last_nvml_return_status = nvmlDeviceGetTemperatureThreshold(device, NVML_TEMPERATURE_THRESHOLD_SHUTDOWN,
                                                               &static_info->temperature_shutdown_threshold);
@@ -1230,19 +1290,16 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // Pcie generation and width used by the device.
   // Only report these for PCIe devices without an active NVLink-C2C attach.
   // DGX Spark / GB10 and RTX Spark N1X report PCIe with placeholder link
-  // values even though C2C is enabled. Do not infer the link from UMA alone.
+  // values even though C2C is enabled. Do not infer the link from UMA alone:
+  // the C2C link count is a direct statement of the attachment.
   bool device_on_pcie_bus = nvmlDeviceGetBusType == NULL; // Older drivers: assume PCIe as before.
   if (nvmlDeviceGetBusType) {
     unsigned int bus_type;
     if (nvmlDeviceGetBusType(device, &bus_type) == NVML_SUCCESS)
       device_on_pcie_bus = bus_type == NVML_BUS_TYPE_PCIE;
   }
-
-  if (device_on_pcie_bus && nvmlDeviceGetC2cModeInfoV) {
-    nvmlC2cModeInfo_v1_t c2c_mode = {0};
-    if (nvmlDeviceGetC2cModeInfoV(device, &c2c_mode) == NVML_SUCCESS && c2c_mode.isC2cEnabled)
-      device_on_pcie_bus = false;
-  }
+  if (device_on_pcie_bus && gpuinfo_nvidia_uses_c2c(device, gpu_info->base.static_info.c2c_link_count))
+    device_on_pcie_bus = false;
 
   if (device_on_pcie_bus) {
     last_nvml_return_status = nvmlDeviceGetCurrPcieLinkGeneration(device, &dynamic_info->pcie_link_gen);

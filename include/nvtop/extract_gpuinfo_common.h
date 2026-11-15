@@ -63,6 +63,7 @@ enum gpuinfo_static_info_valid {
   gpuinfo_n_exec_engines_valid,
   gpuinfo_engine_count_valid,
   gpuinfo_memory_type_valid,
+  gpuinfo_c2c_link_count_valid,
   gpuinfo_static_info_count,
 };
 
@@ -79,6 +80,7 @@ struct gpuinfo_static_info {
   unsigned l2cache_size;
   unsigned n_exec_engines;
   unsigned engine_count;
+  unsigned c2c_link_count; // Number of NVLink-C2C links, 0 when the device has none
   bool integrated_graphics;
   bool encode_decode_shared;
   bool memory_shared_with_host; // True if device memory is shared with the host (e.g. UMA)
