@@ -298,8 +298,8 @@ rx/tx throughput, and the processes using each device with their device memory.
   compute context (one device holder, or the single process publishing the framework memory).
 * Chip temperature is read from the hwmon channels that the driver's `/etc/sensors.d/hl_sensors.conf` labels
   `On Chip ...`, avoiding a memory leak in HLML's temperature call. Only that file is read; relabeling or ignoring the
-  sensors in other `sensors.d` files is not followed. If the file is absent or yields no matching sensors, nvtop falls
-  back to the HLML call.
+  sensors in other `sensors.d` files is not followed. If the file is absent, yields no matching sensors, or selects a
+  different number of AIP sensors than HLML's per-ASIC map, nvtop falls back to the HLML call.
 * HLML also enumerates Goya devices; nvtop reports them as Goya with DDR4 memory.
 * The power limit is that of the main (54 V) power supply; `hl-smi` adds the auxiliary 12 V supply to its cap.
 

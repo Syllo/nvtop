@@ -318,6 +318,29 @@ static int test_device_naming(void) {
   return 0;
 }
 
+static int test_aip_channel_count(void) {
+  CHECK(expected_aip_channels("GAUDI2") == 8);
+  CHECK(expected_aip_channels("GAUDI2B") == 8);
+  CHECK(expected_aip_channels("GAUDI2 Simulator") == 8);
+  CHECK(expected_aip_channels("GAUDI3") == 16);
+  CHECK(expected_aip_channels("GAUDI3 FPGA") == 16);
+  CHECK(expected_aip_channels("GAUDI3 HL-338") == 12);
+  CHECK(expected_aip_channels("GAUDI3 HL-338 Simulator") == 12);
+  CHECK(expected_aip_channels("GAUDI") == 0);
+  CHECK(expected_aip_channels("GOYA") == 0);
+  CHECK(expected_aip_channels("") == 0);
+
+  CHECK(aip_channel_count_matches("GAUDI2", 8));
+  CHECK(!aip_channel_count_matches("GAUDI2", 7));
+  CHECK(aip_channel_count_matches("GAUDI3", 16));
+  CHECK(!aip_channel_count_matches("GAUDI3", 12));
+  CHECK(aip_channel_count_matches("GAUDI3 HL-338", 12));
+  CHECK(!aip_channel_count_matches("GAUDI3 HL-338", 16));
+  CHECK(aip_channel_count_matches("GOYA", 3));
+  CHECK(aip_channel_count_matches("", 0));
+  return 0;
+}
+
 int main(void) {
   CHECK(test_double_enumeration() == 0);
   CHECK(test_abi_growth_tolerance() == 0);
@@ -325,6 +348,7 @@ int main(void) {
   CHECK(test_process_utilization_attribution() == 0);
   CHECK(test_pci_chip_address() == 0);
   CHECK(test_device_naming() == 0);
+  CHECK(test_aip_channel_count() == 0);
   puts("Gaudi backend tests passed");
   return 0;
 }

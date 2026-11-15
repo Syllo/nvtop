@@ -260,6 +260,8 @@ static void gpuinfo_gaudi_shutdown(void);
 static const char *gpuinfo_gaudi_last_error_string(void);
 static bool gpuinfo_gaudi_get_device_handles(struct list_head *devices, unsigned *count);
 static void gpuinfo_gaudi_populate_static_info(struct gpu_info *_gpu_info);
+static bool read_device_attribute(const struct gpu_info_gaudi *gpu_info, const char *attribute, char *buf,
+                                  size_t buf_size);
 static void gpuinfo_gaudi_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_gaudi_get_running_processes(struct gpu_info *_gpu_info);
 
@@ -431,7 +433,30 @@ static const char *gpuinfo_gaudi_last_error_string(void) {
  * to classify the sensors, so relabeling or ignoring them in another
  * sensors.d file does not change HLML's result and is intentionally not
  * followed here.
+ *
+ * The number of selected channels is checked against the size of HLML's
+ * per-ASIC ON_AIP map; if it differs, the caller falls back to the HLML
+ * temperature call instead of reporting the max of a partial set.
  */
+
+// Number of ON_AIP entries in HLML's hardcoded map, by driver device_type.
+// Gaudi2 uses the same map for mezzanine and PCIe (8); Gaudi3 has separate
+// maps for the OAM/mezzanine (16), the HL-338 PCIe card (12) and the FPGA
+// (16). Unknown/pre-1.24 ASICs return 0 and are not validated.
+static unsigned expected_aip_channels(const char *device_type) {
+  if (strncmp(device_type, "GAUDI2", sizeof("GAUDI2") - 1) == 0)
+    return 8;
+  if (strncmp(device_type, "GAUDI3 HL-338", sizeof("GAUDI3 HL-338") - 1) == 0)
+    return 12;
+  if (strncmp(device_type, "GAUDI3", sizeof("GAUDI3") - 1) == 0)
+    return 16;
+  return 0;
+}
+
+static bool aip_channel_count_matches(const char *device_type, unsigned selected) {
+  unsigned expected = expected_aip_channels(device_type);
+  return expected == 0 || selected == expected;
+}
 
 // libsensors names a PCI hwmon chip "<name>-pci-<address>", with
 // address = (domain << 16) + (bus << 8) + (slot << 3) + function.
@@ -476,6 +501,8 @@ static void find_chip_temperature_sensors(struct gpu_info_gaudi *gpu_info) {
   name[strcspn(name, "\n")] = '\0';
   if (!has_name || !name[0])
     return;
+  char device_type[32] = "";
+  read_device_attribute(gpu_info, "device_type", device_type, sizeof(device_type));
   unsigned chip_address;
   if (pci_chip_address(gpu_info->base.pdev, &chip_address))
     snprintf(chip_id, sizeof(chip_id), "%s-pci-%04x", name, chip_address);
@@ -522,6 +549,12 @@ static void find_chip_temperature_sensors(struct gpu_info_gaudi *gpu_info) {
        ++channel) {
     if (on_chip[channel] && !ignored[channel])
       gpu_info->chip_sensors[gpu_info->n_chip_sensors++] = channel;
+  }
+
+  if (!aip_channel_count_matches(device_type, gpu_info->n_chip_sensors)) {
+    // A partial or relabeled configuration would report the maximum of the
+    // wrong sensor set. Let gaudi_sample_device fall back to HLML instead.
+    gpu_info->n_chip_sensors = 0;
   }
 }
 
