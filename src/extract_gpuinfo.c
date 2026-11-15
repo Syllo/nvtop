@@ -379,6 +379,36 @@ unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed) {
   return pcieGen;
 }
 
+void gpuinfo_refresh_system_memory(struct gpuinfo_dynamic_info *dynamic_info) {
+  FILE *fp = fopen("/proc/meminfo", "r");
+  unsigned long long mem_total_kb = 0, mem_available_kb = 0;
+  char line[256];
+
+  if (!fp)
+    return;
+
+  while (fgets(line, sizeof(line), fp)) {
+    if (sscanf(line, "MemTotal: %llu kB", &mem_total_kb) == 1)
+      continue;
+    if (sscanf(line, "MemAvailable: %llu kB", &mem_available_kb) == 1)
+      continue;
+  }
+  fclose(fp);
+
+  if (mem_total_kb == 0 || mem_available_kb == 0)
+    return;
+
+  unsigned long long total = mem_total_kb * 1024;
+  unsigned long long available = mem_available_kb * 1024;
+  if (available > total)
+    available = total;
+
+  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total);
+  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, available);
+  SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, total - available);
+  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, (unsigned)((total - available) * 100 / total));
+}
+
 void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info) {
   /*
    * kernel Documentation/gpu/drm-usage-stats.rst:

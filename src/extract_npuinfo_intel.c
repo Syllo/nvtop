@@ -185,36 +185,6 @@ static void gpuinfo_intel_npu_populate_static_info(struct gpu_info *_gpu_info) {
   SET_VALID(gpuinfo_device_name_valid, static_info->valid);
 }
 
-// The NPU allocates from system RAM, so report system-wide memory pressure
-// like the other NPU backends.
-static int set_gpuinfo_dynamic_memory(struct gpuinfo_dynamic_info *dynamic_info) {
-  FILE *fp = fopen("/proc/meminfo", "r");
-  unsigned long long mem_total_kb = 0, mem_available_kb = 0;
-  char line[256];
-
-  if (!fp)
-    return -1;
-
-  while (fgets(line, sizeof(line), fp)) {
-    if (sscanf(line, "MemTotal: %llu kB", &mem_total_kb) == 1)
-      continue;
-    if (sscanf(line, "MemAvailable: %llu kB", &mem_available_kb) == 1)
-      continue;
-  }
-  fclose(fp);
-
-  if (mem_total_kb > 0 && mem_available_kb > 0) {
-    unsigned long long total = mem_total_kb * 1024;
-    unsigned long long available = mem_available_kb * 1024;
-    unsigned long long used = total - available;
-    SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total);
-    SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, available);
-    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used);
-    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, (unsigned)(used * 100 / total));
-  }
-  return 0;
-}
-
 static void gpuinfo_intel_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel_npu *npu = container_of(_gpu_info, struct gpu_info_intel_npu, base);
   struct gpuinfo_dynamic_info *dynamic_info = &npu->base.dynamic_info;
@@ -245,7 +215,8 @@ static void gpuinfo_intel_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (read_ull(npu->sysfs_dev, "npu_max_frequency_mhz", &value))
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, (unsigned)value);
 
-  set_gpuinfo_dynamic_memory(dynamic_info);
+  // The NPU allocates from system RAM, so report system-wide memory pressure.
+  gpuinfo_refresh_system_memory(dynamic_info);
 }
 
 static void gpuinfo_intel_npu_get_running_processes(struct gpu_info *_gpu_info) { _gpu_info->processes_count = 0; }
