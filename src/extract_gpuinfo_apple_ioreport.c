@@ -207,19 +207,50 @@ gpuinfo_apple_ioreport_copy_performance_state_channels(struct gpuinfo_apple_iore
   return mutable_channels;
 }
 
-static bool gpuinfo_apple_ioreport_load_gpu_frequencies(struct gpuinfo_apple_ioreport *ioreport) {
-  io_service_t power_manager = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceNameMatching("pmgr"));
-  if (!MACH_PORT_VALID(power_manager))
-    return false;
+static CFTypeRef gpuinfo_apple_ioreport_copy_voltage_states_for_service(const char *service_name) {
+  CFMutableDictionaryRef matching_service = IOServiceNameMatching(service_name);
+  if (!matching_service)
+    return NULL;
 
-  CFTypeRef voltage_states =
-      IORegistryEntryCreateCFProperty(power_manager, CFSTR("voltage-states9"), kCFAllocatorDefault, kNilOptions);
-  IOObjectRelease(power_manager);
-  if (!voltage_states || CFGetTypeID(voltage_states) != CFDataGetTypeID()) {
-    if (voltage_states)
-      CFRelease(voltage_states);
-    return false;
+  io_iterator_t services;
+  if (IOServiceGetMatchingServices(kIOMainPortDefault, matching_service, &services) != kIOReturnSuccess)
+    return NULL;
+
+  // A service name can match more than one node and only some publish the table
+  // (newer chips add a bare pmgr stub), so keep the first node that has it.
+  CFTypeRef voltage_states = NULL;
+  for (io_service_t service = IOIteratorNext(services); service; service = IOIteratorNext(services)) {
+    CFTypeRef candidate =
+        IORegistryEntryCreateCFProperty(service, CFSTR("voltage-states9"), kCFAllocatorDefault, kNilOptions);
+    IOObjectRelease(service);
+    if (candidate && CFGetTypeID(candidate) == CFDataGetTypeID()) {
+      voltage_states = candidate;
+      break;
+    }
+    if (candidate)
+      CFRelease(candidate);
   }
+
+  IOObjectRelease(services);
+  return voltage_states;
+}
+
+// M6+ moves the DVFS tables to a "pmgr-child" node and leaves "pmgr" as an
+// architecture stub, so try both names and keep whichever publishes the GPU table.
+static CFTypeRef gpuinfo_apple_ioreport_copy_gpu_voltage_states(void) {
+  static const char *const pmgr_service_names[] = {"pmgr", "pmgr-child"};
+  for (size_t i = 0; i < sizeof(pmgr_service_names) / sizeof(pmgr_service_names[0]); ++i) {
+    CFTypeRef voltage_states = gpuinfo_apple_ioreport_copy_voltage_states_for_service(pmgr_service_names[i]);
+    if (voltage_states)
+      return voltage_states;
+  }
+  return NULL;
+}
+
+static bool gpuinfo_apple_ioreport_load_gpu_frequencies(struct gpuinfo_apple_ioreport *ioreport) {
+  CFTypeRef voltage_states = gpuinfo_apple_ioreport_copy_gpu_voltage_states();
+  if (!voltage_states)
+    return false;
 
   const CFIndex data_size = CFDataGetLength(voltage_states);
   if (data_size <= 0 || data_size % 8) {

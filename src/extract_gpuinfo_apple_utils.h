@@ -67,6 +67,8 @@ bool gpuinfo_apple_energy_to_nanojoules(int64_t energy, const char *unit, uint64
 
 bool gpuinfo_apple_calculate_power_draw(uint64_t energy_nanojoules, uint64_t time_elapsed, unsigned *power_draw);
 
+// Parses a little-endian (frequency, voltage) DVFS table and scales the
+// frequencies to MHz from Hz or kHz based on the table magnitude.
 bool gpuinfo_apple_parse_gpu_frequency_states(const uint8_t *data, size_t data_size, unsigned *frequencies,
                                               size_t frequencies_size, size_t *frequency_count);
 

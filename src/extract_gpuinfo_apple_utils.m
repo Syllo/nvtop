@@ -187,13 +187,35 @@ bool gpuinfo_apple_parse_gpu_frequency_states(const uint8_t *data, size_t data_s
   if (state_count > frequencies_size)
     return false;
 
-  // pmgr stores little-endian (frequency Hz, voltage) pairs. The first pair is the OFF state;
+  // pmgr stores little-endian (frequency, voltage) pairs. The first pair is the OFF state;
   // subsequent entries align with the active IOReport performance states.
+  uint32_t maximum_frequency = 0;
   for (size_t i = 0; i < state_count; ++i) {
-    const uint32_t frequency_hz = gpuinfo_apple_read_little_endian_uint32(&data[i * 8]);
-    if ((!i && frequency_hz) || (i && frequency_hz < 1000000))
+    const uint32_t frequency = gpuinfo_apple_read_little_endian_uint32(&data[i * 8]);
+    if (!i && frequency)
       return false;
-    frequencies[i] = frequency_hz / 1000000;
+    frequencies[i] = frequency;
+    if (frequency > maximum_frequency)
+      maximum_frequency = frequency;
+  }
+
+  // The GPU table has only been seen in Hz, but CPU DVFS tables moved to kHz on M4+, so
+  // do not assume the GPU table keeps Hz forever. Hz tables span roughly 1e8..5e9 and kHz
+  // tables roughly 1e5..5e6, so the unit follows from the magnitude of the largest state.
+  // Reject magnitudes that fit neither (e.g. an MHz table) instead of reporting a clock
+  // that is off by orders of magnitude.
+  uint32_t divisor;
+  if (maximum_frequency >= UINT32_C(10000000))
+    divisor = UINT32_C(1000000);
+  else if (maximum_frequency >= UINT32_C(10000))
+    divisor = UINT32_C(1000);
+  else
+    return false;
+
+  for (size_t i = 1; i < state_count; ++i) {
+    frequencies[i] /= divisor;
+    if (!frequencies[i])
+      return false;
   }
 
   *frequency_count = state_count;

@@ -170,6 +170,45 @@ TEST(AppleClockInfo, ParsesGpuFrequencyStates) {
   EXPECT_EQ(frequencies[3], 1500u);
 }
 
+TEST(AppleClockInfo, ParsesKilohertzGpuFrequencyStates) {
+  const uint8_t voltage_states[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0x20, 0xa1, 0x07, 0x00, 0xbc, 0x02, 0x00, 0x00,
+      0x40, 0x42, 0x0f, 0x00, 0x84, 0x03, 0x00, 0x00,
+      0x60, 0xe3, 0x16, 0x00, 0x4c, 0x04, 0x00, 0x00,
+  };
+  unsigned frequencies[4];
+  size_t frequency_count;
+
+  ASSERT_TRUE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states), frequencies, 4, &frequency_count));
+  ASSERT_EQ(frequency_count, 4u);
+  EXPECT_EQ(frequencies[0], 0u);
+  EXPECT_EQ(frequencies[1], 500u);
+  EXPECT_EQ(frequencies[2], 1000u);
+  EXPECT_EQ(frequencies[3], 1500u);
+}
+
+TEST(AppleClockInfo, RejectsGpuFrequencyStatesWithoutPlausibleUnits) {
+  // Values in the low thousands fit neither a Hz nor a kHz table, so report no
+  // clock instead of one that is off by orders of magnitude.
+  const uint8_t megahertz_states[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0xdc, 0x05, 0x00, 0x00, 0xbc, 0x02, 0x00, 0x00,
+  };
+  const uint8_t zero_active_state[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0xbc, 0x02, 0x00, 0x00,
+  };
+  unsigned frequencies[2];
+  size_t frequency_count;
+
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      megahertz_states, sizeof(megahertz_states), frequencies, 2, &frequency_count));
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      zero_active_state, sizeof(zero_active_state), frequencies, 2, &frequency_count));
+}
+
 TEST(AppleClockInfo, RejectsMalformedGpuFrequencyStates) {
   const uint8_t voltage_states[] = {
       0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
