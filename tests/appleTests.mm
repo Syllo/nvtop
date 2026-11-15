@@ -664,23 +664,26 @@ TEST(AppleProcessInfo, GrowsProcessArrayAcrossReallocIncrements) {
 TEST(ApplePciInfo, ParsesPciDebugAddress) {
   unsigned bus = 0;
   unsigned device = 0;
+  unsigned function = 0;
 
-  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("194:0:0", &bus, &device));
+  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("194:0:0", &bus, &device, &function));
   EXPECT_EQ(bus, 194u);
   EXPECT_EQ(device, 0u);
+  EXPECT_EQ(function, 0u);
 
-  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("0:31:2", &bus, &device));
+  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("0:31:2", &bus, &device, &function));
   EXPECT_EQ(bus, 0u);
   EXPECT_EQ(device, 31u);
+  EXPECT_EQ(function, 2u);
 
   // Bridges append the secondary/subordinate bus range after the BDF.
-  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("0:0:0(1:128)", &bus, &device));
+  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("0:0:0(1:128)", &bus, &device, &function));
 
-  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("not-a-bdf", &bus, &device));
-  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:2", &bus, &device));
-  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:40:0", &bus, &device));
-  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:2:8", &bus, &device));
-  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf(NULL, &bus, &device));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("not-a-bdf", &bus, &device, &function));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:2", &bus, &device, &function));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:40:0", &bus, &device, &function));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:2:8", &bus, &device, &function));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf(NULL, &bus, &device, &function));
 }
 
 TEST(ApplePciInfo, DecodesPcieLinkStatus) {

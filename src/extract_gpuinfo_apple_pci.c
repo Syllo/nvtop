@@ -141,12 +141,12 @@ bool gpuinfo_apple_pci_query(io_service_t gpu_service, struct gpuinfo_apple_pci_
 
   char pcidebug[64];
   if (read_string(pci_device, CFSTR("pcidebug"), pcidebug, sizeof(pcidebug))) {
-    unsigned bus, device;
-    if (gpuinfo_apple_parse_pci_bdf(pcidebug, &bus, &device)) {
+    unsigned bus, device, function;
+    if (gpuinfo_apple_parse_pci_bdf(pcidebug, &bus, &device, &function)) {
       info->bus = bus;
-      info->bus_valid = true;
       info->device = device;
-      info->device_valid = true;
+      info->function = function;
+      info->address_valid = true;
     }
   }
 
@@ -168,5 +168,5 @@ bool gpuinfo_apple_pci_query(io_service_t gpu_service, struct gpuinfo_apple_pci_
 
   IOObjectRelease(pci_device);
 
-  return info->bus_valid || info->device_valid || info->link_valid || info->slot_valid || info->die_index_valid;
+  return info->address_valid || info->link_valid || info->slot_valid || info->die_index_valid;
 }

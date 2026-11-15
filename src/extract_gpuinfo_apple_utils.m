@@ -408,8 +408,8 @@ void gpuinfo_apple_add_process(struct gpu_info *gpu_info, pid_t pid, bool gpu_us
   }
 }
 
-bool gpuinfo_apple_parse_pci_bdf(const char *pcidebug, unsigned *bus, unsigned *device) {
-  if (!pcidebug || !bus || !device)
+bool gpuinfo_apple_parse_pci_bdf(const char *pcidebug, unsigned *bus, unsigned *device, unsigned *function) {
+  if (!pcidebug || !bus || !device || !function)
     return false;
 
   // IOPCIDevice publishes "pcidebug" as decimal "bus:device:function"
@@ -423,6 +423,7 @@ bool gpuinfo_apple_parse_pci_bdf(const char *pcidebug, unsigned *bus, unsigned *
 
   *bus = parsed_bus;
   *device = parsed_device;
+  *function = parsed_function;
   return true;
 }
 

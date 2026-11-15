@@ -31,6 +31,7 @@
 #include <IOKit/IOKitLib.h>
 #include <QuartzCore/QuartzCore.h>
 #include <mach/mach.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/sysctl.h>
@@ -233,13 +234,12 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
   // PCI device, so every field is optional.
   if (gpuinfo_apple_pci_query(gpu_info->gpu_service, &gpu_info->pci_info)) {
     const struct gpuinfo_apple_pci_info *pci = &gpu_info->pci_info;
-    if (pci->bus_valid) {
-      static_info->pci_bus_id = pci->bus;
-      SET_VALID(gpuinfo_pci_bus_id_valid, static_info->valid);
-    }
-    if (pci->device_valid) {
-      static_info->pci_slot_id = pci->device;
-      SET_VALID(gpuinfo_pci_slot_id_valid, static_info->valid);
+    // Publish the PCI address through the shared gpu_info.pdev field, in the
+    // same domain:bus:device.function form the Linux backends use. Macs have a
+    // single PCI domain.
+    if (pci->address_valid) {
+      snprintf(gpu_info->base.pdev, sizeof(gpu_info->base.pdev), "%04x:%02x:%02x.%x", 0u, pci->bus, pci->device,
+               pci->function);
     }
     if (pci->slot_valid) {
       strncpy(static_info->apple_slot, pci->slot, sizeof(static_info->apple_slot) - 1);

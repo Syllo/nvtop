@@ -30,10 +30,10 @@
 // accelerators are not PCI devices, so every lookup can fail and leave the
 // matching *_valid flag clear; callers must check each flag before using it.
 struct gpuinfo_apple_pci_info {
-  bool bus_valid;
+  bool address_valid;
   unsigned bus;
-  bool device_valid;
   unsigned device;
+  unsigned function;
   bool link_valid;
   unsigned link_gen;
   unsigned link_width;
