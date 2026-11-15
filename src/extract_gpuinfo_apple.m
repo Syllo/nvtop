@@ -25,7 +25,7 @@
 #include "extract_gpuinfo_apple_pci.h"
 #include "extract_gpuinfo_apple_smc.h"
 #include "extract_gpuinfo_apple_utils.h"
-#include "uthash.h"
+#include <uthash.h>
 
 #include <Metal/Metal.h>
 #include <IOKit/IOKitLib.h>
@@ -33,6 +33,7 @@
 #include <mach/mach.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sysctl.h>
 
 #define HASH_FIND_CLIENT(head, key_ptr, out_ptr)                                                                    \
   HASH_FIND(hh, head, key_ptr, sizeof(struct apple_process_cache_id), out_ptr)
@@ -55,6 +56,10 @@ struct __attribute__((__packed__)) apple_process_cache_id {
 struct apple_process_info_cache {
   struct apple_process_cache_id client_id;
   uint64_t gpu_time;
+  // Number of AppUsage entries represented by gpu_time (0 for a direct client
+  // total); only meaningful while gpu_time is valid. A delta requires the new
+  // sample to use the same representation.
+  unsigned gpu_time_queue_count;
   nvtop_time last_measurement_tstamp;
   unsigned char valid[(apple_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
   UT_hash_handle hh;
@@ -93,6 +98,31 @@ static unsigned apple_gpu_count;
 static struct gpu_info_apple *gpu_infos;
 
 __attribute__((constructor)) static void init_extract_gpuinfo_apple(void) { register_gpu_vendor(&gpu_vendor_apple); }
+
+// Power, clock, temperature and fan telemetry comes from IOReport and AppleSMC.
+// Both interfaces, their channel groups/keys and the SMC float encoding are
+// Apple Silicon specific: Intel Macs also report hasUnifiedMemory on their
+// integrated GPU, but the private key sets differ, so only enable these
+// sources when running on Apple Silicon.
+//
+// hw.optional.arm64 reports the host capability, and remains 1 when nvtop is
+// itself running under Rosetta (unlike uname/__x86_64__), so translated builds
+// keep their telemetry.
+static bool gpuinfo_apple_is_apple_silicon(void) {
+#if defined(__arm64__)
+  return true;
+#else
+  int is_arm64 = 0;
+  size_t size = sizeof(is_arm64);
+  if (sysctlbyname("hw.optional.arm64", &is_arm64, &size, NULL, 0) == 0 && is_arm64 == 1)
+    return true;
+  // Some kernels do not expose hw.optional.arm64; a translated process can
+  // only be running on Apple Silicon, so treat Rosetta as a positive match.
+  int translated = 0;
+  size = sizeof(translated);
+  return sysctlbyname("sysctl.proc_translated", &translated, &size, NULL, 0) == 0 && translated == 1;
+#endif
+}
 
 static bool gpuinfo_apple_init(void) {
   apple_gpu_count = 0;
@@ -170,7 +200,10 @@ static bool gpuinfo_apple_get_device_handles(struct list_head *devices, unsigned
     // PCI bus/slot lookup is unconditional: every Mac Pro dGPU lives behind a
     // walkable IOPCIBridge, while Apple Silicon simply leaves the lookup empty.
     gpuinfo_apple_pci_init(&gpu_info->pci);
-    if ([dev hasUnifiedMemory] && [dev location] == MTLDeviceLocationBuiltIn) {
+    // The IOReport and AppleSMC telemetry sources are Apple Silicon only (see
+    // gpuinfo_apple_is_apple_silicon). Intel Macs still get the Metal static
+    // and dynamic information, just without these private sensors.
+    if ([dev hasUnifiedMemory] && [dev location] == MTLDeviceLocationBuiltIn && gpuinfo_apple_is_apple_silicon()) {
       gpuinfo_apple_ioreport_init(&gpu_info->ioreport);
       gpuinfo_apple_smc_init(&gpu_info->smc);
     }
@@ -217,8 +250,8 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
   // The label describes the *machine*, not the per-GPU state. We only
   // stamp it onto a GPU when that GPU actually participates in a fabric
   // link (peerGroupID != 0); an unlinked card (RX 6900 XT over
-  // Thunderbolt, Apple Silicon iGPU, …) leaves device_architecture
-  // empty so the TUI does not claim the eGPU is part of the bridge.
+  // Thunderbolt, Apple Silicon iGPU, …) leaves fabric_topology empty so
+  // the TUI does not claim the eGPU is part of the bridge.
   const uint64_t my_hive = (uint64_t)[gpu_info->device peerGroupID];
   if (my_hive != 0) {
     static char topology[64] = "";
@@ -265,10 +298,9 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
         }
       }
     });
-    strncpy(static_info->device_architecture, topology,
-            sizeof(static_info->device_architecture) - 1);
-    static_info->device_architecture[sizeof(static_info->device_architecture) - 1] = '\0';
-    SET_VALID(gpuinfo_device_architecture_valid, static_info->valid);
+    strncpy(static_info->fabric_topology, topology, sizeof(static_info->fabric_topology) - 1);
+    static_info->fabric_topology[sizeof(static_info->fabric_topology) - 1] = '\0';
+    SET_VALID(gpuinfo_fabric_topology_valid, static_info->valid);
   }
 
   // Metal exposes the Infinity Fabric peer group on every MTLDevice; pair
@@ -442,8 +474,10 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
   nvtop_get_current_time(&current_time);
   for (io_object_t child = IOIteratorNext(iterator); child; child = IOIteratorNext(iterator)) {
     io_name_t class_name;
-    if (IOObjectGetClass(child, class_name) != kIOReturnSuccess)
+    if (IOObjectGetClass(child, class_name) != kIOReturnSuccess) {
+      IOObjectRelease(child);
       continue;
+    }
     // Apple Silicon (AGX) and Intel Mac Pro AMD dGPUs (AMDRadeonX6000)
     // both expose user-client children carrying IOUserClientCreator. The
     // creator string has the same "pid <pid>, <name>" format on both;
@@ -452,8 +486,10 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
     const bool is_amd_client =
         strncmp(class_name, "AMDRadeonX6000_AMDAccelDevice", sizeof(class_name)) == 0 ||
         strncmp(class_name, "AMDRadeonX6000_AMDAccelSharedUserClient", sizeof(class_name)) == 0;
-    if (!is_agx_client && !is_amd_client)
+    if (!is_agx_client && !is_amd_client) {
+      IOObjectRelease(child);
       continue;
+    }
 
     CFMutableDictionaryRef cf_props;
     if (IORegistryEntryCreateCFProperties(child, &cf_props, kCFAllocatorDefault, kNilOptions) == kIOReturnSuccess) {
@@ -469,7 +505,12 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
             HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &client_id, cache_entry);
             if (cache_entry) {
               HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
-              if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time)) {
+              // A new or closed AppUsage entry changes the summed counter by a whole
+              // queue's lifetime, which is not a rate over this interval. Re-baseline
+              // instead, like the counter-reset case handled by
+              // gpuinfo_apple_calculate_gpu_usage.
+              if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time) &&
+                  cache_entry->gpu_time_queue_count == sample.gpu_time_queue_count) {
                 const uint64_t time_elapsed =
                     nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
                 gpu_usage_valid = gpuinfo_apple_calculate_gpu_usage(cache_entry->gpu_time, sample.gpu_time,
@@ -483,8 +524,10 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
 
             if (cache_entry) {
               RESET_ALL(cache_entry->valid);
-              if (sample.gpu_time_valid)
+              if (sample.gpu_time_valid) {
                 SET_APPLE_CACHE(cache_entry, gpu_time, sample.gpu_time);
+                cache_entry->gpu_time_queue_count = sample.gpu_time_queue_count;
+              }
               cache_entry->last_measurement_tstamp = current_time;
               HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
             }
@@ -495,8 +538,8 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
         CFRelease(cf_props);
       }
 
-      IOObjectRelease(child);
-    }
+    IOObjectRelease(child);
+  }
 
-    IOObjectRelease(iterator);
+  IOObjectRelease(iterator);
 }

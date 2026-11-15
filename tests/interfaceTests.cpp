@@ -20,13 +20,19 @@
  */
 
 #include <algorithm>
+#include <cstdio>
+#include <cstdlib>
 #include <gtest/gtest.h>
 #include <iostream>
+#include <unistd.h>
 #include <vector>
 
 extern "C" {
+#include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface.h"
 #include "nvtop/interface_layout_selection.h"
+#include "nvtop/interface_options.h"
+#include "nvtop/pcie_utilization.h"
 }
 
 static std::ostream &operator<<(std::ostream &os, const struct window_position &win) {
@@ -199,6 +205,161 @@ TEST(InterfaceLayout, FixInfiniteLoop) {
 }
 
 TEST(InterfaceLayout, LayoutSelection_test_fail_case1) { test_with_terminal_size(32, 3, 55, 16, 1760); }
+
+namespace {
+
+// Build a gpuinfo_static_info with valid max PCIe gen / width fields.
+struct gpuinfo_static_info make_static_info(unsigned gen, unsigned width) {
+  struct gpuinfo_static_info info = {};
+  SET_GPUINFO_STATIC(&info, max_pcie_gen, gen);
+  SET_GPUINFO_STATIC(&info, max_pcie_link_width, width);
+  return info;
+}
+
+} // namespace
+
+TEST(PcieUtilization, MaxBandwidthPerGeneration) {
+  // Per-lane effective rate (KB/s) multiplied by the link width.
+  struct gpuinfo_static_info gen1 = make_static_info(1, 16);
+  struct gpuinfo_static_info gen2 = make_static_info(2, 16);
+  struct gpuinfo_static_info gen3 = make_static_info(3, 16);
+  struct gpuinfo_static_info gen4 = make_static_info(4, 16);
+  struct gpuinfo_static_info gen5 = make_static_info(5, 16);
+  struct gpuinfo_static_info gen6 = make_static_info(6, 16);
+  struct gpuinfo_static_info gen5x4 = make_static_info(5, 4);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen1), 250000u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen2), 500000u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen3), 984600u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen4), 1969000u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen5), 3938000u * 16u);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen6), 7563000u * 16u);
+  // Width scales the bandwidth linearly.
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen5x4), 3938000u * 4u);
+}
+
+TEST(PcieUtilization, MaxBandwidthUnknownReturnsZero) {
+  // Unsupported / unknown generation.
+  struct gpuinfo_static_info gen7 = make_static_info(7, 16);
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&gen7), 0u);
+  // Missing validity flags.
+  struct gpuinfo_static_info no_info = {};
+  EXPECT_EQ(pcie_max_bandwidth_kbs(&no_info), 0u);
+}
+
+TEST(PcieUtilization, LoadPercentClampsAndScales) {
+  struct gpuinfo_static_info info = make_static_info(5, 16); // 63,008,000 KB/s max
+  unsigned max_bw = 3938000u * 16u;
+  EXPECT_EQ(pcie_load_percent(0u, &info), 0u);
+  EXPECT_EQ(pcie_load_percent(max_bw / 2u, &info), 50u);
+  EXPECT_EQ(pcie_load_percent(max_bw, &info), 100u);
+  // Above the theoretical max is clamped to 100%.
+  EXPECT_EQ(pcie_load_percent(max_bw * 2u, &info), 100u);
+}
+
+TEST(PcieUtilization, LoadPercentNoMaxReturnsZero) {
+  struct gpuinfo_static_info no_info = {};
+  EXPECT_EQ(pcie_load_percent(1000000u, &no_info), 0u);
+}
+
+TEST(BusyUsage, ScalesAndRounds) {
+  const uint64_t second = UINT64_C(1000000000);
+  EXPECT_EQ(busy_usage_from_time_usage_round(0, 0, second), 0u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second / 2, 0, second), 50u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(3 * second + 994000000, 3 * second, second), 99u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(3 * second + 996000000, 3 * second, second), 100u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second, 0, second), 100u);
+}
+
+TEST(BusyUsage, ClampsBusyTimeLongerThanInterval) {
+  // i915 accounts the busy time in chunks: a fully busy engine can report e.g. 1.16s over a 1s interval.
+  const uint64_t second = UINT64_C(1000000000);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second + 160000000, 0, second), 100u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(10) * second, 0, second), 100u);
+}
+
+TEST(BusyUsage, ZeroIntervalReturnsZero) {
+  // No elapsed time means no measurable rate; must not divide by zero.
+  EXPECT_EQ(busy_usage_from_time_usage_round(0, 0, 0), 0u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(1000000), 0, 0), 0u);
+}
+
+TEST(InterfaceOptions, NpuDefaultPlotsRespectMaxLines) {
+  plot_info_to_draw npu = plot_npu_default_draw_info();
+  // The NPU defaults add HVX/HMX on top of the GPU defaults.
+  EXPECT_TRUE(plot_isset_draw_info(plot_hvx_util_rate, npu));
+  EXPECT_TRUE(plot_isset_draw_info(plot_hmx_util_rate, npu));
+  // They must never exceed the number of plot lines nvtop can draw.
+  EXPECT_LE(plot_count_draw_info(npu), MAX_LINES_PER_PLOT);
+}
+
+TEST(InterfaceOptions, AddingManyPlotsRespectsMaxLines) {
+  // Mirrors loading a config file that selects more metrics than can be drawn.
+  plot_info_to_draw to_draw = 0;
+  for (int i = plot_gpu_rate; i < plot_information_count; ++i)
+    to_draw = plot_add_draw_info((enum plot_information)i, to_draw);
+  EXPECT_LE(plot_count_draw_info(to_draw), MAX_LINES_PER_PLOT);
+}
+
+TEST(InterfaceOptions, ProcessingUnitNames) {
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_gpu), "GPU");
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_npu), "NPU");
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_ppu), "PPU");
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_hpu), "HPU");
+  // Out-of-range values fall back to the default.
+  EXPECT_STREQ(processing_unit_name((enum gpu_processing_unit)gpu_processing_unit_count), "GPU");
+}
+
+TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
+  char config_path[] = "interface-options-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+  options.dynamic_memory_units = true;
+
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.dynamic_memory_units = false;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_TRUE(options.dynamic_memory_units);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
+  // An unmonitored GPU is no longer refreshed, so its process entries would
+  // otherwise keep pointers to process-cache strings freed by later refreshes.
+  // They must be dropped when monitoring is disabled.
+  struct gpu_info monitored = {};
+  struct gpu_info unmonitored = {};
+  monitored.processes_count = 3;
+  unmonitored.processes_count = 2;
+
+  LIST_HEAD(monitored_gpus);
+  LIST_HEAD(non_monitored_gpus);
+  list_add_tail(&monitored.list, &monitored_gpus);
+  list_add_tail(&unmonitored.list, &non_monitored_gpus);
+
+  nvtop_interface_option options = {};
+  options.gpu_specific_opts = static_cast<nvtop_interface_gpu_opts *>(calloc(2, sizeof(*options.gpu_specific_opts)));
+  ASSERT_NE(options.gpu_specific_opts, nullptr);
+  options.gpu_specific_opts[0].doNotMonitor = false;
+  options.gpu_specific_opts[1].doNotMonitor = true;
+
+  EXPECT_EQ(interface_check_and_fix_monitored_gpus(2, &monitored_gpus, &non_monitored_gpus, &options), 1u);
+  EXPECT_EQ(monitored.processes_count, 3u);
+  EXPECT_EQ(unmonitored.processes_count, 0u);
+
+  // Re-monitoring must not resurrect the dropped entries before the next refresh.
+  options.gpu_specific_opts[1].doNotMonitor = false;
+  EXPECT_EQ(interface_check_and_fix_monitored_gpus(2, &monitored_gpus, &non_monitored_gpus, &options), 2u);
+  EXPECT_EQ(unmonitored.processes_count, 0u);
+
+  free(options.gpu_specific_opts);
+}
 
 #ifdef THOROUGH_TESTING
 

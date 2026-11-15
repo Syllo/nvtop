@@ -107,14 +107,18 @@ static const unsigned apple_smc_user_client_method = 2;
 static const uint64_t apple_smc_minimum_sample_interval = UINT64_C(1000000000);
 
 static uint32_t gpuinfo_apple_smc_key_id(const char name[4]) {
-  return (uint32_t)(uint8_t)name[0] << 24 | (uint32_t)(uint8_t)name[1] << 16 |
-         (uint32_t)(uint8_t)name[2] << 8 | (uint32_t)(uint8_t)name[3];
+  return (uint32_t)(uint8_t)name[0] << 24 | (uint32_t)(uint8_t)name[1] << 16 | (uint32_t)(uint8_t)name[2] << 8 |
+         (uint32_t)(uint8_t)name[3];
 }
 
 static bool gpuinfo_apple_smc_call(struct gpuinfo_apple_smc *smc, const struct apple_smc_key_data *input,
                                    struct apple_smc_key_data *output) {
   size_t output_size = sizeof(*output);
   memset(output, 0, sizeof(*output));
+  // IOReturn reports transport failures; the user client reports key-level
+  // failures in SMCKeyData.result. SMCKeyData.status is not part of the
+  // documented result and is left unused by other AppleSMC clients, so only
+  // result is checked here.
   return IOConnectCallStructMethod(smc->connection, apple_smc_user_client_method, input, sizeof(*input), output,
                                    &output_size) == kIOReturnSuccess &&
          output_size == sizeof(*output) && !output->result;
@@ -132,9 +136,8 @@ static bool gpuinfo_apple_smc_read_key_info(struct gpuinfo_apple_smc *smc, uint3
 }
 
 static bool gpuinfo_apple_smc_read_key(struct gpuinfo_apple_smc *smc, uint32_t key,
-                                      const struct apple_smc_key_info *info, uint8_t output_bytes[32]) {
-  const struct apple_smc_key_data input = {
-      .key = key, .key_info = *info, .data8 = apple_smc_command_read_bytes};
+                                       const struct apple_smc_key_info *info, uint8_t output_bytes[32]) {
+  const struct apple_smc_key_data input = {.key = key, .key_info = *info, .data8 = apple_smc_command_read_bytes};
   struct apple_smc_key_data output;
   if (!gpuinfo_apple_smc_call(smc, &input, &output))
     return false;
@@ -144,8 +147,7 @@ static bool gpuinfo_apple_smc_read_key(struct gpuinfo_apple_smc *smc, uint32_t k
 }
 
 static bool gpuinfo_apple_smc_read_key_by_index(struct gpuinfo_apple_smc *smc, uint32_t index, uint32_t *key) {
-  const struct apple_smc_key_data input = {
-      .data8 = apple_smc_command_read_key_by_index, .data32 = index};
+  const struct apple_smc_key_data input = {.data8 = apple_smc_command_read_key_by_index, .data32 = index};
   struct apple_smc_key_data output;
   if (!gpuinfo_apple_smc_call(smc, &input, &output))
     return false;
@@ -196,8 +198,7 @@ static bool gpuinfo_apple_smc_open(struct gpuinfo_apple_smc *smc) {
 
   for (io_service_t service = IOIteratorNext(services); service; service = IOIteratorNext(services)) {
     io_name_t name;
-    if (IORegistryEntryGetName(service, name) == kIOReturnSuccess &&
-        strcmp(name, "AppleSMCKeysEndpoint") == 0 &&
+    if (IORegistryEntryGetName(service, name) == kIOReturnSuccess && strcmp(name, "AppleSMCKeysEndpoint") == 0 &&
         IOServiceOpen(service, mach_task_self(), 0, &smc->connection) == kIOReturnSuccess) {
       IOObjectRelease(service);
       break;
@@ -215,8 +216,7 @@ static bool gpuinfo_apple_smc_discover_temperature_keys(struct gpuinfo_apple_smc
   const uint32_t end_gpu_temperature_key = gpuinfo_apple_smc_key_id("Th\0\0");
   uint32_t first_index, end_index;
   if (!gpuinfo_apple_smc_lower_bound(smc, key_count, first_gpu_temperature_key, &first_index) ||
-      !gpuinfo_apple_smc_lower_bound(smc, key_count, end_gpu_temperature_key, &end_index) ||
-      first_index >= end_index)
+      !gpuinfo_apple_smc_lower_bound(smc, key_count, end_gpu_temperature_key, &end_index) || first_index >= end_index)
     return false;
 
   const size_t maximum_key_count = end_index - first_index;
@@ -263,12 +263,13 @@ static bool gpuinfo_apple_smc_discover_temperature_keys(struct gpuinfo_apple_smc
 static bool gpuinfo_apple_smc_discover_fan_keys(struct gpuinfo_apple_smc *smc, uint32_t key_count) {
   // Current fan speeds use F?Ac keys. Search the complete F range, then retain only
   // matching float sensors so unrelated fan limits and metadata are ignored.
+  // These are the chassis fans shared by the SoC (CPU and GPU), not a fan
+  // attached to the GPU alone; nvtop reports the fastest running one.
   const uint32_t first_fan_key = gpuinfo_apple_smc_key_id("F\0\0\0");
   const uint32_t end_fan_key = gpuinfo_apple_smc_key_id("G\0\0\0");
   uint32_t first_index, end_index;
   if (!gpuinfo_apple_smc_lower_bound(smc, key_count, first_fan_key, &first_index) ||
-      !gpuinfo_apple_smc_lower_bound(smc, key_count, end_fan_key, &end_index) ||
-      first_index >= end_index)
+      !gpuinfo_apple_smc_lower_bound(smc, key_count, end_fan_key, &end_index) || first_index >= end_index)
     return false;
 
   const size_t maximum_key_count = end_index - first_index;
@@ -283,8 +284,8 @@ static bool gpuinfo_apple_smc_discover_fan_keys(struct gpuinfo_apple_smc *smc, u
   const uint32_t float_type = gpuinfo_apple_smc_key_id("flt ");
   for (uint32_t index = first_index; index < end_index; ++index) {
     uint32_t key;
-    if (!gpuinfo_apple_smc_read_key_by_index(smc, index, &key) || key < first_fan_key ||
-        key >= end_fan_key || (index != first_index && key <= previous_key)) {
+    if (!gpuinfo_apple_smc_read_key_by_index(smc, index, &key) || key < first_fan_key || key >= end_fan_key ||
+        (index != first_index && key <= previous_key)) {
       free(keys);
       return false;
     }

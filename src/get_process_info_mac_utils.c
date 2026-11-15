@@ -25,6 +25,8 @@ double processinfo_mac_time_to_seconds(uint64_t mach_ticks, bool translated, uin
                                        uint32_t timebase_denominator) {
   if (translated) {
     // Rosetta reports the Intel timebase even though task CPU counters use the Apple Silicon timebase.
+    // Apple Silicon's timebase is 125/3 ns per tick; htop applies the same
+    // workaround in darwin/PlatformHelpers.c when sysctl.proc_translated is set.
     timebase_numerator = 125;
     timebase_denominator = 3;
   }

@@ -21,6 +21,7 @@
 
 #include "extract_gpuinfo_apple_utils.h"
 #include "get_process_info_mac_utils.h"
+#include "nvtop/common.h"
 
 #include <Foundation/Foundation.h>
 #include <gtest/gtest.h>
@@ -31,6 +32,8 @@
 TEST(AppleProcessCpuInfo, ConvertsNativeMachTicksToSeconds) {
   EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(1000000000, false, 1, 1), 1.0);
   EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(24000000, false, 125, 3), 1.0);
+  // A zero denominator cannot be interpreted; report no duration instead of inf/NaN.
+  EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(1000, false, 1, 0), 0.0);
 }
 
 TEST(AppleProcessCpuInfo, UsesNativeTimebaseUnderRosetta) {
@@ -167,6 +170,45 @@ TEST(AppleClockInfo, ParsesGpuFrequencyStates) {
   EXPECT_EQ(frequencies[3], 1500u);
 }
 
+TEST(AppleClockInfo, ParsesKilohertzGpuFrequencyStates) {
+  const uint8_t voltage_states[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0x20, 0xa1, 0x07, 0x00, 0xbc, 0x02, 0x00, 0x00,
+      0x40, 0x42, 0x0f, 0x00, 0x84, 0x03, 0x00, 0x00,
+      0x60, 0xe3, 0x16, 0x00, 0x4c, 0x04, 0x00, 0x00,
+  };
+  unsigned frequencies[4];
+  size_t frequency_count;
+
+  ASSERT_TRUE(gpuinfo_apple_parse_gpu_frequency_states(
+      voltage_states, sizeof(voltage_states), frequencies, 4, &frequency_count));
+  ASSERT_EQ(frequency_count, 4u);
+  EXPECT_EQ(frequencies[0], 0u);
+  EXPECT_EQ(frequencies[1], 500u);
+  EXPECT_EQ(frequencies[2], 1000u);
+  EXPECT_EQ(frequencies[3], 1500u);
+}
+
+TEST(AppleClockInfo, RejectsGpuFrequencyStatesWithoutPlausibleUnits) {
+  // Values in the low thousands fit neither a Hz nor a kHz table, so report no
+  // clock instead of one that is off by orders of magnitude.
+  const uint8_t megahertz_states[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0xdc, 0x05, 0x00, 0x00, 0xbc, 0x02, 0x00, 0x00,
+  };
+  const uint8_t zero_active_state[] = {
+      0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
+      0x00, 0x00, 0x00, 0x00, 0xbc, 0x02, 0x00, 0x00,
+  };
+  unsigned frequencies[2];
+  size_t frequency_count;
+
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      megahertz_states, sizeof(megahertz_states), frequencies, 2, &frequency_count));
+  EXPECT_FALSE(gpuinfo_apple_parse_gpu_frequency_states(
+      zero_active_state, sizeof(zero_active_state), frequencies, 2, &frequency_count));
+}
+
 TEST(AppleClockInfo, RejectsMalformedGpuFrequencyStates) {
   const uint8_t voltage_states[] = {
       0x00, 0x00, 0x00, 0x00, 0x7d, 0x00, 0x00, 0x00,
@@ -212,6 +254,54 @@ TEST(AppleClockInfo, RejectsInvalidResidencyTables) {
   EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, NULL, 2, &clock_speed));
   EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, frequencies, 1, &clock_speed));
   EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, frequencies, 2, NULL));
+}
+
+TEST(AppleClockInfo, AccumulatesActiveChannelResidencies) {
+  uint64_t residencies[] = {0, 10, 20, 30};
+  const int64_t channel[] = {12345, 1, 2, 3};
+
+  ASSERT_TRUE(gpuinfo_apple_accumulate_gpu_residencies(residencies, channel, 4));
+  // The zero-frequency OFF state is never folded into the aggregate.
+  EXPECT_EQ(residencies[0], 0u);
+  EXPECT_EQ(residencies[1], 11u);
+  EXPECT_EQ(residencies[2], 22u);
+  EXPECT_EQ(residencies[3], 33u);
+}
+
+TEST(AppleClockInfo, RejectsInvalidChannelResidenciesAtomically) {
+  uint64_t residencies[] = {0, 10, 20};
+  const int64_t negative[] = {0, 1, -1};
+  const int64_t overflowing[] = {0, 0, 1};
+
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(residencies, negative, 3));
+  EXPECT_EQ(residencies[1], 10u);
+  EXPECT_EQ(residencies[2], 20u);
+
+  uint64_t saturated[] = {0, 0, UINT64_MAX};
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(saturated, overflowing, 3));
+  EXPECT_EQ(saturated[1], 0u);
+  EXPECT_EQ(saturated[2], UINT64_MAX);
+}
+
+TEST(AppleClockInfo, RejectsInvalidResidencyInputs) {
+  uint64_t residencies[2] = {0, 0};
+  const int64_t channel[2] = {0, 1};
+
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(NULL, channel, 2));
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(residencies, NULL, 2));
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(residencies, channel, 1));
+}
+
+TEST(AppleSamplingInfo, SamplesImmediatelyAndThenRespectsTheFloor) {
+  const uint64_t floor = 1000000000;
+
+  EXPECT_TRUE(gpuinfo_apple_sample_is_due(false, 0, floor));
+  EXPECT_FALSE(gpuinfo_apple_sample_is_due(true, 0, floor));
+  EXPECT_FALSE(gpuinfo_apple_sample_is_due(true, floor - 1, floor));
+  // A refresh landing exactly on the interval must sample, otherwise a 1 s update
+  // interval could round down and halve the effective sampling rate.
+  EXPECT_TRUE(gpuinfo_apple_sample_is_due(true, floor, floor));
+  EXPECT_TRUE(gpuinfo_apple_sample_is_due(true, floor + 1, floor));
 }
 
 TEST(AppleTemperatureInfo, DecodesSmcFloat) {
@@ -294,6 +384,67 @@ TEST(AppleProcessInfo, ParsesAndSumsAppUsage) {
     EXPECT_EQ(sample.pid, 42);
     EXPECT_TRUE(sample.gpu_time_valid);
     EXPECT_EQ(sample.gpu_time, 200u);
+    EXPECT_EQ(sample.gpu_time_queue_count, 3u);
+  }
+}
+
+TEST(AppleProcessInfo, ParsesDirectAccumulatedGpuTime) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"IOUserClientCreator" : @"pid 42, test",
+      @"accumulatedGPUTime" : @125,
+    };
+    struct gpuinfo_apple_process_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_EQ(sample.pid, 42);
+    EXPECT_TRUE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time, 125u);
+    // A direct total has no per-queue breakdown.
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
+  }
+}
+
+TEST(AppleProcessInfo, PrefersDirectAccumulatedGpuTimeOverAppUsage) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"IOUserClientCreator" : @"pid 42, test",
+      @"accumulatedGPUTime" : @500,
+      @"AppUsage" : @[
+        @{@"accumulatedGPUTime" : @125},
+        @{@"accumulatedGPUTime" : @75},
+      ],
+    };
+    struct gpuinfo_apple_process_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+    // Counting both shapes would report the same GPU work twice.
+    EXPECT_TRUE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time, 500u);
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
+  }
+}
+
+TEST(AppleProcessInfo, FallsBackToAppUsageWhenDirectCounterIsMalformed) {
+  @autoreleasepool {
+    NSArray *direct_values = @[ @"not a number", @(-1) ];
+    struct gpuinfo_apple_process_sample sample;
+
+    for (id direct_value in direct_values) {
+      NSDictionary *properties = @{
+        @"IOUserClientCreator" : @"pid 42, test",
+        @"accumulatedGPUTime" : direct_value,
+        @"AppUsage" : @[
+          @{@"accumulatedGPUTime" : @125},
+          @{@"accumulatedGPUTime" : @75},
+        ],
+      };
+
+      ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+      EXPECT_TRUE(sample.gpu_time_valid);
+      EXPECT_EQ(sample.gpu_time, 200u);
+      EXPECT_EQ(sample.gpu_time_queue_count, 2u);
+    }
   }
 }
 
@@ -306,10 +457,12 @@ TEST(AppleProcessInfo, PreservesPidWhenAppUsageIsUnavailable) {
     ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)missing_usage, &sample));
     EXPECT_EQ(sample.pid, 7);
     EXPECT_FALSE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
 
     ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)empty_usage, &sample));
     EXPECT_EQ(sample.pid, 8);
     EXPECT_FALSE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
   }
 }
 
@@ -329,6 +482,27 @@ TEST(AppleProcessInfo, IgnoresMalformedAppUsageEntries) {
     ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
     EXPECT_TRUE(sample.gpu_time_valid);
     EXPECT_EQ(sample.gpu_time, 25u);
+    EXPECT_EQ(sample.gpu_time_queue_count, 1u);
+  }
+}
+
+TEST(AppleProcessInfo, ReportsNoQueueWhenAppUsageIsEntirelyMalformed) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"IOUserClientCreator" : @"pid 42, test",
+      @"AppUsage" : @[
+        @"not a dictionary",
+        @{@"API" : @"Metal"},
+        @{@"accumulatedGPUTime" : @(-1)},
+      ],
+    };
+    struct gpuinfo_apple_process_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_EQ(sample.pid, 42);
+    EXPECT_FALSE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time, 0u);
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
   }
 }
 
@@ -393,6 +567,23 @@ TEST(AppleProcessInfo, CapsAggregatedUsageAtOneHundredPercent) {
 
   ASSERT_EQ(gpu_info.processes_count, 1u);
   EXPECT_EQ(gpu_info.processes[0].gpu_usage, 100u);
+
+  free(gpu_info.processes);
+}
+
+TEST(AppleProcessInfo, GrowsProcessArrayAcrossReallocIncrements) {
+  struct gpu_info gpu_info = {};
+
+  // One more than a single linear increment forces at least two reallocations.
+  const unsigned process_count = COMMON_PROCESS_LINEAR_REALLOC_INC + 1;
+  for (unsigned i = 1; i <= process_count; ++i)
+    gpuinfo_apple_add_process(&gpu_info, (pid_t)i, true, 1);
+
+  ASSERT_EQ(gpu_info.processes_count, process_count);
+  EXPECT_GE(gpu_info.processes_array_size, process_count);
+  EXPECT_EQ(gpu_info.processes[process_count - 1].pid, (pid_t)process_count);
+  EXPECT_TRUE(GPUINFO_PROCESS_FIELD_VALID(&gpu_info.processes[process_count - 1], gpu_usage));
+  EXPECT_EQ(gpu_info.processes[process_count - 1].gpu_usage, 1u);
 
   free(gpu_info.processes);
 }

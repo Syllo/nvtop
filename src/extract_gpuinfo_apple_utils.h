@@ -36,6 +36,10 @@ extern "C" {
 struct gpuinfo_apple_process_sample {
   pid_t pid;
   uint64_t gpu_time;
+  // Number of AppUsage entries summed into gpu_time; 0 when the client reports
+  // a direct accumulatedGPUTime total, which has no per-queue breakdown. Only
+  // meaningful when gpu_time_valid is set.
+  unsigned gpu_time_queue_count;
   bool gpu_time_valid;
 };
 
@@ -73,11 +77,31 @@ bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuin
 
 bool gpuinfo_apple_calculate_gpu_usage(uint64_t previous_gpu_time, uint64_t current_gpu_time, uint64_t time_elapsed,
                                        unsigned *gpu_usage);
+// `gpu_time` is AppUsage.accumulatedGPUTime, a nanosecond counter (the same one
+// Activity Monitor uses for its per-process % GPU column); `time_elapsed` is
+// the nanosecond interval reported by nvtop_difftime_u64. GPU time can exceed
+// wall time when a process has several queues in flight, so the result is
+// capped at 100%.
 
 bool gpuinfo_apple_energy_to_nanojoules(int64_t energy, const char *unit, uint64_t *energy_nanojoules);
 
 bool gpuinfo_apple_calculate_power_draw(uint64_t energy_nanojoules, uint64_t time_elapsed, unsigned *power_draw);
 
+// Returns true when a new sample should be taken: the first call always samples to
+// establish a baseline, afterwards the minimum interval applies. The comparison is
+// inclusive, so a refresh that lands exactly on the interval samples again.
+bool gpuinfo_apple_sample_is_due(bool sample_attempted, uint64_t nanoseconds_since_last_sample,
+                                 uint64_t minimum_interval);
+
+// Adds one channel's active-state residencies (indices 1..frequency_count-1) to the
+// multi-die aggregate, skipping the zero-frequency OFF state. A channel is rejected
+// as a whole, without touching the aggregate, when any residency is negative or the
+// sum would overflow.
+bool gpuinfo_apple_accumulate_gpu_residencies(uint64_t *residencies, const int64_t *channel_residencies,
+                                              size_t frequency_count);
+
+// Parses a little-endian (frequency, voltage) DVFS table and scales the
+// frequencies to MHz from Hz or kHz based on the table magnitude.
 bool gpuinfo_apple_parse_gpu_frequency_states(const uint8_t *data, size_t data_size, unsigned *frequencies,
                                               size_t frequencies_size, size_t *frequency_count);
 

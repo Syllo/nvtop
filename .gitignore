@@ -5,3 +5,8 @@ cmake-build*/
 .vscode
 .idea
 .cache/
+
+# AppImage build artifacts
+/AppDir/
+/appimagetool
+/*.AppImage

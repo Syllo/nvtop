@@ -123,11 +123,24 @@ bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuin
     return false;
   sample->pid = pid;
 
+  // Some macOS versions (and Intel Macs) expose the process GPU time directly
+  // on the client node instead of a per-queue AppUsage array. Both carry the
+  // same nanosecond counter; prefer the direct total when both exist, as
+  // Activity Monitor does, so the same work is not counted twice. The direct
+  // form has no per-queue breakdown, which the zero queue count records.
+  uint64_t direct_gpu_time;
+  if (gpuinfo_apple_get_unsigned_number([user_client_info objectForKey:@"accumulatedGPUTime"], &direct_gpu_time)) {
+    sample->gpu_time = direct_gpu_time;
+    sample->gpu_time_valid = true;
+    return true;
+  }
+
   id app_usage = [user_client_info objectForKey:@"AppUsage"];
   if (![app_usage isKindOfClass:[NSArray class]])
     return true;
 
   uint64_t total_gpu_time = 0;
+  unsigned queue_count = 0;
   for (id app_info in app_usage) {
     if (![app_info isKindOfClass:[NSDictionary class]])
       continue;
@@ -141,10 +154,12 @@ bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuin
       return true;
     }
     total_gpu_time += gpu_time;
-    sample->gpu_time_valid = true;
+    ++queue_count;
   }
 
   sample->gpu_time = total_gpu_time;
+  sample->gpu_time_queue_count = queue_count;
+  sample->gpu_time_valid = queue_count > 0;
   return true;
 }
 
@@ -198,6 +213,29 @@ bool gpuinfo_apple_calculate_power_draw(uint64_t energy_nanojoules, uint64_t tim
   return true;
 }
 
+bool gpuinfo_apple_sample_is_due(bool sample_attempted, uint64_t nanoseconds_since_last_sample,
+                                 uint64_t minimum_interval) {
+  return !sample_attempted || nanoseconds_since_last_sample >= minimum_interval;
+}
+
+bool gpuinfo_apple_accumulate_gpu_residencies(uint64_t *residencies, const int64_t *channel_residencies,
+                                              size_t frequency_count) {
+  if (!residencies || !channel_residencies || frequency_count < 2)
+    return false;
+
+  // Validate the whole channel before touching the aggregate, so a rejected
+  // channel cannot leave a partial sum behind.
+  for (size_t state = 1; state < frequency_count; ++state) {
+    if (channel_residencies[state] < 0 ||
+        UINT64_MAX - residencies[state] < (uint64_t)channel_residencies[state])
+      return false;
+  }
+
+  for (size_t state = 1; state < frequency_count; ++state)
+    residencies[state] += (uint64_t)channel_residencies[state];
+  return true;
+}
+
 static uint32_t gpuinfo_apple_read_little_endian_uint32(const uint8_t *data) {
   return (uint32_t)data[0] | (uint32_t)data[1] << 8 | (uint32_t)data[2] << 16 | (uint32_t)data[3] << 24;
 }
@@ -215,13 +253,35 @@ bool gpuinfo_apple_parse_gpu_frequency_states(const uint8_t *data, size_t data_s
   if (state_count > frequencies_size)
     return false;
 
-  // pmgr stores little-endian (frequency Hz, voltage) pairs. The first pair is the OFF state;
+  // pmgr stores little-endian (frequency, voltage) pairs. The first pair is the OFF state;
   // subsequent entries align with the active IOReport performance states.
+  uint32_t maximum_frequency = 0;
   for (size_t i = 0; i < state_count; ++i) {
-    const uint32_t frequency_hz = gpuinfo_apple_read_little_endian_uint32(&data[i * 8]);
-    if ((!i && frequency_hz) || (i && frequency_hz < 1000000))
+    const uint32_t frequency = gpuinfo_apple_read_little_endian_uint32(&data[i * 8]);
+    if (!i && frequency)
       return false;
-    frequencies[i] = frequency_hz / 1000000;
+    frequencies[i] = frequency;
+    if (frequency > maximum_frequency)
+      maximum_frequency = frequency;
+  }
+
+  // The GPU table has only been seen in Hz, but CPU DVFS tables moved to kHz on M4+, so
+  // do not assume the GPU table keeps Hz forever. Hz tables span roughly 1e8..5e9 and kHz
+  // tables roughly 1e5..5e6, so the unit follows from the magnitude of the largest state.
+  // Reject magnitudes that fit neither (e.g. an MHz table) instead of reporting a clock
+  // that is off by orders of magnitude.
+  uint32_t divisor;
+  if (maximum_frequency >= UINT32_C(10000000))
+    divisor = UINT32_C(1000000);
+  else if (maximum_frequency >= UINT32_C(10000))
+    divisor = UINT32_C(1000);
+  else
+    return false;
+
+  for (size_t i = 1; i < state_count; ++i) {
+    frequencies[i] /= divisor;
+    if (!frequencies[i])
+      return false;
   }
 
   *frequency_count = state_count;
@@ -259,6 +319,9 @@ bool gpuinfo_apple_decode_smc_float(const uint8_t *data, size_t data_size, float
   if (!data || data_size != sizeof(float) || !value)
     return false;
 
+  // AppleSMC 'flt ' keys store IEEE-754 floats little-endian on Apple Silicon.
+  // Intel Macs use big-endian/fixed-point SMC types; the Apple backend does not
+  // enable SMC telemetry there (see gpuinfo_apple_is_apple_silicon).
   const uint32_t bits = (uint32_t)data[0] | (uint32_t)data[1] << 8 | (uint32_t)data[2] << 16 |
                         (uint32_t)data[3] << 24;
   memcpy(value, &bits, sizeof(*value));

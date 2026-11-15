@@ -33,20 +33,26 @@
 
 // IOReport has no public user-space header. Keep its declarations in this file and load the
 // framework dynamically so an API or channel change only makes the extra metrics unavailable.
+//
+// The prototypes below are taken from the private IOReport ABI as used by
+// powermetrics and re-declared by open source samplers (e.g. macmon, Stats):
+// the three trailing flags/ids/options parameters of
+// IOReportCopyChannelsInGroup are all uint64_t, and the state accessors use
+// int32_t indices. IOReportSubscriptionRef is an opaque, CF-owned pointer.
 typedef struct __IOReportSubscriptionRef *IOReportSubscriptionRef;
 
 struct gpuinfo_apple_ioreport_api {
-  CFDictionaryRef (*copy_channels_in_group)(CFStringRef, CFStringRef, uint64_t, uint64_t, uint64_t);
+  CFMutableDictionaryRef (*copy_channels_in_group)(CFStringRef, CFStringRef, uint64_t, uint64_t, uint64_t);
   IOReportSubscriptionRef (*create_subscription)(const void *, CFMutableDictionaryRef, CFMutableDictionaryRef *,
                                                  uint64_t, CFTypeRef);
   CFDictionaryRef (*create_samples)(IOReportSubscriptionRef, CFMutableDictionaryRef, CFTypeRef);
   CFDictionaryRef (*create_samples_delta)(CFDictionaryRef, CFDictionaryRef, CFTypeRef);
   CFStringRef (*channel_get_name)(CFDictionaryRef);
   CFStringRef (*channel_get_unit_label)(CFDictionaryRef);
-  int64_t (*simple_get_integer_value)(CFDictionaryRef, int);
-  int (*state_get_count)(CFDictionaryRef);
-  CFStringRef (*state_get_name_for_index)(CFDictionaryRef, int);
-  int64_t (*state_get_residency)(CFDictionaryRef, int);
+  int64_t (*simple_get_integer_value)(CFDictionaryRef, int32_t);
+  int32_t (*state_get_count)(CFDictionaryRef);
+  CFStringRef (*state_get_name_for_index)(CFDictionaryRef, int32_t);
+  int64_t (*state_get_residency)(CFDictionaryRef, int32_t);
 };
 
 struct gpuinfo_apple_ioreport {
@@ -58,13 +64,28 @@ struct gpuinfo_apple_ioreport {
   CFMutableDictionaryRef energy_channels;
   CFDictionaryRef previous_energy_sample;
   nvtop_time previous_sample_time;
+  nvtop_time last_power_sample_time;
+  unsigned last_power_draw;
+  bool power_sample_attempted;
+  bool last_power_draw_valid;
   IOReportSubscriptionRef performance_state_subscription;
   CFMutableDictionaryRef performance_state_channels;
   CFDictionaryRef previous_performance_state_sample;
+  nvtop_time last_clock_sample_time;
+  unsigned last_clock_speed;
+  unsigned last_max_clock_speed;
+  bool clock_sample_attempted;
+  bool last_clock_speed_valid;
   unsigned *gpu_frequencies;
   size_t gpu_frequency_count;
   unsigned max_gpu_frequency;
 };
+
+// Energy counters are coarse (mJ on some chips) and nvtop can refresh every 100 ms in
+// snapshot mode, where a short delta can round to zero or to a full step. Keep a one
+// second window, like the SMC telemetry, so the delta is meaningful and the private
+// interface is not polled ten times more often than the interface displays.
+static const uint64_t gpuinfo_apple_ioreport_minimum_sample_interval = UINT64_C(1000000000);
 
 static bool gpuinfo_apple_ioreport_load_symbol(void *library, const char *name, void *destination,
                                                size_t destination_size) {
@@ -77,10 +98,12 @@ static bool gpuinfo_apple_ioreport_load_symbol(void *library, const char *name, 
 }
 
 static bool gpuinfo_apple_ioreport_load_api(struct gpuinfo_apple_ioreport *ioreport) {
-#define LOAD_REQUIRED_IOREPORT_SYMBOL(field, name)                                                                  \
-  if (!gpuinfo_apple_ioreport_load_symbol(ioreport->library, name, &ioreport->api.field,                            \
-                                          sizeof(ioreport->api.field)))                                              \
-    return false
+#define LOAD_REQUIRED_IOREPORT_SYMBOL(field, name)                                                                     \
+  do {                                                                                                                 \
+    if (!gpuinfo_apple_ioreport_load_symbol(ioreport->library, name, &ioreport->api.field,                             \
+                                            sizeof(ioreport->api.field)))                                              \
+      return false;                                                                                                    \
+  } while (0)
 
   LOAD_REQUIRED_IOREPORT_SYMBOL(copy_channels_in_group, "IOReportCopyChannelsInGroup");
   LOAD_REQUIRED_IOREPORT_SYMBOL(create_subscription, "IOReportCreateSubscription");
@@ -91,8 +114,7 @@ static bool gpuinfo_apple_ioreport_load_api(struct gpuinfo_apple_ioreport *iorep
 
   ioreport->energy_api_available =
       gpuinfo_apple_ioreport_load_symbol(ioreport->library, "IOReportChannelGetChannelName",
-                                         &ioreport->api.channel_get_name,
-                                         sizeof(ioreport->api.channel_get_name)) &&
+                                         &ioreport->api.channel_get_name, sizeof(ioreport->api.channel_get_name)) &&
       gpuinfo_apple_ioreport_load_symbol(ioreport->library, "IOReportChannelGetUnitLabel",
                                          &ioreport->api.channel_get_unit_label,
                                          sizeof(ioreport->api.channel_get_unit_label)) &&
@@ -100,15 +122,13 @@ static bool gpuinfo_apple_ioreport_load_api(struct gpuinfo_apple_ioreport *iorep
                                          &ioreport->api.simple_get_integer_value,
                                          sizeof(ioreport->api.simple_get_integer_value));
   ioreport->performance_state_api_available =
-      gpuinfo_apple_ioreport_load_symbol(ioreport->library, "IOReportStateGetCount",
-                                         &ioreport->api.state_get_count,
+      gpuinfo_apple_ioreport_load_symbol(ioreport->library, "IOReportStateGetCount", &ioreport->api.state_get_count,
                                          sizeof(ioreport->api.state_get_count)) &&
       gpuinfo_apple_ioreport_load_symbol(ioreport->library, "IOReportStateGetNameForIndex",
                                          &ioreport->api.state_get_name_for_index,
                                          sizeof(ioreport->api.state_get_name_for_index)) &&
       gpuinfo_apple_ioreport_load_symbol(ioreport->library, "IOReportStateGetResidency",
-                                         &ioreport->api.state_get_residency,
-                                         sizeof(ioreport->api.state_get_residency));
+                                         &ioreport->api.state_get_residency, sizeof(ioreport->api.state_get_residency));
   return true;
 }
 
@@ -126,10 +146,8 @@ static bool gpuinfo_apple_ioreport_create_subscription(struct gpuinfo_apple_iore
                                                        CFMutableDictionaryRef requested_channels,
                                                        IOReportSubscriptionRef *subscription,
                                                        CFMutableDictionaryRef *subscribed_channels) {
-  *subscription =
-      ioreport->api.create_subscription(NULL, requested_channels, subscribed_channels, 0, NULL);
-  if (!*subscription || !*subscribed_channels ||
-      CFGetTypeID(*subscribed_channels) != CFDictionaryGetTypeID()) {
+  *subscription = ioreport->api.create_subscription(NULL, requested_channels, subscribed_channels, 0, NULL);
+  if (!*subscription || !*subscribed_channels || CFGetTypeID(*subscribed_channels) != CFDictionaryGetTypeID()) {
     gpuinfo_apple_ioreport_release_subscription(subscription, subscribed_channels);
     return false;
   }
@@ -143,10 +161,8 @@ static bool gpuinfo_apple_ioreport_is_gpu_energy_channel(struct gpuinfo_apple_io
          CFStringHasSuffix(channel_name, CFSTR("GPU Energy"));
 }
 
-static CFMutableDictionaryRef gpuinfo_apple_ioreport_copy_energy_channels(
-    struct gpuinfo_apple_ioreport *ioreport) {
-  CFDictionaryRef all_channels =
-      ioreport->api.copy_channels_in_group(CFSTR("Energy Model"), NULL, 0, 0, 0);
+static CFMutableDictionaryRef gpuinfo_apple_ioreport_copy_energy_channels(struct gpuinfo_apple_ioreport *ioreport) {
+  CFDictionaryRef all_channels = ioreport->api.copy_channels_in_group(CFSTR("Energy Model"), NULL, 0, 0, 0);
   if (!all_channels || CFGetTypeID(all_channels) != CFDictionaryGetTypeID()) {
     if (all_channels)
       CFRelease(all_channels);
@@ -160,8 +176,7 @@ static CFMutableDictionaryRef gpuinfo_apple_ioreport_copy_energy_channels(
   }
 
   CFArrayRef channels = channels_value;
-  CFMutableArrayRef energy_channels =
-      CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+  CFMutableArrayRef energy_channels = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
   if (!energy_channels) {
     CFRelease(all_channels);
     return NULL;
@@ -186,10 +201,10 @@ static CFMutableDictionaryRef gpuinfo_apple_ioreport_copy_energy_channels(
   return selected_channels;
 }
 
-static CFMutableDictionaryRef gpuinfo_apple_ioreport_copy_performance_state_channels(
-    struct gpuinfo_apple_ioreport *ioreport) {
-  CFDictionaryRef channels = ioreport->api.copy_channels_in_group(
-      CFSTR("GPU Stats"), CFSTR("GPU Performance States"), 0, 0, 0);
+static CFMutableDictionaryRef
+gpuinfo_apple_ioreport_copy_performance_state_channels(struct gpuinfo_apple_ioreport *ioreport) {
+  CFDictionaryRef channels =
+      ioreport->api.copy_channels_in_group(CFSTR("GPU Stats"), CFSTR("GPU Performance States"), 0, 0, 0);
   if (!channels || CFGetTypeID(channels) != CFDictionaryGetTypeID()) {
     if (channels)
       CFRelease(channels);
@@ -197,32 +212,60 @@ static CFMutableDictionaryRef gpuinfo_apple_ioreport_copy_performance_state_chan
   }
 
   CFTypeRef channel_array = CFDictionaryGetValue(channels, CFSTR("IOReportChannels"));
-  if (!channel_array || CFGetTypeID(channel_array) != CFArrayGetTypeID() ||
-      !CFArrayGetCount(channel_array)) {
+  if (!channel_array || CFGetTypeID(channel_array) != CFArrayGetTypeID() || !CFArrayGetCount(channel_array)) {
     CFRelease(channels);
     return NULL;
   }
 
-  CFMutableDictionaryRef mutable_channels =
-      CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, channels);
+  CFMutableDictionaryRef mutable_channels = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, channels);
   CFRelease(channels);
   return mutable_channels;
 }
 
-static bool gpuinfo_apple_ioreport_load_gpu_frequencies(struct gpuinfo_apple_ioreport *ioreport) {
-  io_service_t power_manager =
-      IOServiceGetMatchingService(kIOMainPortDefault, IOServiceNameMatching("pmgr"));
-  if (!MACH_PORT_VALID(power_manager))
-    return false;
+static CFTypeRef gpuinfo_apple_ioreport_copy_voltage_states_for_service(const char *service_name) {
+  CFMutableDictionaryRef matching_service = IOServiceNameMatching(service_name);
+  if (!matching_service)
+    return NULL;
 
-  CFTypeRef voltage_states = IORegistryEntryCreateCFProperty(
-      power_manager, CFSTR("voltage-states9"), kCFAllocatorDefault, kNilOptions);
-  IOObjectRelease(power_manager);
-  if (!voltage_states || CFGetTypeID(voltage_states) != CFDataGetTypeID()) {
-    if (voltage_states)
-      CFRelease(voltage_states);
-    return false;
+  io_iterator_t services;
+  if (IOServiceGetMatchingServices(kIOMainPortDefault, matching_service, &services) != kIOReturnSuccess)
+    return NULL;
+
+  // A service name can match more than one node and only some publish the table
+  // (newer chips add a bare pmgr stub), so keep the first node that has it.
+  CFTypeRef voltage_states = NULL;
+  for (io_service_t service = IOIteratorNext(services); service; service = IOIteratorNext(services)) {
+    CFTypeRef candidate =
+        IORegistryEntryCreateCFProperty(service, CFSTR("voltage-states9"), kCFAllocatorDefault, kNilOptions);
+    IOObjectRelease(service);
+    if (candidate && CFGetTypeID(candidate) == CFDataGetTypeID()) {
+      voltage_states = candidate;
+      break;
+    }
+    if (candidate)
+      CFRelease(candidate);
   }
+
+  IOObjectRelease(services);
+  return voltage_states;
+}
+
+// M6+ moves the DVFS tables to a "pmgr-child" node and leaves "pmgr" as an
+// architecture stub, so try both names and keep whichever publishes the GPU table.
+static CFTypeRef gpuinfo_apple_ioreport_copy_gpu_voltage_states(void) {
+  static const char *const pmgr_service_names[] = {"pmgr", "pmgr-child"};
+  for (size_t i = 0; i < sizeof(pmgr_service_names) / sizeof(pmgr_service_names[0]); ++i) {
+    CFTypeRef voltage_states = gpuinfo_apple_ioreport_copy_voltage_states_for_service(pmgr_service_names[i]);
+    if (voltage_states)
+      return voltage_states;
+  }
+  return NULL;
+}
+
+static bool gpuinfo_apple_ioreport_load_gpu_frequencies(struct gpuinfo_apple_ioreport *ioreport) {
+  CFTypeRef voltage_states = gpuinfo_apple_ioreport_copy_gpu_voltage_states();
+  if (!voltage_states)
+    return false;
 
   const CFIndex data_size = CFDataGetLength(voltage_states);
   if (data_size <= 0 || data_size % 8) {
@@ -233,9 +276,9 @@ static bool gpuinfo_apple_ioreport_load_gpu_frequencies(struct gpuinfo_apple_ior
   const size_t state_count = (size_t)data_size / 8;
   unsigned *frequencies = calloc(state_count, sizeof(*frequencies));
   size_t frequency_count;
-  const bool frequencies_valid = frequencies && gpuinfo_apple_parse_gpu_frequency_states(
-                                                    CFDataGetBytePtr(voltage_states), (size_t)data_size,
-                                                    frequencies, state_count, &frequency_count);
+  const bool frequencies_valid =
+      frequencies && gpuinfo_apple_parse_gpu_frequency_states(CFDataGetBytePtr(voltage_states), (size_t)data_size,
+                                                              frequencies, state_count, &frequency_count);
   CFRelease(voltage_states);
   if (!frequencies_valid) {
     free(frequencies);
@@ -279,13 +322,11 @@ bool gpuinfo_apple_ioreport_init(struct gpuinfo_apple_ioreport **ioreport) {
     requested_channels = gpuinfo_apple_ioreport_copy_energy_channels(new_ioreport);
   if (requested_channels) {
     source_available = gpuinfo_apple_ioreport_create_subscription(
-        new_ioreport, requested_channels, &new_ioreport->energy_subscription,
-        &new_ioreport->energy_channels);
+        new_ioreport, requested_channels, &new_ioreport->energy_subscription, &new_ioreport->energy_channels);
     CFRelease(requested_channels);
   }
 
-  if (new_ioreport->performance_state_api_available &&
-      gpuinfo_apple_ioreport_load_gpu_frequencies(new_ioreport)) {
+  if (new_ioreport->performance_state_api_available && gpuinfo_apple_ioreport_load_gpu_frequencies(new_ioreport)) {
     requested_channels = gpuinfo_apple_ioreport_copy_performance_state_channels(new_ioreport);
     if (requested_channels) {
       const bool performance_states_available = gpuinfo_apple_ioreport_create_subscription(
@@ -319,8 +360,7 @@ void gpuinfo_apple_ioreport_shutdown(struct gpuinfo_apple_ioreport *ioreport) {
     CFRelease(ioreport->previous_energy_sample);
   if (ioreport->previous_performance_state_sample)
     CFRelease(ioreport->previous_performance_state_sample);
-  gpuinfo_apple_ioreport_release_subscription(&ioreport->energy_subscription,
-                                              &ioreport->energy_channels);
+  gpuinfo_apple_ioreport_release_subscription(&ioreport->energy_subscription, &ioreport->energy_channels);
   gpuinfo_apple_ioreport_release_subscription(&ioreport->performance_state_subscription,
                                               &ioreport->performance_state_channels);
   free(ioreport->gpu_frequencies);
@@ -367,20 +407,32 @@ static bool gpuinfo_apple_ioreport_parse_power_draw(struct gpuinfo_apple_iorepor
 }
 
 bool gpuinfo_apple_ioreport_get_power_draw(struct gpuinfo_apple_ioreport *ioreport, unsigned *power_draw) {
-  if (!ioreport || !ioreport->energy_api_available || !ioreport->energy_subscription ||
-      !power_draw)
-    return false;
-
-  CFDictionaryRef current_sample =
-      ioreport->api.create_samples(ioreport->energy_subscription, ioreport->energy_channels, NULL);
-  if (!current_sample)
+  if (!ioreport || !ioreport->energy_api_available || !ioreport->energy_subscription || !power_draw)
     return false;
 
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
+  const uint64_t since_last_sample = nvtop_difftime_u64(ioreport->last_power_sample_time, current_time);
+  if (!gpuinfo_apple_sample_is_due(ioreport->power_sample_attempted, since_last_sample,
+                                   gpuinfo_apple_ioreport_minimum_sample_interval)) {
+    if (ioreport->last_power_draw_valid)
+      *power_draw = ioreport->last_power_draw;
+    return ioreport->last_power_draw_valid;
+  }
+  ioreport->last_power_sample_time = current_time;
+  ioreport->power_sample_attempted = true;
+
+  CFDictionaryRef current_sample =
+      ioreport->api.create_samples(ioreport->energy_subscription, ioreport->energy_channels, NULL);
+  if (!current_sample) {
+    ioreport->last_power_draw_valid = false;
+    return false;
+  }
+
   if (!ioreport->previous_energy_sample) {
     ioreport->previous_energy_sample = current_sample;
     ioreport->previous_sample_time = current_time;
+    ioreport->last_power_draw_valid = false;
     return false;
   }
 
@@ -391,31 +443,38 @@ bool gpuinfo_apple_ioreport_get_power_draw(struct gpuinfo_apple_ioreport *iorepo
 
   CFDictionaryRef energy_delta = ioreport->api.create_samples_delta(previous_sample, current_sample, NULL);
   CFRelease(previous_sample);
-  if (!energy_delta)
+  if (!energy_delta) {
+    ioreport->last_power_draw_valid = false;
     return false;
+  }
 
   const uint64_t elapsed = nvtop_difftime_u64(previous_time, current_time);
-  const bool power_draw_valid =
-      gpuinfo_apple_ioreport_parse_power_draw(ioreport, energy_delta, elapsed, power_draw);
+  const bool power_draw_valid = gpuinfo_apple_ioreport_parse_power_draw(ioreport, energy_delta, elapsed, power_draw);
   CFRelease(energy_delta);
+  ioreport->last_power_draw_valid = power_draw_valid;
+  if (power_draw_valid)
+    ioreport->last_power_draw = *power_draw;
   return power_draw_valid;
 }
 
 static bool gpuinfo_apple_ioreport_parse_gpu_clock_speed(struct gpuinfo_apple_ioreport *ioreport,
                                                          CFDictionaryRef performance_state_delta,
                                                          unsigned *clock_speed) {
-  if (!performance_state_delta ||
-      CFGetTypeID(performance_state_delta) != CFDictionaryGetTypeID())
+  if (!performance_state_delta || CFGetTypeID(performance_state_delta) != CFDictionaryGetTypeID())
     return false;
 
-  CFTypeRef channels_value =
-      CFDictionaryGetValue(performance_state_delta, CFSTR("IOReportChannels"));
+  CFTypeRef channels_value = CFDictionaryGetValue(performance_state_delta, CFSTR("IOReportChannels"));
   if (!channels_value || CFGetTypeID(channels_value) != CFArrayGetTypeID())
     return false;
 
-  uint64_t *residencies = calloc(ioreport->gpu_frequency_count, sizeof(*residencies));
-  if (!residencies)
+  const size_t frequency_count = ioreport->gpu_frequency_count;
+  uint64_t *residencies = calloc(frequency_count, sizeof(*residencies));
+  int64_t *channel_residencies = calloc(frequency_count, sizeof(*channel_residencies));
+  if (!residencies || !channel_residencies) {
+    free(channel_residencies);
+    free(residencies);
     return false;
+  }
 
   bool residency_valid = false;
   CFArrayRef channels = channels_value;
@@ -425,7 +484,7 @@ static bool gpuinfo_apple_ioreport_parse_gpu_clock_speed(struct gpuinfo_apple_io
       continue;
 
     const int state_count = ioreport->api.state_get_count(channel_value);
-    if (state_count < 2 || (size_t)state_count < ioreport->gpu_frequency_count)
+    if (state_count < 2 || (size_t)state_count < frequency_count)
       continue;
 
     CFStringRef first_state = ioreport->api.state_get_name_for_index(channel_value, 0);
@@ -435,59 +494,70 @@ static bool gpuinfo_apple_ioreport_parse_gpu_clock_speed(struct gpuinfo_apple_io
 
     // State zero maps to voltage-states9's zero-frequency entry. Aggregate the subsequent
     // active-state residencies across channels before calculating a multi-die average.
-    bool channel_valid = true;
-    for (size_t state = 1; state < ioreport->gpu_frequency_count; ++state) {
-      const int64_t residency = ioreport->api.state_get_residency(channel_value, (int)state);
-      if (residency < 0 || UINT64_MAX - residencies[state] < (uint64_t)residency) {
-        channel_valid = false;
-        break;
-      }
-    }
-    if (!channel_valid)
+    for (size_t state = 1; state < frequency_count; ++state)
+      channel_residencies[state] = ioreport->api.state_get_residency(channel_value, (int)state);
+    if (!gpuinfo_apple_accumulate_gpu_residencies(residencies, channel_residencies, frequency_count))
       continue;
-
-    for (size_t state = 1; state < ioreport->gpu_frequency_count; ++state)
-      residencies[state] +=
-          (uint64_t)ioreport->api.state_get_residency(channel_value, (int)state);
     residency_valid = true;
   }
 
   const bool clock_speed_valid =
-      residency_valid && gpuinfo_apple_calculate_gpu_clock_speed(
-                             residencies, ioreport->gpu_frequencies,
-                             ioreport->gpu_frequency_count, clock_speed);
+      residency_valid &&
+      gpuinfo_apple_calculate_gpu_clock_speed(residencies, ioreport->gpu_frequencies, frequency_count, clock_speed);
+  free(channel_residencies);
   free(residencies);
   return clock_speed_valid;
 }
 
-bool gpuinfo_apple_ioreport_get_gpu_clock_speed(struct gpuinfo_apple_ioreport *ioreport,
-                                               unsigned *clock_speed, unsigned *max_clock_speed) {
-  if (!ioreport || !ioreport->performance_state_api_available ||
-      !ioreport->performance_state_subscription || !clock_speed || !max_clock_speed)
+bool gpuinfo_apple_ioreport_get_gpu_clock_speed(struct gpuinfo_apple_ioreport *ioreport, unsigned *clock_speed,
+                                                unsigned *max_clock_speed) {
+  if (!ioreport || !ioreport->performance_state_api_available || !ioreport->performance_state_subscription ||
+      !clock_speed || !max_clock_speed)
     return false;
 
-  CFDictionaryRef current_sample = ioreport->api.create_samples(
-      ioreport->performance_state_subscription, ioreport->performance_state_channels, NULL);
-  if (!current_sample)
+  nvtop_time current_time;
+  nvtop_get_current_time(&current_time);
+  const uint64_t since_last_sample = nvtop_difftime_u64(ioreport->last_clock_sample_time, current_time);
+  if (!gpuinfo_apple_sample_is_due(ioreport->clock_sample_attempted, since_last_sample,
+                                   gpuinfo_apple_ioreport_minimum_sample_interval)) {
+    if (ioreport->last_clock_speed_valid) {
+      *clock_speed = ioreport->last_clock_speed;
+      *max_clock_speed = ioreport->last_max_clock_speed;
+    }
+    return ioreport->last_clock_speed_valid;
+  }
+  ioreport->last_clock_sample_time = current_time;
+  ioreport->clock_sample_attempted = true;
+
+  CFDictionaryRef current_sample = ioreport->api.create_samples(ioreport->performance_state_subscription,
+                                                                ioreport->performance_state_channels, NULL);
+  if (!current_sample) {
+    ioreport->last_clock_speed_valid = false;
     return false;
+  }
 
   if (!ioreport->previous_performance_state_sample) {
     ioreport->previous_performance_state_sample = current_sample;
+    ioreport->last_clock_speed_valid = false;
     return false;
   }
 
   CFDictionaryRef previous_sample = ioreport->previous_performance_state_sample;
   ioreport->previous_performance_state_sample = current_sample;
-  CFDictionaryRef state_delta =
-      ioreport->api.create_samples_delta(previous_sample, current_sample, NULL);
+  CFDictionaryRef state_delta = ioreport->api.create_samples_delta(previous_sample, current_sample, NULL);
   CFRelease(previous_sample);
-  if (!state_delta)
+  if (!state_delta) {
+    ioreport->last_clock_speed_valid = false;
     return false;
+  }
 
-  const bool clock_speed_valid =
-      gpuinfo_apple_ioreport_parse_gpu_clock_speed(ioreport, state_delta, clock_speed);
+  const bool clock_speed_valid = gpuinfo_apple_ioreport_parse_gpu_clock_speed(ioreport, state_delta, clock_speed);
   CFRelease(state_delta);
-  if (clock_speed_valid)
+  if (clock_speed_valid) {
     *max_clock_speed = ioreport->max_gpu_frequency;
+    ioreport->last_clock_speed = *clock_speed;
+    ioreport->last_max_clock_speed = *max_clock_speed;
+  }
+  ioreport->last_clock_speed_valid = clock_speed_valid;
   return clock_speed_valid;
 }
