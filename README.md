@@ -9,11 +9,11 @@ accelerators. It can handle multiple GPUs and print information about them in a
 htop-familiar way.
 
 Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
-M2 support), Huawei (Ascend), Intel (Linux i915/Xe drivers), NVIDIA (Linux
-proprietary drivers), Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore
-(Linux v3d driver), Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver),
-Tenstorrent (Linux tt-kmd driver), Iluvatar CoreX (ixML / libixml), T-Head PPU
-(HGML).
+M2 support), Huawei (Ascend), Intel (Linux i915/Xe GPU drivers and the NPU
+through intel_vpu), NVIDIA (Linux proprietary drivers), Qualcomm Adreno (Linux
+MSM driver), Broadcom VideoCore (Linux v3d driver), Rockchip, MetaX (MXSML
+driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver),
+Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML).
 
 Because a picture is worth a thousand words:
 
@@ -29,6 +29,7 @@ Table of Contents
 - [GPU Support](#gpu-support)
   - [AMD](#amd)
   - [Intel](#intel)
+  - [Intel NPU](#intel-npu)
   - [NVIDIA](#nvidia)
   - [Adreno](#adreno)
   - [Apple](#apple)
@@ -144,6 +145,26 @@ processes using Intel GPUs.
 
 Intel requires CAP_PERFMON or CAP_SYS_ADMIN capabilities to access the total memory usage, and an accurate GPU frequency.
 you can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
+
+### Intel NPU
+
+NVTOP supports the NPU driven by the in-kernel `intel_vpu` (ivpu) accel driver
+on Meteor Lake, Arrow Lake, Lunar Lake, Panther Lake, Wildcat Lake and Nova
+Lake. All metrics are read from sysfs, so no extra library is needed. Support
+is enabled by default on Linux and can be disabled with
+`-DINTEL_NPU_SUPPORT=OFF`.
+
+It reports NPU utilization, the current and maximum frequency, and system
+memory usage. Utilization is derived from the cumulative `npu_busy_time_us`
+counter; the driver recommends sampling it at most once per second. The
+interactive interface defaults to a one-second update interval, while a smaller
+`-d` value (or snapshot mode's 100 ms default) samples it more often. The
+memory row reports system-wide RAM usage, like the other NPU backends, rather
+than the NPU's own allocations.
+
+Utilization requires kernel 6.11 or newer and frequency information requires
+6.15 or newer; older kernels simply show fewer fields. Temperature and
+per-process usage are not exposed by the driver and are not reported.
 
 ### NVIDIA
 
