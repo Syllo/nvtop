@@ -1100,15 +1100,10 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
                   device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
         mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
       }
-    } else if (device->static_info.integrated_graphics) {
-      if (any_device_has_nvlink_active) {
-        mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN");
-        mvwchgat(dev->fan_speed, 0, 0, 7, 0, cyan_color, NULL);
-      } else {
-        mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
-        mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
-      }
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm)) {
+      // A real tachometer reading is more useful than the "CPU-FAN"
+      // placeholder, which is only a fallback for integrated GPUs with no
+      // fan reporting (this also matches the snapshot output).
       if (any_device_has_nvlink_active) {
         mvwprintw(dev->fan_speed, 0, 0, "FAN%3uR",
                   device->dynamic_info.fan_rpm > 999 ? 999 : device->dynamic_info.fan_rpm);
@@ -1117,6 +1112,14 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         mvwprintw(dev->fan_speed, 0, 0, "FAN %4uRPM",
                   device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
         mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      }
+    } else if (device->static_info.integrated_graphics) {
+      if (any_device_has_nvlink_active) {
+        mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN");
+        mvwchgat(dev->fan_speed, 0, 0, 7, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
+        mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
       }
     } else {
       if (any_device_has_nvlink_active) {
@@ -2129,12 +2132,19 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
           }
           break;
         case plot_gpu_power_draw_rate:
-          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
-              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
-              device->dynamic_info.power_draw_max > 0) {
-            data_val = device->dynamic_info.power_draw * 100 / device->dynamic_info.power_draw_max;
-            if (data_val > 100)
-              data_val = 100u;
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw)) {
+            if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
+                device->dynamic_info.power_draw_max > 0) {
+              data_val = device->dynamic_info.power_draw * 100 / device->dynamic_info.power_draw_max;
+              if (data_val > 100)
+                data_val = 100u;
+            } else {
+              // Without a power limit (e.g. Apple Silicon) a percentage would always be
+              // zero, so plot whole watts on the same 0..100 scale as temperature.
+              data_val = device->dynamic_info.power_draw / 1000;
+              if (data_val > 100)
+                data_val = 100u;
+            }
           } else {
             data_val = 0;
           }
@@ -2242,7 +2252,11 @@ static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices, c
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u temp(c)", unit, dev_id);
           break;
         case plot_gpu_power_draw_rate:
-          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u power%%", unit, dev_id);
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
+              device->dynamic_info.power_draw_max > 0)
+            snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u power%%", unit, dev_id);
+          else
+            snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u power(W)", unit, dev_id);
           break;
         case plot_fan_speed:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u fan%%", unit, dev_id);
@@ -2909,7 +2923,7 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"fan_rpm\": null,\n", indent_level_four);
 
-    // Power draw
+    // Power draw, truncated to whole watts
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw))
       printf("%s\"%s\": \"%uW\",\n", indent_level_four, power_field, device->dynamic_info.power_draw / 1000);
     else
