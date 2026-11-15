@@ -220,6 +220,14 @@ NVTOP includes some initial support for Apple using Metal. This is only supporte
 - GPU clock speed maps IOReport performance-state residency onto the GPU DVFS table (`voltage-states9`) exposed by the
   `pmgr`/`pmgr-child` device-tree node. The table layout and units differ between chip generations, so this reading is
   best-effort and may be unavailable on models NVTOP has not been validated against.
+- On Intel Macs with a discrete AMD GPU, temperature, power draw, core/memory clocks, fan speed and used VRAM come
+  from the driver's `PerformanceStatistics` dictionary, and per-process GPU usage from the AMD user-client nodes in
+  the I/O Registry. Both property sets are undocumented and vary between driver generations; values the driver does
+  not publish are reported as N/A.
+- The PCI bus/device address, the negotiated PCIe generation and width (`IOPCIExpressLinkStatus`) and the chassis slot
+  label (`AAPL,slot-name`, e.g. `Slot-1` on a Mac Pro) are read from the GPU's IOPCIDevice. Cards that publish a GD
+  device segment (such as the Radeon Pro W6800X Duo) report the same slot with a `/dieN` suffix. Apple Silicon
+  accelerators are not PCI devices, so these fields stay N/A there.
 
 ### Ascend
 

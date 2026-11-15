@@ -22,6 +22,7 @@
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/time.h"
 #include "extract_gpuinfo_apple_ioreport.h"
+#include "extract_gpuinfo_apple_pci.h"
 #include "extract_gpuinfo_apple_smc.h"
 #include "extract_gpuinfo_apple_utils.h"
 #include <uthash.h>
@@ -30,6 +31,7 @@
 #include <IOKit/IOKitLib.h>
 #include <QuartzCore/QuartzCore.h>
 #include <mach/mach.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/sysctl.h>
@@ -70,6 +72,7 @@ struct gpu_info_apple {
   io_service_t gpu_service;
   struct gpuinfo_apple_ioreport *ioreport;
   struct gpuinfo_apple_smc *smc;
+  struct gpuinfo_apple_pci_info pci_info;
   struct apple_process_info_cache *last_update_process_cache, *current_update_process_cache;
 };
 
@@ -225,12 +228,41 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = [gpu_info->device location] == MTLDeviceLocationBuiltIn;
   static_info->encode_decode_shared = true;
+
+  // PCI address, negotiated PCIe link and chassis slot come from the GPU's
+  // IOPCIDevice. They are absent on Apple Silicon, whose accelerator is not a
+  // PCI device, so every field is optional.
+  if (gpuinfo_apple_pci_query(gpu_info->gpu_service, &gpu_info->pci_info)) {
+    const struct gpuinfo_apple_pci_info *pci = &gpu_info->pci_info;
+    // Publish the PCI address through the shared gpu_info.pdev field, in the
+    // same domain:bus:device.function form the Linux backends use. Macs have a
+    // single PCI domain.
+    if (pci->address_valid) {
+      snprintf(gpu_info->base.pdev, sizeof(gpu_info->base.pdev), "%04x:%02x:%02x.%x", 0u, pci->bus, pci->device,
+               pci->function);
+    }
+    if (pci->slot_valid) {
+      strncpy(static_info->apple_slot, pci->slot, sizeof(static_info->apple_slot) - 1);
+      static_info->apple_slot[sizeof(static_info->apple_slot) - 1] = '\0';
+      SET_VALID(gpuinfo_apple_slot_valid, static_info->valid);
+    }
+    if (pci->die_index_valid) {
+      static_info->mpx_die_index = pci->die_index;
+      SET_VALID(gpuinfo_mpx_die_index_valid, static_info->valid);
+    }
+  }
 }
 
 static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_apple *gpu_info = container_of(_gpu_info, struct gpu_info_apple, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   RESET_ALL(dynamic_info->valid);
+
+  // Negotiated PCIe link from IOPCIExpressLinkStatus, cached at discovery.
+  if (gpu_info->pci_info.link_valid) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, gpu_info->pci_info.link_gen);
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, gpu_info->pci_info.link_width);
+  }
 
   unsigned power_draw;
   if (gpuinfo_apple_ioreport_get_power_draw(gpu_info->ioreport, &power_draw))
@@ -260,10 +292,36 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (!sample_valid)
     return;
 
-  if (sample.gpu_util_rate_valid)
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, sample.gpu_util_rate);
+  const bool unified_memory = [gpu_info->device hasUnifiedMemory];
 
-  if ([gpu_info->device hasUnifiedMemory]) {
+  if (sample.gpu_util_rate_valid || (!unified_memory && sample.gpu_activity_rate_valid)) {
+    // Apple Silicon publishes "Device Utilization %". Discrete AMD cards pin
+    // that key at 0 and report real load under "GPU Activity(%)", so prefer the
+    // activity counter there. The parser already caps both readings at 100.
+    unsigned rate = sample.gpu_util_rate_valid ? sample.gpu_util_rate : 0;
+    if (!unified_memory && sample.gpu_activity_rate_valid &&
+        (!sample.gpu_util_rate_valid || sample.gpu_activity_rate > rate))
+      rate = sample.gpu_activity_rate;
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, rate);
+  }
+
+  // Discrete AMD readings. Apple Silicon publishes none of these keys; gate
+  // them on non-unified memory so a future macOS release exposing one of them
+  // cannot change how the Apple Silicon telemetry above is reported.
+  if (!unified_memory && sample.used_memory_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, sample.used_memory);
+  if (!unified_memory && sample.gpu_temp_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, sample.gpu_temp);
+  if (!unified_memory && sample.power_draw_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, power_draw, sample.power_draw_mw);
+  if (!unified_memory && sample.gpu_clock_speed_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed, sample.gpu_clock_speed);
+  if (!unified_memory && sample.mem_clock_speed_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed, sample.mem_clock_speed);
+  if (!unified_memory && sample.fan_speed_valid)
+    SET_GPUINFO_DYNAMIC(dynamic_info, fan_speed, sample.fan_speed);
+
+  if (unified_memory) {
     // [gpu_info->device currentAllocatedSize] returns the amount of memory allocated by this process, not
     // as allocated on the GPU globally. The performance statistics dictionary has the real value that we
     // are interested in, the amount of system memory allocated by the GPU.
@@ -280,10 +338,10 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (host_info_status == KERN_SUCCESS)
       SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, info.max_mem);
   } else {
-    // TODO: Figure out how to get used memory for this case.
-
-    // It does not really seem to be possible to get the amount of memory of a particular GPU.
-    // In this case, just get the recommended working set size. This is what MoltenVK also does.
+    // Discrete GPU (e.g. Radeon Pro W6800X/W6900X, RX 6900 XT). Total comes
+    // from the recommended working set size, as MoltenVK does. Used VRAM is
+    // taken from the AMD PerformanceStatistics "inUseVidMemoryBytes" counter,
+    // which `gpuinfo_apple_parse_performance_sample` already populated above.
     const uint64_t mem_total = [gpu_info->device recommendedMaxWorkingSetSize];
     SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mem_total);
   }
@@ -303,9 +361,11 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
   _gpu_info->processes_count = 0;
   gpuinfo_apple_swap_process_cache_for_next_update(gpu_info);
 
-  // We can find out which processes are running on a particular GPU using the IO Registry. The
-  // IOService associated to the MTLDevice has "AGXDeviceUserClient" child nodes, which hold some
-  // basic information about processes that are running on the GPU.
+  // Processes using a particular GPU appear as user-client children of the
+  // IOService associated to the MTLDevice. Apple Silicon exposes AGX* clients
+  // and AMD dGPUs expose AMDRadeonX*_AMDAccel* clients; the chip-generation
+  // prefix varies between drivers (X4000/X5000/X6000), so match the family and
+  // then require the IOUserClientCreator property every user client carries.
 
   io_iterator_t iterator;
   if (IORegistryEntryGetChildIterator(gpu_info->gpu_service, kIOServicePlane, &iterator) != kIOReturnSuccess) {
@@ -316,56 +376,77 @@ static void gpuinfo_apple_get_running_processes(struct gpu_info *_gpu_info) {
   nvtop_get_current_time(&current_time);
   for (io_object_t child = IOIteratorNext(iterator); child; child = IOIteratorNext(iterator)) {
     io_name_t class_name;
-    if (IOObjectGetClass(child, class_name) == kIOReturnSuccess &&
-        strncmp(class_name, "AGXDeviceUserClient", sizeof(class_name)) == 0) {
-      CFMutableDictionaryRef cf_props;
-      if (IORegistryEntryCreateCFProperties(child, &cf_props, kCFAllocatorDefault, kNilOptions) == kIOReturnSuccess) {
-        struct gpuinfo_apple_process_sample sample = {0};
-        if (gpuinfo_apple_parse_process_sample(cf_props, &sample)) {
-          bool gpu_usage_valid = false;
-          unsigned gpu_usage = 0;
-          uint64_t registry_entry_id = 0;
-          if (IORegistryEntryGetRegistryEntryID(child, &registry_entry_id) == kIOReturnSuccess) {
-            const struct apple_process_cache_id client_id = {.registry_entry_id = registry_entry_id,
-                                                              .pid = sample.pid};
-            struct apple_process_info_cache *cache_entry;
-            HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &client_id, cache_entry);
-            if (cache_entry) {
-              HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
-              // A new or closed AppUsage entry changes the summed counter by a whole
-              // queue's lifetime, which is not a rate over this interval. Re-baseline
-              // instead, like the counter-reset case handled by
-              // gpuinfo_apple_calculate_gpu_usage.
-              if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time) &&
-                  cache_entry->gpu_time_queue_count == sample.gpu_time_queue_count) {
-                const uint64_t time_elapsed =
-                    nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
-                gpu_usage_valid = gpuinfo_apple_calculate_gpu_usage(cache_entry->gpu_time, sample.gpu_time,
-                                                                    time_elapsed, &gpu_usage);
-              }
-            } else {
-              cache_entry = calloc(1, sizeof(*cache_entry));
-              if (cache_entry)
-                cache_entry->client_id = client_id;
-            }
-
-            if (cache_entry) {
-              RESET_ALL(cache_entry->valid);
-              if (sample.gpu_time_valid) {
-                SET_APPLE_CACHE(cache_entry, gpu_time, sample.gpu_time);
-                cache_entry->gpu_time_queue_count = sample.gpu_time_queue_count;
-              }
-              cache_entry->last_measurement_tstamp = current_time;
-              HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
-            }
-          }
-
-          gpuinfo_apple_add_process(_gpu_info, sample.pid, gpu_usage_valid, gpu_usage);
-        }
-        CFRelease(cf_props);
-      }
+    if (IOObjectGetClass(child, class_name) != kIOReturnSuccess) {
+      IOObjectRelease(child);
+      continue;
+    }
+    // Apple Silicon exposes AGX* user clients; AMD dGPUs expose
+    // AMDRadeonX*_AMDAccel* user clients whose chip-generation prefix varies
+    // (X4000 for Polaris, X5000 for Vega, X6000 for RDNA). Match the driver
+    // family instead of exact class names, then require the IOUserClientCreator
+    // property that every real user client carries.
+    const bool is_accel_client = strncmp(class_name, "AGX", 3) == 0 || strstr(class_name, "AMDAccel") != NULL;
+    if (!is_accel_client) {
+      IOObjectRelease(child);
+      continue;
     }
 
+    CFTypeRef creator = IORegistryEntryCreateCFProperty(child, CFSTR("IOUserClientCreator"), kCFAllocatorDefault, 0);
+    if (!creator) {
+      IOObjectRelease(child);
+      continue;
+    }
+    CFRelease(creator);
+
+    CFMutableDictionaryRef cf_props;
+    if (IORegistryEntryCreateCFProperties(child, &cf_props, kCFAllocatorDefault, kNilOptions) != kIOReturnSuccess) {
+      IOObjectRelease(child);
+      continue;
+    }
+
+    struct gpuinfo_apple_process_sample sample = {0};
+    if (gpuinfo_apple_parse_process_sample(cf_props, &sample)) {
+      bool gpu_usage_valid = false;
+      unsigned gpu_usage = 0;
+      uint64_t registry_entry_id = 0;
+      if (IORegistryEntryGetRegistryEntryID(child, &registry_entry_id) == kIOReturnSuccess) {
+        const struct apple_process_cache_id client_id = {.registry_entry_id = registry_entry_id,
+                                                          .pid = sample.pid};
+        struct apple_process_info_cache *cache_entry;
+        HASH_FIND_CLIENT(gpu_info->last_update_process_cache, &client_id, cache_entry);
+        if (cache_entry) {
+          HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
+          // A new or closed AppUsage entry changes the summed counter by a whole
+          // queue's lifetime, which is not a rate over this interval. Re-baseline
+          // instead, like the counter-reset case handled by
+          // gpuinfo_apple_calculate_gpu_usage.
+          if (sample.gpu_time_valid && APPLE_CACHE_FIELD_VALID(cache_entry, gpu_time) &&
+              cache_entry->gpu_time_queue_count == sample.gpu_time_queue_count) {
+            const uint64_t time_elapsed =
+                nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
+            gpu_usage_valid =
+                gpuinfo_apple_calculate_gpu_usage(cache_entry->gpu_time, sample.gpu_time, time_elapsed, &gpu_usage);
+          }
+        } else {
+          cache_entry = calloc(1, sizeof(*cache_entry));
+          if (cache_entry)
+            cache_entry->client_id = client_id;
+        }
+
+        if (cache_entry) {
+          RESET_ALL(cache_entry->valid);
+          if (sample.gpu_time_valid) {
+            SET_APPLE_CACHE(cache_entry, gpu_time, sample.gpu_time);
+            cache_entry->gpu_time_queue_count = sample.gpu_time_queue_count;
+          }
+          cache_entry->last_measurement_tstamp = current_time;
+          HASH_ADD_CLIENT(gpu_info->current_update_process_cache, cache_entry);
+        }
+      }
+
+      gpuinfo_apple_add_process(_gpu_info, sample.pid, gpu_usage_valid, gpu_usage);
+    }
+    CFRelease(cf_props);
     IOObjectRelease(child);
   }
 

@@ -109,6 +109,96 @@ TEST(AppleDynamicInfo, IgnoresMalformedValuesAndCapsUtilization) {
   }
 }
 
+TEST(AppleDynamicInfo, ParsesDiscreteAmdStatistics) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"PerformanceStatistics" : @{
+        @"Device Utilization %" : @0,
+        @"GPU Activity(%)" : @37,
+        @"inUseVidMemoryBytes" : @8589934592ULL,
+        @"Temperature(C)" : @61.4,
+        @"Total Power(W)" : @43.6,
+        @"Core Clock(MHz)" : @2291,
+        @"Memory Clock(MHz)" : @1984,
+        @"Fan Speed(%)" : @42,
+      },
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_TRUE(sample.gpu_util_rate_valid);
+    EXPECT_EQ(sample.gpu_util_rate, 0u);
+    EXPECT_TRUE(sample.gpu_activity_rate_valid);
+    EXPECT_EQ(sample.gpu_activity_rate, 37u);
+    EXPECT_TRUE(sample.used_memory_valid);
+    EXPECT_EQ(sample.used_memory, UINT64_C(8589934592));
+    EXPECT_TRUE(sample.gpu_temp_valid);
+    EXPECT_EQ(sample.gpu_temp, 61u);
+    EXPECT_TRUE(sample.power_draw_valid);
+    EXPECT_EQ(sample.power_draw_mw, 43600u);
+    EXPECT_TRUE(sample.gpu_clock_speed_valid);
+    EXPECT_EQ(sample.gpu_clock_speed, 2291u);
+    EXPECT_TRUE(sample.mem_clock_speed_valid);
+    EXPECT_EQ(sample.mem_clock_speed, 1984u);
+    EXPECT_TRUE(sample.fan_speed_valid);
+    EXPECT_EQ(sample.fan_speed, 42u);
+  }
+}
+
+TEST(AppleDynamicInfo, FallsBackToVramUsedBytes) {
+  @autoreleasepool {
+    NSDictionary *fallback = @{@"PerformanceStatistics" : @{@"vramUsedBytes" : @123456789ULL}};
+    NSDictionary *preferred =
+        @{@"PerformanceStatistics" : @{@"inUseVidMemoryBytes" : @111ULL, @"vramUsedBytes" : @222ULL}};
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)fallback, &sample));
+    EXPECT_TRUE(sample.used_memory_valid);
+    EXPECT_EQ(sample.used_memory, UINT64_C(123456789));
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)preferred, &sample));
+    EXPECT_TRUE(sample.used_memory_valid);
+    EXPECT_EQ(sample.used_memory, UINT64_C(111));
+  }
+}
+
+TEST(AppleDynamicInfo, RejectsImplausibleDiscreteAmdValues) {
+  @autoreleasepool {
+    NSDictionary *negative_values = @{
+      @"PerformanceStatistics" : @{
+        @"Temperature(C)" : @(-12.5),
+        @"Total Power(W)" : @(-1.0),
+        @"Fan Speed(%)" : @250,
+      },
+    };
+    NSDictionary *out_of_range_values = @{
+      @"PerformanceStatistics" : @{
+        @"Temperature(C)" : @260.0,
+        @"Total Power(W)" : @1200.0,
+      },
+    };
+    NSDictionary *zero_temperature = @{
+      @"PerformanceStatistics" : @{
+        @"Temperature(C)" : @0.0,
+      },
+    };
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)negative_values, &sample));
+    EXPECT_FALSE(sample.gpu_temp_valid);
+    EXPECT_FALSE(sample.power_draw_valid);
+    EXPECT_TRUE(sample.fan_speed_valid);
+    EXPECT_EQ(sample.fan_speed, 100u);
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)out_of_range_values, &sample));
+    EXPECT_FALSE(sample.gpu_temp_valid);
+    EXPECT_FALSE(sample.power_draw_valid);
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)zero_temperature, &sample));
+    EXPECT_FALSE(sample.gpu_temp_valid);
+  }
+}
+
 TEST(ApplePowerInfo, ConvertsEnergyUnitsToNanojoules) {
   uint64_t energy;
 
@@ -586,4 +676,98 @@ TEST(AppleProcessInfo, GrowsProcessArrayAcrossReallocIncrements) {
   EXPECT_EQ(gpu_info.processes[process_count - 1].gpu_usage, 1u);
 
   free(gpu_info.processes);
+}
+
+TEST(ApplePciInfo, ParsesPciDebugAddress) {
+  unsigned bus = 0;
+  unsigned device = 0;
+  unsigned function = 0;
+
+  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("194:0:0", &bus, &device, &function));
+  EXPECT_EQ(bus, 194u);
+  EXPECT_EQ(device, 0u);
+  EXPECT_EQ(function, 0u);
+
+  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("0:31:2", &bus, &device, &function));
+  EXPECT_EQ(bus, 0u);
+  EXPECT_EQ(device, 31u);
+  EXPECT_EQ(function, 2u);
+
+  // Bridges append the secondary/subordinate bus range after the BDF.
+  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("0:0:0(1:128)", &bus, &device, &function));
+
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("not-a-bdf", &bus, &device, &function));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:2", &bus, &device, &function));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:40:0", &bus, &device, &function));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:2:8", &bus, &device, &function));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf(NULL, &bus, &device, &function));
+}
+
+TEST(ApplePciInfo, DecodesPcieLinkStatus) {
+  unsigned gen = 0;
+  unsigned width = 0;
+
+  // 0x103: speed code 3 (8 GT/s), width 16.
+  EXPECT_TRUE(gpuinfo_apple_decode_pcie_link_status(0x103, &gen, &width));
+  EXPECT_EQ(gen, 3u);
+  EXPECT_EQ(width, 16u);
+
+  // 0x43: speed code 3 (8 GT/s), width 4 (a Thunderbolt eGPU).
+  EXPECT_TRUE(gpuinfo_apple_decode_pcie_link_status(0x43, &gen, &width));
+  EXPECT_EQ(gen, 3u);
+  EXPECT_EQ(width, 4u);
+
+  EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0xFFFF, &gen, &width));
+  EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0, &gen, &width));
+
+  // A speed code without a width (and vice versa) is not a valid link.
+  EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0x03, &gen, &width));
+  EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0x30, &gen, &width));
+}
+
+TEST(ApplePciInfo, DecodesSlotName) {
+  const uint8_t mac_pro_slot[] = {'S', 'l', 'o', 't', '-', '1', 0, 0};
+  const uint8_t padded_slot[] = {'P', 'C', 'I', ' ', 'S', 'l', 'o', 't', ' ', '2', 0xAA, 0xAA};
+  const uint8_t empty_slot[] = {0, 0};
+  const uint8_t embedded_nul[] = {'S', 'l', 'o', 't', 0, '1', '1'};
+  const uint8_t exact_fit[] = {'S', 'l', 'o', 't', '-', '1', '2', '3', '4', '5', '6', '7'};
+  const uint8_t too_long[] = "a slot label that does not fit";
+  char slot[32];
+  char small[8];
+  char exact[13];
+
+  EXPECT_TRUE(gpuinfo_apple_decode_slot_name(mac_pro_slot, sizeof(mac_pro_slot), slot, sizeof(slot)));
+  EXPECT_STREQ(slot, "Slot-1");
+
+  EXPECT_TRUE(gpuinfo_apple_decode_slot_name(padded_slot, sizeof(padded_slot), slot, sizeof(slot)));
+  EXPECT_STREQ(slot, "PCI Slot 2");
+
+  // The property must be one NUL-terminated (or exactly-sized) C string; an
+  // embedded NUL means the data is not a usable label.
+  EXPECT_FALSE(gpuinfo_apple_decode_slot_name(embedded_nul, sizeof(embedded_nul), slot, sizeof(slot)));
+  EXPECT_FALSE(gpuinfo_apple_decode_slot_name(empty_slot, sizeof(empty_slot), slot, sizeof(slot)));
+  EXPECT_FALSE(gpuinfo_apple_decode_slot_name(too_long, sizeof(too_long) - 1, small, sizeof(small)));
+
+  // Exactly slot_size - 1 printable bytes fit without truncation.
+  EXPECT_TRUE(gpuinfo_apple_decode_slot_name(exact_fit, sizeof(exact_fit), exact, sizeof(exact)));
+  EXPECT_STREQ(exact, "Slot-1234567");
+}
+
+TEST(ApplePciInfo, ParsesDieIndex) {
+  unsigned die = 0;
+
+  EXPECT_TRUE(gpuinfo_apple_parse_die_index("IOACPIPlane:/_SB/PCI0@0/BR3A@0/GU00@0/GD01@1/EGP0@0", &die));
+  EXPECT_EQ(die, 1u);
+
+  EXPECT_TRUE(gpuinfo_apple_parse_die_index("IOACPIPlane:/_SB/PCI0@0/BR1A@0/GU00@0/GD00@0/EGP0@0", &die));
+  EXPECT_EQ(die, 0u);
+
+  // attached-gpu-control-path uses the IOService namespace but carries the
+  // same GD<nn> segment.
+  EXPECT_TRUE(
+      gpuinfo_apple_parse_die_index("IOService:/AppleACPIPlatformExpert/PCI0@0/BR3A@0/GU00@0/GD01@1/EGP0@0", &die));
+  EXPECT_EQ(die, 1u);
+
+  EXPECT_FALSE(gpuinfo_apple_parse_die_index("IOACPIPlane:/_SB/PCI0@0/BR1A@0/UPSB@0", &die));
+  EXPECT_FALSE(gpuinfo_apple_parse_die_index(NULL, &die));
 }

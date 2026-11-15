@@ -55,9 +55,58 @@ bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
     sample->gpu_util_rate = number > 100 ? 100 : (unsigned)number;
     sample->gpu_util_rate_valid = true;
   }
+  // AMD discrete GPUs (Radeon Pro W6800X, W6900X, RX 6900 XT, …) report load
+  // via "GPU Activity(%)" while "Device Utilization %" stays pinned at 0.
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"GPU Activity(%)"], &number)) {
+    sample->gpu_activity_rate = number > 100 ? 100 : (unsigned)number;
+    sample->gpu_activity_rate_valid = true;
+  }
   if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Alloc system memory"], &number)) {
     sample->allocated_system_memory = number;
     sample->allocated_system_memory_valid = true;
+  }
+  // Discrete AMD GPUs expose these counters on the same PerformanceStatistics
+  // dictionary. Each read is nil-guarded because the key set varies by driver
+  // generation (RDNA vs RDNA2 vs Vega); Apple Silicon GPUs simply lack all of
+  // them and leave the *_valid flags false.
+  // inUseVidMemoryBytes is what the current drivers publish; older generations
+  // expose the same counter as vramUsedBytes.
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"inUseVidMemoryBytes"], &number) ||
+      gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"vramUsedBytes"], &number)) {
+    sample->used_memory = number;
+    sample->used_memory_valid = true;
+  }
+  id temp_value = [performance_statistics objectForKey:@"Temperature(C)"];
+  if ([temp_value respondsToSelector:@selector(doubleValue)]) {
+    const double t = [temp_value doubleValue];
+    // Zero is the driver's "no sensor" sentinel (the SMC path also treats
+    // <= 0 °C as unavailable), and negative values are rejected rather than
+    // clamped because the rounded value is stored as unsigned.
+    if (isfinite(t) && t > 0.0 && t <= 200.0) {
+      sample->gpu_temp = (unsigned)(t + 0.5);
+      sample->gpu_temp_valid = true;
+    }
+  }
+  id power_value = [performance_statistics objectForKey:@"Total Power(W)"];
+  if ([power_value respondsToSelector:@selector(doubleValue)]) {
+    const double w = [power_value doubleValue];
+    if (isfinite(w) && w >= 0.0 && w <= 1000.0) {
+      // nvtop stores power in milliwatts.
+      sample->power_draw_mw = (unsigned)(w * 1000.0 + 0.5);
+      sample->power_draw_valid = true;
+    }
+  }
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Core Clock(MHz)"], &number)) {
+    sample->gpu_clock_speed = (unsigned)number;
+    sample->gpu_clock_speed_valid = true;
+  }
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Memory Clock(MHz)"], &number)) {
+    sample->mem_clock_speed = (unsigned)number;
+    sample->mem_clock_speed_valid = true;
+  }
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"Fan Speed(%)"], &number)) {
+    sample->fan_speed = number > 100 ? 100 : (unsigned)number;
+    sample->fan_speed_valid = true;
   }
 
   return true;
@@ -360,4 +409,92 @@ void gpuinfo_apple_add_process(struct gpu_info *gpu_info, pid_t pid, bool gpu_us
       SET_GPUINFO_PROCESS(process, gpu_usage, gpu_usage);
     }
   }
+}
+
+bool gpuinfo_apple_parse_pci_bdf(const char *pcidebug, unsigned *bus, unsigned *device, unsigned *function) {
+  if (!pcidebug || !bus || !device || !function)
+    return false;
+
+  // IOPCIDevice publishes "pcidebug" as decimal "bus:device:function"
+  // (e.g. "194:0:0"). Bridges append their secondary/subordinate bus range in
+  // parentheses, so only the leading triplet is parsed.
+  unsigned parsed_bus, parsed_device, parsed_function;
+  if (sscanf(pcidebug, "%u:%u:%u", &parsed_bus, &parsed_device, &parsed_function) != 3)
+    return false;
+  if (parsed_bus > 255 || parsed_device > 31 || parsed_function > 7)
+    return false;
+
+  *bus = parsed_bus;
+  *device = parsed_device;
+  *function = parsed_function;
+  return true;
+}
+
+bool gpuinfo_apple_decode_pcie_link_status(int64_t status, unsigned *link_gen, unsigned *link_width) {
+  if (!link_gen || !link_width)
+    return false;
+
+  // IOPCIExpressLinkStatus is the raw PCIe Link Status register: bits 3:0 hold
+  // the negotiated speed code (1 = 2.5 GT/s, 2 = 5 GT/s, 3 = 8 GT/s,
+  // 4 = 16 GT/s) and bits 9:4 the negotiated link width. 0xFFFF (and the
+  // all-zero register) mean no link or an unsupported device.
+  if (status <= 0 || status > 0xFFFF)
+    return false;
+  const unsigned gen = (unsigned)status & 0xFU;
+  const unsigned width = ((unsigned)status >> 4) & 0x3FU;
+  if (gen < 1 || gen > 6 || width < 1)
+    return false;
+
+  *link_gen = gen;
+  *link_width = width;
+  return true;
+}
+
+bool gpuinfo_apple_decode_slot_name(const uint8_t *data, size_t data_size, char *slot, size_t slot_size) {
+  if (!data || !slot || slot_size < 2)
+    return false;
+  slot[0] = '\0';
+
+  // AAPL,slot-name is a C string stored in CFData and padded to a 4-byte
+  // boundary, with NULs on the Mac Pro and occasionally 0xFF/0xAA on other
+  // firmwares. Strip trailing padding, then reject embedded non-printable
+  // bytes and names that would need truncation.
+  size_t length = data_size;
+  while (length > 0 && (data[length - 1] < 0x20 || data[length - 1] > 0x7E))
+    --length;
+  if (length == 0 || length >= slot_size)
+    return false;
+  for (size_t i = 0; i < length; ++i) {
+    if (data[i] < 0x20 || data[i] > 0x7E)
+      return false;
+  }
+
+  memcpy(slot, data, length);
+  slot[length] = '\0';
+  return true;
+}
+
+bool gpuinfo_apple_parse_die_index(const char *acpi_path, unsigned *die_index) {
+  if (!acpi_path || !die_index)
+    return false;
+
+  // The AMD driver's ACPI path contains a GD<nn> segment per die, e.g.
+  // ".../GD00@0/..." for the first die and ".../GD01@1/..." for the second.
+  // Use the last match so earlier path components cannot shadow the GPU's own
+  // segment.
+  const char *match = NULL;
+  for (const char *p = acpi_path; (p = strstr(p, "GD")) != NULL; p += 2) {
+    if (p[2] >= '0' && p[2] <= '9')
+      match = p;
+  }
+  if (!match)
+    return false;
+
+  char *end = NULL;
+  const unsigned long parsed = strtoul(match + 2, &end, 10);
+  if (end == match + 2 || parsed > UINT_MAX)
+    return false;
+
+  *die_index = (unsigned)parsed;
+  return true;
 }

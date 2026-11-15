@@ -45,15 +45,43 @@ struct gpuinfo_apple_process_sample {
 
 struct gpuinfo_apple_performance_sample {
   unsigned gpu_util_rate;
+  // AMD discrete GPUs pin "Device Utilization %" at 0 and report real load
+  // under "GPU Activity(%)". Both keys are parsed; the caller prefers the
+  // activity reading on non-unified devices.
+  unsigned gpu_activity_rate;
   uint64_t allocated_system_memory;
+  // Per-GPU stats published for discrete AMD cards via the
+  // PerformanceStatistics dictionary. Apple Silicon GPUs do not expose these
+  // keys, and each value carries its own *_valid flag because the key set
+  // varies between driver generations.
+  uint64_t used_memory;     // inUseVidMemoryBytes, or vramUsedBytes on older drivers
+  unsigned gpu_temp;        // Temperature(C)
+  unsigned power_draw_mw;   // Total Power(W), converted to milliwatts
+  unsigned gpu_clock_speed; // Core Clock(MHz)
+  unsigned mem_clock_speed; // Memory Clock(MHz)
+  unsigned fan_speed;       // Fan Speed(%)
   bool gpu_util_rate_valid;
+  bool gpu_activity_rate_valid;
   bool allocated_system_memory_valid;
+  bool used_memory_valid;
+  bool gpu_temp_valid;
+  bool power_draw_valid;
+  bool gpu_clock_speed_valid;
+  bool mem_clock_speed_valid;
+  bool fan_speed_valid;
 };
 
 bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
                                             struct gpuinfo_apple_performance_sample *sample);
 
 bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuinfo_apple_process_sample *sample);
+
+// Parsing helpers for the PCI metadata macOS publishes in the IORegistry.
+// They live here, away from the IOKit plumbing, so they can be unit tested.
+bool gpuinfo_apple_parse_pci_bdf(const char *pcidebug, unsigned *bus, unsigned *device, unsigned *function);
+bool gpuinfo_apple_decode_pcie_link_status(int64_t status, unsigned *link_gen, unsigned *link_width);
+bool gpuinfo_apple_decode_slot_name(const uint8_t *data, size_t data_size, char *slot, size_t slot_size);
+bool gpuinfo_apple_parse_die_index(const char *acpi_path, unsigned *die_index);
 
 bool gpuinfo_apple_calculate_gpu_usage(uint64_t previous_gpu_time, uint64_t current_gpu_time, uint64_t time_elapsed,
                                        unsigned *gpu_usage);
