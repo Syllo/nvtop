@@ -53,6 +53,11 @@ bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuin
 
 bool gpuinfo_apple_calculate_gpu_usage(uint64_t previous_gpu_time, uint64_t current_gpu_time, uint64_t time_elapsed,
                                        unsigned *gpu_usage);
+// `gpu_time` is AppUsage.accumulatedGPUTime, a nanosecond counter (the same one
+// Activity Monitor uses for its per-process % GPU column); `time_elapsed` is
+// the nanosecond interval reported by nvtop_difftime_u64. GPU time can exceed
+// wall time when a process has several queues in flight, so the result is
+// capped at 100%.
 
 bool gpuinfo_apple_energy_to_nanojoules(int64_t energy, const char *unit, uint64_t *energy_nanojoules);
 

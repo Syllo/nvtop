@@ -21,6 +21,7 @@
 
 #include "extract_gpuinfo_apple_utils.h"
 #include "get_process_info_mac_utils.h"
+#include "nvtop/common.h"
 
 #include <Foundation/Foundation.h>
 #include <gtest/gtest.h>
@@ -31,6 +32,8 @@
 TEST(AppleProcessCpuInfo, ConvertsNativeMachTicksToSeconds) {
   EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(1000000000, false, 1, 1), 1.0);
   EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(24000000, false, 125, 3), 1.0);
+  // A zero denominator cannot be interpreted; report no duration instead of inf/NaN.
+  EXPECT_DOUBLE_EQ(processinfo_mac_time_to_seconds(1000, false, 1, 0), 0.0);
 }
 
 TEST(AppleProcessCpuInfo, UsesNativeTimebaseUnderRosetta) {
@@ -393,6 +396,23 @@ TEST(AppleProcessInfo, CapsAggregatedUsageAtOneHundredPercent) {
 
   ASSERT_EQ(gpu_info.processes_count, 1u);
   EXPECT_EQ(gpu_info.processes[0].gpu_usage, 100u);
+
+  free(gpu_info.processes);
+}
+
+TEST(AppleProcessInfo, GrowsProcessArrayAcrossReallocIncrements) {
+  struct gpu_info gpu_info = {};
+
+  // One more than a single linear increment forces at least two reallocations.
+  const unsigned process_count = COMMON_PROCESS_LINEAR_REALLOC_INC + 1;
+  for (unsigned i = 1; i <= process_count; ++i)
+    gpuinfo_apple_add_process(&gpu_info, (pid_t)i, true, 1);
+
+  ASSERT_EQ(gpu_info.processes_count, process_count);
+  EXPECT_GE(gpu_info.processes_array_size, process_count);
+  EXPECT_EQ(gpu_info.processes[process_count - 1].pid, (pid_t)process_count);
+  EXPECT_TRUE(GPUINFO_PROCESS_FIELD_VALID(&gpu_info.processes[process_count - 1], gpu_usage));
+  EXPECT_EQ(gpu_info.processes[process_count - 1].gpu_usage, 1u);
 
   free(gpu_info.processes);
 }

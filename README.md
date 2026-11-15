@@ -213,6 +213,10 @@ NVTOP includes some initial support for Apple using Metal. This is only supporte
 - Apple support is still being worked on. Some bugs and limitations may apply.
 - On unified-memory systems, the memory meter compares global Metal resource allocations with total physical shared
   memory. It does not represent dedicated VRAM or overall system memory pressure.
+- On Apple Silicon, power draw, GPU clock, temperature and fan speed are read through the private IOReport and AppleSMC
+  interfaces. These are undocumented and may change between macOS releases; when they are unavailable NVTOP reports the
+  affected values as unavailable instead of failing. The fan reading is the chassis fan shared by the SoC, not a fan
+  dedicated to the GPU.
 
 ### Ascend
 

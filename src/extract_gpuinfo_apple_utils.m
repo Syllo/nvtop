@@ -216,6 +216,9 @@ bool gpuinfo_apple_decode_smc_float(const uint8_t *data, size_t data_size, float
   if (!data || data_size != sizeof(float) || !value)
     return false;
 
+  // AppleSMC 'flt ' keys store IEEE-754 floats little-endian on Apple Silicon.
+  // Intel Macs use big-endian/fixed-point SMC types; the Apple backend does not
+  // enable SMC telemetry there (see gpuinfo_apple_is_apple_silicon).
   const uint32_t bits = (uint32_t)data[0] | (uint32_t)data[1] << 8 | (uint32_t)data[2] << 16 |
                         (uint32_t)data[3] << 24;
   memcpy(value, &bits, sizeof(*value));

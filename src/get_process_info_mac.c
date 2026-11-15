@@ -42,6 +42,8 @@ static bool processinfo_mac_is_translated(void) {
 }
 
 static double processinfo_mac_cpu_time_to_seconds(uint64_t mach_ticks) {
+  // Cached after the first poll. nvtop refreshes process information from a
+  // single thread, so the unsynchronized statics are safe here.
   static mach_timebase_info_data_t timebase;
   static bool translated;
   static bool initialized;

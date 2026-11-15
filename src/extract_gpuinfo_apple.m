@@ -32,6 +32,7 @@
 #include <mach/mach.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/sysctl.h>
 
 #define HASH_FIND_CLIENT(head, key_ptr, out_ptr)                                                                    \
   HASH_FIND(hh, head, key_ptr, sizeof(struct apple_process_cache_id), out_ptr)
@@ -91,6 +92,31 @@ static unsigned apple_gpu_count;
 static struct gpu_info_apple *gpu_infos;
 
 __attribute__((constructor)) static void init_extract_gpuinfo_apple(void) { register_gpu_vendor(&gpu_vendor_apple); }
+
+// Power, clock, temperature and fan telemetry comes from IOReport and AppleSMC.
+// Both interfaces, their channel groups/keys and the SMC float encoding are
+// Apple Silicon specific: Intel Macs also report hasUnifiedMemory on their
+// integrated GPU, but the private key sets differ, so only enable these
+// sources when running on Apple Silicon.
+//
+// hw.optional.arm64 reports the host capability, and remains 1 when nvtop is
+// itself running under Rosetta (unlike uname/__x86_64__), so translated builds
+// keep their telemetry.
+static bool gpuinfo_apple_is_apple_silicon(void) {
+#if defined(__arm64__)
+  return true;
+#else
+  int is_arm64 = 0;
+  size_t size = sizeof(is_arm64);
+  if (sysctlbyname("hw.optional.arm64", &is_arm64, &size, NULL, 0) == 0 && is_arm64 == 1)
+    return true;
+  // Some kernels do not expose hw.optional.arm64; a translated process can
+  // only be running on Apple Silicon, so treat Rosetta as a positive match.
+  int translated = 0;
+  size = sizeof(translated);
+  return sysctlbyname("sysctl.proc_translated", &translated, &size, NULL, 0) == 0 && translated == 1;
+#endif
+}
 
 static bool gpuinfo_apple_init(void) {
   apple_gpu_count = 0;
@@ -164,7 +190,10 @@ static bool gpuinfo_apple_get_device_handles(struct list_head *devices, unsigned
     gpu_info->base.vendor = &gpu_vendor_apple;
     gpu_info->device = [dev retain];
     gpu_info->gpu_service = gpu_service;
-    if ([dev hasUnifiedMemory] && [dev location] == MTLDeviceLocationBuiltIn) {
+    // The IOReport and AppleSMC telemetry sources are Apple Silicon only (see
+    // gpuinfo_apple_is_apple_silicon). Intel Macs still get the Metal static
+    // and dynamic information, just without these private sensors.
+    if ([dev hasUnifiedMemory] && [dev location] == MTLDeviceLocationBuiltIn && gpuinfo_apple_is_apple_silicon()) {
       gpuinfo_apple_ioreport_init(&gpu_info->ioreport);
       gpuinfo_apple_smc_init(&gpu_info->smc);
     }

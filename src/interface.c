@@ -1101,8 +1101,9 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
       }
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm)) {
-      // Check fan_rpm before integrated_graphics: Apple GPUs report a real
-      // tachometer reading through SMC even when they are integrated.
+      // A real tachometer reading is more useful than the "CPU-FAN"
+      // placeholder, which is only a fallback for integrated GPUs with no
+      // fan reporting (this also matches the snapshot output).
       if (any_device_has_nvlink_active) {
         mvwprintw(dev->fan_speed, 0, 0, "FAN%3uR",
                   device->dynamic_info.fan_rpm > 999 ? 999 : device->dynamic_info.fan_rpm);
@@ -1163,7 +1164,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
                 device->dynamic_info.power_draw_max / 1000);
     else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
              !GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
-      mvwprintw(dev->power_info, 0, 0, "POW %5.1f W", device->dynamic_info.power_draw / 1000.0);
+      mvwprintw(dev->power_info, 0, 0, "POW %3u W", device->dynamic_info.power_draw / 1000);
     else if (!GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
       mvwprintw(dev->power_info, 0, 0, "POW N/A / %3u W", device->dynamic_info.power_draw_max / 1000);
@@ -2911,10 +2912,9 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"fan_rpm\": null,\n", indent_level_four);
 
-    // Power draw
+    // Power draw, truncated to whole watts
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw))
-      printf("%s\"%s\": \"%.1fW\",\n", indent_level_four, power_field,
-             device->dynamic_info.power_draw / 1000.0);
+      printf("%s\"%s\": \"%uW\",\n", indent_level_four, power_field, device->dynamic_info.power_draw / 1000);
     else
       printf("%s\"%s\": null,\n", indent_level_four, power_field);
 
