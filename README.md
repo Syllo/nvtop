@@ -282,12 +282,12 @@ Supports temperature, power draw, AI clock, fan RPM, PCIe link info, and process
 
 ### Intel Gaudi
 
-NVTOP supports Intel Gaudi HPUs (testing on Gaudi2 HL-225, driver 1.24) through the *Habana Labs Management
+NVTOP supports Intel Gaudi HPUs (tested on Gaudi2 HL-225 with driver 1.24) through the *Habana Labs Management
 Library* (*HLML*, `libhlml.so`), the library behind `hl-smi`. It is loaded at runtime, so building only needs the
 `GAUDI_SUPPORT` option (enabled by default on Linux), not the Habana SDK headers.
 
 Supports AIP utilization, memory usage, SoC clock, chip temperature, power draw and limit, PCIe link and
-rx/tx throughput, and the processes using each device with their device memory.
+rx/tx throughput, and the processes using each device with their device memory and utilization.
 
 * Some HLML queries go through the device firmware and take tens of milliseconds, so the device information is sampled
   by a background thread and lags behind by at most one refresh interval.
@@ -300,7 +300,8 @@ rx/tx throughput, and the processes using each device with their device memory.
   `On Chip ...`, avoiding a memory leak in HLML's temperature call. Only that file is read; relabeling or ignoring the
   sensors in other `sensors.d` files is not followed. If the file is absent, yields no matching sensors, or selects a
   different number of AIP sensors than HLML's per-ASIC map, nvtop falls back to the HLML call.
-* HLML also enumerates Goya devices; nvtop reports them as Goya with DDR4 memory.
+* HLML also enumerates Goya devices; nvtop reports them as Goya with DDR4 memory. Goya has not been validated on
+  hardware.
 * The power limit is that of the main (54 V) power supply; `hl-smi` adds the auxiliary 12 V supply to its cap.
 
 Build

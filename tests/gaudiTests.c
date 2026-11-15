@@ -283,6 +283,10 @@ static int test_device_naming(void) {
   normalize_device_type("FUTURE1B", architecture, sizeof(architecture), family, sizeof(family));
   CHECK(!strcmp(architecture, "Future1b"));
   CHECK(!strcmp(family, "Future1b"));
+  /* An empty device_type must not make the lower-casing walk past the string. */
+  normalize_device_type("", architecture, sizeof(architecture), family, sizeof(family));
+  CHECK(!strcmp(architecture, ""));
+  CHECK(!strcmp(family, ""));
 
   CHECK(ends_with_ignore_case("Gaudi3 HL-338", "HL-338"));
   CHECK(ends_with_ignore_case("Gaudi3 HL-338", "hl-338"));

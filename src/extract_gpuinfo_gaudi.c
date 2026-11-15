@@ -698,8 +698,9 @@ static void normalize_device_type(const char *device_type, char *architecture, s
     }
   }
   snprintf(architecture, architecture_size, "%s", device_type);
-  for (char *c = architecture + 1; *c; ++c)
-    *c = (char)tolower((unsigned char)*c);
+  if (architecture[0])
+    for (char *c = architecture + 1; *c; ++c)
+      *c = (char)tolower((unsigned char)*c);
   snprintf(family, family_size, "%s", architecture);
 }
 
@@ -806,12 +807,14 @@ static void gaudi_sample_device(struct gpu_info_gaudi *gpu_info, struct gpuinfo_
   if (hlml_device_get_max_clock_info && hlml_device_get_max_clock_info(handle, HLML_CLOCK_SOC, &clock) == HLML_SUCCESS)
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_clock_speed_max, clock);
 
-  // The AIP utilization can exceed 100%
-  hlml_utilization_t utilization;
+  // The AIP utilization can exceed 100%. The output structures are zeroed so a
+  // library that returns success after writing only the fields of an older,
+  // smaller structure cannot leave any read field indeterminate.
+  hlml_utilization_t utilization = {0};
   if (hlml_device_get_utilization_rates(handle, &utilization) == HLML_SUCCESS)
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, utilization.aip > 100 ? 100 : utilization.aip);
 
-  hlml_memory_t memory;
+  hlml_memory_t memory = {0};
   if (hlml_device_get_memory_info(handle, &memory) == HLML_SUCCESS && memory.total > 0) {
     SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, memory.total);
     SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, memory.used);
