@@ -272,6 +272,7 @@ struct gpu_vendor gpu_vendor_gaudi = {
     .refresh_dynamic_info = gpuinfo_gaudi_refresh_dynamic_info,
     .refresh_running_processes = gpuinfo_gaudi_get_running_processes,
     .name = "Gaudi",
+    .processing_unit = gpu_processing_unit_hpu,
 };
 
 __attribute__((constructor)) static void init_extract_gpuinfo_gaudi(void) { register_gpu_vendor(&gpu_vendor_gaudi); }

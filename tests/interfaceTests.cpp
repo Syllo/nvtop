@@ -303,6 +303,8 @@ TEST(InterfaceOptions, AddingManyPlotsRespectsMaxLines) {
 TEST(InterfaceOptions, ProcessingUnitNames) {
   EXPECT_STREQ(processing_unit_name(gpu_processing_unit_gpu), "GPU");
   EXPECT_STREQ(processing_unit_name(gpu_processing_unit_npu), "NPU");
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_ppu), "PPU");
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_hpu), "HPU");
   // Out-of-range values fall back to the default.
   EXPECT_STREQ(processing_unit_name((enum gpu_processing_unit)gpu_processing_unit_count), "GPU");
 }
