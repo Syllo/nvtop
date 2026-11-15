@@ -24,7 +24,7 @@
 #include "extract_gpuinfo_apple_ioreport.h"
 #include "extract_gpuinfo_apple_smc.h"
 #include "extract_gpuinfo_apple_utils.h"
-#include "uthash.h"
+#include <uthash.h>
 
 #include <Metal/Metal.h>
 #include <IOKit/IOKitLib.h>

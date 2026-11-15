@@ -2132,12 +2132,19 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
           }
           break;
         case plot_gpu_power_draw_rate:
-          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
-              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
-              device->dynamic_info.power_draw_max > 0) {
-            data_val = device->dynamic_info.power_draw * 100 / device->dynamic_info.power_draw_max;
-            if (data_val > 100)
-              data_val = 100u;
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw)) {
+            if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
+                device->dynamic_info.power_draw_max > 0) {
+              data_val = device->dynamic_info.power_draw * 100 / device->dynamic_info.power_draw_max;
+              if (data_val > 100)
+                data_val = 100u;
+            } else {
+              // Without a power limit (e.g. Apple Silicon) a percentage would always be
+              // zero, so plot whole watts on the same 0..100 scale as temperature.
+              data_val = device->dynamic_info.power_draw / 1000;
+              if (data_val > 100)
+                data_val = 100u;
+            }
           } else {
             data_val = 0;
           }
@@ -2245,7 +2252,11 @@ static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices, c
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u temp(c)", unit, dev_id);
           break;
         case plot_gpu_power_draw_rate:
-          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u power%%", unit, dev_id);
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
+              device->dynamic_info.power_draw_max > 0)
+            snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u power%%", unit, dev_id);
+          else
+            snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u power(W)", unit, dev_id);
           break;
         case plot_fan_speed:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u fan%%", unit, dev_id);

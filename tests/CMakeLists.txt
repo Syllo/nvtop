@@ -65,6 +65,10 @@ if (BUILD_TESTING AND GTest_FOUND)
       ${PROJECT_BINARY_DIR}/include)
     target_link_libraries(appleTests PRIVATE GTest::gtest_main
       "-framework Foundation")
+    if (HAS_REALLOCARRAY)
+      target_compile_definitions(appleTests PRIVATE HAS_REALLOCARRAY)
+    endif()
+    add_sanitizers(appleTests)
     gtest_discover_tests(appleTests)
   endif()
 
