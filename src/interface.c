@@ -712,12 +712,19 @@ static void format_bytes(char *buffer, size_t size, uint64_t bytes) {
     snprintf(buffer, size, "%.2f%s%s", value, memory_prefix[unit], suffix);
 }
 
+/*
+ * Temperatures are kept in degrees Celsius and only converted for display.
+ * (9 / 5 = 1.8, and adding 2 before dividing by 5 rounds to the nearest degree
+ * without going through floating point.)
+ */
+static unsigned int celsius_to_fahrenheit(unsigned int celsius) { return (celsius * 9 + 2) / 5 + 32; }
+
 static void draw_temp_color(WINDOW *win, unsigned int temp, unsigned int temp_slowdown, bool celsius) {
   unsigned int temp_convert;
   if (celsius)
     temp_convert = temp;
   else
-    temp_convert = (unsigned)(32 + nearbyint(temp * 1.8));
+    temp_convert = celsius_to_fahrenheit(temp);
   wcolor_set(win, cyan_color, NULL);
   mvwprintw(win, 0, 0, "TEMP");
 
@@ -2617,6 +2624,14 @@ bool show_information_messages(unsigned num_messages, const char **messages) {
   return dontShowAgainOption;
 }
 
+/*
+ * The extracted temperatures are in degrees Celsius: convert them to the unit
+ * the user asked for.
+ */
+static unsigned snapshot_temperature(unsigned int celsius, bool use_fahrenheit) {
+  return use_fahrenheit ? celsius_to_fahrenheit(celsius) : celsius;
+}
+
 void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool hide_processes_option) {
   struct gpu_info *device;
 
@@ -2660,17 +2675,65 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"memory_type\": null,\n", indent_level_four);
 
+    // PCI address, unset for devices that are not on a PCI bus
+    if (device->pdev[0] != '\0')
+      printf("%s\"pci\": \"%s\",\n", indent_level_four, device->pdev);
+    else
+      printf("%s\"pci\": null,\n", indent_level_four);
+
+    printf("%s\"integrated_graphics\": %s,\n", indent_level_four,
+           device->static_info.integrated_graphics ? "true" : "false");
+    printf("%s\"encode_decode_shared\": %s,\n", indent_level_four,
+           device->static_info.encode_decode_shared ? "true" : "false");
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, max_pcie_gen))
+      printf("%s\"max_pcie_gen\": %u,\n", indent_level_four, device->static_info.max_pcie_gen);
+    else
+      printf("%s\"max_pcie_gen\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, max_pcie_link_width))
+      printf("%s\"max_pcie_link_width\": %u,\n", indent_level_four, device->static_info.max_pcie_link_width);
+    else
+      printf("%s\"max_pcie_link_width\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, n_shared_cores))
+      printf("%s\"n_shared_cores\": %u,\n", indent_level_four, device->static_info.n_shared_cores);
+    else
+      printf("%s\"n_shared_cores\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, l2cache_size))
+      printf("%s\"l2cache_size\": %u,\n", indent_level_four, device->static_info.l2cache_size);
+    else
+      printf("%s\"l2cache_size\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, n_exec_engines))
+      printf("%s\"n_exec_engines\": %u,\n", indent_level_four, device->static_info.n_exec_engines);
+    else
+      printf("%s\"n_exec_engines\": null,\n", indent_level_four);
+
     // GPU Clock Speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed))
       printf("%s\"%s\": \"%uMHz\",\n", indent_level_four, gpu_clock_field, device->dynamic_info.gpu_clock_speed);
     else
       printf("%s\"%s\": null,\n", indent_level_four, gpu_clock_field);
 
+    // Maximum GPU Clock Speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_clock_speed_max))
+      printf("%s\"gpu_clock_max\": \"%uMHz\",\n", indent_level_four, device->dynamic_info.gpu_clock_speed_max);
+    else
+      printf("%s\"gpu_clock_max\": null,\n", indent_level_four);
+
     // MEM Clock Speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed))
       printf("%s\"%s\": \"%uMHz\",\n", indent_level_four, mem_clock_field, device->dynamic_info.mem_clock_speed);
     else
       printf("%s\"%s\": null,\n", indent_level_four, mem_clock_field);
+
+    // Maximum MEM Clock Speed
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_clock_speed_max))
+      printf("%s\"mem_clock_max\": \"%uMHz\",\n", indent_level_four, device->dynamic_info.mem_clock_speed_max);
+    else
+      printf("%s\"mem_clock_max\": null,\n", indent_level_four);
 
     // Vendor specific clock domains, keyed by the name the vendor gives them
     unsigned extra_clock_count =
@@ -2682,16 +2745,27 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
 
     // GPU Temperature
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
-      unsigned int temp_convert;
-      if (!use_fahrenheit_option)
-        temp_convert = device->dynamic_info.gpu_temp;
-      else
-        temp_convert = (unsigned)(32 + nearbyint(device->dynamic_info.gpu_temp * 1.8));
-
-      printf("%s\"%s\": \"%u%s\",\n", indent_level_four, temp_field, temp_convert, use_fahrenheit_option ? "F" : "C");
+      printf("%s\"%s\": \"%u%s\",\n", indent_level_four, temp_field,
+             snapshot_temperature(device->dynamic_info.gpu_temp, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
     } else {
       printf("%s\"%s\": null,\n", indent_level_four, temp_field);
     }
+
+    // Slowdown and shutdown thresholds
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_slowdown_threshold))
+      printf("%s\"temp_slowdown_threshold\": \"%u%s\",\n", indent_level_four,
+             snapshot_temperature(device->static_info.temperature_slowdown_threshold, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
+    else
+      printf("%s\"temp_slowdown_threshold\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_shutdown_threshold))
+      printf("%s\"temp_shutdown_threshold\": \"%u%s\",\n", indent_level_four,
+             snapshot_temperature(device->static_info.temperature_shutdown_threshold, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
+    else
+      printf("%s\"temp_shutdown_threshold\": null,\n", indent_level_four);
 
     // Fan speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed))
@@ -2705,11 +2779,23 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"%s\": null,\n", indent_level_four, fan_field);
 
+    // Fan RPM, on top of the percentage above
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm))
+      printf("%s\"fan_rpm\": \"%uRPM\",\n", indent_level_four, device->dynamic_info.fan_rpm);
+    else
+      printf("%s\"fan_rpm\": null,\n", indent_level_four);
+
     // Power draw
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw))
       printf("%s\"%s\": \"%uW\",\n", indent_level_four, power_field, device->dynamic_info.power_draw / 1000);
     else
       printf("%s\"%s\": null,\n", indent_level_four, power_field);
+
+    // Maximum power draw
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max))
+      printf("%s\"power_draw_max\": \"%uW\",\n", indent_level_four, device->dynamic_info.power_draw_max / 1000);
+    else
+      printf("%s\"power_draw_max\": null,\n", indent_level_four);
 
     // GPU Utilization
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate))
@@ -2754,9 +2840,49 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": null,\n", indent_level_four, mem_used_field);
     // Memory Available
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, free_memory))
-      printf("%s\"%s\": \"%llu\"", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
+      printf("%s\"%s\": \"%llu\",\n", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
     else
-      printf("%s\"%s\": null", indent_level_four, mem_free_field);
+      printf("%s\"%s\": null,\n", indent_level_four, mem_free_field);
+
+    // PCIe link status
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen))
+      printf("%s\"pcie_link_gen\": %u,\n", indent_level_four, device->dynamic_info.pcie_link_gen);
+    else
+      printf("%s\"pcie_link_gen\": null,\n", indent_level_four);
+
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_width))
+      printf("%s\"pcie_link_width\": %u,\n", indent_level_four, device->dynamic_info.pcie_link_width);
+    else
+      printf("%s\"pcie_link_width\": null,\n", indent_level_four);
+
+    // PCIe throughput, in KiB/s
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
+      printf("%s\"pcie_rx\": \"%uKiB/s\",\n", indent_level_four, device->dynamic_info.pcie_rx);
+    else
+      printf("%s\"pcie_rx\": null,\n", indent_level_four);
+
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
+      printf("%s\"pcie_tx\": \"%uKiB/s\",\n", indent_level_four, device->dynamic_info.pcie_tx);
+    else
+      printf("%s\"pcie_tx\": null,\n", indent_level_four);
+
+    // Effective load rate
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate))
+      printf("%s\"effective_load_rate\": \"%u%%\",\n", indent_level_four, device->dynamic_info.effective_load_rate);
+    else
+      printf("%s\"effective_load_rate\": null,\n", indent_level_four);
+
+    // ECC error counters
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_corrected))
+      printf("%s\"ecc_corrected\": \"%llu\",\n", indent_level_four, device->dynamic_info.ecc_corrected);
+    else
+      printf("%s\"ecc_corrected\": null,\n", indent_level_four);
+
+    // Last field unless the process list follows
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, ecc_uncorrected))
+      printf("%s\"ecc_uncorrected\": \"%llu\"", indent_level_four, device->dynamic_info.ecc_uncorrected);
+    else
+      printf("%s\"ecc_uncorrected\": null", indent_level_four);
 
     // Processes
     if (hide_processes_option) {
