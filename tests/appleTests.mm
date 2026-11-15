@@ -301,6 +301,66 @@ TEST(AppleProcessInfo, ParsesAndSumsAppUsage) {
   }
 }
 
+TEST(AppleProcessInfo, ParsesDirectAccumulatedGpuTime) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"IOUserClientCreator" : @"pid 42, test",
+      @"accumulatedGPUTime" : @125,
+    };
+    struct gpuinfo_apple_process_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+    EXPECT_EQ(sample.pid, 42);
+    EXPECT_TRUE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time, 125u);
+    // A direct total has no per-queue breakdown.
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
+  }
+}
+
+TEST(AppleProcessInfo, PrefersDirectAccumulatedGpuTimeOverAppUsage) {
+  @autoreleasepool {
+    NSDictionary *properties = @{
+      @"IOUserClientCreator" : @"pid 42, test",
+      @"accumulatedGPUTime" : @500,
+      @"AppUsage" : @[
+        @{@"accumulatedGPUTime" : @125},
+        @{@"accumulatedGPUTime" : @75},
+      ],
+    };
+    struct gpuinfo_apple_process_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+    // Counting both shapes would report the same GPU work twice.
+    EXPECT_TRUE(sample.gpu_time_valid);
+    EXPECT_EQ(sample.gpu_time, 500u);
+    EXPECT_EQ(sample.gpu_time_queue_count, 0u);
+  }
+}
+
+TEST(AppleProcessInfo, FallsBackToAppUsageWhenDirectCounterIsMalformed) {
+  @autoreleasepool {
+    NSArray *direct_values = @[ @"not a number", @(-1) ];
+    struct gpuinfo_apple_process_sample sample;
+
+    for (id direct_value in direct_values) {
+      NSDictionary *properties = @{
+        @"IOUserClientCreator" : @"pid 42, test",
+        @"accumulatedGPUTime" : direct_value,
+        @"AppUsage" : @[
+          @{@"accumulatedGPUTime" : @125},
+          @{@"accumulatedGPUTime" : @75},
+        ],
+      };
+
+      ASSERT_TRUE(gpuinfo_apple_parse_process_sample((__bridge CFDictionaryRef)properties, &sample));
+      EXPECT_TRUE(sample.gpu_time_valid);
+      EXPECT_EQ(sample.gpu_time, 200u);
+      EXPECT_EQ(sample.gpu_time_queue_count, 2u);
+    }
+  }
+}
+
 TEST(AppleProcessInfo, PreservesPidWhenAppUsageIsUnavailable) {
   @autoreleasepool {
     NSDictionary *missing_usage = @{@"IOUserClientCreator" : @"pid 7, test"};

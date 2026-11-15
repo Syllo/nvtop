@@ -80,6 +80,18 @@ bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuin
     return false;
   sample->pid = pid;
 
+  // Some macOS versions (and Intel Macs) expose the process GPU time directly
+  // on the client node instead of a per-queue AppUsage array. Both carry the
+  // same nanosecond counter; prefer the direct total when both exist, as
+  // Activity Monitor does, so the same work is not counted twice. The direct
+  // form has no per-queue breakdown, which the zero queue count records.
+  uint64_t direct_gpu_time;
+  if (gpuinfo_apple_get_unsigned_number([user_client_info objectForKey:@"accumulatedGPUTime"], &direct_gpu_time)) {
+    sample->gpu_time = direct_gpu_time;
+    sample->gpu_time_valid = true;
+    return true;
+  }
+
   id app_usage = [user_client_info objectForKey:@"AppUsage"];
   if (![app_usage isKindOfClass:[NSArray class]])
     return true;

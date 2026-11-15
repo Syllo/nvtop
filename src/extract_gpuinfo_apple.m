@@ -55,8 +55,9 @@ struct __attribute__((__packed__)) apple_process_cache_id {
 struct apple_process_info_cache {
   struct apple_process_cache_id client_id;
   uint64_t gpu_time;
-  // Number of AppUsage entries represented by gpu_time; only meaningful while
-  // gpu_time is valid. A delta requires it to match the new sample's count.
+  // Number of AppUsage entries represented by gpu_time (0 for a direct client
+  // total); only meaningful while gpu_time is valid. A delta requires the new
+  // sample to use the same representation.
   unsigned gpu_time_queue_count;
   nvtop_time last_measurement_tstamp;
   unsigned char valid[(apple_cache_process_info_cache_valid_count + CHAR_BIT - 1) / CHAR_BIT];
