@@ -70,8 +70,8 @@ struct gpu_info_apple {
   id<MTLDevice> device;
   io_service_t gpu_service;
   struct gpuinfo_apple_ioreport *ioreport;
-  struct gpuinfo_apple_pci *pci;
   struct gpuinfo_apple_smc *smc;
+  struct gpuinfo_apple_pci_info pci_info;
   struct apple_process_info_cache *last_update_process_cache, *current_update_process_cache;
 };
 
@@ -151,7 +151,6 @@ static void gpuinfo_apple_shutdown(void) {
     gpuinfo_apple_free_process_cache(&gpu_info->last_update_process_cache);
     gpuinfo_apple_free_process_cache(&gpu_info->current_update_process_cache);
     gpuinfo_apple_ioreport_shutdown(gpu_info->ioreport);
-    gpuinfo_apple_pci_shutdown(gpu_info->pci);
     gpuinfo_apple_smc_shutdown(gpu_info->smc);
     [gpu_info->device release];
     IOObjectRelease(gpu_info->gpu_service);
@@ -197,9 +196,6 @@ static bool gpuinfo_apple_get_device_handles(struct list_head *devices, unsigned
     gpu_info->base.vendor = &gpu_vendor_apple;
     gpu_info->device = [dev retain];
     gpu_info->gpu_service = gpu_service;
-    // PCI bus/slot lookup is unconditional: every Mac Pro dGPU lives behind a
-    // walkable IOPCIBridge, while Apple Silicon simply leaves the lookup empty.
-    gpuinfo_apple_pci_init(&gpu_info->pci);
     // The IOReport and AppleSMC telemetry sources are Apple Silicon only (see
     // gpuinfo_apple_is_apple_silicon). Intel Macs still get the Metal static
     // and dynamic information, just without these private sensors.
@@ -232,24 +228,26 @@ static void gpuinfo_apple_populate_static_info(struct gpu_info *_gpu_info) {
   static_info->integrated_graphics = [gpu_info->device location] == MTLDeviceLocationBuiltIn;
   static_info->encode_decode_shared = true;
 
-  struct gpuinfo_apple_pci_full pci;
-  if (gpuinfo_apple_pci_full((uint64_t)[gpu_info->device registryID], &pci)) {
-    if (pci.bus_valid) {
-      static_info->pci_bus_id = pci.bus;
+  // PCI address, negotiated PCIe link and chassis slot come from the GPU's
+  // IOPCIDevice. They are absent on Apple Silicon, whose accelerator is not a
+  // PCI device, so every field is optional.
+  if (gpuinfo_apple_pci_query(gpu_info->gpu_service, &gpu_info->pci_info)) {
+    const struct gpuinfo_apple_pci_info *pci = &gpu_info->pci_info;
+    if (pci->bus_valid) {
+      static_info->pci_bus_id = pci->bus;
       SET_VALID(gpuinfo_pci_bus_id_valid, static_info->valid);
     }
-    if (pci.device_valid) {
-      static_info->pci_slot_id = pci.device;
+    if (pci->device_valid) {
+      static_info->pci_slot_id = pci->device;
       SET_VALID(gpuinfo_pci_slot_id_valid, static_info->valid);
     }
-    if (pci.apple_slot_valid) {
-      strncpy(static_info->apple_slot, pci.apple_slot,
-              sizeof(static_info->apple_slot) - 1);
+    if (pci->slot_valid) {
+      strncpy(static_info->apple_slot, pci->slot, sizeof(static_info->apple_slot) - 1);
       static_info->apple_slot[sizeof(static_info->apple_slot) - 1] = '\0';
       SET_VALID(gpuinfo_apple_slot_valid, static_info->valid);
     }
-    if (pci.mpx_die_index_valid) {
-      static_info->mpx_die_index = pci.mpx_die_index;
+    if (pci->die_index_valid) {
+      static_info->mpx_die_index = pci->die_index;
       SET_VALID(gpuinfo_mpx_die_index_valid, static_info->valid);
     }
   }
@@ -259,6 +257,12 @@ static void gpuinfo_apple_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_apple *gpu_info = container_of(_gpu_info, struct gpu_info_apple, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
   RESET_ALL(dynamic_info->valid);
+
+  // Negotiated PCIe link from IOPCIExpressLinkStatus, cached at discovery.
+  if (gpu_info->pci_info.link_valid) {
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_gen, gpu_info->pci_info.link_gen);
+    SET_GPUINFO_DYNAMIC(dynamic_info, pcie_link_width, gpu_info->pci_info.link_width);
+  }
 
   unsigned power_draw;
   if (gpuinfo_apple_ioreport_get_power_draw(gpu_info->ioreport, &power_draw))

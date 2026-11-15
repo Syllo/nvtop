@@ -76,6 +76,13 @@ bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
 
 bool gpuinfo_apple_parse_process_sample(CFDictionaryRef properties, struct gpuinfo_apple_process_sample *sample);
 
+// Parsing helpers for the PCI metadata macOS publishes in the IORegistry.
+// They live here, away from the IOKit plumbing, so they can be unit tested.
+bool gpuinfo_apple_parse_pci_bdf(const char *pcidebug, unsigned *bus, unsigned *device);
+bool gpuinfo_apple_decode_pcie_link_status(int64_t status, unsigned *link_gen, unsigned *link_width);
+bool gpuinfo_apple_decode_slot_name(const uint8_t *data, size_t data_size, char *slot, size_t slot_size);
+bool gpuinfo_apple_parse_die_index(const char *acpi_path, unsigned *die_index);
+
 bool gpuinfo_apple_calculate_gpu_usage(uint64_t previous_gpu_time, uint64_t current_gpu_time, uint64_t time_elapsed,
                                        unsigned *gpu_usage);
 // `gpu_time` is AppUsage.accumulatedGPUTime, a nanosecond counter (the same one

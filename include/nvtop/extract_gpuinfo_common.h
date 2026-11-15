@@ -95,7 +95,7 @@ struct gpuinfo_static_info {
   // Chassis slot label published by Apple as AAPL,slot-name on the GPU's
   // IOPCIDevice ("Slot-1" on a MacPro7,1, "PCI Slot 2" on other Intel Macs).
   // Multi-die cards share the slot label; mpx_die_index disambiguates them.
-  char apple_slot[12];
+  char apple_slot[32];
   // 0-indexed die position inside the slot, parsed from the GD<y> ACPI device
   // segment of the AMD driver path. 0 for single-die cards; 0 or 1 for a
   // W6800X/W6900X Duo.

@@ -21,299 +21,149 @@
 
 #include "extract_gpuinfo_apple_pci.h"
 
+#include "extract_gpuinfo_apple_utils.h"
+
 #include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/IOKitLib.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
-// PCI topology + Infinity Fabric metadata for Metal GPUs on macOS.
+// PCI metadata for Metal GPUs on macOS.
 //
-// Apple Silicon's IOAccelerator tree doesn't expose much (no PCI config space,
-// no bus address); the AMD driver on MacPro7,1 does. After
-// IORegistryEntryIDMatching + IOServiceGetMatchingService lands on the
-// IOAccelerator node, the immediate parent in kIOServicePlane is the
-// GPU's IOPCIDevice — and that node carries:
+// The IOAccelerator matched through IORegistryEntryIDMatching([MTLDevice
+// registryID]) has the GPU's IOPCIDevice as its parent in the service plane.
+// That node publishes the properties used here:
 //
-//   * "pci-bus-number" / "pci-device-number" / "pci-function-number":
-//     real BDF address (function is usually 0).
-//   * "IOChildIndex": the slot index within the parent bridge.
-//   * "attached-gpu-control-path": a stable IOService path that includes the
-//     ACPI device name (e.g. .../BR3A@0/IOPP/GU00@0/IOPP/GD01@1/IOPP/EGP0@0/
-//     IO). The leaf segment (EGP0@0, GFX0@10000, UPSB@0, …) is the
-//     physical slot identifier. On MacPro7,1 it's an MPX bay letter + GPU
-//     + slot; on USB4 / Thunderbolt enclosures the leaf is UPSB/DSxx.
-//   * "acpi-path": same identifier but in the IOACPIPlane namespace, often
-//     slightly cleaner to display.
+//   * "pcidebug": the BDF address as a decimal "bus:device:function" string.
+//   * "IOPCIExpressLinkStatus": the raw PCIe Link Status register of the
+//     negotiated link (decoded by gpuinfo_apple_decode_pcie_link_status).
+//   * "AAPL,slot-name": Apple's chassis slot label, on the GPU's own
+//     IOPCIDevice ("Slot-1" on a MacPro7,1, "PCI Slot 2" on earlier Macs).
+//   * "acpi-path": the ACPI path whose GD<nn> segment identifies the die of a
+//     multi-die card (W6800X/W6900X Duo).
+//
+// Apple Silicon accelerators are not PCI devices, so the parent lookup finds
+// none of these and the caller reports N/A.
 
-struct gpuinfo_apple_pci {
-  // Reserved for future caching; matches the ioreport/smc pattern.
-  int placeholder;
-};
-
-bool gpuinfo_apple_pci_init(struct gpuinfo_apple_pci **pci) {
-  if (!pci)
+static bool read_number(io_registry_entry_t entry, CFStringRef key, int64_t *out) {
+  CFTypeRef value = IORegistryEntryCreateCFProperty(entry, key, kCFAllocatorDefault, 0);
+  if (!value)
     return false;
-  *pci = NULL;
-  return true;
-}
 
-void gpuinfo_apple_pci_shutdown(struct gpuinfo_apple_pci *pci) { (void)pci; }
-
-// Read a CFNumber property at `service` and write it into `*out`.
-// Returns true on success. Returns false if the property is missing, not a
-// number, or the conversion fails.
-static bool read_cf_number(io_service_t service, const char *key, int64_t *out) {
-  CFStringRef cf_key = CFStringCreateWithCString(NULL, key, kCFStringEncodingUTF8);
-  if (!cf_key)
-    return false;
-  CFTypeRef ref = IORegistryEntryCreateCFProperty(service, cf_key, kCFAllocatorDefault, 0);
-  CFRelease(cf_key);
-  if (!ref)
-    return false;
   bool ok = false;
-  if (CFGetTypeID(ref) == CFNumberGetTypeID()) {
-    int64_t value = 0;
-    if (CFNumberGetValue((CFNumberRef)ref, kCFNumberSInt64Type, &value)) {
-      *out = value;
+  if (CFGetTypeID(value) == CFNumberGetTypeID()) {
+    int64_t number = 0;
+    if (CFNumberGetValue((CFNumberRef)value, kCFNumberSInt64Type, &number)) {
+      *out = number;
       ok = true;
     }
   }
-  CFRelease(ref);
+  CFRelease(value);
   return ok;
 }
 
-// Read a CFString property at `service`, copy up to dst_size-1 bytes into
-// `dst`, NUL-terminate. Returns true on success.
-static bool read_cf_string(io_service_t service, const char *key, char *dst, size_t dst_size) {
-  if (!dst || dst_size == 0)
+static bool read_string(io_registry_entry_t entry, CFStringRef key, char *out, size_t out_size) {
+  if (!out || out_size == 0)
     return false;
-  dst[0] = '\0';
-  CFStringRef cf_key = CFStringCreateWithCString(NULL, key, kCFStringEncodingUTF8);
-  if (!cf_key)
+  out[0] = '\0';
+
+  CFTypeRef value = IORegistryEntryCreateCFProperty(entry, key, kCFAllocatorDefault, 0);
+  if (!value)
     return false;
-  CFTypeRef ref = IORegistryEntryCreateCFProperty(service, cf_key, kCFAllocatorDefault, 0);
-  CFRelease(cf_key);
-  if (!ref)
-    return false;
+
   bool ok = false;
-  if (CFGetTypeID(ref) == CFStringGetTypeID()) {
-    const char *p = CFStringGetCStringPtr((CFStringRef)ref, kCFStringEncodingUTF8);
-    if (p) {
-      strncpy(dst, p, dst_size - 1);
-      dst[dst_size - 1] = '\0';
-      ok = true;
-    } else {
-      // CFStringGetCStringPtr returns NULL when the string has non-ASCII bytes
-      // and the backing store isn't a C string; fall back to the explicit copy.
-      if (CFStringGetCString((CFStringRef)ref, dst, dst_size, kCFStringEncodingUTF8)) {
+  if (CFGetTypeID(value) == CFStringGetTypeID()) {
+    const char *cstr = CFStringGetCStringPtr((CFStringRef)value, kCFStringEncodingUTF8);
+    if (cstr) {
+      const size_t length = strlen(cstr);
+      if (length < out_size) {
+        memcpy(out, cstr, length + 1);
         ok = true;
       }
+    } else if (CFStringGetCString((CFStringRef)value, out, (CFIndex)out_size, kCFStringEncodingUTF8)) {
+      ok = true;
     }
   }
-  CFRelease(ref);
+  CFRelease(value);
   return ok;
 }
 
-bool gpuinfo_apple_pci_lookup(uint64_t registry_id, unsigned *bus_id, unsigned *slot_id) {
-  if (!bus_id || !slot_id)
+static bool read_slot_property(io_registry_entry_t entry, char *slot, size_t slot_size) {
+  CFTypeRef value = IORegistryEntryCreateCFProperty(entry, CFSTR("AAPL,slot-name"), kCFAllocatorDefault, 0);
+  if (!value)
     return false;
-  *bus_id = 0;
-  *slot_id = 0;
 
-  // Locate the IOAccelerator entry the same way the rest of the Apple backend does.
-  CFMutableDictionaryRef matching = IORegistryEntryIDMatching(registry_id);
-  if (!matching)
-    return false;
-  io_service_t gpu_service = IOServiceGetMatchingService(kIOMainPortDefault, matching);
-  if (!MACH_PORT_VALID(gpu_service)) {
-    // IOServiceGetMatchingService consumes the dictionary on both success and
-    // "not found" paths, so nothing else to release here.
-    return false;
+  bool decoded = false;
+  if (CFGetTypeID(value) == CFDataGetTypeID()) {
+    CFDataRef data = (CFDataRef)value;
+    decoded = gpuinfo_apple_decode_slot_name(CFDataGetBytePtr(data), (size_t)CFDataGetLength(data), slot, slot_size);
+  } else if (CFGetTypeID(value) == CFStringGetTypeID()) {
+    decoded = CFStringGetCString((CFStringRef)value, slot, (CFIndex)slot_size, kCFStringEncodingUTF8);
   }
-
-  // Walk up to the PCI device node — the immediate parent of an IOAccelerator
-  // on Intel Mac Pro AMD dGPUs is the IOPCIDevice that owns the BARs.
-  io_service_t pci_device = 0;
-  const kern_return_t kr = IORegistryEntryGetParentEntry(gpu_service, kIOServicePlane, &pci_device);
-  IOObjectRelease(gpu_service);
-  if (kr != kIOReturnSuccess || !MACH_PORT_VALID(pci_device))
-    return false;
-
-  int64_t bus = 0, dev = 0;
-  if (read_cf_number(pci_device, "pci-bus-number", &bus))
-    *bus_id = (unsigned)bus;
-  if (read_cf_number(pci_device, "IOChildIndex", &dev))
-    *slot_id = (unsigned)dev;
-  // pcie slot naming on MacPro7,1
-  IOObjectRelease(pci_device);
-
-  // Treat (0, 0) as a failure so the caller doesn't accidentally render a
-  // bogus "PCI 0:0" bus string on cards where the registry keys are missing.
-  return *bus_id != 0 || *slot_id != 0;
+  CFRelease(value);
+  return decoded;
 }
 
-// Parse the Mac Pro 7,1 physical slot identifier out of the
-// attached-gpu-control-path / acpi-path strings. The Mac Pro 7,1 chassis
-// exposes:
-//
-//   * MPX bays 1..4: .../BR<n>A@0/IOPP/GU00@0/IOPP/GD<m>@x/...
-//     where n is the bay number (1..4) and m is the die index within
-//     the bay (0 or 1 for a Duo).
-//   * I/O board / Thunderbolt (slot 5): .../PC04@0/AppleACPIPCI/MCP0@0/
-//     IOPP/USnn@x/IOPP/DSmm@y/IOPP/UPSB@z/IO
-//     No BR<x>A segment; the user-facing convention is "slot 5" because
-//     the I/O board is the fifth physical slot in the chassis layout.
-//
-// Walk up from `start` until we find an IORegistry entry whose
-// AAPL,slot-name data property is set, or until we run out of parents.
-// Apple publishes AAPL,slot-name on every IOPCI2PCIBridge in the
-// chassis, encoded as a UTF-8 string padded to 4-byte boundary (e.g.
-// "Slot-1\xAA" or similar). The closest ancestor that carries the
-// property is the GPU's physical slot; that matches what the Mac Pro
-// service manual and About This Mac → PCI Cards both display. For a
-// W6800X Duo the two dies share the same parent bridge (the BR<x>A
-// bridge itself), so they report the same apple_slot — disambiguate
-// them via mpx_die_index below.
-//
-// Returns true and fills `out` on success. Out is null-terminated and
-// truncated to fit. We decode the data ourselves because the Apple PCI
-// bridge stores slot names as a raw CFData buffer rather than a
-// CFString, presumably for EFI/ACPI compatibility.
-static bool walk_for_slot_name(io_registry_entry_t start, char *out, size_t out_size) {
-  if (!out || out_size == 0) return false;
-  out[0] = '\0';
-  io_registry_entry_t cur = start;
-  bool released_start = false;
-  while (cur) {
-    CFMutableDictionaryRef props = NULL;
-    if (IORegistryEntryCreateCFProperties(cur, &props, NULL, 0) == kIOReturnSuccess && props) {
-      CFTypeRef slot = CFDictionaryGetValue(props, CFSTR("AAPL,slot-name"));
-      if (slot && CFGetTypeID(slot) == CFDataGetTypeID()) {
-        CFDataRef data = (CFDataRef)slot;
-        const CFIndex len = CFDataGetLength(data);
-        const UInt8 *bytes = CFDataGetBytePtr(data);
-        // Copy up to out_size-1 bytes; strip any trailing non-UTF8 pad bytes
-        // (the property is null-padded to a 4-byte boundary).
-        size_t copy = (size_t)len;
-        if (copy >= out_size) copy = out_size - 1;
-        // Trim trailing NULs and high-bit pad bytes (>0x7E) that would
-        // not appear in a real "Slot-N" string.
-        while (copy > 0 && (bytes[copy - 1] == 0 || bytes[copy - 1] > 0x7E))
-          copy--;
-        memcpy(out, bytes, copy);
-        out[copy] = '\0';
-        CFRelease(props);
-        if (released_start) IOObjectRelease(cur);
-        return true;
-      }
-      CFRelease(props);
+// Walk from the GPU's IOPCIDevice towards the root and take the closest
+// AAPL,slot-name label. The property is normally on the GPU device itself; the
+// walk is a fallback for nodes where it is published on a parent bridge.
+static bool find_slot_name(io_registry_entry_t start, char *slot, size_t slot_size) {
+  io_registry_entry_t current = start;
+  IOObjectRetain(current);
+  for (;;) {
+    if (read_slot_property(current, slot, slot_size)) {
+      IOObjectRelease(current);
+      return true;
     }
+
     io_registry_entry_t parent = 0;
-    if (IORegistryEntryGetParentEntry(cur, kIOServicePlane, &parent) != kIOReturnSuccess) {
-      break;
+    if (IORegistryEntryGetParentEntry(current, kIOServicePlane, &parent) != kIOReturnSuccess) {
+      IOObjectRelease(current);
+      return false;
     }
-    if (cur != start) IOObjectRelease(cur);
-    else released_start = true;
-    cur = parent;
+    IOObjectRelease(current);
+    current = parent;
   }
-  if (released_start && cur) IOObjectRelease(cur);
-  return false;
 }
 
-// Parse the 0-indexed GD<y> segment out of either path the AMD driver
-// publishes (attached-gpu-control-path on IOService, acpi-path on
-// IOACPIPlane). The driver publishes segments like .../BR1A@0/.../
-// GD01@10000/.../GFX0@0 where GD01 = the second die of an MPX Duo
-// (GD00 = first die, GD01 = second). For a single-GPU card there is
-// no GD segment and we return 0 (no override).
-static bool parse_gd_index(const char *path, unsigned *die_out) {
-  if (die_out) *die_out = 0;
-  if (!path || !*path) return false;
-  const char *gd = strstr(path, "GD");
-  if (!gd) return false;
-  char *end = NULL;
-  const unsigned long d = strtoul(gd + 2, &end, 10);
-  if (end == gd + 2) return false;
-  if (die_out) *die_out = (unsigned)d;
-  return true;
-}
-
-bool gpuinfo_apple_pci_full(uint64_t registry_id, struct gpuinfo_apple_pci_full *out) {
-  if (!out)
+bool gpuinfo_apple_pci_query(io_service_t gpu_service, struct gpuinfo_apple_pci_info *info) {
+  if (!info)
     return false;
-  memset(out, 0, sizeof(*out));
-
-  CFMutableDictionaryRef matching = IORegistryEntryIDMatching(registry_id);
-  if (!matching)
-    return false;
-  io_service_t gpu_service = IOServiceGetMatchingService(kIOMainPortDefault, matching);
+  memset(info, 0, sizeof(*info));
   if (!MACH_PORT_VALID(gpu_service))
     return false;
 
   io_service_t pci_device = 0;
-  kern_return_t kr = IORegistryEntryGetParentEntry(gpu_service, kIOServicePlane, &pci_device);
-  IOObjectRelease(gpu_service);
-  if (kr != kIOReturnSuccess || !MACH_PORT_VALID(pci_device))
+  if (IORegistryEntryGetParentEntry(gpu_service, kIOServicePlane, &pci_device) != kIOReturnSuccess ||
+      !MACH_PORT_VALID(pci_device))
     return false;
 
-  int64_t v = 0;
-  out->bus_valid = read_cf_number(pci_device, "pci-bus-number", &v);
-  out->bus = out->bus_valid ? (unsigned)v : 0;
-  out->device_valid = read_cf_number(pci_device, "pci-device-number", &v);
-  out->device = out->device_valid ? (unsigned)v : 0;
-  out->function_valid = read_cf_number(pci_device, "pci-function-number", &v);
-  out->function = out->function_valid ? (unsigned)v : 0;
-  out->child_index_valid = read_cf_number(pci_device, "IOChildIndex", &v);
-  out->child_index = out->child_index_valid ? (unsigned)v : 0;
-
-  // The "attached-gpu-control-path" IOService string has the leaf ACPI
-  // device name we want, but it also has the long prefix. Strip everything
-  // before and including the last "IOPP/" but keep enough of the suffix
-  // that downstream parsers (format_slot) can find BR<x>A / GD<y> / UPSx
-  // segments.
-  if (read_cf_string(pci_device, "attached-gpu-control-path", out->control_path,
-                     sizeof(out->control_path))) {
-    const char *needle = "IOPP/";
-    const char *last = NULL;
-    for (const char *p = out->control_path; (p = strstr(p, needle)) != NULL; p += 5)
-      last = p;
-    if (last) {
-      // Drop the "IOPP/" prefix; keep the rest of the string (we strip the
-      // trailing "/IO" but only when it's the very last segment, otherwise
-      // we'd lose intermediate path components the slot parser needs).
-      const size_t prefix_len = (size_t)(last - out->control_path) + 5;
-      const size_t total_len = strlen(out->control_path);
-      const size_t suffix_len = total_len - prefix_len;
-      if (suffix_len >= 4 &&
-          strcmp(out->control_path + total_len - 3, "/IO") == 0) {
-        out->control_path[total_len - 3] = '\0';
-      }
-      memmove(out->control_path, out->control_path + prefix_len,
-               strlen(out->control_path + prefix_len) + 1);
-      (void)suffix_len;
+  char pcidebug[64];
+  if (read_string(pci_device, CFSTR("pcidebug"), pcidebug, sizeof(pcidebug))) {
+    unsigned bus, device;
+    if (gpuinfo_apple_parse_pci_bdf(pcidebug, &bus, &device)) {
+      info->bus = bus;
+      info->bus_valid = true;
+      info->device = device;
+      info->device_valid = true;
     }
   }
-  if (!read_cf_string(pci_device, "acpi-path", out->acpi_path, sizeof(out->acpi_path))) {
-    out->acpi_path[0] = '\0';
+
+  int64_t link_status;
+  if (read_number(pci_device, CFSTR("IOPCIExpressLinkStatus"), &link_status)) {
+    info->link_valid = gpuinfo_apple_decode_pcie_link_status(link_status, &info->link_gen, &info->link_width);
   }
 
-  // Walk up from the GPU's PCI device to the closest bridge carrying
-  // AAPL,slot-name. Apple publishes the slot label (Slot-1, Slot-3, …)
-  // there. For a W6800X/W6900X Duo both dies share the parent's slot
-  // label — disambiguate via mpx_die_index from the GD<y> segment.
-  if (walk_for_slot_name(pci_device, out->apple_slot, sizeof(out->apple_slot))) {
-    out->apple_slot_valid = true;
-  }
+  info->slot_valid = find_slot_name(pci_device, info->slot, sizeof(info->slot));
 
-  unsigned gd_die = 0;
-  if (parse_gd_index(out->control_path, &gd_die) ||
-      parse_gd_index(out->acpi_path, &gd_die)) {
-    out->mpx_die_index = gd_die;
-    out->mpx_die_index_valid = true;
+  char acpi_path[256];
+  if (read_string(pci_device, CFSTR("acpi-path"), acpi_path, sizeof(acpi_path))) {
+    info->die_index_valid = gpuinfo_apple_parse_die_index(acpi_path, &info->die_index);
+  } else if (read_string(pci_device, CFSTR("attached-gpu-control-path"), acpi_path, sizeof(acpi_path))) {
+    info->die_index_valid = gpuinfo_apple_parse_die_index(acpi_path, &info->die_index);
   }
 
   IOObjectRelease(pci_device);
 
-  return out->bus_valid || out->child_index_valid;
+  return info->bus_valid || info->device_valid || info->link_valid || info->slot_valid || info->die_index_valid;
 }

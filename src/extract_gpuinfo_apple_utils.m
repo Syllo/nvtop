@@ -406,3 +406,90 @@ void gpuinfo_apple_add_process(struct gpu_info *gpu_info, pid_t pid, bool gpu_us
     }
   }
 }
+
+bool gpuinfo_apple_parse_pci_bdf(const char *pcidebug, unsigned *bus, unsigned *device) {
+  if (!pcidebug || !bus || !device)
+    return false;
+
+  // IOPCIDevice publishes "pcidebug" as decimal "bus:device:function"
+  // (e.g. "194:0:0"). Bridges append their secondary/subordinate bus range in
+  // parentheses, so only the leading triplet is parsed.
+  unsigned parsed_bus, parsed_device, parsed_function;
+  if (sscanf(pcidebug, "%u:%u:%u", &parsed_bus, &parsed_device, &parsed_function) != 3)
+    return false;
+  if (parsed_bus > 255 || parsed_device > 31 || parsed_function > 7)
+    return false;
+
+  *bus = parsed_bus;
+  *device = parsed_device;
+  return true;
+}
+
+bool gpuinfo_apple_decode_pcie_link_status(int64_t status, unsigned *link_gen, unsigned *link_width) {
+  if (!link_gen || !link_width)
+    return false;
+
+  // IOPCIExpressLinkStatus is the raw PCIe Link Status register: bits 3:0 hold
+  // the negotiated speed code (1 = 2.5 GT/s, 2 = 5 GT/s, 3 = 8 GT/s,
+  // 4 = 16 GT/s) and bits 9:4 the negotiated link width. 0xFFFF (and the
+  // all-zero register) mean no link or an unsupported device.
+  if (status <= 0 || status > 0xFFFF)
+    return false;
+  const unsigned gen = (unsigned)status & 0xFU;
+  const unsigned width = ((unsigned)status >> 4) & 0x3FU;
+  if (gen < 1 || gen > 6 || width < 1)
+    return false;
+
+  *link_gen = gen;
+  *link_width = width;
+  return true;
+}
+
+bool gpuinfo_apple_decode_slot_name(const uint8_t *data, size_t data_size, char *slot, size_t slot_size) {
+  if (!data || !slot || slot_size < 2)
+    return false;
+  slot[0] = '\0';
+
+  // AAPL,slot-name is a C string stored in CFData and padded to a 4-byte
+  // boundary, with NULs on the Mac Pro and occasionally 0xFF/0xAA on other
+  // firmwares. Strip trailing padding, then reject embedded non-printable
+  // bytes and names that would need truncation.
+  size_t length = data_size;
+  while (length > 0 && (data[length - 1] < 0x20 || data[length - 1] > 0x7E))
+    --length;
+  if (length == 0 || length >= slot_size)
+    return false;
+  for (size_t i = 0; i < length; ++i) {
+    if (data[i] < 0x20 || data[i] > 0x7E)
+      return false;
+  }
+
+  memcpy(slot, data, length);
+  slot[length] = '\0';
+  return true;
+}
+
+bool gpuinfo_apple_parse_die_index(const char *acpi_path, unsigned *die_index) {
+  if (!acpi_path || !die_index)
+    return false;
+
+  // The AMD driver's ACPI path contains a GD<nn> segment per die, e.g.
+  // ".../GD00@0/..." for the first die and ".../GD01@1/..." for the second.
+  // Use the last match so earlier path components cannot shadow the GPU's own
+  // segment.
+  const char *match = NULL;
+  for (const char *p = acpi_path; (p = strstr(p, "GD")) != NULL; p += 2) {
+    if (p[2] >= '0' && p[2] <= '9')
+      match = p;
+  }
+  if (!match)
+    return false;
+
+  char *end = NULL;
+  const unsigned long parsed = strtoul(match + 2, &end, 10);
+  if (end == match + 2 || parsed > UINT_MAX)
+    return false;
+
+  *die_index = (unsigned)parsed;
+  return true;
+}

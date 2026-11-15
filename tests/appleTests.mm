@@ -652,3 +652,73 @@ TEST(AppleProcessInfo, GrowsProcessArrayAcrossReallocIncrements) {
 
   free(gpu_info.processes);
 }
+
+TEST(ApplePciInfo, ParsesPciDebugAddress) {
+  unsigned bus = 0;
+  unsigned device = 0;
+
+  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("194:0:0", &bus, &device));
+  EXPECT_EQ(bus, 194u);
+  EXPECT_EQ(device, 0u);
+
+  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("0:31:2", &bus, &device));
+  EXPECT_EQ(bus, 0u);
+  EXPECT_EQ(device, 31u);
+
+  // Bridges append the secondary/subordinate bus range after the BDF.
+  EXPECT_TRUE(gpuinfo_apple_parse_pci_bdf("0:0:0(1:128)", &bus, &device));
+
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("not-a-bdf", &bus, &device));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:2", &bus, &device));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf("1:40:0", &bus, &device));
+  EXPECT_FALSE(gpuinfo_apple_parse_pci_bdf(NULL, &bus, &device));
+}
+
+TEST(ApplePciInfo, DecodesPcieLinkStatus) {
+  unsigned gen = 0;
+  unsigned width = 0;
+
+  // 0x103: speed code 3 (8 GT/s), width 16.
+  EXPECT_TRUE(gpuinfo_apple_decode_pcie_link_status(0x103, &gen, &width));
+  EXPECT_EQ(gen, 3u);
+  EXPECT_EQ(width, 16u);
+
+  // 0x43: speed code 3 (8 GT/s), width 4 (a Thunderbolt eGPU).
+  EXPECT_TRUE(gpuinfo_apple_decode_pcie_link_status(0x43, &gen, &width));
+  EXPECT_EQ(gen, 3u);
+  EXPECT_EQ(width, 4u);
+
+  EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0xFFFF, &gen, &width));
+  EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0, &gen, &width));
+}
+
+TEST(ApplePciInfo, DecodesSlotName) {
+  const uint8_t mac_pro_slot[] = {'S', 'l', 'o', 't', '-', '1', 0, 0};
+  const uint8_t padded_slot[] = {'P', 'C', 'I', ' ', 'S', 'l', 'o', 't', ' ', '2', 0xAA, 0xAA};
+  const uint8_t empty_slot[] = {0, 0};
+  const uint8_t too_long[] = "a slot label that does not fit";
+  char slot[32];
+  char small[8];
+
+  EXPECT_TRUE(gpuinfo_apple_decode_slot_name(mac_pro_slot, sizeof(mac_pro_slot), slot, sizeof(slot)));
+  EXPECT_STREQ(slot, "Slot-1");
+
+  EXPECT_TRUE(gpuinfo_apple_decode_slot_name(padded_slot, sizeof(padded_slot), slot, sizeof(slot)));
+  EXPECT_STREQ(slot, "PCI Slot 2");
+
+  EXPECT_FALSE(gpuinfo_apple_decode_slot_name(empty_slot, sizeof(empty_slot), slot, sizeof(slot)));
+  EXPECT_FALSE(gpuinfo_apple_decode_slot_name(too_long, sizeof(too_long) - 1, small, sizeof(small)));
+}
+
+TEST(ApplePciInfo, ParsesDieIndex) {
+  unsigned die = 0;
+
+  EXPECT_TRUE(gpuinfo_apple_parse_die_index("IOACPIPlane:/_SB/PCI0@0/BR3A@0/GU00@0/GD01@1/EGP0@0", &die));
+  EXPECT_EQ(die, 1u);
+
+  EXPECT_TRUE(gpuinfo_apple_parse_die_index("IOACPIPlane:/_SB/PCI0@0/BR1A@0/GU00@0/GD00@0/EGP0@0", &die));
+  EXPECT_EQ(die, 0u);
+
+  EXPECT_FALSE(gpuinfo_apple_parse_die_index("IOACPIPlane:/_SB/PCI0@0/BR1A@0/UPSB@0", &die));
+  EXPECT_FALSE(gpuinfo_apple_parse_die_index(NULL, &die));
+}
