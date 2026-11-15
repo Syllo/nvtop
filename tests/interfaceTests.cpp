@@ -28,8 +28,10 @@
 #include <vector>
 
 extern "C" {
+#include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface.h"
 #include "nvtop/interface_layout_selection.h"
+#include "nvtop/interface_options.h"
 #include "nvtop/pcie_utilization.h"
 }
 
@@ -259,6 +261,28 @@ TEST(PcieUtilization, LoadPercentNoMaxReturnsZero) {
   EXPECT_EQ(pcie_load_percent(1000000u, &no_info), 0u);
 }
 
+TEST(BusyUsage, ScalesAndRounds) {
+  const uint64_t second = UINT64_C(1000000000);
+  EXPECT_EQ(busy_usage_from_time_usage_round(0, 0, second), 0u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second / 2, 0, second), 50u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(3 * second + 994000000, 3 * second, second), 99u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(3 * second + 996000000, 3 * second, second), 100u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second, 0, second), 100u);
+}
+
+TEST(BusyUsage, ClampsBusyTimeLongerThanInterval) {
+  // i915 accounts the busy time in chunks: a fully busy engine can report e.g. 1.16s over a 1s interval.
+  const uint64_t second = UINT64_C(1000000000);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second + 160000000, 0, second), 100u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(10) * second, 0, second), 100u);
+}
+
+TEST(BusyUsage, ZeroIntervalReturnsZero) {
+  // No elapsed time means no measurable rate; must not divide by zero.
+  EXPECT_EQ(busy_usage_from_time_usage_round(0, 0, 0), 0u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(1000000), 0, 0), 0u);
+}
+
 TEST(InterfaceOptions, NpuDefaultPlotsRespectMaxLines) {
   plot_info_to_draw npu = plot_npu_default_draw_info();
   // The NPU defaults add HVX/HMX on top of the GPU defaults.
@@ -301,6 +325,38 @@ TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
   EXPECT_TRUE(options.dynamic_memory_units);
 
   EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
+  // An unmonitored GPU is no longer refreshed, so its process entries would
+  // otherwise keep pointers to process-cache strings freed by later refreshes.
+  // They must be dropped when monitoring is disabled.
+  struct gpu_info monitored = {};
+  struct gpu_info unmonitored = {};
+  monitored.processes_count = 3;
+  unmonitored.processes_count = 2;
+
+  LIST_HEAD(monitored_gpus);
+  LIST_HEAD(non_monitored_gpus);
+  list_add_tail(&monitored.list, &monitored_gpus);
+  list_add_tail(&unmonitored.list, &non_monitored_gpus);
+
+  nvtop_interface_option options = {};
+  options.gpu_specific_opts = static_cast<nvtop_interface_gpu_opts *>(calloc(2, sizeof(*options.gpu_specific_opts)));
+  ASSERT_NE(options.gpu_specific_opts, nullptr);
+  options.gpu_specific_opts[0].doNotMonitor = false;
+  options.gpu_specific_opts[1].doNotMonitor = true;
+
+  EXPECT_EQ(interface_check_and_fix_monitored_gpus(2, &monitored_gpus, &non_monitored_gpus, &options), 1u);
+  EXPECT_EQ(monitored.processes_count, 3u);
+  EXPECT_EQ(unmonitored.processes_count, 0u);
+
+  // Re-monitoring must not resurrect the dropped entries before the next refresh.
+  options.gpu_specific_opts[1].doNotMonitor = false;
+  EXPECT_EQ(interface_check_and_fix_monitored_gpus(2, &monitored_gpus, &non_monitored_gpus, &options), 2u);
+  EXPECT_EQ(unmonitored.processes_count, 0u);
+
+  free(options.gpu_specific_opts);
 }
 
 #ifdef THOROUGH_TESTING

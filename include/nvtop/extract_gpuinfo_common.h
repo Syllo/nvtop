@@ -224,6 +224,7 @@ struct gpu_info;
 enum gpu_processing_unit {
   gpu_processing_unit_gpu = 0,
   gpu_processing_unit_npu,
+  gpu_processing_unit_ppu,
   gpu_processing_unit_count,
 };
 
@@ -260,7 +261,7 @@ struct gpu_info {
 
 // Short 3-character label for a processing unit (e.g. "GPU", "NPU")
 static inline const char *processing_unit_name(enum gpu_processing_unit unit) {
-  static const char *const names[gpu_processing_unit_count] = {"GPU", "NPU"};
+  static const char *const names[gpu_processing_unit_count] = {"GPU", "NPU", "PPU"};
   return (unsigned)unit < gpu_processing_unit_count ? names[unit] : names[gpu_processing_unit_gpu];
 }
 
@@ -271,6 +272,11 @@ void register_gpu_vendor(struct gpu_vendor *vendor);
 bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
 
 void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info);
+
+// Fill the memory fields from the system-wide counters in /proc/meminfo. For
+// backends whose device memory is shared with the host and that have no better
+// per-device accounting.
+void gpuinfo_refresh_system_memory(struct gpuinfo_dynamic_info *dynamic_info);
 
 // Appends a vendor specific clock domain to the dynamic info, ignoring the call
 // once MAX_EXTRA_CLOCK_DOMAINS of them have been reported. A secondary domain is
@@ -283,10 +289,17 @@ void gpuinfo_add_extra_clock(struct gpuinfo_dynamic_info *dynamic_info, const ch
 extern const char drm_pdev[];
 extern const char drm_client_id[];
 
+// Some drivers (e.g. i915) account the busy time in chunks, so it can advance by a bit more than the time between two
+// measurements. Cap the result at 100% instead of reporting more than the engine can do.
 inline unsigned busy_usage_from_time_usage_round(uint64_t current_use_ns, uint64_t previous_use_ns,
                                                  uint64_t time_between_measurement) {
-  return ((current_use_ns - previous_use_ns) * UINT64_C(100) + time_between_measurement / UINT64_C(2)) /
-         time_between_measurement;
+  // Without an elapsed time no rate can be derived; avoid dividing by zero.
+  if (time_between_measurement == 0)
+    return 0;
+  uint64_t busy_time = current_use_ns - previous_use_ns;
+  if (busy_time > time_between_measurement)
+    return 100;
+  return (busy_time * UINT64_C(100) + time_between_measurement / UINT64_C(2)) / time_between_measurement;
 }
 
 unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed);

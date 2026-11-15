@@ -187,6 +187,11 @@ if(TPU_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_tpu.c)
 endif()
 
+if(INTEL_NPU_SUPPORT)
+  message(STATUS "Building with Intel NPU support")
+  target_sources(nvtop PRIVATE extract_npuinfo_intel.c)
+endif()
+
 if(ROCKCHIP_SUPPORT)
   message(STATUS "Building with Rockchip NPU support")
 
@@ -204,6 +209,10 @@ endif()
 
 if(TENSTORRENT_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_tenstorrent.c)
+endif()
+
+if(PPU_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_ppu.c)
 endif()
 
 if(IXML_SUPPORT)
