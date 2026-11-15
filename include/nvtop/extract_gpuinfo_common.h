@@ -273,6 +273,11 @@ bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
 
 void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info);
 
+// Fill the memory fields from the system-wide counters in /proc/meminfo. For
+// backends whose device memory is shared with the host and that have no better
+// per-device accounting.
+void gpuinfo_refresh_system_memory(struct gpuinfo_dynamic_info *dynamic_info);
+
 // Appends a vendor specific clock domain to the dynamic info, ignoring the call
 // once MAX_EXTRA_CLOCK_DOMAINS of them have been reported. A secondary domain is
 // one the user has to ask for, for domains that say little about how the GPU is
