@@ -413,7 +413,8 @@ bool gpuinfo_apple_ioreport_get_power_draw(struct gpuinfo_apple_ioreport *iorepo
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
   const uint64_t since_last_sample = nvtop_difftime_u64(ioreport->last_power_sample_time, current_time);
-  if (ioreport->power_sample_attempted && since_last_sample < gpuinfo_apple_ioreport_minimum_sample_interval) {
+  if (!gpuinfo_apple_sample_is_due(ioreport->power_sample_attempted, since_last_sample,
+                                   gpuinfo_apple_ioreport_minimum_sample_interval)) {
     if (ioreport->last_power_draw_valid)
       *power_draw = ioreport->last_power_draw;
     return ioreport->last_power_draw_valid;
@@ -467,16 +468,13 @@ static bool gpuinfo_apple_ioreport_parse_gpu_clock_speed(struct gpuinfo_apple_io
     return false;
 
   const size_t frequency_count = ioreport->gpu_frequency_count;
-  if (frequency_count > SIZE_MAX / 2)
+  uint64_t *residencies = calloc(frequency_count, sizeof(*residencies));
+  int64_t *channel_residencies = calloc(frequency_count, sizeof(*channel_residencies));
+  if (!residencies || !channel_residencies) {
+    free(channel_residencies);
+    free(residencies);
     return false;
-
-  // One allocation for the multi-die aggregate and a per-channel buffer, so each
-  // residency is read once and a channel is still only folded in when complete.
-  uint64_t *scratch = calloc(2 * frequency_count, sizeof(*scratch));
-  if (!scratch)
-    return false;
-  uint64_t *residencies = scratch;
-  uint64_t *channel_residencies = scratch + frequency_count;
+  }
 
   bool residency_valid = false;
   CFArrayRef channels = channels_value;
@@ -496,32 +494,18 @@ static bool gpuinfo_apple_ioreport_parse_gpu_clock_speed(struct gpuinfo_apple_io
 
     // State zero maps to voltage-states9's zero-frequency entry. Aggregate the subsequent
     // active-state residencies across channels before calculating a multi-die average.
-    bool channel_valid = true;
-    for (size_t state = 1; state < frequency_count; ++state) {
-      const int64_t residency = ioreport->api.state_get_residency(channel_value, (int)state);
-      if (residency < 0) {
-        channel_valid = false;
-        break;
-      }
-      channel_residencies[state] = (uint64_t)residency;
-    }
-
-    for (size_t state = 1; channel_valid && state < frequency_count; ++state) {
-      if (UINT64_MAX - residencies[state] < channel_residencies[state])
-        channel_valid = false;
-    }
-    if (!channel_valid)
-      continue;
-
     for (size_t state = 1; state < frequency_count; ++state)
-      residencies[state] += channel_residencies[state];
+      channel_residencies[state] = ioreport->api.state_get_residency(channel_value, (int)state);
+    if (!gpuinfo_apple_accumulate_gpu_residencies(residencies, channel_residencies, frequency_count))
+      continue;
     residency_valid = true;
   }
 
   const bool clock_speed_valid =
       residency_valid &&
       gpuinfo_apple_calculate_gpu_clock_speed(residencies, ioreport->gpu_frequencies, frequency_count, clock_speed);
-  free(scratch);
+  free(channel_residencies);
+  free(residencies);
   return clock_speed_valid;
 }
 
@@ -534,7 +518,8 @@ bool gpuinfo_apple_ioreport_get_gpu_clock_speed(struct gpuinfo_apple_ioreport *i
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
   const uint64_t since_last_sample = nvtop_difftime_u64(ioreport->last_clock_sample_time, current_time);
-  if (ioreport->clock_sample_attempted && since_last_sample < gpuinfo_apple_ioreport_minimum_sample_interval) {
+  if (!gpuinfo_apple_sample_is_due(ioreport->clock_sample_attempted, since_last_sample,
+                                   gpuinfo_apple_ioreport_minimum_sample_interval)) {
     if (ioreport->last_clock_speed_valid) {
       *clock_speed = ioreport->last_clock_speed;
       *max_clock_speed = ioreport->last_max_clock_speed;

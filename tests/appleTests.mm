@@ -256,6 +256,54 @@ TEST(AppleClockInfo, RejectsInvalidResidencyTables) {
   EXPECT_FALSE(gpuinfo_apple_calculate_gpu_clock_speed(residencies, frequencies, 2, NULL));
 }
 
+TEST(AppleClockInfo, AccumulatesActiveChannelResidencies) {
+  uint64_t residencies[] = {0, 10, 20, 30};
+  const int64_t channel[] = {12345, 1, 2, 3};
+
+  ASSERT_TRUE(gpuinfo_apple_accumulate_gpu_residencies(residencies, channel, 4));
+  // The zero-frequency OFF state is never folded into the aggregate.
+  EXPECT_EQ(residencies[0], 0u);
+  EXPECT_EQ(residencies[1], 11u);
+  EXPECT_EQ(residencies[2], 22u);
+  EXPECT_EQ(residencies[3], 33u);
+}
+
+TEST(AppleClockInfo, RejectsInvalidChannelResidenciesAtomically) {
+  uint64_t residencies[] = {0, 10, 20};
+  const int64_t negative[] = {0, 1, -1};
+  const int64_t overflowing[] = {0, 0, 1};
+
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(residencies, negative, 3));
+  EXPECT_EQ(residencies[1], 10u);
+  EXPECT_EQ(residencies[2], 20u);
+
+  uint64_t saturated[] = {0, 0, UINT64_MAX};
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(saturated, overflowing, 3));
+  EXPECT_EQ(saturated[1], 0u);
+  EXPECT_EQ(saturated[2], UINT64_MAX);
+}
+
+TEST(AppleClockInfo, RejectsInvalidResidencyInputs) {
+  uint64_t residencies[2] = {0, 0};
+  const int64_t channel[2] = {0, 1};
+
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(NULL, channel, 2));
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(residencies, NULL, 2));
+  EXPECT_FALSE(gpuinfo_apple_accumulate_gpu_residencies(residencies, channel, 1));
+}
+
+TEST(AppleSamplingInfo, SamplesImmediatelyAndThenRespectsTheFloor) {
+  const uint64_t floor = 1000000000;
+
+  EXPECT_TRUE(gpuinfo_apple_sample_is_due(false, 0, floor));
+  EXPECT_FALSE(gpuinfo_apple_sample_is_due(true, 0, floor));
+  EXPECT_FALSE(gpuinfo_apple_sample_is_due(true, floor - 1, floor));
+  // A refresh landing exactly on the interval must sample, otherwise a 1 s update
+  // interval could round down and halve the effective sampling rate.
+  EXPECT_TRUE(gpuinfo_apple_sample_is_due(true, floor, floor));
+  EXPECT_TRUE(gpuinfo_apple_sample_is_due(true, floor + 1, floor));
+}
+
 TEST(AppleTemperatureInfo, DecodesSmcFloat) {
   const uint8_t encoded_temperature[] = {0x00, 0x00, 0x43, 0x42};
   float temperature;

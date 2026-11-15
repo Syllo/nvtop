@@ -170,6 +170,29 @@ bool gpuinfo_apple_calculate_power_draw(uint64_t energy_nanojoules, uint64_t tim
   return true;
 }
 
+bool gpuinfo_apple_sample_is_due(bool sample_attempted, uint64_t nanoseconds_since_last_sample,
+                                 uint64_t minimum_interval) {
+  return !sample_attempted || nanoseconds_since_last_sample >= minimum_interval;
+}
+
+bool gpuinfo_apple_accumulate_gpu_residencies(uint64_t *residencies, const int64_t *channel_residencies,
+                                              size_t frequency_count) {
+  if (!residencies || !channel_residencies || frequency_count < 2)
+    return false;
+
+  // Validate the whole channel before touching the aggregate, so a rejected
+  // channel cannot leave a partial sum behind.
+  for (size_t state = 1; state < frequency_count; ++state) {
+    if (channel_residencies[state] < 0 ||
+        UINT64_MAX - residencies[state] < (uint64_t)channel_residencies[state])
+      return false;
+  }
+
+  for (size_t state = 1; state < frequency_count; ++state)
+    residencies[state] += (uint64_t)channel_residencies[state];
+  return true;
+}
+
 static uint32_t gpuinfo_apple_read_little_endian_uint32(const uint8_t *data) {
   return (uint32_t)data[0] | (uint32_t)data[1] << 8 | (uint32_t)data[2] << 16 | (uint32_t)data[3] << 24;
 }
