@@ -37,8 +37,9 @@
 //   * "pcidebug": the BDF address as a decimal "bus:device:function" string.
 //   * "IOPCIExpressLinkStatus": the raw PCIe Link Status register of the
 //     negotiated link (decoded by gpuinfo_apple_decode_pcie_link_status).
-//   * "AAPL,slot-name": Apple's chassis slot label, on the GPU's own
-//     IOPCIDevice ("Slot-1" on a MacPro7,1, "PCI Slot 2" on earlier Macs).
+//   * "AAPL,slot-name": Apple's chassis slot label, on the GPU's IOPCIDevice
+//     or on the closest parent bridge that publishes it ("Slot-1" on a
+//     MacPro7,1, "PCI Slot 2" on earlier Macs).
 //   * "acpi-path" / "attached-gpu-control-path": the ACPI and IOService paths.
 //     Either may carry the GD<nn> segment that identifies the die of a
 //     multi-die card (W6800X/W6900X Duo).
@@ -138,6 +139,13 @@ bool gpuinfo_apple_pci_query(io_service_t gpu_service, struct gpuinfo_apple_pci_
   if (IORegistryEntryGetParentEntry(gpu_service, kIOServicePlane, &pci_device) != kIOReturnSuccess ||
       !MACH_PORT_VALID(pci_device))
     return false;
+  // Apple Silicon's accelerator parent is not a PCI device. Check the class
+  // explicitly so a device-tree property can never be mistaken for PCI
+  // metadata.
+  if (!IOObjectConformsTo(pci_device, "IOPCIDevice")) {
+    IOObjectRelease(pci_device);
+    return false;
+  }
 
   char pcidebug[64];
   if (read_string(pci_device, CFSTR("pcidebug"), pcidebug, sizeof(pcidebug))) {

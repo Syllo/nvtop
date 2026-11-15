@@ -145,6 +145,23 @@ TEST(AppleDynamicInfo, ParsesDiscreteAmdStatistics) {
   }
 }
 
+TEST(AppleDynamicInfo, FallsBackToVramUsedBytes) {
+  @autoreleasepool {
+    NSDictionary *fallback = @{@"PerformanceStatistics" : @{@"vramUsedBytes" : @123456789ULL}};
+    NSDictionary *preferred =
+        @{@"PerformanceStatistics" : @{@"inUseVidMemoryBytes" : @111ULL, @"vramUsedBytes" : @222ULL}};
+    struct gpuinfo_apple_performance_sample sample;
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)fallback, &sample));
+    EXPECT_TRUE(sample.used_memory_valid);
+    EXPECT_EQ(sample.used_memory, UINT64_C(123456789));
+
+    ASSERT_TRUE(gpuinfo_apple_parse_performance_sample((__bridge CFDictionaryRef)preferred, &sample));
+    EXPECT_TRUE(sample.used_memory_valid);
+    EXPECT_EQ(sample.used_memory, UINT64_C(111));
+  }
+}
+
 TEST(AppleDynamicInfo, RejectsImplausibleDiscreteAmdValues) {
   @autoreleasepool {
     NSDictionary *negative_values = @{
@@ -702,6 +719,10 @@ TEST(ApplePciInfo, DecodesPcieLinkStatus) {
 
   EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0xFFFF, &gen, &width));
   EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0, &gen, &width));
+
+  // A speed code without a width (and vice versa) is not a valid link.
+  EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0x03, &gen, &width));
+  EXPECT_FALSE(gpuinfo_apple_decode_pcie_link_status(0x30, &gen, &width));
 }
 
 TEST(ApplePciInfo, DecodesSlotName) {
@@ -740,6 +761,12 @@ TEST(ApplePciInfo, ParsesDieIndex) {
 
   EXPECT_TRUE(gpuinfo_apple_parse_die_index("IOACPIPlane:/_SB/PCI0@0/BR1A@0/GU00@0/GD00@0/EGP0@0", &die));
   EXPECT_EQ(die, 0u);
+
+  // attached-gpu-control-path uses the IOService namespace but carries the
+  // same GD<nn> segment.
+  EXPECT_TRUE(
+      gpuinfo_apple_parse_die_index("IOService:/AppleACPIPlatformExpert/PCI0@0/BR3A@0/GU00@0/GD01@1/EGP0@0", &die));
+  EXPECT_EQ(die, 1u);
 
   EXPECT_FALSE(gpuinfo_apple_parse_die_index("IOACPIPlane:/_SB/PCI0@0/BR1A@0/UPSB@0", &die));
   EXPECT_FALSE(gpuinfo_apple_parse_die_index(NULL, &die));

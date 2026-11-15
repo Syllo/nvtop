@@ -25,6 +25,10 @@
 #include <IOKit/IOKitLib.h>
 #include <stdbool.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 // PCI address, negotiated PCIe link status and chassis slot label for a Metal
 // GPU, read from the IOPCIDevice that provides the accelerator. Apple Silicon
 // accelerators are not PCI devices, so every lookup can fail and leave the
@@ -46,5 +50,9 @@ struct gpuinfo_apple_pci_info {
 // Query the IORegistry metadata for the IOAccelerator service of a Metal
 // device. Returns true when at least one field was filled in.
 bool gpuinfo_apple_pci_query(io_service_t gpu_service, struct gpuinfo_apple_pci_info *info);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // EXTRACT_GPUINFO_APPLE_PCI_H_

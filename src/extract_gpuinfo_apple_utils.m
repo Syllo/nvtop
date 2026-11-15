@@ -69,7 +69,10 @@ bool gpuinfo_apple_parse_performance_sample(CFDictionaryRef properties,
   // dictionary. Each read is nil-guarded because the key set varies by driver
   // generation (RDNA vs RDNA2 vs Vega); Apple Silicon GPUs simply lack all of
   // them and leave the *_valid flags false.
-  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"inUseVidMemoryBytes"], &number)) {
+  // inUseVidMemoryBytes is what the current drivers publish; older generations
+  // expose the same counter as vramUsedBytes.
+  if (gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"inUseVidMemoryBytes"], &number) ||
+      gpuinfo_apple_get_unsigned_number([performance_statistics objectForKey:@"vramUsedBytes"], &number)) {
     sample->used_memory = number;
     sample->used_memory_valid = true;
   }

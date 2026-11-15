@@ -54,7 +54,7 @@ struct gpuinfo_apple_performance_sample {
   // PerformanceStatistics dictionary. Apple Silicon GPUs do not expose these
   // keys, and each value carries its own *_valid flag because the key set
   // varies between driver generations.
-  uint64_t used_memory;     // inUseVidMemoryBytes
+  uint64_t used_memory;     // inUseVidMemoryBytes, or vramUsedBytes on older drivers
   unsigned gpu_temp;        // Temperature(C)
   unsigned power_draw_mw;   // Total Power(W), converted to milliwatts
   unsigned gpu_clock_speed; // Core Clock(MHz)
