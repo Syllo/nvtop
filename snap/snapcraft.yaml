@@ -1,5 +1,5 @@
 name: nvtop
-base: core22
+base: core26
 adopt-info: nvtop
 summary: 'GPUs monitoring tool for AMD, Intel and NVIDIA'
 description: |
@@ -9,12 +9,12 @@ issues: https://github.com/Syllo/nvtop/issues
 icon: desktop/nvtop.svg
 grade: stable
 confinement: strict
-architectures:
-- build-on: amd64
-- build-on: arm64
-- build-on: armhf
-- build-on: ppc64el
-- build-on: s390x
+platforms:
+  amd64:
+  arm64:
+  armhf:
+  ppc64el:
+  s390x:
 compression: lzo
 apps:
   nvtop:
@@ -27,10 +27,43 @@ apps:
     - process-control
     - system-observe
     # - kubernetes-support # Temporarily required for nvtop to display AMD GPU processes. Once apparmor rule to allow access to @{PROC}/[0-9]*/fdinfo/ is added to system-observe, this can be removed.
+    environment:
+      # ncurses-term stages the kitty, foot, ghostty and wezterm entries, but
+      # the staged db is not in ncurses' compiled-in search path; point
+      # TERMINFO_DIRS at it (ncurses still searches the base snap's locations
+      # afterwards).
+      TERMINFO_DIRS: $SNAP/usr/share/terminfo
 # layout:
 #   /usr/share/libdrm:
 #     symlink: $SNAP/usr/share/libdrm
 parts:
+  ghostty-terminfo:
+    # Ubuntu's ncurses-term ships the "ghostty" entry but not "xterm-ghostty",
+    # which is Ghostty's default $TERM. The Ubuntu "ghostty" package ships the
+    # compiled entry; the terminfo payload is architecture-independent data, so
+    # the amd64 binary package is used for every build target.
+    #
+    # The terminfo data is MIT-licensed:
+    # Copyright (c) 2024 Mitchell Hashimoto, Ghostty contributors.
+    # The license text is installed by the terminfo-licenses part.
+    plugin: nil
+    source: http://archive.ubuntu.com/ubuntu/pool/universe/g/ghostty/ghostty_1.3.0~us1-0ubuntu1.1_amd64.deb
+    source-type: deb
+    source-checksum: sha256/8614ef9bcdf22da2efe7c63eac67bc61b9fabade823b060bb9580560e94f4acd
+    override-build: |
+      set -eux
+      install -Dm644 "$CRAFT_PART_SRC/usr/share/terminfo/x/xterm-ghostty" \
+        "$CRAFT_PART_INSTALL/usr/share/terminfo/x/xterm-ghostty"
+  terminfo-licenses:
+    # ncurses-term already carries the notices for the kitty, foot, ghostty and
+    # wezterm entries it ships. This adds the MIT notice for the xterm-ghostty
+    # entry extracted from the ghostty package.
+    plugin: nil
+    source: snap/local/licenses
+    override-build: |
+      set -eux
+      install -Dm644 ghostty.txt \
+        "$CRAFT_PART_INSTALL/usr/share/doc/ghostty-terminfo/copyright"
   libdrm:
     source: https://gitlab.freedesktop.org/mesa/drm.git
     source-tag: libdrm-2.4.113
@@ -38,7 +71,7 @@ parts:
     meson-parameters:
     - --prefix=/usr
     - --sysconfdir=/etc
-    - --libdir=lib/$CRAFT_ARCH_TRIPLET
+    - --libdir=lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR
     - -Dradeon=enabled
     - -Damdgpu=enabled
     - -Dudev=true
@@ -53,7 +86,7 @@ parts:
     - libpciaccess0
     prime:
     - -usr/include
-    - -usr/lib/$CRAFT_ARCH_TRIPLET/pkgconfig
+    - -usr/lib/$CRAFT_ARCH_TRIPLET_BUILD_FOR/pkgconfig
   nvtop:
     after: [ libdrm ]
     source: .
@@ -72,12 +105,12 @@ parts:
     build-snaps:
     - cmake
     build-packages:
-    - gcc
+    - build-essential
     - libncurses-dev
     - libsystemd-dev
     stage-packages:
     - libncurses6
     - libncursesw6
     - libsystemd0
-    prime:
-    - -usr/share/doc
+    - ncurses-base
+    - ncurses-term

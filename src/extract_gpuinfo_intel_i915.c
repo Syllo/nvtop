@@ -263,32 +263,28 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
         INTEL_CACHE_FIELD_VALID(cache_entry, engine_render) &&
         // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
-        process_info->gfx_engine_used >= cache_entry->engine_render &&
-        process_info->gfx_engine_used - cache_entry->engine_render <= time_elapsed) {
+        process_info->gfx_engine_used >= cache_entry->engine_render) {
       SET_GPUINFO_PROCESS(
           process_info, gpu_usage,
           busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));
     }
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used) &&
         INTEL_CACHE_FIELD_VALID(cache_entry, engine_video) &&
-        process_info->dec_engine_used >= cache_entry->engine_video &&
-        process_info->dec_engine_used - cache_entry->engine_video <= time_elapsed) {
+        process_info->dec_engine_used >= cache_entry->engine_video) {
       SET_GPUINFO_PROCESS(
           process_info, decode_usage,
           busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->engine_video, time_elapsed));
     }
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used) &&
         INTEL_CACHE_FIELD_VALID(cache_entry, engine_video_enhance) &&
-        process_info->enc_engine_used >= cache_entry->engine_video_enhance &&
-        process_info->enc_engine_used - cache_entry->engine_video_enhance <= time_elapsed) {
+        process_info->enc_engine_used >= cache_entry->engine_video_enhance) {
       SET_GPUINFO_PROCESS(process_info, encode_usage,
                           busy_usage_from_time_usage_round(process_info->enc_engine_used,
                                                            cache_entry->engine_video_enhance, time_elapsed));
     }
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used) &&
         GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage) && INTEL_CACHE_FIELD_VALID(cache_entry, engine_compute) &&
-        process_info->compute_engine_used >= cache_entry->engine_compute &&
-        process_info->compute_engine_used - cache_entry->engine_compute <= time_elapsed) {
+        process_info->compute_engine_used >= cache_entry->engine_compute) {
       SET_GPUINFO_PROCESS(process_info, gpu_usage,
                           process_info->gpu_usage + busy_usage_from_time_usage_round(process_info->compute_engine_used,
                                                                                      cache_entry->engine_compute,

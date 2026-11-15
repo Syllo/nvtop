@@ -13,6 +13,7 @@ add_executable(nvtop
   interface_setup_win.c
   interface_ring_buffer.c
   extract_gpuinfo.c
+  pcie_utilization.c
   time.c
   plot.c
   ini.c
@@ -53,12 +54,33 @@ endif()
 
 if(NVIDIA_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_nvidia.c)
+else()
+  target_sources(nvtop PRIVATE nvlink_nvidia_disabled.c)
 endif()
 
 if(ASCEND_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_ascend.c)
-  set(DCMI_LIBRARY_PATH /usr/local/Ascend/driver/lib64/driver)
-  target_link_libraries(nvtop PRIVATE "${DCMI_LIBRARY_PATH}/libdcmi.so")
+  find_package(Threads REQUIRED)
+  set(ASCEND_ROOT "" CACHE PATH "Ascend toolkit/driver root (for example /usr/local/Ascend)")
+  set(ASCEND_DCMI_HINTS
+    "/usr/local/Ascend/driver/lib64/driver"
+    "/usr/local/Ascend/driver/lib64"
+    "/usr/local/Ascend/lib64")
+  if(ASCEND_ROOT)
+    list(PREPEND ASCEND_DCMI_HINTS
+      "${ASCEND_ROOT}/driver/lib64/driver"
+      "${ASCEND_ROOT}/driver/lib64"
+      "${ASCEND_ROOT}/lib64")
+  endif()
+  find_library(DCMI_LIBRARY
+    NAMES dcmi
+    HINTS ${ASCEND_DCMI_HINTS}
+    PATH_SUFFIXES driver lib64)
+  if(NOT DCMI_LIBRARY)
+    message(FATAL_ERROR "Ascend support enabled, but libdcmi.so was not found. Set ASCEND_ROOT to the Ascend installation root.")
+  endif()
+  message(STATUS "Found Ascend DCMI: ${DCMI_LIBRARY}")
+  target_link_libraries(nvtop PRIVATE "${DCMI_LIBRARY}" Threads::Threads)
 endif()
 
 if(AMDGPU_SUPPORT OR RADEON_SUPPORT OR INTEL_SUPPORT OR V3D_SUPPORT)
@@ -100,6 +122,22 @@ endif()
 if (MSM_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_msm.c)
   target_sources(nvtop PRIVATE extract_gpuinfo_msm_utils.c)
+
+  pkg_check_modules(NPUPERF qcnpuperf)
+  if (NPUPERF_FOUND)
+    target_include_directories(nvtop
+      PRIVATE
+        ${NPUPERF_INCLUDE_DIRS}
+    )
+
+    target_link_libraries(nvtop
+      PRIVATE
+        ${NPUPERF_LIBRARIES}
+    )
+    target_sources(nvtop PRIVATE extract_npuinfo_qualcomm.c)
+  else()
+    message(STATUS "libqcnpuperf not found: Qualcomm NPU monitoring disabled")
+  endif()
 endif()
 
 if(INTEL_SUPPORT)
@@ -155,6 +193,11 @@ if(TPU_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_tpu.c)
 endif()
 
+if(INTEL_NPU_SUPPORT)
+  message(STATUS "Building with Intel NPU support")
+  target_sources(nvtop PRIVATE extract_npuinfo_intel.c)
+endif()
+
 if(ROCKCHIP_SUPPORT)
   message(STATUS "Building with Rockchip NPU support")
 
@@ -174,9 +217,20 @@ if(TENSTORRENT_SUPPORT)
   target_sources(nvtop PRIVATE extract_gpuinfo_tenstorrent.c)
 endif()
 
+if(PPU_SUPPORT)
+  target_sources(nvtop PRIVATE extract_gpuinfo_ppu.c)
+endif()
+
 if(IXML_SUPPORT)
   message(STATUS "Building with Iluvatar CoreX GPU support")
   target_sources(nvtop PRIVATE extract_gpuinfo_ixml.c)
+endif()
+
+if(GAUDI_SUPPORT)
+  message(STATUS "Building with Intel Gaudi HPU support")
+  find_package(Threads REQUIRED)
+  target_sources(nvtop PRIVATE extract_gpuinfo_gaudi.c)
+  target_link_libraries(nvtop PRIVATE Threads::Threads)
 endif()
 
 target_include_directories(nvtop PRIVATE

@@ -1,4 +1,29 @@
 find_package(GTest)
+
+# The NVIDIA backend tests use injected NVML entry points and need neither
+# GTest nor an NVIDIA driver/SDK, so they can also run on CPU-only CI hosts.
+if (BUILD_TESTING AND NVIDIA_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_executable(nvidiaTests
+    nvidiaTests.c
+    ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo.c
+    ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c
+    ${PROJECT_SOURCE_DIR}/src/get_process_info_linux.c
+    ${PROJECT_SOURCE_DIR}/src/time.c
+  )
+  target_include_directories(nvidiaTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_compile_definitions(nvidiaTests PRIVATE _GNU_SOURCE)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(nvidiaTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET nvidiaTests PROPERTY C_STANDARD 11)
+  target_link_libraries(nvidiaTests PRIVATE m ${CMAKE_DL_LIBS})
+  add_sanitizers(nvidiaTests)
+  foreach (test_case uma_version legacy_fallback mixed_processes c2c_link unavailable_memory
+                    memory_probes pcie_preserved uma_idle
+                    utilization_probe_not_found utilization_buffered_not_found utilization_samples)
+    add_test(NAME Nvidia.${test_case} COMMAND nvidiaTests ${test_case})
+  endforeach()
+endif()
 if (BUILD_TESTING AND GTest_FOUND)
 
   option(THOROUGH_TESTING "Enable extensive testing (takes hours, e.g., use once per release)" OFF)
@@ -7,14 +32,13 @@ if (BUILD_TESTING AND GTest_FOUND)
   add_library(testLib
     ${PROJECT_SOURCE_DIR}/src/interface_layout_selection.c
     ${PROJECT_SOURCE_DIR}/src/interface_options.c
+    ${PROJECT_SOURCE_DIR}/src/pcie_utilization.c
     ${PROJECT_SOURCE_DIR}/src/ini.c
   )
-  if(APPLE)
-    target_sources(testLib PRIVATE
-      ${PROJECT_SOURCE_DIR}/src/extract_processinfo_mac.c)
-  else()
-    target_sources(testLib PRIVATE
-      ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c)
+  if (UNIX AND NOT APPLE)
+    target_sources(testLib PRIVATE ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c)
+  elseif (APPLE)
+    target_sources(testLib PRIVATE ${PROJECT_SOURCE_DIR}/src/extract_processinfo_mac.c)
   endif()
   target_include_directories(testLib PUBLIC
     ${PROJECT_SOURCE_DIR}/include
@@ -49,4 +73,30 @@ if (BUILD_TESTING AND GTest_FOUND)
   endif()
 
 
+endif()
+
+if(BUILD_TESTING AND PPU_SUPPORT)
+  add_executable(ppuTests ppuTests.c)
+  target_include_directories(ppuTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(ppuTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET ppuTests PROPERTY C_STANDARD 11)
+  target_link_libraries(ppuTests PRIVATE ${CMAKE_DL_LIBS})
+  add_sanitizers(ppuTests)
+  add_test(NAME ppuTests COMMAND ppuTests)
+endif()
+
+if(BUILD_TESTING AND GAUDI_SUPPORT)
+  add_executable(gaudiTests gaudiTests.c)
+  target_include_directories(gaudiTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(gaudiTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET gaudiTests PROPERTY C_STANDARD 11)
+  target_compile_definitions(gaudiTests PRIVATE _GNU_SOURCE)
+  find_package(Threads REQUIRED)
+  target_link_libraries(gaudiTests PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+  add_sanitizers(gaudiTests)
+  add_test(NAME gaudiTests COMMAND gaudiTests)
 endif()
