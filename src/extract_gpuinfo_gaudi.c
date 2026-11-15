@@ -43,6 +43,7 @@
 #include <fcntl.h>
 #include <fnmatch.h>
 #include <pthread.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,7 +52,16 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-// Subset of habanalabs/hlml.h; declared here so that building nvtop does not require the Habana SDK headers.
+/*
+ * Subset of habanalabs/hlml.h, transcribed from the 1.24 SDK, declared here so
+ * that building nvtop does not require the Habana SDK headers. The output
+ * structures are part of the libhlml ABI: the library writes the size of its
+ * own structure into the object passed by the caller, so the layout must match
+ * the header exactly. The assertions below document that ABI and catch
+ * accidental edits, but they cannot detect a newer libhlml that has grown one
+ * of these structures, because the vendor header is not available at build
+ * time. Keep this block in sync with the SDK when it bumps its API.
+ */
 
 typedef enum {
   HLML_SUCCESS = 0,
@@ -75,6 +85,7 @@ typedef void *hlml_device_t;
 #define HLML_PCI_ADDR_LEN ((HLML_PCI_DOMAIN_LEN) + 10)
 #define HLML_PCI_LINK_INFO_LEN 10
 
+// Part of the hlml_pci_info_t ABI; this backend reads the link state from sysfs.
 typedef struct {
   char link_speed[HLML_PCI_LINK_INFO_LEN];
   char link_width[HLML_PCI_LINK_INFO_LEN];
@@ -89,8 +100,8 @@ typedef struct {
   unsigned int domain;
   unsigned int pci_device_id;
   hlml_pci_cap_t caps;
-  unsigned int pci_rev;
-  unsigned int pci_subsys_id;
+  unsigned int pci_rev;       // Part of the ABI; unused
+  unsigned int pci_subsys_id; // Part of the ABI; unused
 } hlml_pci_info_t;
 
 typedef enum {
@@ -99,7 +110,7 @@ typedef enum {
 
 typedef struct {
   unsigned int aip;
-  unsigned int memory;
+  unsigned int memory; // Part of the ABI; HLML reports it as a percentage of used memory
 } hlml_utilization_t;
 
 typedef struct {
@@ -122,12 +133,26 @@ typedef enum {
   HLML_PCIE_UTIL_RX_BYTES = 1,
 } hlml_pcie_util_counter_t;
 
-// Layout of /dev/shm/mem_usage_accelN (habanalabs/hlml_shm.h)
+// Layout of /dev/shm/mem_usage_accelN (habanalabs/hlml_shm.h, version 1)
 struct hlml_shm_data {
   uint64_t version;
   uint64_t timestamp;
   uint64_t used_mem_in_bytes;
 } __attribute__((packed));
+
+// The sizes and offsets of the structures libhlml writes into. These document
+// the transcribed 1.24 ABI: update them together with the definitions above.
+_Static_assert(sizeof(hlml_pci_cap_t) == 40, "hlml_pci_cap_t does not match the HLML 1.24 ABI");
+_Static_assert(offsetof(hlml_pci_info_t, bus_id) == 4, "hlml_pci_info_t.bus_id does not match the HLML 1.24 ABI");
+_Static_assert(offsetof(hlml_pci_info_t, device) == 24, "hlml_pci_info_t.device does not match the HLML 1.24 ABI");
+_Static_assert(offsetof(hlml_pci_info_t, caps) == 36, "hlml_pci_info_t.caps does not match the HLML 1.24 ABI");
+_Static_assert(offsetof(hlml_pci_info_t, pci_rev) == 76, "hlml_pci_info_t.pci_rev does not match the HLML 1.24 ABI");
+_Static_assert(offsetof(hlml_pci_info_t, pci_subsys_id) == 80,
+               "hlml_pci_info_t.pci_subsys_id does not match the HLML 1.24 ABI");
+_Static_assert(sizeof(hlml_pci_info_t) == 84, "hlml_pci_info_t does not match the HLML 1.24 ABI");
+_Static_assert(sizeof(hlml_utilization_t) == 8, "hlml_utilization_t does not match the HLML 1.24 ABI");
+_Static_assert(sizeof(hlml_memory_t) == 24, "hlml_memory_t does not match the HLML 1.24 ABI");
+_Static_assert(sizeof(struct hlml_shm_data) == 24, "hlml_shm_data does not match the HLML shared memory ABI");
 
 #define HLML_SHM_PATH_PREFIX "/dev/shm/mem_usage_accel"
 
