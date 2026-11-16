@@ -65,6 +65,7 @@ static const char helpstring[] = "Available options:\n"
                                  "preferences\n"
                                  "  -p --no-plot              : Disable bar plot\n"
                                  "  -P --no-processes         : Disable process list\n"
+                                 "  --total-row             : Show a TOTAL row summing all the processes\n"
                                  "  -u --dynamic-memory-units : Scale process memory units automatically\n"
                                  "  -r --reverse-abs          : Reverse abscissa: plot the recent data left and "
                                  "older on the right\n"
@@ -111,6 +112,7 @@ static const struct option long_opts[] = {
     {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
     {.name = "no-processes", .has_arg = no_argument, .flag = NULL, .val = 'P'},
     {.name = "dynamic-memory-units", .has_arg = no_argument, .flag = NULL, .val = 'u'},
+    {.name = "total-row", .has_arg = no_argument, .flag = NULL, .val = 'T'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
     {.name = "loop", .has_arg = no_argument, .flag = NULL, .val = 'l'},
@@ -134,6 +136,7 @@ int main(int argc, char **argv) {
   bool show_gpu_info_bar = false;
   bool show_all_info_bar = false;
   bool dynamic_memory_units_option = false;
+  bool total_row_option = false;
   bool show_snapshot = false;
   bool loop_snapshot = false;
   double encode_decode_hide_time = -1.;
@@ -198,6 +201,9 @@ int main(int argc, char **argv) {
       break;
     case 'u':
       dynamic_memory_units_option = true;
+      break;
+    case 'T':
+      total_row_option = true;
       break;
     case 'r':
       reverse_plot_direction_option = true;
@@ -341,6 +347,7 @@ int main(int argc, char **argv) {
   allDevicesOptions.has_gpu_info_bar = allDevicesOptions.has_gpu_info_bar || show_gpu_info_bar;
   allDevicesOptions.has_all_info_bar = allDevicesOptions.has_all_info_bar || show_all_info_bar;
   allDevicesOptions.dynamic_memory_units = allDevicesOptions.dynamic_memory_units || dynamic_memory_units_option;
+  allDevicesOptions.show_total_row = allDevicesOptions.show_total_row || total_row_option;
 
   gpuinfo_populate_static_infos(&monitoredGpus);
   unsigned numMonitoredGpus =
