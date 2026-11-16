@@ -52,9 +52,55 @@ if (BUILD_TESTING AND GTest_FOUND)
   target_link_libraries(interfaceTests PRIVATE testLib GTest::gtest_main)
   gtest_discover_tests(interfaceTests)
 
+  if(APPLE)
+    add_executable(
+      appleTests
+      appleTests.mm
+      ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo_apple_utils.m
+      ${PROJECT_SOURCE_DIR}/src/get_process_info_mac_utils.c
+    )
+    target_include_directories(appleTests PRIVATE
+      ${PROJECT_SOURCE_DIR}/include
+      ${PROJECT_SOURCE_DIR}/src
+      ${PROJECT_BINARY_DIR}/include)
+    target_link_libraries(appleTests PRIVATE GTest::gtest_main
+      "-framework Foundation")
+    if (HAS_REALLOCARRAY)
+      target_compile_definitions(appleTests PRIVATE HAS_REALLOCARRAY)
+    endif()
+    add_sanitizers(appleTests)
+    gtest_discover_tests(appleTests)
+  endif()
+
   if (THOROUGH_TESTING)
     target_compile_definitions(interfaceTests PRIVATE THOROUGH_TESTING)
   endif()
 
 
+endif()
+
+if(BUILD_TESTING AND PPU_SUPPORT)
+  add_executable(ppuTests ppuTests.c)
+  target_include_directories(ppuTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(ppuTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET ppuTests PROPERTY C_STANDARD 11)
+  target_link_libraries(ppuTests PRIVATE ${CMAKE_DL_LIBS})
+  add_sanitizers(ppuTests)
+  add_test(NAME ppuTests COMMAND ppuTests)
+endif()
+
+if(BUILD_TESTING AND GAUDI_SUPPORT)
+  add_executable(gaudiTests gaudiTests.c)
+  target_include_directories(gaudiTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(gaudiTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET gaudiTests PROPERTY C_STANDARD 11)
+  target_compile_definitions(gaudiTests PRIVATE _GNU_SOURCE)
+  find_package(Threads REQUIRED)
+  target_link_libraries(gaudiTests PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+  add_sanitizers(gaudiTests)
+  add_test(NAME gaudiTests COMMAND gaudiTests)
 endif()
