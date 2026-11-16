@@ -642,9 +642,9 @@ static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_
 
 // Processes GPU Utilization
 
-// Reads a single NVML field value of the unsigned long long kind. Returns false
-// when the entry point is missing, the call fails, or the field itself reports
-// an error, so callers never see a partially valid value.
+// Reads a single unsigned NVML field value, widening the member identified by
+// valueType. Missing entry points, failed queries and other value types leave
+// the output untouched.
 static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int field_id, unsigned int scope_id,
                                                unsigned long long *value) {
   if (!nvmlDeviceGetFieldValues)
@@ -654,7 +654,22 @@ static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int
   field.scopeId = scope_id;
   if (nvmlDeviceGetFieldValues(device, 1, &field) != NVML_SUCCESS || field.nvmlReturn != NVML_SUCCESS)
     return false;
-  *value = field.value.ullVal;
+  switch (field.valueType) {
+  case NVML_VALUE_TYPE_UNSIGNED_INT:
+    *value = field.value.uiVal;
+    break;
+  case NVML_VALUE_TYPE_UNSIGNED_LONG:
+    *value = field.value.ulVal;
+    break;
+  case NVML_VALUE_TYPE_UNSIGNED_LONG_LONG:
+    *value = field.value.ullVal;
+    break;
+  case NVML_VALUE_TYPE_UNSIGNED_SHORT:
+    *value = field.value.usVal;
+    break;
+  default:
+    return false;
+  }
   return true;
 }
 

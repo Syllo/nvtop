@@ -280,9 +280,12 @@ static nvmlReturn_t field_values(nvmlDevice_t device, unsigned count, nvmlFieldV
   (void)device;
   for (unsigned i = 0; i < count; ++i) {
     values[i].nvmlReturn = NVML_ERROR_NOT_SUPPORTED;
-    if (values[i].fieldId == NVML_FI_DEV_C2C_LINK_COUNT && c2c_link_count_value > 0) {
+    if (values[i].fieldId == NVML_FI_DEV_C2C_LINK_COUNT) {
       values[i].valueType = NVML_VALUE_TYPE_UNSIGNED_INT;
-      values[i].value.ullVal = c2c_link_count_value;
+      // The driver writes only the member identified by valueType. Leave the
+      // remaining bytes nonzero to catch reads through a wider union member.
+      memset(&values[i].value, 0xa5, sizeof(values[i].value));
+      values[i].value.uiVal = c2c_link_count_value;
       values[i].nvmlReturn = NVML_SUCCESS;
     }
   }
@@ -319,6 +322,68 @@ static bool c2c_link_count(void) {
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_gen));
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_width));
+  return true;
+}
+
+static nvmlFieldValue_t c2c_field_sample;
+static nvmlReturn_t c2c_field_call_status;
+
+static nvmlReturn_t typed_field_values(nvmlDevice_t device, unsigned count, nvmlFieldValue_t *values) {
+  (void)device;
+  for (unsigned i = 0; i < count; ++i) {
+    values[i].valueType = c2c_field_sample.valueType;
+    values[i].value = c2c_field_sample.value;
+    values[i].nvmlReturn = c2c_field_sample.nvmlReturn;
+  }
+  return c2c_field_call_status;
+}
+
+static bool c2c_field_types(void) {
+  setup();
+  nvmlDeviceGetFieldValues = typed_field_values;
+  c2c_field_call_status = NVML_SUCCESS;
+  const struct {
+    nvmlValueType_t type;
+    nvmlValue_t value;
+    bool valid;
+    unsigned long long expected;
+  } cases[] = {
+      {NVML_VALUE_TYPE_UNSIGNED_INT, {.uiVal = 8}, true, 8},
+      {NVML_VALUE_TYPE_UNSIGNED_LONG, {.ulVal = ULONG_MAX}, true, ULONG_MAX},
+      {NVML_VALUE_TYPE_UNSIGNED_LONG_LONG, {.ullVal = ULLONG_MAX}, true, ULLONG_MAX},
+      {NVML_VALUE_TYPE_UNSIGNED_SHORT, {.usVal = 8}, true, 8},
+      {NVML_VALUE_TYPE_UNSIGNED_INT, {.uiVal = 0}, true, 0},
+      {NVML_VALUE_TYPE_DOUBLE, {.dVal = 8.0}, false, 0},
+      {NVML_VALUE_TYPE_SIGNED_INT, {.siVal = 8}, false, 0},
+      {NVML_VALUE_TYPE_SIGNED_LONG_LONG, {.sllVal = -1}, false, 0},
+      {NVML_VALUE_TYPE_COUNT, {.ullVal = 8}, false, 0},
+  };
+  for (unsigned i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
+    c2c_field_sample = (nvmlFieldValue_t){
+        .valueType = cases[i].type, .value = cases[i].value, .nvmlReturn = NVML_SUCCESS};
+    unsigned long long value = 42;
+    CHECK(gpuinfo_nvidia_get_field_value_u64(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value) == cases[i].valid);
+    CHECK(value == (cases[i].valid ? cases[i].expected : 42));
+    unsigned expected_count = cases[i].expected > UINT_MAX ? UINT_MAX : (unsigned)cases[i].expected;
+    CHECK(gpuinfo_nvidia_c2c_link_count(NULL) == expected_count);
+  }
+
+  // Both the overall query and the individual field must succeed.
+  c2c_field_sample = (nvmlFieldValue_t){
+      .valueType = NVML_VALUE_TYPE_UNSIGNED_INT, .value.uiVal = 8, .nvmlReturn = NVML_ERROR_NOT_SUPPORTED};
+  unsigned long long value = 42;
+  CHECK(!gpuinfo_nvidia_get_field_value_u64(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value));
+  CHECK(value == 42);
+  CHECK(gpuinfo_nvidia_c2c_link_count(NULL) == 0);
+  c2c_field_sample.nvmlReturn = NVML_SUCCESS;
+  c2c_field_call_status = NVML_ERROR_NO_PERMISSION;
+  CHECK(!gpuinfo_nvidia_get_field_value_u64(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value));
+  CHECK(value == 42);
+  CHECK(gpuinfo_nvidia_c2c_link_count(NULL) == 0);
+  nvmlDeviceGetFieldValues = NULL;
+  CHECK(!gpuinfo_nvidia_get_field_value_u64(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value));
+  CHECK(value == 42);
+  CHECK(gpuinfo_nvidia_c2c_link_count(NULL) == 0);
   return true;
 }
 
@@ -549,6 +614,7 @@ int main(int argc, char **argv) {
       {"mixed_processes", mixed_processes},
       {"c2c_link", c2c_link},
       {"c2c_link_count", c2c_link_count},
+      {"c2c_field_types", c2c_field_types},
       {"unavailable_memory", unavailable_memory},
       {"memory_probes", memory_probes},
       {"pcie_preserved", pcie_preserved},
