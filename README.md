@@ -109,6 +109,14 @@ the header shows `SYS-FAN` to indicate that cooling is handled by the system;
 snapshots report `"System Fan"`. Versions up to 3.4.0 showed `CPU-FAN` and
 `"CPU Fan"` instead.
 
+Devices without memory of their own (integrated GPUs and NPUs such as Adreno
+and Mali GPUs, and unified-memory systems such as DGX Spark) share the
+system memory with the host. For them, `MEM` shows the memory allocated by the
+device's processes, out of a capacity of those allocations plus the memory
+Linux still has available (`MemAvailable`): memory used by other programs
+reduces the capacity. When the allocations cannot be accounted for, the header
+shows the system memory instead, labelled `RAM`.
+
 ### AMD
 
 NVTOP supports AMD GPUs using the `amdgpu` driver and the legacy `radeon` driver (legacy GPUs, limited support) through the exposed DRM and
@@ -183,13 +191,21 @@ take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/n
 
 Unified-memory systems such as DGX Spark (GB10) and RTX Spark N1X are supported
 through the same NVML backend. When NVML reports no dedicated framebuffer, the
-GPU has no memory pool of its own, so the header reports the system pool the
-host shares with it: capacity from Linux `MemTotal`, free from `MemAvailable`,
-and used as the difference between the two. Used therefore covers allocations by
-host processes too, which is the point: they consume the same memory and leave
-less for the GPU. Per-process GPU allocations are still listed separately. In
-containers, make host GPU processes visible (for example with `--pid=host`) to
-obtain complete per-process accounting.
+GPU has no memory pool of its own. When at least one process reports a valid
+memory value, `MEM` shows the sum of reported GPU allocations as used memory;
+unavailable entries are skipped. Available memory is Linux `MemAvailable`, and
+GPU capacity is the sum of these two amounts. Host allocations therefore reduce the displayed GPU
+capacity. A successful empty query reports zero GPU allocations. A nonempty
+list with no valid memory entries, or an empty list without a successful query,
+uses the system RAM fallback.
+
+System memory is recorded separately as `system_total_memory` (`MemTotal`) and
+`system_free_memory` (`MemAvailable`, which includes reclaimable memory). When
+GPU allocation accounting is unavailable, the header and graph use a `RAM`
+fallback: system usage is the difference between those counters. Snapshots keep
+the GPU and system counters separate.
+Per-process GPU allocations remain listed separately. In containers, make host
+GPU processes visible (for example with `--pid=host`) for complete accounting.
 
 These devices are integrated with the host, so they use the `SYS-FAN` display
 described above. A device attached over NVLink-C2C shows `C2C LINK <n>x` instead

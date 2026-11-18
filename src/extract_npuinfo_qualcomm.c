@@ -129,6 +129,7 @@ static void gpuinfo_qcom_npu_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = true;
   static_info->encode_decode_shared = false;
+  static_info->memory_shared_with_host = true;
   RESET_ALL(static_info->valid);
 
   arch_ver = qcom_dsp_prof_get_q6_arch_version(gpu_info->ctx);

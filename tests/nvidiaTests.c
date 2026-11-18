@@ -134,14 +134,19 @@ static bool uma_version(void) {
   // Shared-memory SoCs use the integrated-device display.
   CHECK(gpu.base.static_info.integrated_graphics);
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
-  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, total_memory));
-  CHECK(gpu.base.dynamic_info.total_memory > 0);
-  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, free_memory));
-  // The whole pool is used memory, host allocations included: total and free
-  // come from /proc/meminfo and must stay consistent with each other.
-  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
-  CHECK(gpu.base.dynamic_info.used_memory == gpu.base.dynamic_info.total_memory - gpu.base.dynamic_info.free_memory);
-  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, mem_util_rate));
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, system_total_memory));
+  CHECK(gpu.base.dynamic_info.system_total_memory > 0);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, system_free_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, total_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, mem_util_rate));
+  struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(&gpu.base);
+  CHECK(memory_info.system_memory);
+  CHECK(memory_info.used_memory == memory_info.total_memory - memory_info.free_memory);
+  CHECK(memory_info.total_memory_valid);
+  CHECK(memory_info.used_memory_valid);
+  CHECK(memory_info.free_memory_valid);
+  CHECK(memory_info.mem_util_rate_valid);
   return true;
 }
 
@@ -245,6 +250,59 @@ static bool process_query(void) {
   return true;
 }
 
+static void no_process_query(struct gpu_info *gpu) { (void)gpu; }
+
+static bool empty_process_memory(void) {
+  struct gpu_vendor vendor = {.refresh_running_processes = no_process_query};
+  struct gpu_info gpu = {.vendor = &vendor};
+  gpu.static_info.memory_shared_with_host = true;
+  LIST_HEAD(devices);
+  list_add_tail(&gpu.list, &devices);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_total_memory, 2000);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_free_memory, 1000);
+
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.dynamic_info, used_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.dynamic_info, free_memory));
+
+  gpu.processes_query_succeeded = true;
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.dynamic_info, used_memory));
+  CHECK(gpu.dynamic_info.used_memory == 0);
+  CHECK(gpu.dynamic_info.free_memory == 1000);
+
+  // The shared refresh must reset success even for a backend with no query.
+  gpuinfo_refresh_processes(&devices);
+  CHECK(!gpu.processes_query_succeeded);
+  RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, free_memory);
+
+  // A successful nonempty list with unavailable allocation data is unknown.
+  struct gpu_process process = {0};
+  gpu.processes = &process;
+  gpu.processes_count = 1;
+  gpu.processes_query_succeeded = true;
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.dynamic_info, used_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.dynamic_info, free_memory));
+
+  // Valid zero is distinct from missing allocation data.
+  SET_GPUINFO_PROCESS(&process, gpu_memory_usage, 0);
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.dynamic_info, used_memory));
+  CHECK(gpu.dynamic_info.used_memory == 0);
+
+  // Driver-reported memory remains authoritative on an empty successful query.
+  gpu.processes_count = 0;
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, used_memory, 250);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, free_memory, 750);
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(gpu.dynamic_info.used_memory == 250);
+  CHECK(gpu.dynamic_info.free_memory == 750);
+  list_del(&gpu.list);
+  return true;
+}
+
 static bool mixed_processes(void) {
   for (unsigned version = 3; version > 0; --version) {
     setup();
@@ -254,6 +312,7 @@ static bool mixed_processes(void) {
     nvmlDeviceGetComputeRunningProcesses[version] = compute_processes;
     nvmlDeviceGetMPSComputeRunningProcesses[version] = compute_processes;
     gpuinfo_nvidia_get_running_processes(&gpu.base);
+    CHECK(gpu.base.processes_query_succeeded);
     CHECK(gpu.base.processes_count == 3);
     CHECK(gpu.base.processes[0].pid == 101);
     CHECK(gpu.base.processes[0].type == gpu_process_graphical_compute);
@@ -266,10 +325,185 @@ static bool mixed_processes(void) {
     SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, total_memory, 1000);
     gpuinfo_fix_dynamic_info_from_process_info(&devices);
     CHECK(gpu.base.dynamic_info.used_memory == 650);
+    // The graph's rate follows the used memory derived from the process list.
+    CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, mem_util_rate));
     CHECK(gpu.base.dynamic_info.mem_util_rate == 65);
     list_del(&gpu.base.list);
     free(gpu.base.processes);
   }
+  return true;
+}
+
+static bool shared_memory_accounting(void) {
+  setup();
+  struct gpu_info_nvidia gpu = {0};
+  gpu.base.static_info.memory_shared_with_host = true;
+  nvmlDeviceGetGraphicsRunningProcesses[3] = graphics_processes;
+  nvmlDeviceGetComputeRunningProcesses[3] = compute_processes;
+  gpuinfo_nvidia_get_running_processes(&gpu.base);
+  LIST_HEAD(devices);
+  list_add_tail(&gpu.base.list, &devices);
+  SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, system_total_memory, 2000);
+  SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, system_free_memory, 350);
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(gpu.base.dynamic_info.used_memory == 650);
+  CHECK(gpu.base.dynamic_info.free_memory == 350);
+  CHECK(gpu.base.dynamic_info.total_memory == 1000);
+  CHECK(gpu.base.dynamic_info.mem_util_rate == 65);
+  CHECK(gpu.base.processes[0].gpu_memory_percentage == 15);
+  CHECK(gpu.base.dynamic_info.system_total_memory == 2000);
+  struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(&gpu.base);
+  CHECK(!memory_info.system_memory);
+  CHECK(memory_info.total_memory == 1000);
+
+  // Missing allocations are skipped; display the sum of reported entries.
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, total_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, free_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, mem_util_rate);
+  RESET_GPUINFO_PROCESS(&gpu.base.processes[2], gpu_memory_usage);
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
+  CHECK(gpu.base.dynamic_info.used_memory == 350);
+  CHECK(gpu.base.dynamic_info.total_memory == 700);
+  CHECK(gpu.base.dynamic_info.free_memory == 350);
+  CHECK(gpu.base.dynamic_info.mem_util_rate == 50);
+  memory_info = gpuinfo_get_memory_display(&gpu.base);
+  CHECK(!memory_info.system_memory);
+  CHECK(memory_info.total_memory == 700);
+  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&gpu.base.processes[2], gpu_memory_percentage));
+
+  // A nonempty list with no valid allocation entries falls back to RAM.
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, total_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, free_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, mem_util_rate);
+  RESET_GPUINFO_PROCESS(&gpu.base.processes[0], gpu_memory_usage);
+  RESET_GPUINFO_PROCESS(&gpu.base.processes[1], gpu_memory_usage);
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, total_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, free_memory));
+  memory_info = gpuinfo_get_memory_display(&gpu.base);
+  CHECK(memory_info.system_memory);
+  CHECK(memory_info.total_memory == 2000);
+  CHECK(memory_info.used_memory == 1650);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
+
+  // fdinfo backends can report valid allocations without an empty-query flag.
+  SET_GPUINFO_PROCESS(&gpu.base.processes[2], gpu_memory_usage, 300);
+  gpu.base.processes_query_succeeded = false;
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
+  CHECK(gpu.base.dynamic_info.used_memory == 300);
+  CHECK(gpu.base.dynamic_info.total_memory == 650);
+  memory_info = gpuinfo_get_memory_display(&gpu.base);
+  CHECK(!memory_info.system_memory);
+
+  // A zero available-memory estimate is valid, including a fully idle GPU.
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, total_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, free_memory);
+  gpu.base.processes_count = 0;
+  gpu.base.processes_query_succeeded = true;
+  SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, system_free_memory, 0);
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, total_memory));
+  CHECK(gpu.base.dynamic_info.total_memory == 0);
+  CHECK(gpu.base.dynamic_info.used_memory == 0);
+  CHECK(gpu.base.dynamic_info.mem_util_rate == 0);
+
+  // An empty list without query success cannot be interpreted as idle.
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, total_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, free_memory);
+  gpu.base.processes_query_succeeded = false;
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
+  memory_info = gpuinfo_get_memory_display(&gpu.base);
+  CHECK(memory_info.system_memory);
+
+  // Do not wrap when adding available memory to a process allocation.
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, total_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, free_memory);
+  gpu.base.processes_count = 1;
+  gpu.base.processes_query_succeeded = true;
+  SET_GPUINFO_PROCESS(&gpu.base.processes[0], gpu_memory_usage, ULLONG_MAX - 1);
+  SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, system_free_memory, 2);
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, total_memory));
+  list_del(&gpu.base.list);
+  free(gpu.base.processes);
+  return true;
+}
+
+static bool system_memory_counters(void) {
+  struct gpu_info gpu = {0};
+  unsigned long long used = 42;
+  CHECK(!gpuinfo_get_system_used_memory(&gpu.dynamic_info, &used));
+  CHECK(used == 42);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_total_memory, 1000);
+  CHECK(!gpuinfo_get_system_used_memory(&gpu.dynamic_info, &used));
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_free_memory, 250);
+  CHECK(gpuinfo_get_system_used_memory(&gpu.dynamic_info, &used));
+  CHECK(used == 750);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_free_memory, 0);
+  CHECK(gpuinfo_get_system_used_memory(&gpu.dynamic_info, &used));
+  CHECK(used == 1000);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_free_memory, 1001);
+  CHECK(!gpuinfo_get_system_used_memory(&gpu.dynamic_info, &used));
+  CHECK(used == 1000);
+
+  // Reading system RAM must preserve independently reported GPU memory.
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, total_memory, 8000);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, free_memory, 6000);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, used_memory, 2000);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, mem_util_rate, 25);
+  gpuinfo_refresh_system_memory(&gpu.dynamic_info);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.dynamic_info, system_total_memory));
+  CHECK(gpu.dynamic_info.total_memory == 8000);
+  CHECK(gpu.dynamic_info.used_memory == 2000);
+  CHECK(gpu.dynamic_info.free_memory == 6000);
+  CHECK(gpu.dynamic_info.mem_util_rate == 25);
+  // Subsequent devices must read from the beginning after the cached stream
+  // reached EOF, and receive fresh valid counters rather than an empty sample.
+  struct gpuinfo_dynamic_info next = {0};
+  for (unsigned i = 0; i < 3; ++i) {
+    RESET_ALL(next.valid);
+    gpuinfo_refresh_system_memory(&next);
+    CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&next, system_total_memory));
+    CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&next, system_free_memory));
+    CHECK(next.system_total_memory > 0);
+    CHECK(next.system_free_memory <= next.system_total_memory);
+  }
+  struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(&gpu);
+  CHECK(!memory_info.system_memory);
+  CHECK(memory_info.total_memory == 8000);
+  // Even a shared-memory driver retains its own complete GPU measurement.
+  gpu.static_info.memory_shared_with_host = true;
+  memory_info = gpuinfo_get_memory_display(&gpu);
+  CHECK(!memory_info.system_memory);
+  CHECK(memory_info.used_memory == 2000);
+
+  // Reusing the display object must not retain RAM values or their validity.
+  RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, free_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, mem_util_rate);
+  memory_info = gpuinfo_get_memory_display(&gpu);
+  CHECK(memory_info.system_memory);
+  gpu.static_info.memory_shared_with_host = false;
+  memory_info = gpuinfo_get_memory_display(&gpu);
+  CHECK(!memory_info.system_memory);
+  CHECK(memory_info.total_memory_valid);
+  CHECK(memory_info.total_memory == 8000);
+  CHECK(!memory_info.used_memory_valid);
+  CHECK(!memory_info.free_memory_valid);
+  CHECK(!memory_info.mem_util_rate_valid);
+  CHECK(memory_info.used_memory == 0);
+  CHECK(memory_info.free_memory == 0);
+  CHECK(memory_info.mem_util_rate == 0);
   return true;
 }
 
@@ -354,13 +588,15 @@ static bool c2c_link_count(void) {
   c2c_link_count_value = 8;
   nvmlDeviceGetFieldValues = field_values;
   // GB10 answers the PCIe queries with successful placeholder values.
-  nvmlDeviceGetMaxPcieLinkGeneration = nvmlDeviceGetMaxPcieLinkWidth = unsupported_uint;
+  nvmlDeviceGetMaxPcieLinkGeneration = nvmlDeviceGetMaxPcieLinkWidth = pcie_link;
   nvmlDeviceGetBusType = pcie_bus;
   nvmlDeviceGetCurrPcieLinkGeneration = nvmlDeviceGetCurrPcieLinkWidth = pcie_link;
 
   gpuinfo_nvidia_populate_static_info(&gpu.base);
   CHECK(GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, c2c_link_count));
   CHECK(gpu.base.static_info.c2c_link_count == 8);
+  CHECK(!GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, max_pcie_gen));
+  CHECK(!GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, max_pcie_link_width));
 
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_gen));
@@ -371,10 +607,13 @@ static bool c2c_link_count(void) {
   memset(&gpu, 0, sizeof(gpu));
   c2c_link_count_value = 0;
   nvmlDeviceGetFieldValues = field_values;
+  nvmlDeviceGetMaxPcieLinkGeneration = nvmlDeviceGetMaxPcieLinkWidth = pcie_link;
   nvmlDeviceGetBusType = pcie_bus;
   nvmlDeviceGetCurrPcieLinkGeneration = nvmlDeviceGetCurrPcieLinkWidth = pcie_link;
   gpuinfo_nvidia_populate_static_info(&gpu.base);
   CHECK(!GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, c2c_link_count));
+  CHECK(GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, max_pcie_gen));
+  CHECK(GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, max_pcie_link_width));
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_gen));
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_width));
@@ -544,14 +783,48 @@ static bool uma_idle(void) {
   SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, used_memory, 123456);
   SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, mem_util_rate, 50);
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+  nvmlDeviceGetComputeRunningProcesses[3] = empty_processes;
+  gpuinfo_nvidia_get_running_processes(&gpu.base);
   gpuinfo_fix_dynamic_info_from_process_info(&devices);
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
-  // Used memory reflects the whole pool, not just this device's processes, so
-  // the generic pass keeps the value the refresh just wrote.
-  CHECK(gpu.base.dynamic_info.used_memory == gpu.base.dynamic_info.total_memory - gpu.base.dynamic_info.free_memory);
-  CHECK(gpu.base.dynamic_info.mem_util_rate ==
-        (unsigned)(gpu.base.dynamic_info.used_memory * 100 / gpu.base.dynamic_info.total_memory));
+  CHECK(gpu.base.processes_query_succeeded);
+  CHECK(gpu.base.dynamic_info.used_memory == 0);
+  CHECK(gpu.base.dynamic_info.total_memory == gpu.base.dynamic_info.system_free_memory);
+  CHECK(gpu.base.dynamic_info.free_memory == gpu.base.dynamic_info.system_free_memory);
+  CHECK(gpu.base.dynamic_info.mem_util_rate == 0);
   list_del(&gpu.base.list);
+  return true;
+}
+
+static bool frozen_process_memory(void) {
+  setup();
+  struct gpu_info_nvidia gpu = {0};
+  gpu.base.static_info.memory_shared_with_host = true;
+  struct gpu_process process = {0};
+  SET_GPUINFO_PROCESS(&process, gpu_memory_usage, 100);
+  gpu.base.processes = &process;
+  gpu.base.processes_count = 1;
+  gpu.base.processes_query_succeeded = true;
+  for (unsigned free = 300; free <= 600; free += 300) {
+    // The kill menu refreshes dynamic data while retaining the process list.
+    gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+    SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, system_free_memory, free);
+    gpuinfo_fix_shared_memory_from_process_info(&gpu.base);
+    struct gpuinfo_memory_display memory = gpuinfo_get_memory_display(&gpu.base);
+    CHECK(!memory.system_memory);
+    CHECK(memory.used_memory == 100);
+    CHECK(memory.total_memory == free + 100);
+    CHECK(memory.free_memory == free);
+    CHECK(gpu.base.processes_count == 1);
+  }
+  // A frozen, successfully queried empty list must also keep reporting MEM.
+  gpu.base.processes_count = 0;
+  gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+  gpuinfo_fix_shared_memory_from_process_info(&gpu.base);
+  struct gpuinfo_memory_display memory = gpuinfo_get_memory_display(&gpu.base);
+  CHECK(!memory.system_memory);
+  CHECK(memory.used_memory == 0);
+  CHECK(memory.total_memory == gpu.base.dynamic_info.system_free_memory);
   return true;
 }
 
@@ -669,6 +942,9 @@ int main(int argc, char **argv) {
       {"legacy_fallback", legacy_fallback},
       {"mixed_processes", mixed_processes},
       {"process_query", process_query},
+      {"empty_process_memory", empty_process_memory},
+      {"shared_memory_accounting", shared_memory_accounting},
+      {"system_memory_counters", system_memory_counters},
       {"c2c_link", c2c_link},
       {"c2c_link_count", c2c_link_count},
       {"c2c_field_types", c2c_field_types},
@@ -676,6 +952,7 @@ int main(int argc, char **argv) {
       {"memory_probes", memory_probes},
       {"pcie_preserved", pcie_preserved},
       {"uma_idle", uma_idle},
+      {"frozen_process_memory", frozen_process_memory},
       {"utilization_probe_not_found", utilization_probe_not_found},
       {"utilization_buffered_not_found", utilization_buffered_not_found},
       {"utilization_samples", utilization_samples},

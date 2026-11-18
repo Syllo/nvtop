@@ -123,6 +123,7 @@ void gpuinfo_panthor_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = true;
   static_info->encode_decode_shared = true;
+  static_info->memory_shared_with_host = true;
   RESET_ALL(static_info->valid);
 
   struct drm_panthor_gpu_info gpu_dev_info = {0};

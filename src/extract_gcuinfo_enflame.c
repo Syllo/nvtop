@@ -735,8 +735,8 @@ static void gcuinfo_enflame_refresh_dynamic_info(struct gpu_info *_gcu_info) {
     // The device memory is the system memory: report the device allocations
     // as used and what the system still has available as free.
     gpuinfo_refresh_system_memory(dynamic_info);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, free_memory)) {
-      unsigned long long available_ram = dynamic_info->free_memory;
+    if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, system_free_memory)) {
+      unsigned long long available_ram = dynamic_info->system_free_memory;
       unsigned long long total_memory = gcu_used_memory + available_ram;
 
       SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);

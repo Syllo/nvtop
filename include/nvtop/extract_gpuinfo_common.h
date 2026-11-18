@@ -119,6 +119,8 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_total_memory_valid,
   gpuinfo_free_memory_valid,
   gpuinfo_used_memory_valid,
+  gpuinfo_system_total_memory_valid,
+  gpuinfo_system_free_memory_valid,
   gpuinfo_pcie_link_gen_valid,
   gpuinfo_pcie_link_width_valid,
   gpuinfo_pcie_rx_valid,
@@ -162,6 +164,8 @@ struct gpuinfo_dynamic_info {
   unsigned long long total_memory;    // Total memory (bytes)
   unsigned long long free_memory;     // Unallocated memory (bytes)
   unsigned long long used_memory;     // Allocated memory (bytes)
+  unsigned long long system_total_memory; // Total system memory (bytes)
+  unsigned long long system_free_memory;  // System memory available for allocation (bytes)
   unsigned long long ecc_corrected;   // Total correctable ECC errors
   unsigned long long ecc_uncorrected; // Total uncorrected ECC errors
   unsigned int pcie_link_gen;         // PCIe link generation used
@@ -177,6 +181,18 @@ struct gpuinfo_dynamic_info {
   unsigned int extra_clock_count;     // Number of populated entries in extra_clocks
   struct gpuinfo_extra_clock extra_clocks[MAX_EXTRA_CLOCK_DOMAINS];
   unsigned char valid[(gpuinfo_dynamic_info_count + CHAR_BIT - 1) / CHAR_BIT];
+};
+
+struct gpuinfo_memory_display {
+  unsigned long long total_memory; // bytes
+  unsigned long long used_memory;  // bytes
+  unsigned long long free_memory;  // bytes
+  unsigned int mem_util_rate;      // percent
+  bool total_memory_valid;
+  bool used_memory_valid;
+  bool free_memory_valid;
+  bool mem_util_rate_valid;
+  bool system_memory; // True for the system RAM fallback
 };
 
 enum gpu_process_type {
@@ -294,10 +310,15 @@ bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
 
 void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info);
 
-// Fill the memory fields from the system-wide counters in /proc/meminfo. For
-// backends whose device memory is shared with the host and that have no better
-// per-device accounting.
+// Fill only system_total_memory and system_free_memory from /proc/meminfo.
+// GPU counters remain independent of these system-wide measurements.
 void gpuinfo_refresh_system_memory(struct gpuinfo_dynamic_info *dynamic_info);
+// Derive shared GPU memory from the current process list and system availability.
+void gpuinfo_fix_shared_memory_from_process_info(struct gpu_info *device);
+bool gpuinfo_get_system_used_memory(const struct gpuinfo_dynamic_info *dynamic_info, unsigned long long *used);
+// Return memory values for display, using system RAM when shared-memory GPU
+// accounting is unavailable. Does not modify the device.
+struct gpuinfo_memory_display gpuinfo_get_memory_display(const struct gpu_info *device);
 
 // Appends a vendor specific clock domain to the dynamic info, ignoring the call
 // once MAX_EXTRA_CLOCK_DOMAINS of them have been reported. A secondary domain is

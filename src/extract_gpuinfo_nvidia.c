@@ -1220,14 +1220,9 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // Device memory info (total,used,free). Devices sharing memory with the host
   // (a fixed property, recorded in the static info) have no dedicated
-  // framebuffer: report the Linux system memory counters recommended by NVIDIA,
-  // with MemTotal as the capacity, MemAvailable as free and the difference as
-  // used.
-  //
-  // There is only one memory pool, so "used" has to mean the same thing as it
-  // does on a discrete GPU: memory that is not available to new allocations.
-  // That includes host processes, which is why used is not limited to the GPU
-  // processes' own allocations (those are still shown per process).
+  // framebuffer. Keep Linux system counters separate; the generic pass derives
+  // GPU capacity from its process allocations plus MemAvailable after querying
+  // processes. Missing GPU accounting can still display system RAM separately.
   if (gpu_info->base.static_info.memory_shared_with_host) {
     gpuinfo_refresh_system_memory(dynamic_info);
   } else {
@@ -1554,7 +1549,7 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
   }
   // NVML can return the same PID in the graphics, compute and MPS lists.
   // Its memory is a per-process total, not an allocation for each context:
-  // counting it twice inflates UMA usage reconstructed by the generic pass.
+  // counting it twice would overstate that process' memory in the list.
   unsigned unique_count = 0;
   for (unsigned i = 0; i < _gpu_info->processes_count; ++i) {
     struct gpu_process *process = &_gpu_info->processes[i];

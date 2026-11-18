@@ -384,6 +384,12 @@ int main(int argc, char **argv) {
         gpuinfo_refresh_processes(&monitoredGpus);
         gpuinfo_utilisation_rate(&monitoredGpus);
         gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
+      } else {
+        // Keep GPU allocations frozen with the kill menu's process list, while
+        // still updating capacity from the current system memory availability.
+        struct gpu_info *device;
+        list_for_each_entry(device, &monitoredGpus, list)
+          gpuinfo_fix_shared_memory_from_process_info(device);
       }
       save_current_data_to_ring(&monitoredGpus, interface);
       timeout(interface_update_interval(interface));

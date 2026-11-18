@@ -80,6 +80,7 @@ static void gpuinfo_rknpu_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = true;
   static_info->encode_decode_shared = false;
+  static_info->memory_shared_with_host = true;
 
   RESET_ALL(static_info->valid);
   snprintf(static_info->device_name, sizeof(static_info->device_name), "%s", gpu_info->base.pdev);
