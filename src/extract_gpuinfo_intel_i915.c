@@ -179,8 +179,13 @@ static const char i915_drm_intel_copy[] = "drm-engine-copy";
 static const char i915_drm_intel_video[] = "drm-engine-video";
 static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
 static const char i915_drm_intel_compute[] = "drm-engine-compute";
-static const char i915_drm_intel_vram[] = "drm-total-local0";
-static const char i915_drm_intel_gtt[] = "drm-total-system0";
+// Resident sizes: drm-total-* also counts allocations that are not backed by
+// memory yet, which integrated GPUs compare against MemAvailable. Devices
+// sharing their memory with the host only have the system memory region;
+// discrete GPUs only count their device memory, which their capacity
+// describes, as the amdgpu backend does.
+static const char i915_drm_intel_vram[] = "drm-resident-local0";
+static const char i915_drm_intel_gtt[] = "drm-resident-system0";
 
 bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
@@ -220,7 +225,7 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
       bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
       bool is_compute = !strcmp(key, i915_drm_intel_compute);
 
-      if (!strcmp(key, i915_drm_intel_vram) || !strcmp(key, i915_drm_intel_gtt)) {
+      if (!strcmp(key, info->static_info.memory_shared_with_host ? i915_drm_intel_gtt : i915_drm_intel_vram)) {
         unsigned long long mem_bytes;
         if (gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
           gpuinfo_intel_add_process_memory(process_info, mem_bytes);
