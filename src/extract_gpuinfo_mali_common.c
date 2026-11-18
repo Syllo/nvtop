@@ -401,7 +401,7 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
   static char *line = NULL;
   static size_t line_buf_size = 0;
   uint64_t total_time = 0;
-  bool client_id_set = false;
+  bool client_id_set = false, total_memory_seen = false;
   ssize_t count = 0;
 
   fid->engine_count = 0;
@@ -430,6 +430,7 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
     } else {
       bool is_engine, is_cycles, is_maxfreq, is_curfreq, is_resident;
       match_keys(&is_engine, &is_cycles, &is_maxfreq, &is_curfreq, &is_resident, key);
+      total_memory_seen = total_memory_seen || !strcmp(key, "drm-total-memory");
 
       if (is_engine) {
         char *endptr;
@@ -478,6 +479,12 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
 
   if (!client_id_set)
     return false;
+
+  // The DRM memory stats only print the resident size once a buffer of the
+  // client reports its status, so a client without buffers (such as nvtop's own
+  // query fd) only prints its total: it has no resident memory.
+  if (total_memory_seen && !GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage))
+    SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, 0);
 
   //  driver does not expose compute engine metrics as of yet
   process_info->type |= gpu_process_graphical;
