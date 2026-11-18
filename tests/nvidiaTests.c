@@ -189,6 +189,62 @@ static nvmlReturn_t compute_processes(nvmlDevice_t device, unsigned *count, void
   return NVML_SUCCESS;
 }
 
+static nvmlReturn_t empty_processes(nvmlDevice_t device, unsigned *count, void *infos) {
+  (void)device;
+  (void)infos;
+  *count = 0;
+  return NVML_SUCCESS;
+}
+
+static nvmlReturn_t process_query_status;
+
+static nvmlReturn_t failed_processes(nvmlDevice_t device, unsigned *count, void *infos) {
+  (void)device;
+  (void)count;
+  (void)infos;
+  return process_query_status;
+}
+
+static bool process_query(void) {
+  for (unsigned version = 3; version > 0; --version) {
+    setup();
+    struct gpu_info_nvidia gpu = {0};
+    nvmlDeviceGetComputeRunningProcesses[version] = empty_processes;
+    gpuinfo_nvidia_get_running_processes(&gpu.base);
+    CHECK(gpu.base.processes_query_succeeded);
+    CHECK(gpu.base.processes_count == 0);
+
+    // A later failed query must clear the previous successful-empty result.
+    nvmlDeviceGetComputeRunningProcesses[version] = failed_processes;
+    const nvmlReturn_t errors[] = {NVML_ERROR_NOT_SUPPORTED, NVML_ERROR_FUNCTION_NOT_FOUND,
+                                  NVML_ERROR_NO_PERMISSION, NVML_ERROR_UNKNOWN};
+    for (unsigned i = 0; i < sizeof(errors) / sizeof(*errors); ++i) {
+      gpu.base.processes_query_succeeded = true;
+      process_query_status = errors[i];
+      gpuinfo_nvidia_get_running_processes(&gpu.base);
+      CHECK(!gpu.base.processes_query_succeeded);
+      CHECK(gpu.base.processes_count == 0);
+    }
+
+    // One successful query cannot hide an error in another supported query.
+    nvmlDeviceGetComputeRunningProcesses[version] = empty_processes;
+    nvmlDeviceGetGraphicsRunningProcesses[version] = failed_processes;
+    process_query_status = NVML_ERROR_NO_PERMISSION;
+    gpuinfo_nvidia_get_running_processes(&gpu.base);
+    CHECK(!gpu.base.processes_query_succeeded);
+    process_query_status = NVML_ERROR_NOT_SUPPORTED;
+    gpuinfo_nvidia_get_running_processes(&gpu.base);
+    CHECK(gpu.base.processes_query_succeeded);
+  }
+
+  setup();
+  struct gpu_info_nvidia gpu = {0};
+  gpu.base.processes_query_succeeded = true;
+  gpuinfo_nvidia_get_running_processes(&gpu.base);
+  CHECK(!gpu.base.processes_query_succeeded);
+  return true;
+}
+
 static bool mixed_processes(void) {
   for (unsigned version = 3; version > 0; --version) {
     setup();
@@ -612,6 +668,7 @@ int main(int argc, char **argv) {
       {"uma_version", uma_version},
       {"legacy_fallback", legacy_fallback},
       {"mixed_processes", mixed_processes},
+      {"process_query", process_query},
       {"c2c_link", c2c_link},
       {"c2c_link_count", c2c_link_count},
       {"c2c_field_types", c2c_field_types},

@@ -862,7 +862,9 @@ static void gcuinfo_enflame_get_running_processes(struct gpu_info *_gcu_info) {
   struct gcu_info_enflame *gcu_info = container_of(_gcu_info, struct gcu_info_enflame, base);
   efmlDevice_t device = gcu_info->gcuhandle;
   bool validProcessGathering = false;
+  _gcu_info->processes_query_succeeded = false;
   for (unsigned version = 3; !validProcessGathering && version > 0; version--) {
+    bool process_query_failed = false;
     // Get the size of the actual function being used
     size_t sizeof_efmlProcessInfo;
     switch (version) {
@@ -898,6 +900,8 @@ static void gcuinfo_enflame_get_running_processes(struct gpu_info *_gcu_info) {
       if (last_efml_return_status == EFML_SUCCESS) {
         validProcessGathering = true;
         graphical_count = recovered_count;
+      } else {
+        process_query_failed = true;
       }
     }
 
@@ -918,6 +922,8 @@ static void gcuinfo_enflame_get_running_processes(struct gpu_info *_gcu_info) {
       if (last_efml_return_status == EFML_SUCCESS) {
         validProcessGathering = true;
         compute_count = recovered_count;
+      } else {
+        process_query_failed = true;
       }
     }
 
@@ -938,12 +944,15 @@ static void gcuinfo_enflame_get_running_processes(struct gpu_info *_gcu_info) {
       if (last_efml_return_status == EFML_SUCCESS) {
         validProcessGathering = true;
         compute_count += recovered_count;
+      } else {
+        process_query_failed = true;
       }
     }
 
     if (!validProcessGathering)
       continue;
 
+    _gcu_info->processes_query_succeeded = !process_query_failed;
     _gcu_info->processes_count = graphical_count + compute_count;
     if (_gcu_info->processes_count > 0) {
       if (_gcu_info->processes_count > _gcu_info->processes_array_size) {

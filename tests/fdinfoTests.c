@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <ftw.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -62,7 +63,30 @@ static int fixture_openat(int dir, const char *path, int flags) {
   return openat(dir, path, flags);
 }
 
+static const char *failed_stat_path;
+
+// Streams whose reads fail with injected_read_errno, as reading the fdinfo of
+// a descriptor closed since it was opened does.
+static int injected_read_errno;
+static ssize_t failing_read(void *cookie, char *buf, size_t size) {
+  (void)cookie;
+  (void)buf;
+  (void)size;
+  errno = injected_read_errno;
+  return -1;
+}
+static int failing_close(void *cookie) { return close((int)(intptr_t)cookie); }
+static FILE *fixture_fdopen(int fd, const char *mode) {
+  if (!injected_read_errno)
+    return fdopen(fd, mode);
+  return fopencookie((void *)(intptr_t)fd, mode,
+                     (cookie_io_functions_t){.read = failing_read, .close = failing_close});
+}
 static int fixture_fstatat(int dir, const char *path, struct stat *stat, int flags) {
+  if (failed_stat_path && strcmp(path, failed_stat_path) == 0) {
+    errno = EIO;
+    return -1;
+  }
   int ret = fstatat(dir, path, stat, flags);
   if (ret != 0 || (stat->st_mode & S_IFMT) != S_IFREG)
     return ret;
@@ -86,12 +110,14 @@ static int fixture_fstatat(int dir, const char *path, struct stat *stat, int fla
 #define fopen fixture_fopen
 #define openat fixture_openat
 #define fstatat fixture_fstatat
+#define fdopen fixture_fdopen
 #include "../src/extract_processinfo_fdinfo.c"
 #undef opendir
 #undef readdir
 #undef fopen
 #undef openat
 #undef fstatat
+#undef fdopen
 
 #define CHECK(condition)                                                                                                \
   do {                                                                                                                 \
@@ -103,6 +129,11 @@ static int fixture_fstatat(int dir, const char *path, struct stat *stat, int fla
 
 // Fixture fdinfo files hold an optional "drm-client-id:" line followed by a
 // "<device name> <memory>" line.
+static bool write_fixture(const char *suffix, const char *contents);
+
+// A fdinfo reading "reused" (or "reused-drm") stands for a descriptor whose
+// number was reused for a non-DRM file (or another device's DRM node) between
+// the sweep's stat and the fdinfo read.
 static bool parse_fixture(struct gpu_info *device, FILE *fp, struct gpu_process *process) {
   char line[64], name[32];
   unsigned long long memory;
@@ -110,10 +141,16 @@ static bool parse_fixture(struct gpu_info *device, FILE *fp, struct gpu_process 
     if (!fgets(line, sizeof(line), fp))
       return false;
   } while (!strncmp(line, "drm-client-id:", 14));
+  if (!strcmp(line, "reused\n") || !strcmp(line, "reused-drm\n")) {
+    write_fixture("proc/4194400/fd/3", line[6] == '-' ? "129" : "not a device");
+    return false;
+  }
   if (sscanf(line, "%31s %llu", name, &memory) != 2 || strcmp(name, device->pdev) != 0)
     return false;
   if (memory != ULLONG_MAX)
     SET_GPUINFO_PROCESS(process, gpu_memory_usage, memory);
+  // Unrelated errno changes must not turn a later directory EOF into a failure.
+  errno = EIO;
   return true;
 }
 
@@ -155,6 +192,16 @@ static void sweep(void) {
     devices[i].processes_count = 0;
   processinfo_sweep_fdinfos();
 }
+
+static bool only_failed(int failed) {
+  for (int i = 0; i < DEVICE_COUNT; ++i) {
+    if (devices[i].processes_query_succeeded == (i == failed))
+      return false;
+  }
+  return true;
+}
+
+static bool all_succeeded(void) { return only_failed(-1); }
 
 int main(void) {
   CHECK(mkdtemp(fixture_root));
@@ -201,43 +248,129 @@ int main(void) {
   CHECK(callback_entries[MALI].drm_nodes_count == 1);
   CHECK(callback_entries[LEGACY].drm_nodes_count == 0);
 
-  // An empty scan reports no processes.
+  // All fdinfo backends must distinguish a successful empty scan from failure.
   sweep();
+  CHECK(all_succeeded());
   for (unsigned i = 0; i < DEVICE_COUNT; ++i)
     CHECK(devices[i].processes_count == 0);
+  fail_proc_open = true;
+  sweep();
+  for (unsigned i = 0; i < DEVICE_COUNT; ++i)
+    CHECK(!devices[i].processes_query_succeeded);
+  fail_proc_open = false;
+  fail_proc_read = true;
+  sweep();
+  for (unsigned i = 0; i < DEVICE_COUNT; ++i)
+    CHECK(!devices[i].processes_query_succeeded);
+  fail_proc_read = false;
+
+  // Processes of other users are not visible to unprivileged users; the scan of
+  // the visible processes remains complete. Unattributable errors fail it.
+  failed_path = "fd";
+  injected_errno = EACCES;
+  sweep();
+  CHECK(all_succeeded());
+  injected_errno = EPERM;
+  sweep();
+  CHECK(all_succeeded());
+  injected_errno = EIO;
+  sweep();
+  for (unsigned i = 0; i < DEVICE_COUNT; ++i)
+    CHECK(!devices[i].processes_query_succeeded);
+  injected_errno = ENOENT;
+  sweep();
+  CHECK(all_succeeded());
+  failed_path = NULL;
 
   // A fd to the render node reaches the device registered with its card node.
   CHECK(write_fixture("proc/4194400/fd/3", "128"));
   CHECK(write_fixture("proc/4194400/fdinfo/3", "Intel 64\n"));
   sweep();
+  CHECK(all_succeeded());
   CHECK(devices[INTEL].processes_count == 1);
   CHECK(devices[INTEL].processes[0].gpu_memory_usage == 64);
   CHECK(GPUINFO_PROCESS_FIELD_VALID(&devices[INTEL].processes[0], gpu_memory_usage));
-  CHECK(devices[MALI].processes_count == 0 && devices[LEGACY].processes_count == 0);
+  CHECK(devices[MALI].processes_count == 0);
 
-  // Only the owner parses its fds, even when another device would accept them.
-  CHECK(write_fixture("proc/4194400/fdinfo/3", "Mali 64\n"));
+  // Only the device owning an unparsable fd loses its zero-usage guarantee.
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "unsupported 64\n"));
   sweep();
-  for (unsigned i = 0; i < DEVICE_COUNT; ++i)
-    CHECK(devices[i].processes_count == 0);
+  CHECK(only_failed(INTEL));
+  CHECK(devices[INTEL].processes_count == 0);
 
-  // A fd of an unmonitored device is not parsed.
+  // Query success does not imply that the driver exposes allocation sizes.
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "Intel 18446744073709551615\n"));
+  sweep();
+  CHECK(all_succeeded());
+  CHECK(devices[INTEL].processes_count == 1);
+  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&devices[INTEL].processes[0], gpu_memory_usage));
+
+  // Errors on a device's own fd are attributed to that device.
+  failed_path = "fdinfo/3";
+  injected_errno = EIO;
+  sweep();
+  CHECK(only_failed(INTEL));
+  injected_errno = EACCES;
+  sweep();
+  CHECK(all_succeeded());
+  failed_path = NULL;
+
+  // A descriptor closed after its fdinfo was opened is skipped; other read
+  // errors fail its device.
+  injected_read_errno = ENOENT;
+  sweep();
+  CHECK(all_succeeded());
+  CHECK(devices[INTEL].processes_count == 0);
+  injected_read_errno = EIO;
+  sweep();
+  CHECK(only_failed(INTEL));
+  injected_read_errno = 0;
+
+  // A descriptor reused for another file before its fdinfo is read is skipped.
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "reused\n"));
+  sweep();
+  CHECK(all_succeeded());
+  CHECK(write_fixture("proc/4194400/fd/3", "128"));
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "reused-drm\n"));
+  sweep();
+  CHECK(all_succeeded());
+  CHECK(write_fixture("proc/4194400/fd/3", "128"));
   CHECK(write_fixture("proc/4194400/fdinfo/3", "Intel 64\n"));
+
+  // A stat failure on any fd (e.g., a file on an unreachable network mount)
+  // only means that fd is not a DRM fd.
+  failed_stat_path = "3";
+  sweep();
+  CHECK(all_succeeded());
+  CHECK(devices[INTEL].processes_count == 0);
+  failed_stat_path = NULL;
+
+  // A fd of an unmonitored device does not affect the monitored ones.
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "unsupported 64\n"));
   processinfo_enable_disable_callback_for(&devices[INTEL], false);
   sweep();
-  CHECK(devices[INTEL].processes_count == 0);
+  CHECK(!devices[INTEL].processes_query_succeeded);
+  CHECK(devices[MALI].processes_query_succeeded && devices[MSM].processes_query_succeeded &&
+        devices[LEGACY].processes_query_succeeded);
   processinfo_enable_disable_callback_for(&devices[INTEL], true);
 
   // A fd owned by no registered device (e.g., a driver without nvtop support)
-  // is offered to the devices without known nodes only.
+  // is offered to the devices without known nodes only, and does not fail them
+  // when they cannot parse it.
   CHECK(write_fixture("proc/4194400/fd/3", "200"));
+  sweep();
+  CHECK(all_succeeded());
+  CHECK(devices[LEGACY].processes_count == 0);
   CHECK(write_fixture("proc/4194400/fdinfo/3", "Legacy 32\n"));
   sweep();
+  CHECK(all_succeeded());
   CHECK(devices[LEGACY].processes_count == 1);
   CHECK(devices[LEGACY].processes[0].gpu_memory_usage == 32);
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "unsupported 64\n"));
   processinfo_drop_callback(&devices[LEGACY]);
+  devices[LEGACY].processes_query_succeeded = true;
   sweep();
-  CHECK(devices[LEGACY].processes_count == 0);
+  CHECK(all_succeeded());
 
   // A DRM client is accounted for once, whichever descriptors refer to it:
   // fd 3 and its duplicate fd 4 in one process, and fd 3 of another process which
@@ -285,17 +418,15 @@ int main(void) {
   failed_path = "fdinfo/3";
   injected_errno = EIO;
   sweep();
-  for (unsigned i = 0; i < DEVICE_COUNT; ++i)
-    CHECK(devices[i].processes_count == 0);
+  CHECK(all_succeeded());
   failed_path = NULL;
 
   // Dropped callbacks must no longer receive writes during future sweeps.
-  CHECK(write_fixture("proc/4194400/fd/3", "128"));
-  CHECK(write_fixture("proc/4194400/fdinfo/3", "Intel 64\n"));
   for (unsigned i = 0; i < DEVICE_COUNT; ++i)
     processinfo_drop_callback(&devices[i]);
+  devices[INTEL].processes_query_succeeded = true;
   sweep();
-  CHECK(devices[INTEL].processes_count == 0);
+  CHECK(devices[INTEL].processes_query_succeeded);
   CHECK(registered_callback_entries == 0);
 
   for (unsigned i = 0; i < DEVICE_COUNT; ++i)

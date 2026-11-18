@@ -25,6 +25,7 @@
 
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +55,7 @@ struct callback_entry {
   dev_t drm_nodes[FDINFO_MAX_DRM_NODES];
   unsigned drm_nodes_count;
   bool active;
+  bool scan_failed;
 };
 
 static unsigned registered_callback_entries;
@@ -128,6 +130,7 @@ void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, 
   entry->gpu_info = info;
   entry->callback = callback;
   entry->active = true;
+  entry->scan_failed = false;
   resolve_drm_nodes(entry, drm_node);
   registered_callback_entries++;
 }
@@ -138,6 +141,13 @@ void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool e
       callback_entries[index].active = enable;
     }
   }
+}
+
+// Processes and descriptors can disappear while /proc is being scanned, and
+// the processes of other users cannot be inspected without privileges. Neither
+// makes the scan of the visible processes incomplete.
+static bool fdinfo_error_is_skippable(void) {
+  return errno == ENOENT || errno == ESRCH || errno == EACCES || errno == EPERM;
 }
 
 static struct callback_entry *find_drm_node_owner(dev_t node) {
@@ -151,13 +161,31 @@ static struct callback_entry *find_drm_node_owner(dev_t node) {
   return NULL;
 }
 
+// A failure while handling a fd only affects the device owning it. A fd that no
+// device owns most likely belongs to a driver without nvtop support, even when
+// a device without known nodes cannot parse it, so it affects no device.
+static void mark_fd_failure(struct callback_entry *owner) {
+  if (owner)
+    owner->scan_failed = true;
+}
+
+// Reading the fdinfo of a descriptor that was closed, or of a process that
+// exited, since it was opened fails with ENOENT or ESRCH: the fd is gone.
+static bool fdinfo_read_vanished(FILE *fdinfo_file) {
+  return ferror(fdinfo_file) && fdinfo_error_is_skippable();
+}
+
 static bool run_callback(struct callback_entry *entry, FILE *fdinfo_file, struct gpu_process *process_info) {
   rewind(fdinfo_file);
   RESET_ALL(process_info->valid);
   process_info->type = gpu_process_unknown;
-  return entry->callback(entry->gpu_info, fdinfo_file, process_info);
+  errno = 0;
+  return entry->callback(entry->gpu_info, fdinfo_file, process_info) && !ferror(fdinfo_file);
 }
 
+// Any stat failure means the fd is not usable as a DRM fd: a DRM node cannot
+// fail stat the way an fd to an unreachable network or FUSE file can, so the
+// error does not affect the scan.
 static bool get_drm_fd_node(int fd_dir_fd, const char *name, dev_t *node) {
   struct stat stat;
   if (fstatat(fd_dir_fd, name, &stat, 0) < 0)
@@ -223,6 +251,8 @@ void processinfo_sweep_fdinfos(void) {
   bool anyActiveWithoutNodes = false;
   for (unsigned callback_idx = 0; callback_idx < registered_callback_entries; ++callback_idx) {
     struct callback_entry *current_callback = &callback_entries[callback_idx];
+    current_callback->gpu_info->processes_query_succeeded = false;
+    current_callback->scan_failed = false;
     anyActiveCallback = anyActiveCallback || current_callback->active;
     anyActiveWithoutNodes = anyActiveWithoutNodes || (current_callback->active && !current_callback->drm_nodes_count);
   }
@@ -233,6 +263,8 @@ void processinfo_sweep_fdinfos(void) {
   DIR *proc_dir = opendir("/proc");
   if (!proc_dir)
     return;
+  // Failures that cannot be attributed to a device make the whole scan incomplete.
+  bool scan_failed = false;
 
   // DRM fds already handled for the current process, with the node they are
   // opened to: only fds to the same node can refer to the same open file.
@@ -243,7 +275,14 @@ void processinfo_sweep_fdinfos(void) {
   } *seen_fds = NULL;
 
   struct dirent *proc_dent;
-  while ((proc_dent = readdir(proc_dir)) != NULL) {
+  while (true) {
+    errno = 0;
+    proc_dent = readdir(proc_dir);
+    if (!proc_dent) {
+      if (errno)
+        scan_failed = true;
+      break;
+    }
     int pid_dir_fd = -1, fd_dir_fd = -1;
     DIR *fd_dir = NULL;
     unsigned int seen_fds_len = 0;
@@ -256,24 +295,40 @@ void processinfo_sweep_fdinfos(void) {
       continue;
 
     pid_dir_fd = openat(dirfd(proc_dir), proc_dent->d_name, O_DIRECTORY);
-    if (pid_dir_fd < 0)
+    if (pid_dir_fd < 0) {
+      if (!fdinfo_error_is_skippable())
+        scan_failed = true;
       continue;
+    }
 
     client_pid = atoi(proc_dent->d_name);
     if (!client_pid)
       goto next;
 
     fd_dir_fd = openat(pid_dir_fd, "fd", O_DIRECTORY);
-    if (fd_dir_fd < 0)
+    if (fd_dir_fd < 0) {
+      if (!fdinfo_error_is_skippable())
+        scan_failed = true;
       goto next;
+    }
 
     // Walk the fds and only open the fdinfo of the few that are DRM fds.
     fd_dir = fdopendir(fd_dir_fd);
-    if (!fd_dir)
+    if (!fd_dir) {
+      scan_failed = true;
       goto next;
+    }
 
   next_fd:
-    while ((fd_dent = readdir(fd_dir)) != NULL) {
+    while (true) {
+      errno = 0;
+      fd_dent = readdir(fd_dir);
+      if (!fd_dent) {
+        // The directory of an exiting process can vanish while it is read.
+        if (errno && !fdinfo_error_is_skippable())
+          scan_failed = true;
+        break;
+      }
       struct gpu_process processes_info_local = {0};
       int fd_num;
       dev_t drm_node;
@@ -295,10 +350,14 @@ void processinfo_sweep_fdinfos(void) {
       char fdinfo_path[sizeof("fdinfo/") + sizeof(fd_dent->d_name)];
       snprintf(fdinfo_path, sizeof(fdinfo_path), "fdinfo/%s", fd_dent->d_name);
       int fdinfo_fd = openat(pid_dir_fd, fdinfo_path, O_RDONLY);
-      if (fdinfo_fd < 0)
+      if (fdinfo_fd < 0) {
+        if (!fdinfo_error_is_skippable())
+          mark_fd_failure(owner);
         continue;
+      }
       FILE *fdinfo_file = fdopen(fdinfo_fd, "r");
       if (!fdinfo_file) {
+        mark_fd_failure(owner);
         close(fdinfo_fd);
         continue;
       }
@@ -307,7 +366,14 @@ void processinfo_sweep_fdinfos(void) {
       // it. Duplicates must not reach the callbacks, whose per-client caches
       // expect each client once per process.
       unsigned long long client_id;
+      errno = 0;
       bool have_client_id = read_drm_client_id(fdinfo_file, &client_id);
+      if (ferror(fdinfo_file)) {
+        if (!fdinfo_read_vanished(fdinfo_file))
+          mark_fd_failure(owner);
+        fclose(fdinfo_file);
+        continue;
+      }
       if (have_client_id) {
         if (client_seen(drm_node, client_id)) {
           fclose(fdinfo_file);
@@ -351,9 +417,21 @@ void processinfo_sweep_fdinfos(void) {
             current_callback = candidate;
         }
       }
+      bool vanished = !current_callback && fdinfo_read_vanished(fdinfo_file);
       fclose(fdinfo_file);
-      if (!current_callback)
+      if (!current_callback && !vanished) {
+        // The fd may have been closed and its number reused for another file
+        // between the stat and the fdinfo read.
+        dev_t current_node;
+        vanished = !get_drm_fd_node(fd_dir_fd, fd_dent->d_name, &current_node) || current_node != drm_node;
+      }
+      if (!current_callback) {
+        // The device's own fd could not be parsed (e.g., a kernel without fdinfo
+        // support for it), so its process list cannot establish zero usage.
+        if (!vanished)
+          mark_fd_failure(owner);
         continue;
+      }
       if (have_client_id)
         record_client(drm_node, client_id);
 
@@ -457,4 +535,9 @@ void processinfo_sweep_fdinfos(void) {
   }
 
   closedir(proc_dir);
+  for (unsigned callback_idx = 0; callback_idx < registered_callback_entries; ++callback_idx) {
+    struct callback_entry *current_callback = &callback_entries[callback_idx];
+    if (current_callback->active)
+      current_callback->gpu_info->processes_query_succeeded = !scan_failed && !current_callback->scan_failed;
+  }
 }

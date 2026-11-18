@@ -41,7 +41,7 @@
 // Core NVML types needed throughout the file (from nvml.h — cannot include directly
 // due to dlsym function pointer conflicts with nvtop's architecture).
 
-// NVML return codes (subset — we only use NVML_SUCCESS and NVML_ERROR_NOT_SUPPORTED)
+// NVML return codes used by the backend and its injected-driver tests.
 typedef enum nvmlReturn_enum {
   NVML_SUCCESS = 0,
   NVML_ERROR_UNINITIALIZED = 1,
@@ -50,6 +50,8 @@ typedef enum nvmlReturn_enum {
   NVML_ERROR_NO_PERMISSION = 4,
   NVML_ERROR_NOT_FOUND = 6,
   NVML_ERROR_INSUFFICIENT_SIZE = 7,
+  NVML_ERROR_FUNCTION_NOT_FOUND = 13,
+  NVML_ERROR_UNKNOWN = 999,
 } nvmlReturn_t;
 
 // Opaque device handle (nvml.h defines as struct nvmlDevice_st*)
@@ -1461,7 +1463,9 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
   struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
   nvmlDevice_t device = gpu_info->gpuhandle;
   bool validProcessGathering = false;
+  _gpu_info->processes_query_succeeded = false;
   for (unsigned version = 3; !validProcessGathering && version > 0; version--) {
+    bool process_query_failed = false;
     // Get the size of the actual function being used
     size_t sizeof_nvmlProcessInfo;
     switch (version) {
@@ -1497,6 +1501,9 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
       if (last_nvml_return_status == NVML_SUCCESS) {
         validProcessGathering = true;
         graphical_count = recovered_count;
+      } else if (last_nvml_return_status != NVML_ERROR_NOT_SUPPORTED &&
+                 last_nvml_return_status != NVML_ERROR_FUNCTION_NOT_FOUND) {
+        process_query_failed = true;
       }
     }
 
@@ -1517,6 +1524,9 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
       if (last_nvml_return_status == NVML_SUCCESS) {
         validProcessGathering = true;
         compute_count = recovered_count;
+      } else if (last_nvml_return_status != NVML_ERROR_NOT_SUPPORTED &&
+                 last_nvml_return_status != NVML_ERROR_FUNCTION_NOT_FOUND) {
+        process_query_failed = true;
       }
     }
 
@@ -1537,12 +1547,18 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
       if (last_nvml_return_status == NVML_SUCCESS) {
         validProcessGathering = true;
         compute_count += recovered_count;
+      } else if (last_nvml_return_status != NVML_ERROR_NOT_SUPPORTED &&
+                 last_nvml_return_status != NVML_ERROR_FUNCTION_NOT_FOUND) {
+        process_query_failed = true;
       }
     }
 
     if (!validProcessGathering)
       continue;
 
+    // Unsupported query types are optional, but a failed supported query can
+    // hide processes even if another query successfully returned an empty list.
+    _gpu_info->processes_query_succeeded = !process_query_failed;
     _gpu_info->processes_count = graphical_count + compute_count;
     if (_gpu_info->processes_count > 0) {
       if (_gpu_info->processes_count > _gpu_info->processes_array_size) {

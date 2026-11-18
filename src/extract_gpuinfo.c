@@ -289,7 +289,10 @@ static void gpuinfo_clean_old_cache(void) {
 bool gpuinfo_refresh_processes(struct list_head *devices) {
   struct gpu_info *device;
 
-  list_for_each_entry(device, devices, list) { device->processes_count = 0; }
+  list_for_each_entry(device, devices, list) {
+    device->processes_count = 0;
+    device->processes_query_succeeded = false;
+  }
 
   // Go through the /proc hierarchy once and populate the processes for all registered GPUs
   processinfo_sweep_fdinfos();

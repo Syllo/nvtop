@@ -271,6 +271,10 @@ struct gpu_info {
   struct gpuinfo_static_info static_info;
   struct gpuinfo_dynamic_info dynamic_info;
   unsigned processes_count;
+  // A fresh process query succeeded, including an empty result. This does not
+  // imply that each process exposes memory usage; check its validity flag.
+  // Backends that cannot establish query success leave this false.
+  bool processes_query_succeeded;
   struct gpu_process *processes;
   unsigned processes_array_size;
   char pdev[PDEV_LEN];

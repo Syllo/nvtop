@@ -180,7 +180,11 @@ static void gpuinfo_qcom_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   gpuinfo_refresh_system_memory(dynamic_info);
 }
 
-static void gpuinfo_qcom_npu_get_running_processes(struct gpu_info *_gpu_info) { (void)_gpu_info; }
+static void gpuinfo_qcom_npu_get_running_processes(struct gpu_info *_gpu_info) {
+  // This backend has no process query; an empty list does not establish zero usage.
+  _gpu_info->processes_count = 0;
+  _gpu_info->processes_query_succeeded = false;
+}
 
 struct gpu_vendor gpu_vendor_qcom_npu = {
     .init = gpuinfo_qcom_npu_init,

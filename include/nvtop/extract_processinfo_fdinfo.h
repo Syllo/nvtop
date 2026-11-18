@@ -65,7 +65,10 @@ void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool e
  * @brief Scan all the processes in /proc. Call the callback of the device owning
  * each DRM file descriptor that can successfully be opened. If the callback
  * succeeds, the gpu_info structure processes array will be updated with the
- * retrieved data. Fds of other devices are skipped.
+ * retrieved data. Active devices also receive processes_query_succeeded unless
+ * the scan of /proc failed, or one of their own fds could not be read or parsed.
+ * Processes or descriptors that disappear during the scan, processes that cannot
+ * be inspected without privileges, and fds of other devices are skipped.
  */
 void processinfo_sweep_fdinfos(void);
 
