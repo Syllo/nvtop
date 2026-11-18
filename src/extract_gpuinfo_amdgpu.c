@@ -512,7 +512,8 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       initDeviceSysfsPaths(&gpu_infos[amdgpu_count]);
       list_add_tail(&gpu_infos[amdgpu_count].base.list, devices);
       // Register a fdinfo callback for this GPU
-      processinfo_register_fdinfo_callback(parse_drm_fdinfo_amd, &gpu_infos[amdgpu_count].base);
+      processinfo_register_fdinfo_callback(parse_drm_fdinfo_amd, &gpu_infos[amdgpu_count].base,
+                                           devs[i]->nodes[is_render_node ? DRM_NODE_RENDER : DRM_NODE_PRIMARY]);
       amdgpu_count++;
     } else {
       _drmFreeVersion(ver);

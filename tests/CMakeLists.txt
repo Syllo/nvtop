@@ -1,5 +1,17 @@
 find_package(GTest)
 
+if (BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_executable(fdinfoTests fdinfoTests.c)
+  target_include_directories(fdinfoTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_compile_definitions(fdinfoTests PRIVATE _GNU_SOURCE)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(fdinfoTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET fdinfoTests PROPERTY C_STANDARD 11)
+  add_sanitizers(fdinfoTests)
+  add_test(NAME Fdinfo.sweep COMMAND fdinfoTests)
+endif()
+
 # The NVIDIA backend tests use injected NVML entry points and need neither
 # GTest nor an NVIDIA driver/SDK, so they can also run on CPU-only CI hosts.
 if (BUILD_TESTING AND NVIDIA_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")

@@ -198,7 +198,7 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   thisGPU->hwmon_device = nvtop_device_get_hwmon(thisGPU->driver_device);
   thisGPU->perf_event_fd = PERF_EVENT_FD_NOT_OPENED;
 
-  const char *devname;
+  const char *devname = NULL;
   if (nvtop_device_get_devname(thisGPU->card_device, &devname) >= 0)
     thisGPU->card_fd = open(devname, O_WRONLY);
 
@@ -208,7 +208,7 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   strncpy(thisGPU->base.pdev, pdev_val, PDEV_LEN);
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
-  processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base);
+  processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base, devname);
   (*count)++;
 }
 

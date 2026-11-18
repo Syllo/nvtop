@@ -41,9 +41,18 @@
 #define KCMP_FILE 0
 #endif
 
+#define DRM_MAJOR 226
+// A DRM device exposes a primary (card) node and usually a render node.
+#define FDINFO_MAX_DRM_NODES 4
+
 struct callback_entry {
   struct gpu_info *gpu_info;
   processinfo_fdinfo_callback callback;
+  // Device numbers of the DRM nodes owned by this device. Empty when the
+  // backend could not provide a node, in which case the entry is a candidate
+  // for every DRM fd that no other device owns.
+  dev_t drm_nodes[FDINFO_MAX_DRM_NODES];
+  unsigned drm_nodes_count;
   bool active;
 };
 
@@ -63,7 +72,50 @@ void processinfo_drop_callback(const struct gpu_info *info) {
   }
 }
 
-void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info) {
+static void add_drm_node(struct callback_entry *entry, dev_t node) {
+  for (unsigned i = 0; i < entry->drm_nodes_count; ++i) {
+    if (entry->drm_nodes[i] == node)
+      return;
+  }
+  if (entry->drm_nodes_count < FDINFO_MAX_DRM_NODES)
+    entry->drm_nodes[entry->drm_nodes_count++] = node;
+}
+
+// Record the node and its siblings listed in /sys/dev/char/<major>:<minor>/device/drm,
+// so that processes holding either the primary or the render node are attributed.
+static void resolve_drm_nodes(struct callback_entry *entry, const char *drm_node) {
+  struct stat node_stat;
+  entry->drm_nodes_count = 0;
+  if (!drm_node || fstatat(AT_FDCWD, drm_node, &node_stat, 0) != 0 || (node_stat.st_mode & S_IFMT) != S_IFCHR ||
+      major(node_stat.st_rdev) != DRM_MAJOR)
+    return;
+  add_drm_node(entry, node_stat.st_rdev);
+
+  char drm_dir_path[64];
+  snprintf(drm_dir_path, sizeof(drm_dir_path), "/sys/dev/char/%u:%u/device/drm", major(node_stat.st_rdev),
+           minor(node_stat.st_rdev));
+  DIR *drm_dir = opendir(drm_dir_path);
+  if (!drm_dir)
+    return;
+  struct dirent *drm_dent;
+  while ((drm_dent = readdir(drm_dir)) != NULL) {
+    if (strncmp(drm_dent->d_name, "card", 4) && strncmp(drm_dent->d_name, "renderD", 7))
+      continue;
+    char dev_path[sizeof(drm_dir_path) + sizeof(drm_dent->d_name) + 8];
+    snprintf(dev_path, sizeof(dev_path), "%s/%s/dev", drm_dir_path, drm_dent->d_name);
+    FILE *dev_file = fopen(dev_path, "r");
+    if (!dev_file)
+      continue;
+    unsigned node_major, node_minor;
+    if (fscanf(dev_file, "%u:%u", &node_major, &node_minor) == 2 && node_major == DRM_MAJOR)
+      add_drm_node(entry, makedev(node_major, node_minor));
+    fclose(dev_file);
+  }
+  closedir(drm_dir);
+}
+
+void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info,
+                                          const char *drm_node) {
   if (callback_entries_size == registered_callback_entries) {
     callback_entries_size += FDINFO_CALLBACK_ARRAY_INCREMENT;
     callback_entries = reallocarray(callback_entries, callback_entries_size, sizeof(*callback_entries));
@@ -72,9 +124,11 @@ void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, 
       exit(EXIT_FAILURE);
     }
   }
-  callback_entries[registered_callback_entries].gpu_info = info;
-  callback_entries[registered_callback_entries].callback = callback;
-  callback_entries[registered_callback_entries].active = true;
+  struct callback_entry *entry = &callback_entries[registered_callback_entries];
+  entry->gpu_info = info;
+  entry->callback = callback;
+  entry->active = true;
+  resolve_drm_nodes(entry, drm_node);
   registered_callback_entries++;
 }
 
@@ -86,13 +140,32 @@ void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool e
   }
 }
 
-static bool is_drm_fd(int fd_dir_fd, const char *name) {
+static struct callback_entry *find_drm_node_owner(dev_t node) {
+  for (unsigned index = 0; index < registered_callback_entries; ++index) {
+    struct callback_entry *entry = &callback_entries[index];
+    for (unsigned i = 0; i < entry->drm_nodes_count; ++i) {
+      if (entry->drm_nodes[i] == node)
+        return entry;
+    }
+  }
+  return NULL;
+}
+
+static bool run_callback(struct callback_entry *entry, FILE *fdinfo_file, struct gpu_process *process_info) {
+  rewind(fdinfo_file);
+  RESET_ALL(process_info->valid);
+  process_info->type = gpu_process_unknown;
+  return entry->callback(entry->gpu_info, fdinfo_file, process_info);
+}
+
+static bool get_drm_fd_node(int fd_dir_fd, const char *name, dev_t *node) {
   struct stat stat;
-  int ret;
-
-  ret = fstatat(fd_dir_fd, name, &stat, 0);
-
-  return ret == 0 && (stat.st_mode & S_IFMT) == S_IFCHR && major(stat.st_rdev) == 226;
+  if (fstatat(fd_dir_fd, name, &stat, 0) < 0)
+    return false;
+  if ((stat.st_mode & S_IFMT) != S_IFCHR || major(stat.st_rdev) != DRM_MAJOR)
+    return false;
+  *node = stat.st_rdev;
+  return true;
 }
 
 // Increment for the number DRM FD tracked per process
@@ -101,9 +174,11 @@ static bool is_drm_fd(int fd_dir_fd, const char *name) {
 
 void processinfo_sweep_fdinfos(void) {
   bool anyActiveCallback = false;
-  for (unsigned callback_idx = 0; !anyActiveCallback && callback_idx < registered_callback_entries; ++callback_idx) {
+  bool anyActiveWithoutNodes = false;
+  for (unsigned callback_idx = 0; callback_idx < registered_callback_entries; ++callback_idx) {
     struct callback_entry *current_callback = &callback_entries[callback_idx];
     anyActiveCallback = anyActiveCallback || current_callback->active;
+    anyActiveWithoutNodes = anyActiveWithoutNodes || (current_callback->active && !current_callback->drm_nodes_count);
   }
   if (!anyActiveCallback)
     return;
@@ -112,15 +187,20 @@ void processinfo_sweep_fdinfos(void) {
   if (!proc_dir)
     return;
 
+  // DRM fds already handled for the current process, with the node they are
+  // opened to: only fds to the same node can refer to the same open file.
   static unsigned seen_fds_capacity = 0;
-  static int *seen_fds = NULL;
+  static struct {
+    int fd;
+    dev_t node;
+  } *seen_fds = NULL;
 
   struct dirent *proc_dent;
   while ((proc_dent = readdir(proc_dir)) != NULL) {
-    int pid_dir_fd = -1, fd_dir_fd = -1, fdinfo_dir_fd = -1;
-    DIR *fdinfo_dir = NULL;
+    int pid_dir_fd = -1, fd_dir_fd = -1;
+    DIR *fd_dir = NULL;
     unsigned int seen_fds_len = 0;
-    struct dirent *fdinfo_dent;
+    struct dirent *fd_dent;
     unsigned int client_pid;
 
     if (proc_dent->d_type != DT_DIR)
@@ -140,35 +220,36 @@ void processinfo_sweep_fdinfos(void) {
     if (fd_dir_fd < 0)
       goto next;
 
-    fdinfo_dir_fd = openat(pid_dir_fd, "fdinfo", O_DIRECTORY);
-    if (fdinfo_dir_fd < 0)
+    // Walk the fds and only open the fdinfo of the few that are DRM fds.
+    fd_dir = fdopendir(fd_dir_fd);
+    if (!fd_dir)
       goto next;
-
-    fdinfo_dir = fdopendir(fdinfo_dir_fd);
-    if (!fdinfo_dir) {
-      close(fdinfo_dir_fd);
-      goto next;
-    }
 
   next_fd:
-    while ((fdinfo_dent = readdir(fdinfo_dir)) != NULL) {
+    while ((fd_dent = readdir(fd_dir)) != NULL) {
       struct gpu_process processes_info_local = {0};
       int fd_num;
+      dev_t drm_node;
 
-      if (fdinfo_dent->d_type != DT_REG)
-        continue;
-      if (!isdigit(fdinfo_dent->d_name[0]))
-        continue;
-
-      if (!is_drm_fd(fd_dir_fd, fdinfo_dent->d_name))
+      if (!isdigit(fd_dent->d_name[0]))
         continue;
 
-      fd_num = atoi(fdinfo_dent->d_name);
+      if (!get_drm_fd_node(fd_dir_fd, fd_dent->d_name, &drm_node))
+        continue;
+
+      // Only parse fds of monitored devices. A fd owned by no device belongs to a
+      // driver without process reporting (or to an unmonitored device).
+      struct callback_entry *owner = find_drm_node_owner(drm_node);
+      if (owner ? !owner->active : !anyActiveWithoutNodes)
+        continue;
+
+      fd_num = atoi(fd_dent->d_name);
 
       // check if this fd refers to the same open file as any seen ones.
       // we only care about unique opens
       for (unsigned i = 0; i < seen_fds_len; i++) {
-        if (syscall(SYS_kcmp, client_pid, client_pid, KCMP_FILE, fd_num, seen_fds[i]) <= 0)
+        if (seen_fds[i].node == drm_node &&
+            syscall(SYS_kcmp, client_pid, client_pid, KCMP_FILE, fd_num, seen_fds[i].fd) <= 0)
           goto next_fd;
       }
 
@@ -180,9 +261,13 @@ void processinfo_sweep_fdinfos(void) {
           exit(EXIT_FAILURE);
         }
       }
-      seen_fds[seen_fds_len++] = fd_num;
+      seen_fds[seen_fds_len].fd = fd_num;
+      seen_fds[seen_fds_len].node = drm_node;
+      seen_fds_len++;
 
-      int fdinfo_fd = openat(fdinfo_dir_fd, fdinfo_dent->d_name, O_RDONLY);
+      char fdinfo_path[sizeof("fdinfo/") + sizeof(fd_dent->d_name)];
+      snprintf(fdinfo_path, sizeof(fdinfo_path), "fdinfo/%s", fd_dent->d_name);
+      int fdinfo_fd = openat(pid_dir_fd, fdinfo_path, O_RDONLY);
       if (fdinfo_fd < 0)
         continue;
       FILE *fdinfo_file = fdopen(fdinfo_fd, "r");
@@ -191,22 +276,22 @@ void processinfo_sweep_fdinfos(void) {
         continue;
       }
 
-      bool callback_success = false;
       struct callback_entry *current_callback = NULL;
       processes_info_local.pid = client_pid;
-      for (unsigned callback_idx = 0; !callback_success && callback_idx < registered_callback_entries; ++callback_idx) {
-        rewind(fdinfo_file);
-        fflush(fdinfo_file);
-        RESET_ALL(processes_info_local.valid);
-        processes_info_local.type = gpu_process_unknown;
-        current_callback = &callback_entries[callback_idx];
-        if (current_callback->active)
-          callback_success = current_callback->callback(current_callback->gpu_info, fdinfo_file, &processes_info_local);
-        else
-          callback_success = false;
+      if (owner) {
+        if (run_callback(owner, fdinfo_file, &processes_info_local))
+          current_callback = owner;
+      } else {
+        for (unsigned callback_idx = 0; !current_callback && callback_idx < registered_callback_entries;
+             ++callback_idx) {
+          struct callback_entry *candidate = &callback_entries[callback_idx];
+          if (candidate->active && !candidate->drm_nodes_count &&
+              run_callback(candidate, fdinfo_file, &processes_info_local))
+            current_callback = candidate;
+        }
       }
       fclose(fdinfo_file);
-      if (!callback_success)
+      if (!current_callback)
         continue;
 
       unsigned process_index =
@@ -300,14 +385,13 @@ void processinfo_sweep_fdinfos(void) {
     }
 
   next:
-    if (fdinfo_dir)
-      closedir(fdinfo_dir);
-
-    if (fd_dir_fd >= 0)
+    // The directory stream owns fd_dir_fd once it has been created.
+    if (fd_dir)
+      closedir(fd_dir);
+    else if (fd_dir_fd >= 0)
       close(fd_dir_fd);
     close(pid_dir_fd);
   }
 
   closedir(proc_dir);
-  return;
 }

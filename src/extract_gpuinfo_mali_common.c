@@ -244,15 +244,18 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
 
   for (unsigned int i = 0; i < libdrm_count; i++) {
     int fd = -1;
+    const char *drm_node = NULL;
 
     // Try render node first
     if (1 << DRM_NODE_RENDER & devs[i]->available_nodes) {
       fd = open(devs[i]->nodes[DRM_NODE_RENDER], O_RDWR);
+      drm_node = devs[i]->nodes[DRM_NODE_RENDER];
     }
     if (fd < 0) {
       // Fallback to primary node (control nodes are unused according to the DRM documentation)
       if (1 << DRM_NODE_PRIMARY & devs[i]->available_nodes) {
         fd = open(devs[i]->nodes[DRM_NODE_PRIMARY], O_RDWR);
+        drm_node = devs[i]->nodes[DRM_NODE_PRIMARY];
       }
     }
 
@@ -280,7 +283,7 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
 
     list_add_tail(&state->gpu_infos[state->mali_gpu_count].base.list, devices);
     // Register a fdinfo callback for this GPU
-    processinfo_register_fdinfo_callback(callback, &state->gpu_infos[state->mali_gpu_count].base);
+    processinfo_register_fdinfo_callback(callback, &state->gpu_infos[state->mali_gpu_count].base, drm_node);
 
     if (handle_model) {
       if (!handle_model(&state->gpu_infos[state->mali_gpu_count])) {

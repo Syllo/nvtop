@@ -203,7 +203,7 @@ static void add_v3d_cards(struct nvtop_device *dev, const char *devname, struct 
   thisGPU->driver_device = nvtop_device_ref(parent);
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
-  processinfo_register_fdinfo_callback(parse_drm_fdinfo_v3d, &thisGPU->base);
+  processinfo_register_fdinfo_callback(parse_drm_fdinfo_v3d, &thisGPU->base, devname);
   thisGPU->mb = mbox_open();
   if (sscanf(devname, "/dev/dri/card%d", &thisGPU->card_id) != 1)
     thisGPU->card_id = 0;
