@@ -130,6 +130,21 @@ static inline void *intel_i915_query_alloc_fetch(int fd, uint64_t query_id, int3
 }
 // End Copy
 
+int gpuinfo_intel_i915_has_device_memory(struct gpu_info_intel *gpu_info) {
+  int32_t length = 0;
+  struct drm_i915_query_memory_regions *regions =
+      intel_i915_query_alloc_fetch(gpu_info->card_fd, DRM_I915_QUERY_MEMORY_REGIONS, &length);
+  if (!regions)
+    return -1;
+  int has_device_memory = 0;
+  for (unsigned i = 0; i < regions->num_regions; i++) {
+    if (regions->regions[i].region.memory_class == I915_MEMORY_CLASS_DEVICE)
+      has_device_memory = 1;
+  }
+  free(regions);
+  return has_device_memory;
+}
+
 void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
@@ -141,10 +156,10 @@ void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (regions) {
       for (unsigned i = 0; i < regions->num_regions; i++) {
         struct drm_i915_memory_region_info mr = regions->regions[i];
-        // ARC will have device memory and system memory, integrated graphics will have only one system region
-        if (mr.region.memory_class == I915_MEMORY_CLASS_DEVICE || regions->num_regions == 1) {
+        // Only discrete GPUs get here: report their device memory region
+        if (mr.region.memory_class == I915_MEMORY_CLASS_DEVICE) {
           SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.probed_size);
-          // i915 will report the total memory as the unallocated size if we don't have CAP_PERFMON
+          // i915 reports the total memory as the unallocated size if we don't have CAP_PERFMON
           if (mr.unallocated_size != mr.probed_size) {
             SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mr.unallocated_size);
             SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, dynamic_info->total_memory - dynamic_info->free_memory);

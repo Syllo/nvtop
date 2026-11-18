@@ -287,6 +287,7 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = false;
   static_info->encode_decode_shared = true;
+  static_info->memory_shared_with_host = false;
   RESET_ALL(static_info->valid);
 
   if (nvtop_device_get_property_value(gpu_info->driver_device, "ID_MODEL_FROM_DATABASE", &dev_name) >= 0) {
@@ -304,6 +305,14 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
   if (strcmp(gpu_info->base.pdev, INTEGRATED_I915_GPU_PCI_ID) == 0) {
     static_info->integrated_graphics = true;
   }
+
+  // A device without a VRAM region allocates from system memory. Ask the
+  // driver rather than relying on the PCI address, which misses integrated
+  // GPUs exposed elsewhere (passed through to a VM, SR-IOV virtual functions).
+  int has_device_memory = gpu_info->driver == DRIVER_XE ? gpuinfo_intel_xe_has_device_memory(gpu_info)
+                                                        : gpuinfo_intel_i915_has_device_memory(gpu_info);
+  static_info->memory_shared_with_host =
+      has_device_memory == 0 || (has_device_memory < 0 && static_info->integrated_graphics);
 
   nvtop_pcie_link max_link_characteristics;
   int ret = nvtop_device_maximum_pcie_link(gpu_info->driver_device, &max_link_characteristics);
@@ -490,13 +499,21 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  switch (gpu_info->driver) {
-  case DRIVER_I915:
-    gpuinfo_intel_i915_refresh_dynamic_info(_gpu_info);
-    break;
-  case DRIVER_XE:
-    gpuinfo_intel_xe_refresh_dynamic_info(_gpu_info);
-    break;
+  // Integrated GPUs only have the system memory region, which neither driver
+  // can account for as a whole: i915 reports it as entirely unallocated and xe
+  // only counts the GPU's own buffers in it. Report the system memory counters
+  // instead, as the other backends sharing memory with the host do.
+  if (static_info->memory_shared_with_host) {
+    gpuinfo_refresh_system_memory(dynamic_info);
+  } else {
+    switch (gpu_info->driver) {
+    case DRIVER_I915:
+      gpuinfo_intel_i915_refresh_dynamic_info(_gpu_info);
+      break;
+    case DRIVER_XE:
+      gpuinfo_intel_xe_refresh_dynamic_info(_gpu_info);
+      break;
+    }
   }
 
   // Let the temporary devices be garbage collected

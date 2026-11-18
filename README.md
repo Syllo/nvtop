@@ -109,8 +109,8 @@ the header shows `SYS-FAN` to indicate that cooling is handled by the system;
 snapshots report `"System Fan"`. Versions up to 3.4.0 showed `CPU-FAN` and
 `"CPU Fan"` instead.
 
-Devices without memory of their own (integrated GPUs and NPUs such as Adreno
-and Mali GPUs, and unified-memory systems such as DGX Spark) share the
+Devices without memory of their own (integrated GPUs and NPUs such as Intel,
+Adreno and Mali GPUs, and unified-memory systems such as DGX Spark) share the
 system memory with the host. For them, `MEM` shows the memory allocated by the
 device's processes, out of a capacity of those allocations plus the memory
 Linux still has available (`MemAvailable`): memory used by other programs
@@ -159,8 +159,12 @@ source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/dr
 Hence, you will need a kernel with a version greater or equal to 5.19 to see the
 processes using Intel GPUs.
 
-Intel requires CAP_PERFMON or CAP_SYS_ADMIN capabilities to access the total memory usage, and an accurate GPU frequency.
-you can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
+Intel GPUs without dedicated memory (integrated GPUs) share the system memory
+pool. When GPU allocation accounting is unavailable, the header labels its
+system memory fallback `RAM`, using Linux `MemTotal` and `MemAvailable`.
+On discrete GPUs, the VRAM usage requires CAP_PERFMON or
+CAP_SYS_ADMIN with i915 (and with xe on older kernels). An accurate GPU frequency
+also requires CAP_PERFMON. You can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
 
 ### Intel NPU
 
