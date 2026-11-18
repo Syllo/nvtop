@@ -47,6 +47,7 @@ if(UNIX AND NOT APPLE)
 elseif(APPLE)
   target_sources(nvtop PRIVATE
     get_process_info_mac.c
+    get_process_info_mac_utils.c
     extract_processinfo_mac.c
     info_messages_mac.c)
 endif()
@@ -151,10 +152,16 @@ if(V3D_SUPPORT)
 endif()
 
 if(APPLE_SUPPORT)
-  target_sources(nvtop PRIVATE extract_gpuinfo_apple.m)
+  target_sources(nvtop PRIVATE
+    extract_gpuinfo_apple.m
+    extract_gpuinfo_apple_ioreport.c
+    extract_gpuinfo_apple_pci.c
+    extract_gpuinfo_apple_smc.c
+    extract_gpuinfo_apple_utils.m)
   target_link_libraries(nvtop PRIVATE
     "-framework Metal"
     "-framework AppKit"
+    "-framework CoreFoundation"
     "-framework Foundation"
     "-framework QuartzCore"
     "-framework IOKit")
@@ -218,6 +225,13 @@ endif()
 if(IXML_SUPPORT)
   message(STATUS "Building with Iluvatar CoreX GPU support")
   target_sources(nvtop PRIVATE extract_gpuinfo_ixml.c)
+endif()
+
+if(GAUDI_SUPPORT)
+  message(STATUS "Building with Intel Gaudi HPU support")
+  find_package(Threads REQUIRED)
+  target_sources(nvtop PRIVATE extract_gpuinfo_gaudi.c)
+  target_link_libraries(nvtop PRIVATE Threads::Threads)
 endif()
 
 target_include_directories(nvtop PRIVATE

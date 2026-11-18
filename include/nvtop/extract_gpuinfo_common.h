@@ -63,6 +63,8 @@ enum gpuinfo_static_info_valid {
   gpuinfo_n_exec_engines_valid,
   gpuinfo_engine_count_valid,
   gpuinfo_memory_type_valid,
+  gpuinfo_apple_slot_valid,
+  gpuinfo_mpx_die_index_valid,
   gpuinfo_c2c_link_count_valid,
   gpuinfo_static_info_count,
 };
@@ -85,6 +87,18 @@ struct gpuinfo_static_info {
   bool encode_decode_shared;
   bool memory_shared_with_host; // True if device memory is shared with the host (e.g. UMA)
   char memory_type[8];
+  // Apple chassis metadata, populated by the macOS backend from the GPU's
+  // IOPCIDevice. Other backends leave these invalid; do not read them unless
+  // the matching *_valid bit is set. The PCI address itself goes through the
+  // usual gpu_info.pdev field.
+  // Chassis slot label published by Apple as AAPL,slot-name ("Slot-1" on a
+  // MacPro7,1, "PCI Slot 2" on other Intel Macs). Multi-die cards share the
+  // slot label; mpx_die_index disambiguates them.
+  char apple_slot[32];
+  // 0-indexed die position inside the slot, parsed from the GD<y> ACPI device
+  // segment of the AMD driver path. 0 for single-die cards; 0 or 1 for a
+  // W6800X/W6900X Duo.
+  unsigned mpx_die_index;
   unsigned char valid[(gpuinfo_static_info_count + CHAR_BIT - 1) / CHAR_BIT];
 };
 
@@ -227,6 +241,7 @@ enum gpu_processing_unit {
   gpu_processing_unit_gpu = 0,
   gpu_processing_unit_npu,
   gpu_processing_unit_ppu,
+  gpu_processing_unit_hpu,
   gpu_processing_unit_count,
 };
 
@@ -263,7 +278,7 @@ struct gpu_info {
 
 // Short 3-character label for a processing unit (e.g. "GPU", "NPU")
 static inline const char *processing_unit_name(enum gpu_processing_unit unit) {
-  static const char *const names[gpu_processing_unit_count] = {"GPU", "NPU", "PPU"};
+  static const char *const names[gpu_processing_unit_count] = {"GPU", "NPU", "PPU", "HPU"};
   return (unsigned)unit < gpu_processing_unit_count ? names[unit] : names[gpu_processing_unit_gpu];
 }
 

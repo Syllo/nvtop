@@ -1100,15 +1100,10 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
                   device->dynamic_info.fan_speed > 100 ? 100 : device->dynamic_info.fan_speed);
         mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
       }
-    } else if (device->static_info.integrated_graphics) {
-      if (any_device_has_nvlink_active) {
-        mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN");
-        mvwchgat(dev->fan_speed, 0, 0, 7, 0, cyan_color, NULL);
-      } else {
-        mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
-        mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
-      }
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm)) {
+      // A real tachometer reading is more useful than the "CPU-FAN"
+      // placeholder, which is only a fallback for integrated GPUs with no
+      // fan reporting (this also matches the snapshot output).
       if (any_device_has_nvlink_active) {
         mvwprintw(dev->fan_speed, 0, 0, "FAN%3uR",
                   device->dynamic_info.fan_rpm > 999 ? 999 : device->dynamic_info.fan_rpm);
@@ -1117,6 +1112,14 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         mvwprintw(dev->fan_speed, 0, 0, "FAN %4uRPM",
                   device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
         mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
+      }
+    } else if (device->static_info.integrated_graphics) {
+      if (any_device_has_nvlink_active) {
+        mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN");
+        mvwchgat(dev->fan_speed, 0, 0, 7, 0, cyan_color, NULL);
+      } else {
+        mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
+        mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
       }
     } else {
       if (any_device_has_nvlink_active) {
@@ -1225,7 +1228,9 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       wnoutrefresh(dev->nvlink_info);
     }
 
-    // PICe throughput
+    // PCIe gen/width is shown on every platform; on Apple the RX/TX part is
+    // replaced with the chassis slot label (AAPL,slot-name, e.g. "Slot-1")
+    // and the die index for multi-die cards.
     werase(dev->pcie_info);
     if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count)) {
       // The device is attached over NVLink-C2C instead of PCIe, so reporting a
@@ -1254,6 +1259,31 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         wprintw(dev->pcie_info, "N/A");
     }
 
+#if defined(__APPLE__)
+    // On Apple, replace the always-N/A RX/TX display with the chassis
+    // slot + (for multi-die cards) die index. Integrated GPUs have no slot.
+    // The label is budgeted against the remaining window columns so a long
+    // AAPL,slot-name cannot clip the /dieN disambiguator.
+    if (!device->static_info.integrated_graphics && GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot)) {
+      wcolor_set(dev->pcie_info, magenta_color, NULL);
+      wprintw(dev->pcie_info, " slot: ");
+      wstandend(dev->pcie_info);
+
+      char die_suffix[16] = "";
+      int die_width = 0;
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, mpx_die_index)) {
+        die_width = snprintf(die_suffix, sizeof(die_suffix), "/die%u", device->static_info.mpx_die_index);
+        if (die_width < 0 || (size_t)die_width >= sizeof(die_suffix)) {
+          die_suffix[0] = '\0';
+          die_width = 0;
+        }
+      }
+      const int available = getmaxx(dev->pcie_info) - getcurx(dev->pcie_info) - die_width;
+      if (available > 0)
+        wprintw(dev->pcie_info, "%.*s", available, device->static_info.apple_slot);
+      wprintw(dev->pcie_info, "%s", die_suffix);
+    }
+#else
     if (!GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count)) {
       wcolor_set(dev->pcie_info, magenta_color, NULL);
       wprintw(dev->pcie_info, " RX: ");
@@ -1270,6 +1300,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       else
         wprintw(dev->pcie_info, "N/A");
     }
+#endif
 
     wnoutrefresh(dev->pcie_info);
 
@@ -2142,12 +2173,19 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
           }
           break;
         case plot_gpu_power_draw_rate:
-          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw) &&
-              GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
-              device->dynamic_info.power_draw_max > 0) {
-            data_val = device->dynamic_info.power_draw * 100 / device->dynamic_info.power_draw_max;
-            if (data_val > 100)
-              data_val = 100u;
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw)) {
+            if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
+                device->dynamic_info.power_draw_max > 0) {
+              data_val = device->dynamic_info.power_draw * 100 / device->dynamic_info.power_draw_max;
+              if (data_val > 100)
+                data_val = 100u;
+            } else {
+              // Without a power limit (e.g. Apple Silicon) a percentage would always be
+              // zero, so plot whole watts on the same 0..100 scale as temperature.
+              data_val = device->dynamic_info.power_draw / 1000;
+              if (data_val > 100)
+                data_val = 100u;
+            }
           } else {
             data_val = 0;
           }
@@ -2255,7 +2293,11 @@ static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices, c
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u temp(c)", unit, dev_id);
           break;
         case plot_gpu_power_draw_rate:
-          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u power%%", unit, dev_id);
+          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
+              device->dynamic_info.power_draw_max > 0)
+            snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u power%%", unit, dev_id);
+          else
+            snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u power(W)", unit, dev_id);
           break;
         case plot_fan_speed:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u fan%%", unit, dev_id);
@@ -2782,6 +2824,10 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     const char *mem_total_field = "mem_total";
     const char *mem_used_field = "mem_used";
     const char *mem_free_field = "mem_free";
+#if defined(__APPLE__)
+    const char *apple_slot_field = "apple_slot";
+    const char *mpx_die_index_field = "mpx_die_index";
+#endif
 
     printf("%s{\n", indent_level_two);
 
@@ -2922,7 +2968,7 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"fan_rpm\": null,\n", indent_level_four);
 
-    // Power draw
+    // Power draw, truncated to whole watts
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw))
       printf("%s\"%s\": \"%uW\",\n", indent_level_four, power_field, device->dynamic_info.power_draw / 1000);
     else
@@ -2980,6 +3026,24 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": \"%llu\",\n", indent_level_four, mem_free_field, device->dynamic_info.free_memory);
     else
       printf("%s\"%s\": null,\n", indent_level_four, mem_free_field);
+
+#if defined(__APPLE__)
+    // Apple chassis metadata. The PCI address is reported through the shared
+    // "pci" field above, so only the Apple-specific slot label lives here.
+    // For multi-die cards the two dies share the label; mpx_die_index tells
+    // them apart (parsed from the GD<nn> ACPI segment).
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, apple_slot)) {
+      printf("%s\"%s\": ", indent_level_four, apple_slot_field);
+      print_json_string(device->static_info.apple_slot);
+      printf(",\n");
+    } else {
+      printf("%s\"%s\": null,\n", indent_level_four, apple_slot_field);
+    }
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, mpx_die_index))
+      printf("%s\"%s\": %u,\n", indent_level_four, mpx_die_index_field, device->static_info.mpx_die_index);
+    else
+      printf("%s\"%s\": null,\n", indent_level_four, mpx_die_index_field);
+#endif
 
     // PCIe link status
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen))

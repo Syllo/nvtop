@@ -13,7 +13,8 @@ M2 support), Huawei (Ascend), Intel (Linux i915/Xe GPU drivers and the NPU
 through intel_vpu), NVIDIA (Linux proprietary drivers), Qualcomm Adreno (Linux
 MSM driver), Broadcom VideoCore (Linux v3d driver), Rockchip, MetaX (MXSML
 driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver),
-Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML).
+Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML), Intel Gaudi and Goya (Linux
+habanalabs driver).
 
 Because a picture is worth a thousand words:
 
@@ -41,6 +42,7 @@ Table of Contents
   - [MetaX](#metax)
   - [Enflame](#enflame)
   - [Tenstorrent](#tenstorrent)
+  - [Intel Gaudi](#intel-gaudi)
 - [Build](#build)
 - [Distribution Specific Installation Process](#distribution-specific-installation-process)
   - [Ubuntu / Debian](#ubuntu--debian)
@@ -213,6 +215,23 @@ NVTOP includes some initial support for Apple using Metal. This is only supporte
 
 **APPLE SUPPORT STATUS**
 - Apple support is still being worked on. Some bugs and limitations may apply.
+- On unified-memory systems, the memory meter compares global Metal resource allocations with total physical shared
+  memory. It does not represent dedicated VRAM or overall system memory pressure.
+- On Apple Silicon, power draw, GPU clock, temperature and fan speed are read through the private IOReport and AppleSMC
+  interfaces. These are undocumented and may change between macOS releases; when they are unavailable NVTOP reports the
+  affected values as unavailable instead of failing. The fan reading is the chassis fan shared by the SoC, not a fan
+  dedicated to the GPU.
+- GPU clock speed maps IOReport performance-state residency onto the GPU DVFS table (`voltage-states9`) exposed by the
+  `pmgr`/`pmgr-child` device-tree node. The table layout and units differ between chip generations, so this reading is
+  best-effort and may be unavailable on models NVTOP has not been validated against.
+- On Intel Macs with a discrete AMD GPU, temperature, power draw, core/memory clocks, fan speed and used VRAM come
+  from the driver's `PerformanceStatistics` dictionary, and per-process GPU usage from the AMD user-client nodes in
+  the I/O Registry. Both property sets are undocumented and vary between driver generations; values the driver does
+  not publish are reported as N/A.
+- The PCI bus/device address, the negotiated PCIe generation and width (`IOPCIExpressLinkStatus`) and the chassis slot
+  label (`AAPL,slot-name`, e.g. `Slot-1` on a Mac Pro) are read from the GPU's IOPCIDevice. Cards that publish a GD
+  device segment (such as the Radeon Pro W6800X Duo) report the same slot with a `/dieN` suffix. Apple Silicon
+  accelerators are not PCI devices, so these fields stay N/A there.
 
 ### Ascend
 
@@ -282,6 +301,30 @@ NVTOP supports Tenstorrent AI accelerators (Blackhole, Wormhole, Grayskull) thro
 
 Supports temperature, power draw, AI clock, fan RPM, PCIe link info, and process listing. No external libraries required -- all data is read from sysfs, hwmon, and procfs.
 
+### Intel Gaudi
+
+NVTOP supports Intel Gaudi HPUs (tested on Gaudi2 HL-225 with driver 1.24) through the *Habana Labs Management
+Library* (*HLML*, `libhlml.so`), the library behind `hl-smi`. It is loaded at runtime, so building only needs the
+`GAUDI_SUPPORT` option (enabled by default on Linux), not the Habana SDK headers.
+
+Supports AIP utilization, memory usage, SoC clock, chip temperature, power draw and limit, PCIe link and
+rx/tx throughput, and the processes using each device with their device memory and utilization.
+
+* Some HLML queries go through the device firmware and take tens of milliseconds, so the device information is sampled
+  by a background thread and lags behind by at most one refresh interval.
+* Processes are found by scanning `/proc` for the `/dev/accel/accelN` device nodes, hence you need to run nvtop as root
+  to see the processes of other users. Gaudi runs one compute context per device: the process memory is the value the
+  framework integration (e.g. PyTorch or Paddle) publishes in `/dev/shm/mem_usage_accelN` (as `hl-smi` shows it), or
+  N/A when it does not publish it. The process utilization is the device utilization when a single process can be
+  identified as the compute context (one device holder, or the single process publishing the framework memory).
+* Chip temperature is read from the hwmon channels that the driver's `/etc/sensors.d/hl_sensors.conf` labels
+  `On Chip ...`, avoiding a memory leak in HLML's temperature call. Only that file is read; relabeling or ignoring the
+  sensors in other `sensors.d` files is not followed. If the file is absent, yields no matching sensors, or selects a
+  different number of AIP sensors than HLML's per-ASIC map, nvtop falls back to the HLML call.
+* HLML also enumerates Goya devices; nvtop reports them as Goya with DDR4 memory. Goya has not been validated on
+  hardware.
+* The power limit is that of the main (54 V) power supply; `hl-smi` adds the auxiliary 12 V supply to its cap.
+
 Build
 -----
 
@@ -300,6 +343,8 @@ Several libraries are required in order for NVTOP to display GPU info:
 * For Iluvatar CoreX: the *ixML* runtime library (`libixml.so`) which comes with the driver.
   * This backend loads the library dynamically at runtime.
 * For T-Head PPU: the *HGML* runtime library (`libhgml.so`) which comes with the PPU SDK.
+  * This backend loads the library dynamically at runtime.
+* For Intel Gaudi: the *Habana Labs Management Library* (*HLML*) which comes with the habanalabs driver packages.
   * This backend loads the library dynamically at runtime.
 
 ## Distribution Specific Installation Process
