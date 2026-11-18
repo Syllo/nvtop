@@ -143,6 +143,13 @@ void gpuinfo_fix_shared_memory_from_process_info(struct gpu_info *device) {
   }
   if (!have_used || dynamic_info->system_free_memory > ULLONG_MAX - used)
     return;
+  // Per-process accounting can count a buffer shared between processes once
+  // per process, but GPU allocations cannot exceed the memory that is not
+  // available, so the capacity never exceeds the system total.
+  unsigned long long system_free = dynamic_info->system_free_memory;
+  if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, system_total_memory) &&
+      system_free <= dynamic_info->system_total_memory && used > dynamic_info->system_total_memory - system_free)
+    used = dynamic_info->system_total_memory - system_free;
 
   SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used);
   SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, dynamic_info->system_free_memory);
@@ -155,9 +162,11 @@ void gpuinfo_fix_shared_memory_from_process_info(struct gpu_info *device) {
       RESET_GPUINFO_PROCESS(&device->processes[i], gpu_memory_percentage);
       continue;
     }
+    // A process can exceed the capped capacity when it holds shared buffers.
     SET_GPUINFO_PROCESS(&device->processes[i], gpu_memory_percentage,
                        dynamic_info->total_memory
-                           ? (unsigned)round(100. * device->processes[i].gpu_memory_usage / dynamic_info->total_memory)
+                           ? (unsigned)fmin(100., round(100. * device->processes[i].gpu_memory_usage /
+                                                        dynamic_info->total_memory))
                            : 0);
   }
 }

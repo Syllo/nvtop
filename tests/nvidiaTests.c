@@ -334,6 +334,48 @@ static bool mixed_processes(void) {
   return true;
 }
 
+static bool shared_memory_cap(void) {
+  struct gpu_vendor vendor = {.refresh_running_processes = no_process_query};
+  struct gpu_info gpu = {.vendor = &vendor};
+  gpu.static_info.memory_shared_with_host = true;
+  LIST_HEAD(devices);
+  list_add_tail(&gpu.list, &devices);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_total_memory, 2000);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_free_memory, 1000);
+  // Two processes sharing the same buffer each report it.
+  struct gpu_process processes[2] = {0};
+  SET_GPUINFO_PROCESS(&processes[0], gpu_memory_usage, 800);
+  SET_GPUINFO_PROCESS(&processes[1], gpu_memory_usage, 800);
+  gpu.processes = processes;
+  gpu.processes_count = 2;
+  gpu.processes_query_succeeded = true;
+
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(gpu.dynamic_info.used_memory == 1000);
+  CHECK(gpu.dynamic_info.free_memory == 1000);
+  CHECK(gpu.dynamic_info.total_memory == 2000);
+  CHECK(gpu.dynamic_info.mem_util_rate == 50);
+  CHECK(processes[0].gpu_memory_percentage == 40);
+
+  // A single process above the capped capacity is shown at 100%.
+  RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, used_memory);
+  SET_GPUINFO_PROCESS(&processes[0], gpu_memory_usage, 2500);
+  gpu.processes_count = 1;
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(gpu.dynamic_info.total_memory == 2000);
+  CHECK(processes[0].gpu_memory_percentage == 100);
+  SET_GPUINFO_PROCESS(&processes[0], gpu_memory_usage, 800);
+  gpu.processes_count = 2;
+
+  // Without a system total, there is nothing to cap against.
+  RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_total_memory);
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  CHECK(gpu.dynamic_info.used_memory == 1600);
+  CHECK(gpu.dynamic_info.total_memory == 2600);
+  return true;
+}
+
 static bool shared_memory_accounting(void) {
   setup();
   struct gpu_info_nvidia gpu = {0};
@@ -944,6 +986,7 @@ int main(int argc, char **argv) {
       {"process_query", process_query},
       {"empty_process_memory", empty_process_memory},
       {"shared_memory_accounting", shared_memory_accounting},
+      {"shared_memory_cap", shared_memory_cap},
       {"system_memory_counters", system_memory_counters},
       {"c2c_link", c2c_link},
       {"c2c_link_count", c2c_link_count},

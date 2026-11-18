@@ -113,9 +113,9 @@ Devices without memory of their own (integrated GPUs and NPUs such as Intel,
 Adreno and Mali GPUs, and unified-memory systems such as DGX Spark) share the
 system memory with the host. For them, `MEM` shows the memory allocated by the
 device's processes, out of a capacity of those allocations plus the memory
-Linux still has available (`MemAvailable`): memory used by other programs
-reduces the capacity. When the allocations cannot be accounted for, the header
-shows the system memory instead, labelled `RAM`.
+Linux still has available (`MemAvailable`), at most `MemTotal`: memory used by
+other programs reduces the capacity. When the allocations cannot be accounted
+for, the header shows the system memory instead, labelled `RAM`.
 
 ### AMD
 
@@ -198,8 +198,9 @@ through the same NVML backend. When NVML reports no dedicated framebuffer, the
 GPU has no memory pool of its own. When at least one process reports a valid
 memory value, `MEM` shows the sum of reported GPU allocations as used memory;
 unavailable entries are skipped. Available memory is Linux `MemAvailable`, and
-GPU capacity is the sum of these two amounts. Host allocations therefore reduce the displayed GPU
-capacity. A successful empty query reports zero GPU allocations. A nonempty
+GPU capacity is the sum of these two amounts, capped at `MemTotal` since
+per-process accounting can count a buffer shared between processes more than
+once. Host allocations therefore reduce the displayed GPU capacity. A successful empty query reports zero GPU allocations. A nonempty
 list with no valid memory entries, or an empty list without a successful query,
 uses the system RAM fallback.
 
