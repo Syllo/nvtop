@@ -13,7 +13,8 @@
 #include <unistd.h>
 
 // Exercise the real sweep against small /proc and /sys fixtures without GPU
-// hardware. A regular fixture file containing a number N stands for the DRM
+// hardware. The fixture pids are above the kernel's maximum pid, so that kcmp
+// never inspects a real process. A regular fixture file containing a number N stands for the DRM
 // character device 226:N; any other file is not a DRM device.
 static char fixture_root[] = "/tmp/nvtop-fdinfo-XXXXXX";
 static bool fail_proc_open, fail_proc_read;
@@ -100,10 +101,16 @@ static int fixture_fstatat(int dir, const char *path, struct stat *stat, int fla
     }                                                                                                                  \
   } while (0)
 
+// Fixture fdinfo files hold an optional "drm-client-id:" line followed by a
+// "<device name> <memory>" line.
 static bool parse_fixture(struct gpu_info *device, FILE *fp, struct gpu_process *process) {
-  char name[32];
+  char line[64], name[32];
   unsigned long long memory;
-  if (fscanf(fp, "%31s %llu", name, &memory) != 2 || strcmp(name, device->pdev) != 0)
+  do {
+    if (!fgets(line, sizeof(line), fp))
+      return false;
+  } while (!strncmp(line, "drm-client-id:", 14));
+  if (sscanf(line, "%31s %llu", name, &memory) != 2 || strcmp(name, device->pdev) != 0)
     return false;
   if (memory != ULLONG_MAX)
     SET_GPUINFO_PROCESS(process, gpu_memory_usage, memory);
@@ -126,6 +133,12 @@ static bool write_fixture(const char *suffix, const char *contents) {
   return fclose(fp) == 0 && success;
 }
 
+static bool remove_fixture(const char *suffix) {
+  char path[256];
+  snprintf(path, sizeof(path), "%s/%s", fixture_root, suffix);
+  return remove(path) == 0;
+}
+
 static int remove_entry(const char *path, const struct stat *stat, int type, struct FTW *ftw) {
   (void)stat;
   (void)type;
@@ -146,9 +159,12 @@ static void sweep(void) {
 int main(void) {
   CHECK(mkdtemp(fixture_root));
   const char *directories[] = {"proc",
-                               "proc/123",
-                               "proc/123/fd",
-                               "proc/123/fdinfo",
+                               "proc/4194400",
+                               "proc/4194400/fd",
+                               "proc/4194400/fdinfo",
+                               "proc/4194401",
+                               "proc/4194401/fd",
+                               "proc/4194401/fdinfo",
                                "dev",
                                "sys",
                                "sys/dev",
@@ -191,8 +207,8 @@ int main(void) {
     CHECK(devices[i].processes_count == 0);
 
   // A fd to the render node reaches the device registered with its card node.
-  CHECK(write_fixture("proc/123/fd/3", "128"));
-  CHECK(write_fixture("proc/123/fdinfo/3", "Intel 64\n"));
+  CHECK(write_fixture("proc/4194400/fd/3", "128"));
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "Intel 64\n"));
   sweep();
   CHECK(devices[INTEL].processes_count == 1);
   CHECK(devices[INTEL].processes[0].gpu_memory_usage == 64);
@@ -200,13 +216,13 @@ int main(void) {
   CHECK(devices[MALI].processes_count == 0 && devices[LEGACY].processes_count == 0);
 
   // Only the owner parses its fds, even when another device would accept them.
-  CHECK(write_fixture("proc/123/fdinfo/3", "Mali 64\n"));
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "Mali 64\n"));
   sweep();
   for (unsigned i = 0; i < DEVICE_COUNT; ++i)
     CHECK(devices[i].processes_count == 0);
 
   // A fd of an unmonitored device is not parsed.
-  CHECK(write_fixture("proc/123/fdinfo/3", "Intel 64\n"));
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "Intel 64\n"));
   processinfo_enable_disable_callback_for(&devices[INTEL], false);
   sweep();
   CHECK(devices[INTEL].processes_count == 0);
@@ -214,8 +230,8 @@ int main(void) {
 
   // A fd owned by no registered device (e.g., a driver without nvtop support)
   // is offered to the devices without known nodes only.
-  CHECK(write_fixture("proc/123/fd/3", "200"));
-  CHECK(write_fixture("proc/123/fdinfo/3", "Legacy 32\n"));
+  CHECK(write_fixture("proc/4194400/fd/3", "200"));
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "Legacy 32\n"));
   sweep();
   CHECK(devices[LEGACY].processes_count == 1);
   CHECK(devices[LEGACY].processes[0].gpu_memory_usage == 32);
@@ -223,8 +239,49 @@ int main(void) {
   sweep();
   CHECK(devices[LEGACY].processes_count == 0);
 
+  // A DRM client is accounted for once, whichever descriptors refer to it:
+  // fd 3 and its duplicate fd 4 in one process, and fd 3 of another process which
+  // inherited it. A distinct client of the same device is counted separately.
+  // The order of the processes in the fixture directory is unspecified.
+  CHECK(write_fixture("proc/4194400/fd/3", "128"));
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "drm-client-id:\t7\nIntel 64\n"));
+  CHECK(write_fixture("proc/4194400/fd/4", "128"));
+  CHECK(write_fixture("proc/4194400/fdinfo/4", "drm-client-id:\t7\nIntel 64\n"));
+  CHECK(write_fixture("proc/4194401/fd/3", "128"));
+  CHECK(write_fixture("proc/4194401/fdinfo/3", "drm-client-id:\t7\nIntel 64\n"));
+  sweep();
+  CHECK(devices[INTEL].processes_count == 1);
+  CHECK(devices[INTEL].processes[0].gpu_memory_usage == 64);
+  CHECK(write_fixture("proc/4194401/fdinfo/3", "drm-client-id:\t8\nIntel 16\n"));
+  sweep();
+  CHECK(devices[INTEL].processes_count == 2);
+  CHECK(devices[INTEL].processes[0].gpu_memory_usage + devices[INTEL].processes[1].gpu_memory_usage == 80);
+
+  // A copy of a client that cannot be parsed does not hide a valid copy, in
+  // either directory order.
+  CHECK(remove_fixture("proc/4194401/fd/3") && remove_fixture("proc/4194401/fdinfo/3"));
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "drm-client-id:\t7\nunsupported 64\n"));
+  sweep();
+  CHECK(devices[INTEL].processes_count == 1);
+  CHECK(devices[INTEL].processes[0].gpu_memory_usage == 64);
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "drm-client-id:\t7\nIntel 64\n"));
+  CHECK(write_fixture("proc/4194400/fdinfo/4", "drm-client-id:\t7\nunsupported 64\n"));
+  sweep();
+  CHECK(devices[INTEL].processes_count == 1);
+  CHECK(devices[INTEL].processes[0].gpu_memory_usage == 64);
+
+  // Without a client id, duplicates are detected with kcmp. The fixture
+  // processes do not exist, so kcmp fails and both fds are parsed rather than
+  // dropping a possibly distinct client.
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "Intel 64\n"));
+  CHECK(write_fixture("proc/4194400/fdinfo/4", "Intel 64\n"));
+  sweep();
+  CHECK(devices[INTEL].processes_count == 1);
+  CHECK(devices[INTEL].processes[0].gpu_memory_usage == 128);
+  CHECK(remove_fixture("proc/4194400/fd/4") && remove_fixture("proc/4194400/fdinfo/4"));
+
   // Descriptors that are not DRM devices are ignored without reading their fdinfo.
-  CHECK(write_fixture("proc/123/fd/3", "not a device"));
+  CHECK(write_fixture("proc/4194400/fd/3", "not a device"));
   failed_path = "fdinfo/3";
   injected_errno = EIO;
   sweep();
@@ -233,8 +290,8 @@ int main(void) {
   failed_path = NULL;
 
   // Dropped callbacks must no longer receive writes during future sweeps.
-  CHECK(write_fixture("proc/123/fd/3", "128"));
-  CHECK(write_fixture("proc/123/fdinfo/3", "Intel 64\n"));
+  CHECK(write_fixture("proc/4194400/fd/3", "128"));
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "Intel 64\n"));
   for (unsigned i = 0; i < DEVICE_COUNT; ++i)
     processinfo_drop_callback(&devices[i]);
   sweep();

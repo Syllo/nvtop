@@ -168,6 +168,52 @@ static bool get_drm_fd_node(int fd_dir_fd, const char *name, dev_t *node) {
   return true;
 }
 
+// Reads the drm-client-id key, which identifies the open DRM file: duplicated
+// and shared descriptors (dup, fork, fd passing) report the same value. The DRM
+// core prints it near the top, so stop as soon as it is found.
+static bool read_drm_client_id(FILE *fdinfo_file, unsigned long long *client_id) {
+  static const char key[] = "drm-client-id:";
+  char line[256];
+  while (fgets(line, sizeof(line), fdinfo_file)) {
+    if (strncmp(line, key, sizeof(key) - 1))
+      continue;
+    char *endptr;
+    *client_id = strtoull(line + sizeof(key) - 1, &endptr, 10);
+    return endptr != line + sizeof(key) - 1;
+  }
+  return false;
+}
+
+// DRM clients already accounted for during the current sweep. A client id is
+// unique for the node it was opened on.
+static struct seen_client {
+  dev_t node;
+  unsigned long long id;
+} *seen_clients;
+static unsigned seen_clients_count, seen_clients_capacity;
+
+static bool client_seen(dev_t node, unsigned long long id) {
+  for (unsigned i = 0; i < seen_clients_count; ++i) {
+    if (seen_clients[i].node == node && seen_clients[i].id == id)
+      return true;
+  }
+  return false;
+}
+
+// Only record clients whose fdinfo was parsed: if this fd could not be, another
+// descriptor of the same client still can.
+static void record_client(dev_t node, unsigned long long id) {
+  if (seen_clients_count == seen_clients_capacity) {
+    seen_clients_capacity = seen_clients_capacity ? 2 * seen_clients_capacity : 16;
+    seen_clients = reallocarray(seen_clients, seen_clients_capacity, sizeof(*seen_clients));
+    if (!seen_clients) {
+      perror("Could not re-allocate memory: ");
+      exit(EXIT_FAILURE);
+    }
+  }
+  seen_clients[seen_clients_count++] = (struct seen_client){.node = node, .id = id};
+}
+
 // Increment for the number DRM FD tracked per process
 // 8 has been experimentally selected for being small while avoiding multiple allocations in most common cases
 #define DRM_FD_LINEAR_REALLOC_INC 8
@@ -182,6 +228,7 @@ void processinfo_sweep_fdinfos(void) {
   }
   if (!anyActiveCallback)
     return;
+  seen_clients_count = 0;
 
   DIR *proc_dir = opendir("/proc");
   if (!proc_dir)
@@ -245,26 +292,6 @@ void processinfo_sweep_fdinfos(void) {
 
       fd_num = atoi(fd_dent->d_name);
 
-      // check if this fd refers to the same open file as any seen ones.
-      // we only care about unique opens
-      for (unsigned i = 0; i < seen_fds_len; i++) {
-        if (seen_fds[i].node == drm_node &&
-            syscall(SYS_kcmp, client_pid, client_pid, KCMP_FILE, fd_num, seen_fds[i].fd) <= 0)
-          goto next_fd;
-      }
-
-      if (seen_fds_len == seen_fds_capacity) {
-        seen_fds_capacity += DRM_FD_LINEAR_REALLOC_INC;
-        seen_fds = reallocarray(seen_fds, seen_fds_capacity, sizeof(*seen_fds));
-        if (!seen_fds) {
-          perror("Could not re-allocate memory: ");
-          exit(EXIT_FAILURE);
-        }
-      }
-      seen_fds[seen_fds_len].fd = fd_num;
-      seen_fds[seen_fds_len].node = drm_node;
-      seen_fds_len++;
-
       char fdinfo_path[sizeof("fdinfo/") + sizeof(fd_dent->d_name)];
       snprintf(fdinfo_path, sizeof(fdinfo_path), "fdinfo/%s", fd_dent->d_name);
       int fdinfo_fd = openat(pid_dir_fd, fdinfo_path, O_RDONLY);
@@ -274,6 +301,40 @@ void processinfo_sweep_fdinfos(void) {
       if (!fdinfo_file) {
         close(fdinfo_fd);
         continue;
+      }
+
+      // Account for each DRM client once, in the first process found holding
+      // it. Duplicates must not reach the callbacks, whose per-client caches
+      // expect each client once per process.
+      unsigned long long client_id;
+      bool have_client_id = read_drm_client_id(fdinfo_file, &client_id);
+      if (have_client_id) {
+        if (client_seen(drm_node, client_id)) {
+          fclose(fdinfo_file);
+          continue;
+        }
+      } else {
+        // Without a client id, detect duplicated descriptors within the
+        // process. If kcmp is unavailable (e.g., denied by a seccomp policy),
+        // parse the fd rather than drop a possibly distinct client.
+        for (unsigned i = 0; i < seen_fds_len; i++) {
+          if (seen_fds[i].node == drm_node &&
+              syscall(SYS_kcmp, client_pid, client_pid, KCMP_FILE, fd_num, seen_fds[i].fd) == 0) {
+            fclose(fdinfo_file);
+            goto next_fd;
+          }
+        }
+        if (seen_fds_len == seen_fds_capacity) {
+          seen_fds_capacity += DRM_FD_LINEAR_REALLOC_INC;
+          seen_fds = reallocarray(seen_fds, seen_fds_capacity, sizeof(*seen_fds));
+          if (!seen_fds) {
+            perror("Could not re-allocate memory: ");
+            exit(EXIT_FAILURE);
+          }
+        }
+        seen_fds[seen_fds_len].fd = fd_num;
+        seen_fds[seen_fds_len].node = drm_node;
+        seen_fds_len++;
       }
 
       struct callback_entry *current_callback = NULL;
@@ -293,6 +354,8 @@ void processinfo_sweep_fdinfos(void) {
       fclose(fdinfo_file);
       if (!current_callback)
         continue;
+      if (have_client_id)
+        record_client(drm_node, client_id);
 
       unsigned process_index =
           current_callback->gpu_info->processes_count ? current_callback->gpu_info->processes_count - 1 : 0;
