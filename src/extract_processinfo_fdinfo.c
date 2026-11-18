@@ -56,7 +56,8 @@ void processinfo_drop_callback(const struct gpu_info *info) {
   for (unsigned index = 0; index < registered_callback_entries; ++index) {
     if (callback_entries[index].gpu_info == info) {
       memmove(&callback_entries[index], &callback_entries[index + 1],
-              (registered_callback_entries - index) * sizeof(*callback_entries));
+              (registered_callback_entries - index - 1) * sizeof(*callback_entries));
+      --registered_callback_entries;
       return;
     }
   }
