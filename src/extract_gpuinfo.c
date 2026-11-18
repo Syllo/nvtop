@@ -131,17 +131,34 @@ void gpuinfo_fix_shared_memory_from_process_info(struct gpu_info *device) {
   // Report the allocations we have. Only a successful empty query establishes
   // zero usage without any valid memory entries (including for fdinfo backends).
   bool have_used = device->processes_count == 0 && device->processes_query_succeeded;
-  unsigned long long used = 0;
+  // A buffer shared between DRM clients is reported by each of them, and nothing
+  // identifies which clients hold the same buffer. Sum the estimated private
+  // part of each client (its resident memory minus its shared memory, both
+  // merged per process) and count shared memory once, as the largest amount
+  // reported by a single client. Shared sizes also count buffers that are not
+  // resident, so both parts can be understated: the result is a lower bound of
+  // the memory held by the processes.
+  unsigned long long used = 0, max_shared = 0;
   for (unsigned i = 0; i < device->processes_count; ++i) {
     const struct gpu_process *process = &device->processes[i];
     if (!GPUINFO_PROCESS_FIELD_VALID(process, gpu_memory_usage))
       continue;
-    if (process->gpu_memory_usage > ULLONG_MAX - used)
+    unsigned long long shared = 0;
+    if (GPUINFO_PROCESS_FIELD_VALID(process, gpu_memory_shared))
+      shared = MYMIN(process->gpu_memory_shared, process->gpu_memory_usage);
+    unsigned long long private_memory = process->gpu_memory_usage - shared;
+    if (private_memory > ULLONG_MAX - used)
       return;
-    used += process->gpu_memory_usage;
+    used += private_memory;
+    if (GPUINFO_PROCESS_FIELD_VALID(process, gpu_memory_shared) &&
+        MYMIN(process->gpu_memory_shared_max, shared) > max_shared)
+      max_shared = MYMIN(process->gpu_memory_shared_max, shared);
     have_used = true;
   }
-  if (!have_used || dynamic_info->system_free_memory > ULLONG_MAX - used)
+  if (!have_used || max_shared > ULLONG_MAX - used)
+    return;
+  used += max_shared;
+  if (dynamic_info->system_free_memory > ULLONG_MAX - used)
     return;
   // Per-process accounting can count a buffer shared between processes once
   // per process, but GPU allocations cannot exceed the memory that is not

@@ -50,7 +50,8 @@ if (BUILD_TESTING AND NVIDIA_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_link_libraries(nvidiaTests PRIVATE m ${CMAKE_DL_LIBS})
   add_sanitizers(nvidiaTests)
   foreach (test_case uma_version legacy_fallback mixed_processes process_query empty_process_memory
-                    shared_memory_accounting shared_memory_cap system_memory_counters
+                    shared_memory_accounting shared_memory_cap shared_memory_buffers
+                    system_memory_counters
                     c2c_link c2c_link_count c2c_field_types unavailable_memory
                     memory_probes pcie_preserved uma_idle frozen_process_memory
                     utilization_probe_not_found utilization_buffered_not_found utilization_samples)

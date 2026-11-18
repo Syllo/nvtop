@@ -128,7 +128,7 @@ static int fixture_fstatat(int dir, const char *path, struct stat *stat, int fla
   } while (0)
 
 // Fixture fdinfo files hold an optional "drm-client-id:" line followed by a
-// "<device name> <memory>" line.
+// "<device name> <memory> [<shared memory>]" line.
 static bool write_fixture(const char *suffix, const char *contents);
 
 // A fdinfo reading "reused" (or "reused-drm") stands for a descriptor whose
@@ -136,7 +136,7 @@ static bool write_fixture(const char *suffix, const char *contents);
 // the sweep's stat and the fdinfo read.
 static bool parse_fixture(struct gpu_info *device, FILE *fp, struct gpu_process *process) {
   char line[64], name[32];
-  unsigned long long memory;
+  unsigned long long memory, shared;
   do {
     if (!fgets(line, sizeof(line), fp))
       return false;
@@ -145,10 +145,13 @@ static bool parse_fixture(struct gpu_info *device, FILE *fp, struct gpu_process 
     write_fixture("proc/4194400/fd/3", line[6] == '-' ? "129" : "not a device");
     return false;
   }
-  if (sscanf(line, "%31s %llu", name, &memory) != 2 || strcmp(name, device->pdev) != 0)
+  int fields = sscanf(line, "%31s %llu %llu", name, &memory, &shared);
+  if (fields < 2 || strcmp(name, device->pdev) != 0)
     return false;
   if (memory != ULLONG_MAX)
     SET_GPUINFO_PROCESS(process, gpu_memory_usage, memory);
+  if (fields == 3)
+    SET_GPUINFO_PROCESS(process, gpu_memory_shared, shared);
   // Unrelated errno changes must not turn a later directory EOF into a failure.
   errno = EIO;
   return true;
@@ -402,6 +405,23 @@ int main(void) {
   sweep();
   CHECK(devices[INTEL].processes_count == 1);
   CHECK(devices[INTEL].processes[0].gpu_memory_usage == 64);
+
+  // Distinct clients of one process are merged, with the shared part of each
+  // client bounded by its resident memory, and the largest one kept: both
+  // clients may hold the same shared buffers.
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "drm-client-id:\t7\nIntel 100 64\n"));
+  CHECK(write_fixture("proc/4194400/fdinfo/4", "drm-client-id:\t8\nIntel 100 64\n"));
+  sweep();
+  CHECK(devices[INTEL].processes_count == 1);
+  CHECK(devices[INTEL].processes[0].gpu_memory_usage == 200);
+  CHECK(devices[INTEL].processes[0].gpu_memory_shared == 128);
+  CHECK(devices[INTEL].processes[0].gpu_memory_shared_max == 64);
+  CHECK(write_fixture("proc/4194400/fdinfo/3", "drm-client-id:\t7\nIntel 10 50\n"));
+  CHECK(write_fixture("proc/4194400/fdinfo/4", "drm-client-id:\t8\nIntel 70 0\n"));
+  sweep();
+  CHECK(devices[INTEL].processes[0].gpu_memory_usage == 80);
+  CHECK(devices[INTEL].processes[0].gpu_memory_shared == 10);
+  CHECK(devices[INTEL].processes[0].gpu_memory_shared_max == 10);
 
   // Without a client id, duplicates are detected with kcmp. The fixture
   // processes do not exist, so kcmp fails and both fds are parsed rather than

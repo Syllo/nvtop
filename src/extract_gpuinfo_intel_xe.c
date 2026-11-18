@@ -131,6 +131,11 @@ static const char *const xe_drm_intel_memory[2][2] = {
     [false] = {"drm-resident-vram0", NULL},
     [true] = {"drm-resident-system", "drm-resident-gtt"},
 };
+// Part of the same memory in buffers shared with other DRM clients.
+static const char *const xe_drm_intel_shared_memory[2][2] = {
+    [false] = {"drm-shared-vram0", NULL},
+    [true] = {"drm-shared-system", "drm-shared-gtt"},
+};
 // Render
 static const char xe_drm_intel_cycles_rcs[] = "drm-cycles-rcs";
 static const char xe_drm_intel_total_cycles_rcs[] = "drm-total-cycles-rcs";
@@ -190,13 +195,21 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
         continue;
       client_id_set = true;
     } else {
-      const char *const *memory_keys = xe_drm_intel_memory[info->static_info.memory_shared_with_host];
-      bool is_memory = false;
-      for (unsigned i = 0; !is_memory && i < ARRAY_SIZE(xe_drm_intel_memory[0]) && memory_keys[i]; i++)
-        is_memory = !strcmp(key, memory_keys[i]);
-      if (is_memory) {
+      bool shared_memory = info->static_info.memory_shared_with_host;
+      bool is_memory = false, is_shared = false;
+      for (unsigned i = 0; !is_memory && !is_shared && i < ARRAY_SIZE(xe_drm_intel_memory[0]) &&
+                           xe_drm_intel_memory[shared_memory][i];
+           i++) {
+        is_memory = !strcmp(key, xe_drm_intel_memory[shared_memory][i]);
+        is_shared = !strcmp(key, xe_drm_intel_shared_memory[shared_memory][i]);
+      }
+      if (is_memory || is_shared) {
         unsigned long long mem_bytes;
-        if (gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
+        if (!gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
+          continue;
+        if (is_shared)
+          gpuinfo_intel_add_process_shared_memory(process_info, mem_bytes);
+        else
           gpuinfo_intel_add_process_memory(process_info, mem_bytes);
       } else {
         unsigned long cycles;

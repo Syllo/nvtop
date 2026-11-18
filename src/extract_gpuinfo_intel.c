@@ -243,6 +243,12 @@ void gpuinfo_intel_add_process_memory(struct gpu_process *process_info, unsigned
   SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, bytes);
 }
 
+void gpuinfo_intel_add_process_shared_memory(struct gpu_process *process_info, unsigned long long bytes) {
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_shared))
+    bytes += process_info->gpu_memory_shared;
+  SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, bytes);
+}
+
 bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *count) {
   *count = 0;
   nvtop_device_enumerator *enumerator;

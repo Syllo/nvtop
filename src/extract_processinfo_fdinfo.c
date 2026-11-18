@@ -469,6 +469,23 @@ void processinfo_sweep_fdinfos(void) {
                             process_info->gpu_memory_usage + processes_info_local.gpu_memory_usage);
       }
 
+      // drm-shared-* is not limited to resident buffers: bound the shared part
+      // of each client by its resident memory before merging the clients of a
+      // process, and keep the largest one, since the clients of one process can
+      // share the same buffers.
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_memory_shared)) {
+        unsigned long long client_shared = 0;
+        if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_memory_usage))
+          client_shared = processes_info_local.gpu_memory_shared < processes_info_local.gpu_memory_usage
+                              ? processes_info_local.gpu_memory_shared
+                              : processes_info_local.gpu_memory_usage;
+        if (!GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_shared))
+          process_info->gpu_memory_shared_max = 0;
+        if (client_shared > process_info->gpu_memory_shared_max)
+          process_info->gpu_memory_shared_max = client_shared;
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, process_info->gpu_memory_shared + client_shared);
+      }
+
       if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_usage)) {
         SET_GPUINFO_PROCESS(process_info, gpu_usage, process_info->gpu_usage + processes_info_local.gpu_usage);
       }

@@ -431,6 +431,7 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
       bool is_engine, is_cycles, is_maxfreq, is_curfreq, is_resident;
       match_keys(&is_engine, &is_cycles, &is_maxfreq, &is_curfreq, &is_resident, key);
       total_memory_seen = total_memory_seen || !strcmp(key, "drm-total-memory");
+      bool is_shared = !strcmp(key, "drm-shared-memory");
 
       if (is_engine) {
         char *endptr;
@@ -458,7 +459,7 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
           continue;
 
         fid->total_cycles += cycles;
-      } else if (is_resident) {
+      } else if (is_resident || is_shared) {
         uint64_t mem_int;
         char *endptr;
 
@@ -467,7 +468,10 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
           continue;
 
         uint64_t multiplier = parse_memory_multiplier(endptr);
-        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
+        if (is_resident)
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
+        else
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, mem_int * multiplier);
       }
     }
   }

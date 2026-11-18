@@ -114,8 +114,11 @@ Adreno and Mali GPUs, and unified-memory systems such as DGX Spark) share the
 system memory with the host. For them, `MEM` shows the memory allocated by the
 device's processes, out of a capacity of those allocations plus the memory
 Linux still has available (`MemAvailable`), at most `MemTotal`: memory used by
-other programs reduces the capacity. When the allocations cannot be accounted
-for, the header shows the system memory instead, labelled `RAM`.
+other programs reduces the capacity. Buffers that the driver reports as shared
+between clients (`drm-shared-*`) are counted once, as the largest amount
+reported by a single client, so the used memory is a lower bound; per-process
+values still include them. When the allocations cannot be accounted for, the
+header shows the system memory instead, labelled `RAM`.
 
 ### AMD
 

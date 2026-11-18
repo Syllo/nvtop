@@ -186,6 +186,9 @@ static const char i915_drm_intel_compute[] = "drm-engine-compute";
 // describes, as the amdgpu backend does.
 static const char i915_drm_intel_vram[] = "drm-resident-local0";
 static const char i915_drm_intel_gtt[] = "drm-resident-system0";
+// Part of the same memory in buffers shared with other DRM clients.
+static const char i915_drm_intel_shared_vram[] = "drm-shared-local0";
+static const char i915_drm_intel_shared_gtt[] = "drm-shared-system0";
 
 bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
@@ -225,9 +228,16 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
       bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
       bool is_compute = !strcmp(key, i915_drm_intel_compute);
 
-      if (!strcmp(key, info->static_info.memory_shared_with_host ? i915_drm_intel_gtt : i915_drm_intel_vram)) {
+      bool shared_memory = info->static_info.memory_shared_with_host;
+      bool is_memory = !strcmp(key, shared_memory ? i915_drm_intel_gtt : i915_drm_intel_vram);
+      bool is_shared = !strcmp(key, shared_memory ? i915_drm_intel_shared_gtt : i915_drm_intel_shared_vram);
+      if (is_memory || is_shared) {
         unsigned long long mem_bytes;
-        if (gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
+        if (!gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
+          continue;
+        if (is_shared)
+          gpuinfo_intel_add_process_shared_memory(process_info, mem_bytes);
+        else
           gpuinfo_intel_add_process_memory(process_info, mem_bytes);
 
       } else if (is_render || is_copy || is_video || is_video_enhance || is_compute) {

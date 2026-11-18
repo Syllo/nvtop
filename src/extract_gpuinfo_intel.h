@@ -85,5 +85,7 @@ extern bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, 
 // Parses a DRM fdinfo memory size, printed by the kernel in bytes, KiB or MiB
 // (whichever unit divides it exactly), or in kB by older i915 kernels.
 extern bool gpuinfo_intel_parse_fdinfo_size(const char *val, unsigned long long *bytes);
-// Adds bytes to the memory usage of the process.
+// Adds bytes to the memory usage of the process, or to the part of it shared
+// with other DRM clients.
 extern void gpuinfo_intel_add_process_memory(struct gpu_process *process_info, unsigned long long bytes);
+extern void gpuinfo_intel_add_process_shared_memory(struct gpu_process *process_info, unsigned long long bytes);

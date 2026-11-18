@@ -376,6 +376,65 @@ static bool shared_memory_cap(void) {
   return true;
 }
 
+static bool shared_memory_buffers(void) {
+  struct gpu_vendor vendor = {.refresh_running_processes = no_process_query};
+  struct gpu_info gpu = {.vendor = &vendor};
+  gpu.static_info.memory_shared_with_host = true;
+  LIST_HEAD(devices);
+  list_add_tail(&gpu.list, &devices);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_total_memory, 4000);
+  SET_GPUINFO_DYNAMIC(&gpu.dynamic_info, system_free_memory, 1000);
+  // A compositor and a client both report the same 600 shared bytes; a third
+  // process reports more shared than resident memory (shared is not resident).
+  // Each process has a single client here.
+  struct gpu_process processes[4] = {0};
+  SET_GPUINFO_PROCESS(&processes[0], gpu_memory_usage, 800);
+  SET_GPUINFO_PROCESS(&processes[0], gpu_memory_shared, 600);
+  processes[0].gpu_memory_shared_max = 600;
+  SET_GPUINFO_PROCESS(&processes[1], gpu_memory_usage, 700);
+  SET_GPUINFO_PROCESS(&processes[1], gpu_memory_shared, 600);
+  processes[1].gpu_memory_shared_max = 600;
+  SET_GPUINFO_PROCESS(&processes[2], gpu_memory_usage, 100);
+  SET_GPUINFO_PROCESS(&processes[2], gpu_memory_shared, 500);
+  processes[2].gpu_memory_shared_max = 500;
+  // Without shared accounting, the whole usage is private.
+  SET_GPUINFO_PROCESS(&processes[3], gpu_memory_usage, 50);
+  gpu.processes = processes;
+  gpu.processes_count = 4;
+  gpu.processes_query_succeeded = true;
+
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  // Private 200 + 100 + 0 + 50, plus the largest shared amount once.
+  CHECK(gpu.dynamic_info.used_memory == 950);
+  CHECK(gpu.dynamic_info.total_memory == 1950);
+  // Per-process values still include their shared buffers.
+  CHECK(processes[0].gpu_memory_usage == 800);
+  CHECK(processes[0].gpu_memory_percentage == 41);
+
+  // Clients merged per process, as the fdinfo sweep reports them: the first
+  // process has two clients holding the same 64 shared bytes, the second a
+  // client with more shared than resident memory (clamped to its 10 resident
+  // bytes by the sweep) and one with 70 private bytes, the third a single
+  // client holding the largest shared amount.
+  RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, used_memory);
+  struct gpu_process merged[3] = {0};
+  SET_GPUINFO_PROCESS(&merged[0], gpu_memory_usage, 200);
+  SET_GPUINFO_PROCESS(&merged[0], gpu_memory_shared, 128);
+  merged[0].gpu_memory_shared_max = 64;
+  SET_GPUINFO_PROCESS(&merged[1], gpu_memory_usage, 80);
+  SET_GPUINFO_PROCESS(&merged[1], gpu_memory_shared, 10);
+  merged[1].gpu_memory_shared_max = 10;
+  SET_GPUINFO_PROCESS(&merged[2], gpu_memory_usage, 60);
+  SET_GPUINFO_PROCESS(&merged[2], gpu_memory_shared, 60);
+  merged[2].gpu_memory_shared_max = 60;
+  gpu.processes = merged;
+  gpu.processes_count = 3;
+  gpuinfo_fix_dynamic_info_from_process_info(&devices);
+  // Private 72 + 70 + 0, plus the largest shared amount of a single client.
+  CHECK(gpu.dynamic_info.used_memory == 206);
+  return true;
+}
+
 static bool shared_memory_accounting(void) {
   setup();
   struct gpu_info_nvidia gpu = {0};
@@ -987,6 +1046,7 @@ int main(int argc, char **argv) {
       {"empty_process_memory", empty_process_memory},
       {"shared_memory_accounting", shared_memory_accounting},
       {"shared_memory_cap", shared_memory_cap},
+      {"shared_memory_buffers", shared_memory_buffers},
       {"system_memory_counters", system_memory_counters},
       {"c2c_link", c2c_link},
       {"c2c_link_count", c2c_link_count},

@@ -273,6 +273,7 @@ static const char drm_msm_cycles_gpu[] = "drm-cycles-gpu";
 static const char drm_msm_maxfreq_gpu[] = "drm-maxfreq-gpu";
 static const char drm_msm_resident_mem[] = "drm-resident-memory";
 static const char drm_msm_total_mem[] = "drm-total-memory";
+static const char drm_msm_shared_mem[] = "drm-shared-memory";
 
 static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_msm *gpu_info = container_of(info, struct gpu_info_msm, base);
@@ -307,6 +308,7 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
       bool is_maxfreq = !strcmp(key, drm_msm_maxfreq_gpu);
       bool is_resident = !strcmp(key, drm_msm_resident_mem);
       total_memory_seen = total_memory_seen || !strcmp(key, drm_msm_total_mem);
+      bool is_shared = !strcmp(key, drm_msm_shared_mem);
 
       if (is_engine || is_cycles || is_maxfreq) {
         char *endptr;
@@ -317,7 +319,7 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
           SET_GPUINFO_PROCESS(process_info, gfx_engine_used, time_spent);
         }
       }
-      else if (is_resident) {
+      else if (is_resident || is_shared) {
         uint64_t mem_int;
         char *endptr;
 
@@ -326,7 +328,10 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
           continue;
 
         uint64_t multiplier = parse_memory_multiplier(endptr);
-        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
+        if (is_resident)
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
+        else
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, mem_int * multiplier);
       }
     }
   }
