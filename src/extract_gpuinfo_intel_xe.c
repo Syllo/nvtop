@@ -164,17 +164,9 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
       client_id_set = true;
     } else {
       if (!strcmp(key, xe_drm_intel_vram)) {
-        unsigned long mem_int;
-        char *endptr;
-
-        mem_int = strtoul(val, &endptr, 10);
-        if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
-          continue;
-
-        if GPUINFO_PROCESS_FIELD_VALID (process_info, gpu_memory_usage)
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + (mem_int * 1024));
-        else
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+        unsigned long long mem_bytes;
+        if (gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
+          gpuinfo_intel_add_process_memory(process_info, mem_bytes);
       } else {
         unsigned long cycles;
         char *endptr;

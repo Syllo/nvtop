@@ -206,17 +206,9 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
       bool is_compute = !strcmp(key, i915_drm_intel_compute);
 
       if (!strcmp(key, i915_drm_intel_vram) || !strcmp(key, i915_drm_intel_gtt)) {
-        unsigned long mem_int;
-        char *endptr;
-
-        mem_int = strtoul(val, &endptr, 10);
-        if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
-          continue;
-
-        if GPUINFO_PROCESS_FIELD_VALID (process_info, gpu_memory_usage)
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + (mem_int * 1024));
-        else
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+        unsigned long long mem_bytes;
+        if (gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
+          gpuinfo_intel_add_process_memory(process_info, mem_bytes);
 
       } else if (is_render || is_copy || is_video || is_video_enhance || is_compute) {
         char *endptr;

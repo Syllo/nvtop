@@ -27,8 +27,10 @@
 #include "extract_gpuinfo_intel.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <linux/perf_event.h>
 #include <sched.h>
 #include <stdio.h>
@@ -210,6 +212,35 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base, devname);
   (*count)++;
+}
+
+bool gpuinfo_intel_parse_fdinfo_size(const char *val, unsigned long long *bytes) {
+  // strtoull accepts and negates a leading minus sign.
+  if (!isdigit((unsigned char)*val))
+    return false;
+  char *endptr;
+  unsigned long long size = strtoull(val, &endptr, 10);
+  if (endptr == val)
+    return false;
+  unsigned long long multiplier;
+  if (!*endptr)
+    multiplier = 1;
+  else if (!strcmp(endptr, " KiB") || !strcmp(endptr, " kB"))
+    multiplier = 1024;
+  else if (!strcmp(endptr, " MiB"))
+    multiplier = 1024 * 1024;
+  else
+    return false;
+  if (size > ULLONG_MAX / multiplier)
+    return false;
+  *bytes = size * multiplier;
+  return true;
+}
+
+void gpuinfo_intel_add_process_memory(struct gpu_process *process_info, unsigned long long bytes) {
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage))
+    bytes += process_info->gpu_memory_usage;
+  SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, bytes);
 }
 
 bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *count) {
