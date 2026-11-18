@@ -1101,7 +1101,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
       }
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm)) {
-      // A real tachometer reading is more useful than the "CPU-FAN"
+      // A real tachometer reading is more useful than the "SYS-FAN"
       // placeholder, which is only a fallback for integrated GPUs with no
       // fan reporting (this also matches the snapshot output).
       if (any_device_has_nvlink_active) {
@@ -1114,11 +1114,12 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
       }
     } else if (device->static_info.integrated_graphics) {
+      // Indicate system cooling when no fan measurement is reported.
       if (any_device_has_nvlink_active) {
-        mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN");
+        mvwprintw(dev->fan_speed, 0, 0, "SYS-FAN");
         mvwchgat(dev->fan_speed, 0, 0, 7, 0, cyan_color, NULL);
       } else {
-        mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
+        mvwprintw(dev->fan_speed, 0, 0, "  SYS-FAN  ");
         mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
       }
     } else {
@@ -2958,7 +2959,7 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": \"%uRPM\",\n", indent_level_four, fan_field,
              device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
     else if (device->static_info.integrated_graphics)
-      printf("%s\"%s\": \"CPU Fan\",\n", indent_level_four, fan_field);
+      printf("%s\"%s\": \"System Fan\",\n", indent_level_four, fan_field);
     else
       printf("%s\"%s\": null,\n", indent_level_four, fan_field);
 

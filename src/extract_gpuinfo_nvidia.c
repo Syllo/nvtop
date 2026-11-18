@@ -1101,9 +1101,8 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
     static_info->memory_shared_with_host =
         ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
   }
-  // A device sharing the system memory pool with the host is by definition
-  // integrated with it: there is no add-in board and therefore no GPU fan,
-  // which the interface renders as "CPU-FAN" like the other integrated GPUs.
+  // Treat shared-memory SoCs as integrated devices. If NVML reports no fan
+  // measurement, the interface displays "SYS-FAN" to indicate system cooling.
   static_info->integrated_graphics = static_info->memory_shared_with_host;
   static_info->c2c_link_count = gpuinfo_nvidia_c2c_link_count(device);
   RESET_ALL(static_info->valid);

@@ -131,7 +131,7 @@ static bool uma_version(void) {
   gpuinfo_nvidia_populate_static_info(&gpu.base);
   CHECK(memory_v2_version == ((unsigned)sizeof(nvmlMemory_v2_t) | (2U << 24)));
   CHECK(gpu.base.static_info.memory_shared_with_host);
-  // A shared-memory device has no add-in board, so it has no GPU fan.
+  // Shared-memory SoCs use the integrated-device display.
   CHECK(gpu.base.static_info.integrated_graphics);
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, total_memory));

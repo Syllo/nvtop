@@ -103,6 +103,12 @@ nvtop --help
 GPU Support
 -----------
 
+Integrated devices (GPUs and NPUs built into the SoC or CPU package) usually
+have no fan of their own. When such a device reports no fan percentage or RPM,
+the header shows `SYS-FAN` to indicate that cooling is handled by the system;
+snapshots report `"System Fan"`. Versions up to 3.4.0 showed `CPU-FAN` and
+`"CPU Fan"` instead.
+
 ### AMD
 
 NVTOP supports AMD GPUs using the `amdgpu` driver and the legacy `radeon` driver (legacy GPUs, limited support) through the exposed DRM and
@@ -185,12 +191,12 @@ less for the GPU. Per-process GPU allocations are still listed separately. In
 containers, make host GPU processes visible (for example with `--pid=host`) to
 obtain complete per-process accounting.
 
-These devices are also integrated with the host, so the header shows `CPU-FAN`
-instead of a GPU fan speed, and `C2C LINK <n>x` instead of the PCIe generation and
-width for a device attached over NVLink-C2C. NVML answers the PCIe link queries
-on those SoCs with placeholder values, so the link is left unreported rather
-than shown. Driver-unsupported sensors, including memory clocks, power limits
-and PCIe throughput, remain `N/A` rather than being estimated.
+These devices are integrated with the host, so they use the `SYS-FAN` display
+described above. A device attached over NVLink-C2C shows `C2C LINK <n>x` instead
+of the PCIe generation and width, and no PCIe throughput. NVML answers the PCIe
+link queries on those SoCs with placeholder values, so the PCIe link is left
+unreported. Driver-unsupported sensors, including memory clocks and power
+limits, remain `N/A` rather than being estimated.
 
 The extra GPU info bar (`nvtop -i`) shows the dynamic parameters NVML does not
 report, such as the XBAR, SYS and NVD clocks, and `nvtop -X` also shows the
