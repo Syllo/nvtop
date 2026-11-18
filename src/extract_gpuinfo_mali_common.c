@@ -104,10 +104,6 @@ bool mali_init_drm_funcs(struct drmFuncTable *drmFuncs,
 
   state->local_error_string = NULL;
 
-  state->meminfo_file = fopen("/proc/meminfo", "r");
-  if (!state->meminfo_file)
-    goto init_error_clean_exit;
-
   state->didnt_call_gpuinfo_init = "uninitialized";
 
   return true;
@@ -140,11 +136,6 @@ void mali_shutdown_common(struct mali_gpu_state *state,
     dlclose(state->libdrm_handle);
     state->libdrm_handle = NULL;
     state->local_error_string = state->didnt_call_gpuinfo_init;
-  }
-
-  if (state->meminfo_file) {
-    fclose(state->meminfo_file);
-    state->meminfo_file = NULL;
   }
 }
 
@@ -317,63 +308,6 @@ uint64_t parse_memory_multiplier(const char *str) {
   }
 
   return 1;
-}
-
-void mali_common_refresh_dynamic_info(struct gpuinfo_dynamic_info *dynamic_info,
-				      struct mali_gpu_state *state,
-				      const char *meminfo_total,
-				      const char *meminfo_available)
-{
-  RESET_ALL(dynamic_info->valid);
-
-  rewind(state->meminfo_file);
-  fflush(state->meminfo_file);
-
-  static char *line = NULL;
-  static size_t line_buf_size = 0;
-  ssize_t count = 0;
-  uint64_t mem_total = 0;
-  uint64_t mem_available = 0;
-  size_t keys_acquired = 0;
-
-  while (keys_acquired != 2 && (count = getline(&line, &line_buf_size, state->meminfo_file)) != -1) {
-    char *key, *val;
-
-    // Get rid of the newline if present
-    if (line[count - 1] == '\n') {
-      line[--count] = '\0';
-    }
-
-    if (!extract_drm_fdinfo_key_value(line, &key, &val))
-      continue;
-
-    bool is_total = !strcmp(key, meminfo_total);
-    bool is_available = !strcmp(key, meminfo_available);
-
-    if (is_total || is_available) {
-      uint64_t mem_int;
-      char *endptr;
-
-      mem_int = strtoull(val, &endptr, 10);
-      if (endptr == val)
-        continue;
-
-      mem_int *= parse_memory_multiplier(endptr);
-      if (is_total) {
-        mem_total = mem_int;
-      }
-      else if (is_available) {
-        mem_available = mem_int;
-      }
-      ++keys_acquired;
-    }
-  }
-
-  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mem_total);
-  SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mem_total - mem_available);
-  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mem_available);
-  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
-                      (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_mali *gpu_info) {

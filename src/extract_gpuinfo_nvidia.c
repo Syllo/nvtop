@@ -590,58 +590,6 @@ static char didnt_call_gpuinfo_init[] = "The NVIDIA extraction has not been init
                                         "gpuinfo_nvidia_init\n";
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
-// On UMA platforms the GPU has no dedicated framebuffer and shares the system
-// memory pool with the host, so there is no framebuffer size to query. Report
-// the whole system RAM as the total capacity, what the kernel says is still
-// allocatable as free, and the difference as used.
-//
-// There is only one memory pool, so "used" has to mean the same thing as it
-// does on a discrete GPU: memory that is not available to new allocations.
-// That includes host processes, which is why used is not limited to the GPU
-// processes' own allocations (those are still shown per process). Reporting
-// only the GPU allocations against a MemTotal-sized capacity would advertise
-// headroom the machine does not have: on DGX Spark / GB10 a loaded system can
-// show tens of GiB of host memory held while the bar claims it is free.
-static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_info) {
-  FILE *meminfo = fopen("/proc/meminfo", "r");
-  if (!meminfo)
-    return false;
-
-  unsigned long long total_memory_kb = 0;
-  unsigned long long available_memory_kb = 0;
-  bool total_memory_found = false;
-  bool available_memory_found = false;
-  char line[256];
-
-  while (fgets(line, sizeof(line), meminfo)) {
-    if (sscanf(line, "MemTotal: %llu kB", &total_memory_kb) == 1) {
-      total_memory_found = true;
-      continue;
-    }
-    if (sscanf(line, "MemAvailable: %llu kB", &available_memory_kb) == 1) {
-      available_memory_found = true;
-      continue;
-    }
-  }
-
-  fclose(meminfo);
-
-  if (!total_memory_found || !available_memory_found || total_memory_kb == 0 ||
-      available_memory_kb > total_memory_kb)
-    return false;
-
-  unsigned long long total_memory = total_memory_kb * 1024;
-  unsigned long long free_memory = available_memory_kb * 1024;
-  unsigned long long used_memory = total_memory - free_memory;
-
-  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
-  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, free_memory);
-  SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, used_memory);
-  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, (unsigned)(used_memory * 100 / total_memory));
-
-  return true;
-}
-
 // Processes GPU Utilization
 
 // Reads a single unsigned NVML field value, widening the member identified by
@@ -1272,11 +1220,16 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // Device memory info (total,used,free). Devices sharing memory with the host
   // (a fixed property, recorded in the static info) have no dedicated
-  // framebuffer: report the Linux system memory counters recommended by NVIDIA
-  // for memory reporting. The used memory is reconstructed from the process
-  // list by the generic pass after this one.
+  // framebuffer: report the Linux system memory counters recommended by NVIDIA,
+  // with MemTotal as the capacity, MemAvailable as free and the difference as
+  // used.
+  //
+  // There is only one memory pool, so "used" has to mean the same thing as it
+  // does on a discrete GPU: memory that is not available to new allocations.
+  // That includes host processes, which is why used is not limited to the GPU
+  // processes' own allocations (those are still shown per process).
   if (gpu_info->base.static_info.memory_shared_with_host) {
-    set_unified_system_memory_info(dynamic_info);
+    gpuinfo_refresh_system_memory(dynamic_info);
   } else {
     bool got_meminfo = false;
     if (nvmlDeviceGetMemoryInfo_v2) {

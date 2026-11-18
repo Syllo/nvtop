@@ -377,22 +377,43 @@ unsigned nvtop_pcie_gen_from_link_speed(unsigned linkSpeed) {
 }
 
 void gpuinfo_refresh_system_memory(struct gpuinfo_dynamic_info *dynamic_info) {
-  FILE *fp = fopen("/proc/meminfo", "r");
+  // Each thread owns its read-only stream; process termination closes it.
+  static _Thread_local FILE *fp = NULL;
   unsigned long long mem_total_kb = 0, mem_available_kb = 0;
+  bool have_total = false, have_available = false;
   char line[256];
 
+  // Failed opens are retried on a later refresh.
+  if (!fp)
+    fp = fopen("/proc/meminfo", "r");
   if (!fp)
     return;
 
-  while (fgets(line, sizeof(line), fp)) {
-    if (sscanf(line, "MemTotal: %llu kB", &mem_total_kb) == 1)
-      continue;
-    if (sscanf(line, "MemAvailable: %llu kB", &mem_available_kb) == 1)
-      continue;
+  clearerr(fp);
+  if (fseek(fp, 0, SEEK_SET) != 0) {
+    fclose(fp);
+    fp = NULL;
+    return;
   }
-  fclose(fp);
 
-  if (mem_total_kb == 0 || mem_available_kb == 0)
+  while (fgets(line, sizeof(line), fp)) {
+    if (sscanf(line, "MemTotal: %llu kB", &mem_total_kb) == 1) {
+      have_total = true;
+      continue;
+    }
+    if (sscanf(line, "MemAvailable: %llu kB", &mem_available_kb) == 1) {
+      have_available = true;
+      continue;
+    }
+  }
+  if (ferror(fp)) {
+    fclose(fp);
+    fp = NULL;
+    return;
+  }
+
+  if (!have_total || !have_available || mem_total_kb == 0 || mem_total_kb > ULLONG_MAX / 1024 ||
+      mem_available_kb > ULLONG_MAX / 1024)
     return;
 
   unsigned long long total = mem_total_kb * 1024;
