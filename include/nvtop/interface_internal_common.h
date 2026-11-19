@@ -88,6 +88,8 @@ struct device_window {
   // memory), and the number of consecutive samples of the other kind.
   bool memory_plot_system_memory;
   unsigned memory_plot_switch_samples;
+  // State of the user's system memory option when the graph was last updated.
+  bool memory_plot_system_option;
   nvtop_time last_decode_seen;
   nvtop_time last_encode_seen;
 };

@@ -140,7 +140,7 @@ static bool uma_version(void) {
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, total_memory));
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, mem_util_rate));
-  struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(&gpu.base);
+  struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(&gpu.base, false);
   CHECK(memory_info.system_memory);
   CHECK(memory_info.used_memory == memory_info.total_memory - memory_info.free_memory);
   CHECK(memory_info.total_memory_valid);
@@ -453,9 +453,28 @@ static bool shared_memory_accounting(void) {
   CHECK(gpu.base.dynamic_info.mem_util_rate == 65);
   CHECK(gpu.base.processes[0].gpu_memory_percentage == 15);
   CHECK(gpu.base.dynamic_info.system_total_memory == 2000);
-  struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(&gpu.base);
+  struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(&gpu.base, false);
   CHECK(!memory_info.system_memory);
   CHECK(memory_info.total_memory == 1000);
+  // The user can prefer the system RAM even when the GPU memory is available.
+  memory_info = gpuinfo_get_memory_display(&gpu.base, true);
+  CHECK(memory_info.system_memory);
+  CHECK(memory_info.total_memory == 2000);
+  CHECK(memory_info.used_memory == 1650);
+  CHECK(memory_info.free_memory == 350);
+  CHECK(memory_info.mem_util_rate == 82);
+  // Without valid system counters, the GPU memory is still displayed.
+  RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, system_free_memory);
+  memory_info = gpuinfo_get_memory_display(&gpu.base, true);
+  CHECK(!memory_info.system_memory);
+  CHECK(memory_info.total_memory == 1000);
+  SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, system_free_memory, 350);
+  // Devices with dedicated memory ignore that preference.
+  gpu.base.static_info.memory_shared_with_host = false;
+  memory_info = gpuinfo_get_memory_display(&gpu.base, true);
+  CHECK(!memory_info.system_memory);
+  CHECK(memory_info.total_memory == 1000);
+  gpu.base.static_info.memory_shared_with_host = true;
 
   // Missing allocations are skipped; display the sum of reported entries.
   RESET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, used_memory);
@@ -469,7 +488,7 @@ static bool shared_memory_accounting(void) {
   CHECK(gpu.base.dynamic_info.total_memory == 700);
   CHECK(gpu.base.dynamic_info.free_memory == 350);
   CHECK(gpu.base.dynamic_info.mem_util_rate == 50);
-  memory_info = gpuinfo_get_memory_display(&gpu.base);
+  memory_info = gpuinfo_get_memory_display(&gpu.base, false);
   CHECK(!memory_info.system_memory);
   CHECK(memory_info.total_memory == 700);
   CHECK(!GPUINFO_PROCESS_FIELD_VALID(&gpu.base.processes[2], gpu_memory_percentage));
@@ -485,7 +504,7 @@ static bool shared_memory_accounting(void) {
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, total_memory));
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, free_memory));
-  memory_info = gpuinfo_get_memory_display(&gpu.base);
+  memory_info = gpuinfo_get_memory_display(&gpu.base, false);
   CHECK(memory_info.system_memory);
   CHECK(memory_info.total_memory == 2000);
   CHECK(memory_info.used_memory == 1650);
@@ -498,7 +517,7 @@ static bool shared_memory_accounting(void) {
   CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
   CHECK(gpu.base.dynamic_info.used_memory == 300);
   CHECK(gpu.base.dynamic_info.total_memory == 650);
-  memory_info = gpuinfo_get_memory_display(&gpu.base);
+  memory_info = gpuinfo_get_memory_display(&gpu.base, false);
   CHECK(!memory_info.system_memory);
 
   // A zero available-memory estimate is valid, including a fully idle GPU.
@@ -521,7 +540,7 @@ static bool shared_memory_accounting(void) {
   gpu.base.processes_query_succeeded = false;
   gpuinfo_fix_dynamic_info_from_process_info(&devices);
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, used_memory));
-  memory_info = gpuinfo_get_memory_display(&gpu.base);
+  memory_info = gpuinfo_get_memory_display(&gpu.base, false);
   CHECK(memory_info.system_memory);
 
   // Do not wrap when adding available memory to a process allocation.
@@ -579,12 +598,12 @@ static bool system_memory_counters(void) {
     CHECK(next.system_total_memory > 0);
     CHECK(next.system_free_memory <= next.system_total_memory);
   }
-  struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(&gpu);
+  struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(&gpu, false);
   CHECK(!memory_info.system_memory);
   CHECK(memory_info.total_memory == 8000);
   // Even a shared-memory driver retains its own complete GPU measurement.
   gpu.static_info.memory_shared_with_host = true;
-  memory_info = gpuinfo_get_memory_display(&gpu);
+  memory_info = gpuinfo_get_memory_display(&gpu, false);
   CHECK(!memory_info.system_memory);
   CHECK(memory_info.used_memory == 2000);
 
@@ -592,10 +611,10 @@ static bool system_memory_counters(void) {
   RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, used_memory);
   RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, free_memory);
   RESET_GPUINFO_DYNAMIC(&gpu.dynamic_info, mem_util_rate);
-  memory_info = gpuinfo_get_memory_display(&gpu);
+  memory_info = gpuinfo_get_memory_display(&gpu, false);
   CHECK(memory_info.system_memory);
   gpu.static_info.memory_shared_with_host = false;
-  memory_info = gpuinfo_get_memory_display(&gpu);
+  memory_info = gpuinfo_get_memory_display(&gpu, false);
   CHECK(!memory_info.system_memory);
   CHECK(memory_info.total_memory_valid);
   CHECK(memory_info.total_memory == 8000);
@@ -911,7 +930,7 @@ static bool frozen_process_memory(void) {
     gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
     SET_GPUINFO_DYNAMIC(&gpu.base.dynamic_info, system_free_memory, free);
     gpuinfo_fix_shared_memory_from_process_info(&gpu.base);
-    struct gpuinfo_memory_display memory = gpuinfo_get_memory_display(&gpu.base);
+    struct gpuinfo_memory_display memory = gpuinfo_get_memory_display(&gpu.base, false);
     CHECK(!memory.system_memory);
     CHECK(memory.used_memory == 100);
     CHECK(memory.total_memory == free + 100);
@@ -922,7 +941,7 @@ static bool frozen_process_memory(void) {
   gpu.base.processes_count = 0;
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
   gpuinfo_fix_shared_memory_from_process_info(&gpu.base);
-  struct gpuinfo_memory_display memory = gpuinfo_get_memory_display(&gpu.base);
+  struct gpuinfo_memory_display memory = gpuinfo_get_memory_display(&gpu.base, false);
   CHECK(!memory.system_memory);
   CHECK(memory.used_memory == 0);
   CHECK(memory.total_memory == gpu.base.dynamic_info.system_free_memory);

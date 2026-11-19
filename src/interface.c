@@ -1046,7 +1046,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       draw_percentage_meter(gpu_util_win, DEVICE_UNIT_NAME(device), 0, buff);
     }
 
-    struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(device);
+    struct gpuinfo_memory_display memory_info =
+        gpuinfo_get_memory_display(device, interface->options.gpu_specific_opts[dev_id].show_system_memory);
     const char *memory_label = memory_info.system_memory ? "RAM" : "MEM";
     if (memory_info.total_memory_valid && memory_info.used_memory_valid) {
       double total_mem = memory_info.total_memory;
@@ -2149,7 +2150,8 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
   unsigned dev_id = 0;
 
   list_for_each_entry(device, devices, list) {
-    struct gpuinfo_memory_display memory_info = gpuinfo_get_memory_display(device);
+    struct gpuinfo_memory_display memory_info =
+        gpuinfo_get_memory_display(device, interface->options.gpu_specific_opts[dev_id].show_system_memory);
     unsigned data_index = 0;
     for (enum plot_information info = plot_gpu_rate; info < plot_information_count; ++info) {
       if (plot_isset_draw_info(info, interface->options.gpu_specific_opts[dev_id].to_draw)) {
@@ -2167,7 +2169,18 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
           // until then, repeat the last value rather than plot a sample of a
           // different kind for a transient accounting failure.
           struct device_window *dev_win = &interface->devices_win[dev_id];
-          // An empty graph shows whichever kind its first sample has.
+          // An empty graph shows whichever kind its first sample has, and the
+          // user switching the displayed memory switches the graph at once, if
+          // that changes what this device displays.
+          bool system_option = interface->options.gpu_specific_opts[dev_id].show_system_memory;
+          if (dev_win->memory_plot_system_option != system_option) {
+            dev_win->memory_plot_system_option = system_option;
+            if (dev_win->memory_plot_system_memory != memory_info.system_memory) {
+              interface_ring_buffer_empty_select(&interface->saved_data_ring, dev_id, data_index);
+              dev_win->memory_plot_system_memory = memory_info.system_memory;
+              dev_win->memory_plot_switch_samples = 0;
+            }
+          }
           if (!interface_ring_buffer_data_stored(&interface->saved_data_ring, dev_id, data_index))
             dev_win->memory_plot_system_memory = memory_info.system_memory;
           if (dev_win->memory_plot_system_memory == memory_info.system_memory) {

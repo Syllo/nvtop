@@ -503,7 +503,7 @@ bool gpuinfo_get_system_used_memory(const struct gpuinfo_dynamic_info *dynamic_i
   return true;
 }
 
-struct gpuinfo_memory_display gpuinfo_get_memory_display(const struct gpu_info *device) {
+struct gpuinfo_memory_display gpuinfo_get_memory_display(const struct gpu_info *device, bool prefer_system_memory) {
   const struct gpuinfo_dynamic_info *dynamic_info = &device->dynamic_info;
   struct gpuinfo_memory_display memory_info = {0};
   memory_info.total_memory_valid = GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, total_memory);
@@ -519,17 +519,19 @@ struct gpuinfo_memory_display gpuinfo_get_memory_display(const struct gpu_info *
   if (memory_info.mem_util_rate_valid)
     memory_info.mem_util_rate = dynamic_info->mem_util_rate;
 
-  // Display the GPU's own memory counters for dedicated memory or when GPU
-  // usage and capacity are available on a shared-memory device.
+  // Display the GPU's own memory counters for dedicated memory, or when GPU
+  // usage and capacity are available on a shared-memory device and the system
+  // memory was not requested instead.
   if (!device->static_info.memory_shared_with_host ||
-      (memory_info.total_memory_valid && memory_info.used_memory_valid))
+      (!prefer_system_memory && memory_info.total_memory_valid && memory_info.used_memory_valid))
     return memory_info;
 
   // Without valid system counters, keep the GPU display values as available.
   if (!gpuinfo_get_system_used_memory(dynamic_info, &memory_info.used_memory))
     return memory_info;
 
-  // GPU accounting is unavailable; fall back to displaying system RAM usage.
+  // GPU accounting is unavailable or the system memory was requested: display
+  // the system RAM usage.
   return (struct gpuinfo_memory_display){
       .total_memory = dynamic_info->system_total_memory,
       .used_memory = memory_info.used_memory,

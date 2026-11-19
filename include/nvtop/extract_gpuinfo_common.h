@@ -321,9 +321,10 @@ void gpuinfo_refresh_system_memory(struct gpuinfo_dynamic_info *dynamic_info);
 // Derive shared GPU memory from the current process list and system availability.
 void gpuinfo_fix_shared_memory_from_process_info(struct gpu_info *device);
 bool gpuinfo_get_system_used_memory(const struct gpuinfo_dynamic_info *dynamic_info, unsigned long long *used);
-// Return memory values for display, using system RAM when shared-memory GPU
-// accounting is unavailable. Does not modify the device.
-struct gpuinfo_memory_display gpuinfo_get_memory_display(const struct gpu_info *device);
+// Return memory values for display. A device sharing its memory with the host
+// shows the system RAM when its GPU accounting is unavailable, or when
+// prefer_system_memory is set. Does not modify the device.
+struct gpuinfo_memory_display gpuinfo_get_memory_display(const struct gpu_info *device, bool prefer_system_memory);
 
 // Appends a vendor specific clock domain to the dynamic info, ignoring the call
 // once MAX_EXTRA_CLOCK_DOMAINS of them have been reported. A secondary domain is

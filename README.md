@@ -118,7 +118,12 @@ other programs reduces the capacity. Buffers that the driver reports as shared
 between clients (`drm-shared-*`) are counted once, as the largest amount
 reported by a single client, so the used memory is a lower bound; per-process
 values still include them. When the allocations cannot be accounted for, the
-header shows the system memory instead, labelled `RAM`.
+header shows the system memory instead, labelled `RAM`. To always see the
+system memory for these devices (`MemTotal` as the total, `MemTotal` minus
+`MemAvailable` as used), enable it in the setup window (for all devices in the
+Devices section, or for one device in its Chart section entry) or start nvtop
+with `-M` (`--system-memory`); the process memory percentages stay relative to
+the GPU memory.
 
 ### AMD
 
