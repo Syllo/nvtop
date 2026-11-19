@@ -579,9 +579,9 @@ Troubleshoot
 - **Putty**: Tell putty not to lie about its capabilities (`$TERM`) by setting the field ``Terminal-type string`` to ``putty`` in the menu
   ``Connection > Data > Terminal Details``.
 - `NO GPU to monitor.` for NVIDIA GPUs:
-  - `nvtop` loads a shared library named `libnvml.so` (shipped with the NVIDIA
-  drivers) to querry device information. If the library is not present, nvtop
-  will not be able to monitor your NVIDIA device.
+  - To query device information, `nvtop` tries to load `libnvidia-ml.so.1`
+  first, then `libnvidia-ml.so`. If neither NVIDIA driver library can be
+  loaded, `nvtop` cannot monitor your NVIDIA device.
   - On `WSL2`, the installation instructions are slightly different since the
   driver is being exposed by Windows to the virtual machine (see instruction
   link in [the WSL2 section](#wsl2)). If you install the NVIDIA linux drivers
