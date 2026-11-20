@@ -104,3 +104,27 @@ if(BUILD_TESTING AND GAUDI_SUPPORT)
   add_sanitizers(gaudiTests)
   add_test(NAME gaudiTests COMMAND gaudiTests)
 endif()
+
+# The AMD NPU tests parse fdinfo fixture files and need no NPU.
+if(BUILD_TESTING AND AMD_NPU_SUPPORT)
+  add_executable(amdxdnaTests
+    amdxdnaTests.c
+    ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo.c
+    ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c
+    ${PROJECT_SOURCE_DIR}/src/get_process_info_linux.c
+    ${PROJECT_SOURCE_DIR}/src/time.c
+  )
+  target_include_directories(amdxdnaTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_compile_definitions(amdxdnaTests PRIVATE _GNU_SOURCE
+    AMDXDNA_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/amdxdna")
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(amdxdnaTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET amdxdnaTests PROPERTY C_STANDARD 11)
+  target_link_libraries(amdxdnaTests PRIVATE m ${CMAKE_DL_LIBS})
+  add_sanitizers(amdxdnaTests)
+  foreach (test_case fdinfo_idle fdinfo_active fdinfo_total_fallback fdinfo_other_driver
+                    process_accounting scan_processes device_discovery)
+    add_test(NAME Amdxdna.${test_case} COMMAND amdxdnaTests ${test_case})
+  endforeach()
+endif()

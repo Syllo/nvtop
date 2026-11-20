@@ -1,0 +1,8 @@
+drm-driver:    amdxdna_accel_driver
+drm-client-id:    35632
+drm-pdev:    0000:c5:00.1
+amdxdna_accel_driver-heap-alloc:    0
+amdxdna_accel_driver-internal-alloc:    64 MiB
+amdxdna_accel_driver-external-alloc:    0
+drm-total-memory:    64 MiB
+drm-shared-memory:    0

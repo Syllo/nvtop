@@ -199,6 +199,11 @@ if(INTEL_NPU_SUPPORT)
   target_sources(nvtop PRIVATE extract_npuinfo_intel.c)
 endif()
 
+if(AMD_NPU_SUPPORT)
+  message(STATUS "Building with AMD NPU support")
+  target_sources(nvtop PRIVATE extract_npuinfo_amd.c)
+endif()
+
 if(ROCKCHIP_SUPPORT)
   message(STATUS "Building with Rockchip NPU support")
 

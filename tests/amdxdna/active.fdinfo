@@ -1,0 +1,12 @@
+pos:	0
+flags:	02100002
+mnt_id:	26
+ino:	1081
+drm-driver:	amdxdna_accel_driver
+drm-client-id:	35640
+drm-pdev:	0000:c5:00.1
+amdxdna_accel_driver-heap-alloc:	8 MiB
+amdxdna_accel_driver-internal-alloc:	64 MiB
+amdxdna_accel_driver-external-alloc:	12 MiB
+drm-total-memory:	84 MiB
+drm-shared-memory:	0
