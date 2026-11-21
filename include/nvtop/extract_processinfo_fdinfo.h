@@ -36,6 +36,12 @@ typedef bool (*processinfo_fdinfo_callback)(struct gpu_info *info, FILE *fdinfo_
 /**
  * @brief Register a callback function to parse a fdinfo file opened to a DRM driver
  *
+ * The DRM node lets the sweep decide which device owns each fd without running
+ * every backend's parser on fdinfo files from other drivers. It is resolved to
+ * a device number and expanded to the device's sibling card/render nodes
+ * through sysfs. This also keeps driver-specific parsing from being applied to
+ * a file descriptor of another device that happens to expose similar keys.
+ *
  * @param callback The callback function
  * @param info The struct gpu_info that will be updated when the callback succeeds.
  * @param drm_node Path to any DRM node of the device (e.g., /dev/dri/renderD128). The
