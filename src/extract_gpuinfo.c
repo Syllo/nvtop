@@ -180,11 +180,11 @@ void gpuinfo_fix_shared_memory_from_process_info(struct gpu_info *device) {
       continue;
     }
     // A process can exceed the capped capacity when it holds shared buffers.
-    SET_GPUINFO_PROCESS(&device->processes[i], gpu_memory_percentage,
-                       dynamic_info->total_memory
-                           ? (unsigned)fmin(100., round(100. * device->processes[i].gpu_memory_usage /
-                                                        dynamic_info->total_memory))
-                           : 0);
+    double percentage =
+        dynamic_info->total_memory
+            ? fmin(100., round(100. * device->processes[i].gpu_memory_usage / dynamic_info->total_memory))
+            : 0.;
+    SET_GPUINFO_PROCESS(&device->processes[i], gpu_memory_percentage, (unsigned)percentage);
   }
 }
 
