@@ -123,7 +123,17 @@ system memory for these devices (`MemTotal` as the total, `MemTotal` minus
 `MemAvailable` as used), enable it in the setup window (for all devices in the
 Devices section, or for one device in its Chart section entry) or start nvtop
 with `-M` (`--system-memory`); the process memory percentages stay relative to
-the GPU memory.
+the GPU memory. `-M` changes the interactive display only: snapshot and loop
+output always report the GPU counters in `mem_*` and the system counters
+separately in `system_total_memory` and `system_free_memory`.
+
+For drivers whose process list is read from DRM fdinfo, a DRM client shared by
+several processes (for example a file descriptor inherited through `fork()` or
+passed between processes) is counted once for its GPU utilization,
+encoder/decoder rates and memory. Those values are attributed to the first
+process found holding the client in `/proc` scan order; the other holders are
+still listed, but without GPU metrics for that client. A holder that later
+opens its own DRM client gets separate metrics for it.
 
 ### AMD
 
