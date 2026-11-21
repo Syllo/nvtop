@@ -387,8 +387,17 @@ void processinfo_sweep_fdinfos(void) {
       }
 
       // Account for each DRM client once, in the first process found holding
-      // it. Duplicates must not reach the callbacks, whose per-client caches
-      // expect each client once per process.
+      // it. This must happen before invoking the callback: callbacks are
+      // stateful, updating per-client caches from engine counters and merging
+      // the client's memory into a process entry. A duplicate would update the
+      // cache twice and double-count usage or memory. The client id also lets
+      // the sweep attribute the metrics to one process and list the other
+      // holders without them.
+      //
+      // Current kernels expose drm-client-id, which is more robust across
+      // processes than kcmp: kcmp can be unavailable or restricted by a
+      // seccomp policy. Older kernels without it fall back to kcmp for
+      // duplicates within a process.
       unsigned long long client_id;
       errno = 0;
       bool have_client_id = read_drm_client_id(fdinfo_file, &client_id);
