@@ -334,10 +334,6 @@ int main(int argc, char **argv) {
   }
   if (hide_processes_option)
     allDevicesOptions.hide_processes_list = true;
-  if (show_system_memory_option) {
-    for (unsigned i = 0; i < allDevCount; ++i)
-      allDevicesOptions.gpu_specific_opts[i].show_system_memory = true;
-  }
   if (encode_decode_timer_option_set) {
     allDevicesOptions.encode_decode_hiding_timer = encode_decode_hide_time;
     if (allDevicesOptions.encode_decode_hiding_timer < 0.)
@@ -354,6 +350,14 @@ int main(int argc, char **argv) {
   allDevicesOptions.dynamic_memory_units = allDevicesOptions.dynamic_memory_units || dynamic_memory_units_option;
 
   gpuinfo_populate_static_infos(&monitoredGpus);
+  // The system memory option is meaningful only for devices sharing their
+  // memory with the host, so do not keep it set on dedicated devices.
+  for (unsigned i = 0; i < allDevCount; ++i) {
+    nvtop_interface_gpu_opts *gpu_opts = &allDevicesOptions.gpu_specific_opts[i];
+    gpu_opts->show_system_memory =
+        gpu_opts->linkedGpu->static_info.memory_shared_with_host &&
+        (gpu_opts->show_system_memory || show_system_memory_option);
+  }
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 

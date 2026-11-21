@@ -300,8 +300,10 @@ static void draw_setup_window_general(struct nvtop_interface *interface) {
 static void draw_setup_window_header(struct nvtop_interface *interface) {
   if (interface->setup_win.indentation_level > 1)
     interface->setup_win.indentation_level = 1;
-  if (interface->setup_win.options_selected[0] > setup_header_options_count)
-    interface->setup_win.options_selected[0] = setup_header_options_count;
+  bool has_shared_memory = shared_memory_device_count(interface) > 0;
+  unsigned last_option = has_shared_memory ? setup_header_options_count : setup_header_options_count - 1;
+  if (interface->setup_win.options_selected[0] > last_option)
+    interface->setup_win.options_selected[0] = last_option;
 
   WINDOW *options_win = interface->setup_win.single;
 
@@ -358,12 +360,16 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
     mvwchgat(options_win, setup_header_all_info_bar + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
 
-  // System RAM instead of the GPU memory, for every device sharing it
-  mvwprintw(options_win, setup_header_options_count + 1, 0, "[%c] %s",
-            option_state_char(shared_memory_all_state(interface)), setup_header_system_memory_all_description);
-  if (interface->setup_win.indentation_level == 1 &&
-      interface->setup_win.options_selected[0] == setup_header_options_count)
-    mvwchgat(options_win, setup_header_options_count + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  // System RAM instead of the GPU memory, for every device sharing it. The
+  // row is only meaningful, and only shown, when a monitored device shares
+  // its memory with the host.
+  if (has_shared_memory) {
+    mvwprintw(options_win, setup_header_options_count + 1, 0, "[%c] %s",
+              option_state_char(shared_memory_all_state(interface)), setup_header_system_memory_all_description);
+    if (interface->setup_win.indentation_level == 1 &&
+        interface->setup_win.options_selected[0] == setup_header_options_count)
+      mvwchgat(options_win, setup_header_options_count + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
   wnoutrefresh(options_win);
 }
 
@@ -883,13 +889,16 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
           if (interface->setup_win.options_selected[0] == setup_header_all_info_bar) {
             interface->options.has_all_info_bar = !interface->options.has_all_info_bar;
           }
-          if (interface->setup_win.options_selected[0] == setup_header_options_count) {
-            // Set it for every device, as the command line option does, unless
-            // all the monitored devices sharing their memory already have it
-            // (or all devices, when none shares its memory).
+          if (shared_memory_device_count(interface) > 0 &&
+              interface->setup_win.options_selected[0] == setup_header_options_count) {
+            // Set it for every monitored device sharing its memory with the
+            // host, unless all of them already have it.
             bool enable = shared_memory_all_state(interface) != option_on;
-            for (unsigned i = 0; i < interface->total_dev_count; ++i)
-              interface->options.gpu_specific_opts[i].show_system_memory = enable;
+            for (unsigned i = 0; i < interface->monitored_dev_count; ++i) {
+              nvtop_interface_gpu_opts *gpu_opts = &interface->options.gpu_specific_opts[i];
+              if (gpu_opts->linkedGpu->static_info.memory_shared_with_host)
+                gpu_opts->show_system_memory = enable;
+            }
           }
         }
       }

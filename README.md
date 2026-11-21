@@ -120,12 +120,15 @@ reported by a single client, so the used memory is a lower bound; per-process
 values still include them. When the allocations cannot be accounted for, the
 header shows the system memory instead, labelled `RAM`. To always see the
 system memory for these devices (`MemTotal` as the total, `MemTotal` minus
-`MemAvailable` as used), enable it in the setup window (for all devices in the
-Devices section, or for one device in its Chart section entry) or start nvtop
+`MemAvailable` as used), enable it in the setup window (for all monitored
+devices sharing memory in the Devices section, or for one device in its Chart
+section entry) or start nvtop
 with `-M` (`--system-memory`); the process memory percentages stay relative to
 the GPU memory. `-M` changes the interactive display only: snapshot and loop
 output always report the GPU counters in `mem_*` and the system counters
-separately in `system_total_memory` and `system_free_memory`.
+separately in `system_total_memory` and `system_free_memory`. The Devices row
+is only shown when at least one monitored device shares its memory with the
+host.
 
 For drivers whose process list is read from DRM fdinfo, a DRM client shared by
 several processes (for example a file descriptor inherited through `fork()` or
