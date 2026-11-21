@@ -419,17 +419,6 @@ void processinfo_sweep_fdinfos(void) {
             goto next_fd;
           }
         }
-        if (seen_fds_len == seen_fds_capacity) {
-          seen_fds_capacity += DRM_FD_LINEAR_REALLOC_INC;
-          seen_fds = reallocarray(seen_fds, seen_fds_capacity, sizeof(*seen_fds));
-          if (!seen_fds) {
-            perror("Could not re-allocate memory: ");
-            exit(EXIT_FAILURE);
-          }
-        }
-        seen_fds[seen_fds_len].fd = fd_num;
-        seen_fds[seen_fds_len].node = drm_node;
-        seen_fds_len++;
       }
 
       struct callback_entry *current_callback = NULL;
@@ -463,6 +452,21 @@ void processinfo_sweep_fdinfos(void) {
       }
       if (have_client_id)
         record_client(drm_node, client_id, current_callback->gpu_info);
+      else {
+        // Record the fd only after its fdinfo was parsed: a copy that could not
+        // be parsed must not suppress a later, valid copy of the same client.
+        if (seen_fds_len == seen_fds_capacity) {
+          seen_fds_capacity += DRM_FD_LINEAR_REALLOC_INC;
+          seen_fds = reallocarray(seen_fds, seen_fds_capacity, sizeof(*seen_fds));
+          if (!seen_fds) {
+            perror("Could not re-allocate memory: ");
+            exit(EXIT_FAILURE);
+          }
+        }
+        seen_fds[seen_fds_len].fd = fd_num;
+        seen_fds[seen_fds_len].node = drm_node;
+        seen_fds_len++;
+      }
 
       struct gpu_process *process_info = process_entry_for(current_callback->gpu_info, client_pid);
 
