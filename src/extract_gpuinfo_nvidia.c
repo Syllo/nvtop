@@ -1122,9 +1122,10 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // The PCIe link queries answer with placeholder values on a C2C-attached
-  // device (GB10 reports "Max Gen 1 / Max Width 16x" while the actual link is an
-  // NVLink-C2C with no PCIe topology behind it), so leave them unknown there.
+  // In C2C mode the GPU's host link is NVLink-C2C, not PCIe, so the PCIe link
+  // queries do not describe a link the device uses. NVML still succeeds but
+  // returns placeholders (GB10 reports "Max Gen 1 / Max Width 16x"), so leave
+  // the values unknown instead of exporting them.
   if (!static_info->c2c_attachment) {
     last_nvml_return_status = nvmlDeviceGetMaxPcieLinkGeneration(device, &static_info->max_pcie_gen);
     if (last_nvml_return_status == NVML_SUCCESS)
@@ -1252,11 +1253,9 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // Pcie generation and width used by the device.
-  // Only report these for PCIe devices without an active NVLink-C2C attach.
-  // DGX Spark / GB10 and RTX Spark N1X report PCIe with placeholder link
-  // values even though C2C is enabled. Do not infer the link from UMA alone:
-  // the C2C link count is a direct statement of the attachment.
+  // PCIe generation and width used by the device. Only report these for PCIe
+  // devices without an active NVLink-C2C attachment: in C2C mode the host link
+  // is not PCIe and NVML returns placeholder values even though C2C is enabled.
   bool device_on_pcie_bus = nvmlDeviceGetBusType == NULL; // Older drivers: assume PCIe as before.
   if (nvmlDeviceGetBusType) {
     unsigned int bus_type;
