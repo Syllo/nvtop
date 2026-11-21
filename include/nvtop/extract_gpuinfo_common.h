@@ -245,10 +245,11 @@ struct gpu_process {
   unsigned long long gpu_memory_usage; // Memory used by the process
   unsigned gpu_memory_percentage;      // Percentage of the total device memory
                                        // consumed by the process
-  unsigned long long gpu_memory_shared; // Part of gpu_memory_usage in buffers that
-                                        // other DRM clients may also report
-  unsigned long long gpu_memory_shared_max; // Largest gpu_memory_shared of one DRM
-                                            // client of the process (valid with it)
+  unsigned long long gpu_memory_shared; // Shared part of gpu_memory_usage, summed
+                                        // over the DRM clients of the process
+  // Largest shared part of one DRM client of this process. Used to count the
+  // shared buffers once when deriving device-wide memory.
+  unsigned long long gpu_memory_shared_max;
   unsigned cpu_usage;
   unsigned long cpu_memory_virt;
   unsigned long cpu_memory_res;
