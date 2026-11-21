@@ -217,20 +217,21 @@ static bool read_drm_client_id(FILE *fdinfo_file, unsigned long long *client_id)
 static struct seen_client {
   dev_t node;
   unsigned long long id;
+  struct gpu_info *gpu_info;
 } *seen_clients;
 static unsigned seen_clients_count, seen_clients_capacity;
 
-static bool client_seen(dev_t node, unsigned long long id) {
+static struct seen_client *find_seen_client(dev_t node, unsigned long long id) {
   for (unsigned i = 0; i < seen_clients_count; ++i) {
     if (seen_clients[i].node == node && seen_clients[i].id == id)
-      return true;
+      return &seen_clients[i];
   }
-  return false;
+  return NULL;
 }
 
 // Only record clients whose fdinfo was parsed: if this fd could not be, another
 // descriptor of the same client still can.
-static void record_client(dev_t node, unsigned long long id) {
+static void record_client(dev_t node, unsigned long long id, struct gpu_info *gpu_info) {
   if (seen_clients_count == seen_clients_capacity) {
     seen_clients_capacity = seen_clients_capacity ? 2 * seen_clients_capacity : 16;
     seen_clients = reallocarray(seen_clients, seen_clients_capacity, sizeof(*seen_clients));
@@ -239,7 +240,30 @@ static void record_client(dev_t node, unsigned long long id) {
       exit(EXIT_FAILURE);
     }
   }
-  seen_clients[seen_clients_count++] = (struct seen_client){.node = node, .id = id};
+  seen_clients[seen_clients_count++] = (struct seen_client){.node = node, .id = id, .gpu_info = gpu_info};
+}
+
+// Find the process entry for this pid, appending one when the pid differs from
+// the last entry. The sweep handles all the fds of a pid together, so the entry
+// of the current pid, if any, is always the last one.
+static struct gpu_process *process_entry_for(struct gpu_info *gpu_info, unsigned pid) {
+  unsigned process_index = gpu_info->processes_count ? gpu_info->processes_count - 1 : 0;
+  if (gpu_info->processes_count > 0 && gpu_info->processes[process_index].pid == (pid_t)pid)
+    return &gpu_info->processes[process_index];
+
+  if (gpu_info->processes_count == gpu_info->processes_array_size) {
+    gpu_info->processes_array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
+    gpu_info->processes = reallocarray(gpu_info->processes, gpu_info->processes_array_size,
+                                       sizeof(*gpu_info->processes));
+    if (!gpu_info->processes) {
+      perror("Could not re-allocate memory: ");
+      exit(EXIT_FAILURE);
+    }
+  }
+  process_index = gpu_info->processes_count++;
+  memset(&gpu_info->processes[process_index], 0, sizeof(*gpu_info->processes));
+  gpu_info->processes[process_index].pid = pid;
+  return &gpu_info->processes[process_index];
 }
 
 // Increment for the number DRM FD tracked per process
@@ -375,7 +399,12 @@ void processinfo_sweep_fdinfos(void) {
         continue;
       }
       if (have_client_id) {
-        if (client_seen(drm_node, client_id)) {
+        struct seen_client *seen = find_seen_client(drm_node, client_id);
+        if (seen) {
+          // The metrics of this client are already accounted under another pid.
+          // Still list every holder, but leave its GPU fields unknown: usage and
+          // memory belong to the shared client, not to an individual process.
+          (void)process_entry_for(seen->gpu_info, client_pid);
           fclose(fdinfo_file);
           continue;
         }
@@ -433,34 +462,9 @@ void processinfo_sweep_fdinfos(void) {
         continue;
       }
       if (have_client_id)
-        record_client(drm_node, client_id);
+        record_client(drm_node, client_id, current_callback->gpu_info);
 
-      unsigned process_index =
-          current_callback->gpu_info->processes_count ? current_callback->gpu_info->processes_count - 1 : 0;
-      // Alloc when array is empty or realloc when this pid does not correspond to the last entry and the array is full
-      if ((current_callback->gpu_info->processes_count == 0 ||
-           current_callback->gpu_info->processes[process_index].pid != (pid_t)client_pid) &&
-          current_callback->gpu_info->processes_count == current_callback->gpu_info->processes_array_size) {
-        current_callback->gpu_info->processes_array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
-        current_callback->gpu_info->processes =
-            reallocarray(current_callback->gpu_info->processes, current_callback->gpu_info->processes_array_size,
-                         sizeof(*current_callback->gpu_info->processes));
-        if (!current_callback->gpu_info->processes) {
-          perror("Could not re-allocate memory: ");
-          exit(EXIT_FAILURE);
-        }
-      new_empty_process_entry:
-        process_index = current_callback->gpu_info->processes_count++;
-        memset(&current_callback->gpu_info->processes[process_index], 0,
-               sizeof(*current_callback->gpu_info->processes));
-        current_callback->gpu_info->processes[process_index].pid = client_pid;
-      }
-      // No alloc/realloc with different pid case
-      if (current_callback->gpu_info->processes_count == 0 ||
-          current_callback->gpu_info->processes[process_index].pid != (pid_t)client_pid) {
-        goto new_empty_process_entry;
-      }
-      struct gpu_process *process_info = &current_callback->gpu_info->processes[process_index];
+      struct gpu_process *process_info = process_entry_for(current_callback->gpu_info, client_pid);
 
       process_info->type |= processes_info_local.type;
 

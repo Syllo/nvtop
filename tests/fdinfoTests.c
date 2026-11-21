@@ -386,12 +386,28 @@ int main(void) {
   CHECK(write_fixture("proc/4194401/fd/3", "128"));
   CHECK(write_fixture("proc/4194401/fdinfo/3", "drm-client-id:\t7\nIntel 64\n"));
   sweep();
-  CHECK(devices[INTEL].processes_count == 1);
-  CHECK(devices[INTEL].processes[0].gpu_memory_usage == 64);
+  // Both holders are listed, but only the first one gets the client's memory.
+  CHECK(devices[INTEL].processes_count == 2);
+  unsigned with_memory = 0, without_memory = 0;
+  for (unsigned i = 0; i < devices[INTEL].processes_count; ++i) {
+    if (GPUINFO_PROCESS_FIELD_VALID(&devices[INTEL].processes[i], gpu_memory_usage)) {
+      CHECK(devices[INTEL].processes[i].gpu_memory_usage == 64);
+      with_memory++;
+    } else {
+      without_memory++;
+    }
+  }
+  CHECK(with_memory == 1 && without_memory == 1);
   CHECK(write_fixture("proc/4194401/fdinfo/3", "drm-client-id:\t8\nIntel 16\n"));
   sweep();
   CHECK(devices[INTEL].processes_count == 2);
-  CHECK(devices[INTEL].processes[0].gpu_memory_usage + devices[INTEL].processes[1].gpu_memory_usage == 80);
+  unsigned long long valid_memory = 0;
+  for (unsigned i = 0; i < devices[INTEL].processes_count; ++i) {
+    if (GPUINFO_PROCESS_FIELD_VALID(&devices[INTEL].processes[i], gpu_memory_usage))
+      valid_memory += devices[INTEL].processes[i].gpu_memory_usage;
+  }
+  // The shared client is included once, plus the second process' distinct client.
+  CHECK(valid_memory == 80);
 
   // A copy of a client that cannot be parsed does not hide a valid copy, in
   // either directory order.
