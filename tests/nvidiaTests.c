@@ -678,6 +678,9 @@ static bool c2c_link(void) {
   nvmlDeviceGetBusType = pcie_bus;
   nvmlDeviceGetC2cModeInfoV = c2c_enabled;
   nvmlDeviceGetCurrPcieLinkGeneration = nvmlDeviceGetCurrPcieLinkWidth = pcie_link;
+  gpuinfo_nvidia_populate_static_info(&gpu.base);
+  CHECK(gpu.base.static_info.c2c_attachment);
+  CHECK(!GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, c2c_link_count));
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_gen));
   CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, pcie_link_width));
@@ -715,6 +718,7 @@ static bool c2c_link_count(void) {
   gpuinfo_nvidia_populate_static_info(&gpu.base);
   CHECK(GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, c2c_link_count));
   CHECK(gpu.base.static_info.c2c_link_count == 8);
+  CHECK(gpu.base.static_info.c2c_attachment);
   CHECK(!GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, max_pcie_gen));
   CHECK(!GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, max_pcie_link_width));
 
@@ -732,6 +736,7 @@ static bool c2c_link_count(void) {
   nvmlDeviceGetCurrPcieLinkGeneration = nvmlDeviceGetCurrPcieLinkWidth = pcie_link;
   gpuinfo_nvidia_populate_static_info(&gpu.base);
   CHECK(!GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, c2c_link_count));
+  CHECK(!gpu.base.static_info.c2c_attachment);
   CHECK(GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, max_pcie_gen));
   CHECK(GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, max_pcie_link_width));
   gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);

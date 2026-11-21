@@ -1055,6 +1055,7 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   // measurement, the interface displays "SYS-FAN" to indicate system cooling.
   static_info->integrated_graphics = static_info->memory_shared_with_host;
   static_info->c2c_link_count = gpuinfo_nvidia_c2c_link_count(device);
+  static_info->c2c_attachment = gpuinfo_nvidia_uses_c2c(device, static_info->c2c_link_count);
   RESET_ALL(static_info->valid);
 
   if (static_info->c2c_link_count > 0)
@@ -1124,7 +1125,7 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   // The PCIe link queries answer with placeholder values on a C2C-attached
   // device (GB10 reports "Max Gen 1 / Max Width 16x" while the actual link is an
   // NVLink-C2C with no PCIe topology behind it), so leave them unknown there.
-  if (!gpuinfo_nvidia_uses_c2c(device, static_info->c2c_link_count)) {
+  if (!static_info->c2c_attachment) {
     last_nvml_return_status = nvmlDeviceGetMaxPcieLinkGeneration(device, &static_info->max_pcie_gen);
     if (last_nvml_return_status == NVML_SUCCESS)
       SET_VALID(gpuinfo_max_pcie_gen_valid, static_info->valid);
@@ -1262,7 +1263,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (nvmlDeviceGetBusType(device, &bus_type) == NVML_SUCCESS)
       device_on_pcie_bus = bus_type == NVML_BUS_TYPE_PCIE;
   }
-  if (device_on_pcie_bus && gpuinfo_nvidia_uses_c2c(device, gpu_info->base.static_info.c2c_link_count))
+  if (device_on_pcie_bus && gpu_info->base.static_info.c2c_attachment)
     device_on_pcie_bus = false;
 
   if (device_on_pcie_bus) {

@@ -222,10 +222,13 @@ GPU processes visible (for example with `--pid=host`) for complete accounting.
 
 These devices are integrated with the host, so they use the `SYS-FAN` display
 described above. A device attached over NVLink-C2C shows `C2C LINK <n>x` instead
-of the PCIe generation and width, and no PCIe throughput. NVML answers the PCIe
-link queries on those SoCs with placeholder values, so the PCIe link is left
-unreported. Driver-unsupported sensors, including memory clocks and power
-limits, remain `N/A` rather than being estimated.
+of the PCIe generation and width, and no PCIe throughput. When the driver
+reports the C2C attachment without a link count, the header shows
+`C2C LINK N/A`; snapshots report `c2c_attachment` and `c2c_link_count`
+separately. NVML answers the PCIe link queries on those SoCs with placeholder
+values, so the PCIe link is left unreported. Driver-unsupported sensors,
+including memory clocks and power limits, remain `N/A` rather than being
+estimated.
 
 The extra GPU info bar (`nvtop -i`) shows the dynamic parameters NVML does not
 report, such as the XBAR, SYS and NVD clocks, and `nvtop -X` also shows the

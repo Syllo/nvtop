@@ -82,7 +82,8 @@ struct gpuinfo_static_info {
   unsigned l2cache_size;
   unsigned n_exec_engines;
   unsigned engine_count;
-  unsigned c2c_link_count; // Number of NVLink-C2C links, 0 when the device has none
+  bool c2c_attachment;     // Attached over NVLink-C2C instead of PCIe
+  unsigned c2c_link_count; // Number of NVLink-C2C links, 0 when unknown or none
   bool integrated_graphics;
   bool encode_decode_shared;
   bool memory_shared_with_host; // True if device memory is shared with the host (e.g. UMA)

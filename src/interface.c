@@ -1235,7 +1235,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     // replaced with the chassis slot label (AAPL,slot-name, e.g. "Slot-1")
     // and the die index for multi-die cards.
     werase(dev->pcie_info);
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count)) {
+    if (device->static_info.c2c_attachment) {
       // The device is attached over NVLink-C2C instead of PCIe, so reporting a
       // PCIe generation and width would describe a link it does not use. NVML
       // exposes no byte throughput counter for C2C either, so only the link
@@ -1245,7 +1245,10 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       wcolor_set(dev->pcie_info, magenta_color, NULL);
       wprintw(dev->pcie_info, "LINK ");
       wstandend(dev->pcie_info);
-      wprintw(dev->pcie_info, "%ux", device->static_info.c2c_link_count);
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count))
+        wprintw(dev->pcie_info, "%ux", device->static_info.c2c_link_count);
+      else
+        wprintw(dev->pcie_info, "N/A");
     } else if (device->static_info.integrated_graphics) {
       wcolor_set(dev->pcie_info, cyan_color, NULL);
       mvwprintw(dev->pcie_info, 0, 0, "Integrated %s", DEVICE_UNIT_NAME(device));
@@ -1287,7 +1290,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       wprintw(dev->pcie_info, "%s", die_suffix);
     }
 #else
-    if (!GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count)) {
+    if (!device->static_info.c2c_attachment) {
       wcolor_set(dev->pcie_info, magenta_color, NULL);
       wprintw(dev->pcie_info, " RX: ");
       wstandend(dev->pcie_info);
@@ -3120,6 +3123,7 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"pcie_tx\": null,\n", indent_level_four);
 
     // NVLink-C2C attachment, when the device uses one instead of a PCIe link
+    printf("%s\"c2c_attachment\": %s,\n", indent_level_four, device->static_info.c2c_attachment ? "true" : "false");
     if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count))
       printf("%s\"c2c_link_count\": %u,\n", indent_level_four, device->static_info.c2c_link_count);
     else
