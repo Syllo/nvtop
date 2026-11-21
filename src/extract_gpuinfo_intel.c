@@ -307,18 +307,17 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // Mark integrated GPUs
-  if (strcmp(gpu_info->base.pdev, INTEGRATED_I915_GPU_PCI_ID) == 0) {
-    static_info->integrated_graphics = true;
-  }
-
-  // A device without a VRAM region allocates from system memory. Ask the
-  // driver rather than relying on the PCI address, which misses integrated
-  // GPUs exposed elsewhere (passed through to a VM, SR-IOV virtual functions).
+  // Mark integrated GPUs. The driver's memory regions are authoritative: a
+  // device passed through to a VM or exposed as an SR-IOV function has a
+  // different PCI address. Fall back to the conventional address only when
+  // the region query is unavailable.
+  bool pci_integrated = strcmp(gpu_info->base.pdev, INTEGRATED_I915_GPU_PCI_ID) == 0;
   int has_device_memory = gpu_info->driver == DRIVER_XE ? gpuinfo_intel_xe_has_device_memory(gpu_info)
                                                         : gpuinfo_intel_i915_has_device_memory(gpu_info);
-  static_info->memory_shared_with_host =
-      has_device_memory == 0 || (has_device_memory < 0 && static_info->integrated_graphics);
+  bool integrated = has_device_memory == 0 || (has_device_memory < 0 && pci_integrated);
+  static_info->integrated_graphics = integrated;
+  // A device without a VRAM region allocates from system memory.
+  static_info->memory_shared_with_host = integrated;
 
   nvtop_pcie_link max_link_characteristics;
   int ret = nvtop_device_maximum_pcie_link(gpu_info->driver_device, &max_link_characteristics);
