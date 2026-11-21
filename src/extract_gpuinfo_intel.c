@@ -27,8 +27,10 @@
 #include "extract_gpuinfo_intel.h"
 
 #include <assert.h>
+#include <ctype.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <limits.h>
 #include <linux/perf_event.h>
 #include <sched.h>
 #include <stdio.h>
@@ -198,7 +200,7 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   thisGPU->hwmon_device = nvtop_device_get_hwmon(thisGPU->driver_device);
   thisGPU->perf_event_fd = PERF_EVENT_FD_NOT_OPENED;
 
-  const char *devname;
+  const char *devname = NULL;
   if (nvtop_device_get_devname(thisGPU->card_device, &devname) >= 0)
     thisGPU->card_fd = open(devname, O_WRONLY);
 
@@ -208,8 +210,43 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   strncpy(thisGPU->base.pdev, pdev_val, PDEV_LEN);
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
-  processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base);
+  processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base, devname);
   (*count)++;
+}
+
+bool gpuinfo_intel_parse_fdinfo_size(const char *val, unsigned long long *bytes) {
+  // strtoull accepts and negates a leading minus sign.
+  if (!isdigit((unsigned char)*val))
+    return false;
+  char *endptr;
+  unsigned long long size = strtoull(val, &endptr, 10);
+  if (endptr == val)
+    return false;
+  unsigned long long multiplier;
+  if (!*endptr)
+    multiplier = 1;
+  else if (!strcmp(endptr, " KiB") || !strcmp(endptr, " kB"))
+    multiplier = 1024;
+  else if (!strcmp(endptr, " MiB"))
+    multiplier = 1024 * 1024;
+  else
+    return false;
+  if (size > ULLONG_MAX / multiplier)
+    return false;
+  *bytes = size * multiplier;
+  return true;
+}
+
+void gpuinfo_intel_add_process_memory(struct gpu_process *process_info, unsigned long long bytes) {
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage))
+    bytes += process_info->gpu_memory_usage;
+  SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, bytes);
+}
+
+void gpuinfo_intel_add_process_shared_memory(struct gpu_process *process_info, unsigned long long bytes) {
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_shared))
+    bytes += process_info->gpu_memory_shared;
+  SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, bytes);
 }
 
 bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *count) {
@@ -256,6 +293,7 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = false;
   static_info->encode_decode_shared = true;
+  static_info->memory_shared_with_host = false;
   RESET_ALL(static_info->valid);
 
   if (nvtop_device_get_property_value(gpu_info->driver_device, "ID_MODEL_FROM_DATABASE", &dev_name) >= 0) {
@@ -269,10 +307,17 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  // Mark integrated GPUs
-  if (strcmp(gpu_info->base.pdev, INTEGRATED_I915_GPU_PCI_ID) == 0) {
-    static_info->integrated_graphics = true;
-  }
+  // Mark integrated GPUs. The driver's memory regions are authoritative: a
+  // device passed through to a VM or exposed as an SR-IOV function has a
+  // different PCI address. Fall back to the conventional address only when
+  // the region query is unavailable.
+  bool pci_integrated = strcmp(gpu_info->base.pdev, INTEGRATED_I915_GPU_PCI_ID) == 0;
+  int has_device_memory = gpu_info->driver == DRIVER_XE ? gpuinfo_intel_xe_has_device_memory(gpu_info)
+                                                        : gpuinfo_intel_i915_has_device_memory(gpu_info);
+  bool integrated = has_device_memory == 0 || (has_device_memory < 0 && pci_integrated);
+  static_info->integrated_graphics = integrated;
+  // A device without a VRAM region allocates from system memory.
+  static_info->memory_shared_with_host = integrated;
 
   nvtop_pcie_link max_link_characteristics;
   int ret = nvtop_device_maximum_pcie_link(gpu_info->driver_device, &max_link_characteristics);
@@ -459,13 +504,21 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  switch (gpu_info->driver) {
-  case DRIVER_I915:
-    gpuinfo_intel_i915_refresh_dynamic_info(_gpu_info);
-    break;
-  case DRIVER_XE:
-    gpuinfo_intel_xe_refresh_dynamic_info(_gpu_info);
-    break;
+  // Integrated GPUs only have the system memory region, which neither driver
+  // can account for as a whole: i915 reports it as entirely unallocated and xe
+  // only counts the GPU's own buffers in it. Report the system memory counters
+  // instead, as the other backends sharing memory with the host do.
+  if (static_info->memory_shared_with_host) {
+    gpuinfo_refresh_system_memory(dynamic_info);
+  } else {
+    switch (gpu_info->driver) {
+    case DRIVER_I915:
+      gpuinfo_intel_i915_refresh_dynamic_info(_gpu_info);
+      break;
+    case DRIVER_XE:
+      gpuinfo_intel_xe_refresh_dynamic_info(_gpu_info);
+      break;
+    }
   }
 
   // Let the temporary devices be garbage collected

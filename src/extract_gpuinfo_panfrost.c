@@ -271,6 +271,7 @@ void gpuinfo_panfrost_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = true;
   static_info->encode_decode_shared = true;
+  static_info->memory_shared_with_host = true;
   RESET_ALL(static_info->valid);
 
   uint64_t gpuid;
@@ -307,9 +308,6 @@ void gpuinfo_panfrost_populate_static_info(struct gpu_info *_gpu_info) {
 }
 
 void gpuinfo_panfrost_refresh_dynamic_info(struct gpu_info *_gpu_info) {
-  static const char *meminfo_total = "MemTotal";
-  static const char *meminfo_available = "MemAvailable";
-
   struct gpu_info_mali *gpu_info = container_of(_gpu_info, struct gpu_info_mali, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
 
@@ -318,7 +316,8 @@ void gpuinfo_panfrost_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     abort();
   }
 
-  mali_common_refresh_dynamic_info(dynamic_info, &mali_state, meminfo_total, meminfo_available);
+  RESET_ALL(dynamic_info->valid);
+  gpuinfo_refresh_system_memory(dynamic_info);
 }
 
 void gpuinfo_panfrost_get_running_processes(struct gpu_info *_gpu_info) {

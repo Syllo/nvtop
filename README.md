@@ -103,6 +103,28 @@ nvtop --help
 GPU Support
 -----------
 
+Integrated devices (GPUs and NPUs built into the SoC or CPU package) usually
+have no fan of their own. When such a device reports no fan percentage or RPM,
+the header shows `SYS-FAN` to indicate that cooling is handled by the system;
+snapshots report `"System Fan"`. Versions up to 3.4.0 showed `CPU-FAN` and
+`"CPU Fan"` instead.
+
+Devices without memory of their own (integrated GPUs and NPUs such as Intel,
+Adreno and Mali GPUs, and unified-memory systems such as DGX Spark) share the
+system memory with the host. For them, `MEM` shows the memory allocated by the
+device's processes, out of a capacity of those allocations plus the memory
+Linux still has available (`MemAvailable`), at most `MemTotal`: memory used by
+other programs reduces the capacity. Buffers that the driver reports as shared
+between clients (`drm-shared-*`) are counted once, as the largest amount
+reported by a single client, so the used memory is a lower bound; per-process
+values still include them. When the allocations cannot be accounted for, the
+header shows the system memory instead, labelled `RAM`. To always see the
+system memory for these devices (`MemTotal` as the total, `MemTotal` minus
+`MemAvailable` as used), enable it in the setup window (for all devices in the
+Devices section, or for one device in its Chart section entry) or start nvtop
+with `-M` (`--system-memory`); the process memory percentages stay relative to
+the GPU memory.
+
 ### AMD
 
 NVTOP supports AMD GPUs using the `amdgpu` driver and the legacy `radeon` driver (legacy GPUs, limited support) through the exposed DRM and
@@ -145,8 +167,12 @@ source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/dr
 Hence, you will need a kernel with a version greater or equal to 5.19 to see the
 processes using Intel GPUs.
 
-Intel requires CAP_PERFMON or CAP_SYS_ADMIN capabilities to access the total memory usage, and an accurate GPU frequency.
-you can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
+Intel GPUs without dedicated memory (integrated GPUs) share the system memory
+pool. When GPU allocation accounting is unavailable, the header labels its
+system memory fallback `RAM`, using Linux `MemTotal` and `MemAvailable`.
+On discrete GPUs, the VRAM usage requires CAP_PERFMON or
+CAP_SYS_ADMIN with i915 (and with xe on older kernels). An accurate GPU frequency
+also requires CAP_PERFMON. You can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
 
 ### Intel NPU
 
@@ -176,17 +202,30 @@ successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
 Unified-memory systems such as DGX Spark (GB10) and RTX Spark N1X are supported
-through the same NVML backend. When NVML reports no dedicated framebuffer,
-memory capacity comes from Linux `MemTotal`, available memory from
-`MemAvailable`, and GPU usage from the visible GPU processes' allocations.
-These are different counters: total minus GPU usage is not the remaining
-allocatable system memory. Processes using both graphics and compute contexts
-are counted once. In containers, make host GPU processes visible (for example
-with `--pid=host`) to obtain complete per-process accounting.
+through the same NVML backend. When NVML reports no dedicated framebuffer, the
+GPU has no memory pool of its own. When at least one process reports a valid
+memory value, `MEM` shows the sum of reported GPU allocations as used memory;
+unavailable entries are skipped. Available memory is Linux `MemAvailable`, and
+GPU capacity is the sum of these two amounts, capped at `MemTotal` since
+per-process accounting can count a buffer shared between processes more than
+once. Host allocations therefore reduce the displayed GPU capacity. A successful empty query reports zero GPU allocations. A nonempty
+list with no valid memory entries, or an empty list without a successful query,
+uses the system RAM fallback.
 
-PCIe link generation and width are left unavailable when NVML reports an active
-NVLink-C2C attachment. Driver-unsupported sensors, including memory clocks, fan
-speed and link throughput, remain `N/A` rather than being estimated.
+System memory is recorded separately as `system_total_memory` (`MemTotal`) and
+`system_free_memory` (`MemAvailable`, which includes reclaimable memory). When
+GPU allocation accounting is unavailable, the header and graph use a `RAM`
+fallback: system usage is the difference between those counters. Snapshots keep
+the GPU and system counters separate.
+Per-process GPU allocations remain listed separately. In containers, make host
+GPU processes visible (for example with `--pid=host`) for complete accounting.
+
+These devices are integrated with the host, so they use the `SYS-FAN` display
+described above. A device attached over NVLink-C2C shows `C2C LINK <n>x` instead
+of the PCIe generation and width, and no PCIe throughput. NVML answers the PCIe
+link queries on those SoCs with placeholder values, so the PCIe link is left
+unreported. Driver-unsupported sensors, including memory clocks and power
+limits, remain `N/A` rather than being estimated.
 
 The extra GPU info bar (`nvtop -i`) shows the dynamic parameters NVML does not
 report, such as the XBAR, SYS and NVD clocks, and `nvtop -X` also shows the

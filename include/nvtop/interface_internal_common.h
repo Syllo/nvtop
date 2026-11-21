@@ -84,6 +84,12 @@ struct device_window {
   WINDOW *extra_info[MAX_EXTRA_INFO_ITEMS];
   bool enc_was_visible;
   bool dec_was_visible;
+  // Kind of memory shown by the memory graph (system RAM fallback or GPU
+  // memory), and the number of consecutive samples of the other kind.
+  bool memory_plot_system_memory;
+  unsigned memory_plot_switch_samples;
+  // State of the user's system memory option when the graph was last updated.
+  bool memory_plot_system_option;
   nvtop_time last_decode_seen;
   nvtop_time last_encode_seen;
 };

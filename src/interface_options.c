@@ -208,6 +208,7 @@ static const char device_section[] = "Device";
 static const char device_pdev[] = "Pdev";
 static const char device_monitor[] = "Monitor";
 static const char device_shown_value[] = "ShownInfo";
+static const char device_show_system_memory[] = "ShowSystemMemory";
 static const char *device_draw_vals[plot_information_count + 1] = {
     "gpuRate",       "gpuMemRate", "encodeRate",   "decodeRate",      "temperature",
     "powerDrawRate", "fanSpeed",   "gpuClockRate", "gpuMemClockRate", "effectiveLoadRate",
@@ -370,6 +371,12 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
         if (strcmp(value, "false") == 0)
           ini_data->options->gpu_specific_opts[ini_data->selectedGpu].doNotMonitor = true;
       }
+      if (strcmp(name, device_show_system_memory) == 0) {
+        if (strcmp(value, "true") == 0)
+          ini_data->options->gpu_specific_opts[ini_data->selectedGpu].show_system_memory = true;
+        if (strcmp(value, "false") == 0)
+          ini_data->options->gpu_specific_opts[ini_data->selectedGpu].show_system_memory = false;
+      }
     }
   }
   return 1;
@@ -475,6 +482,8 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
     fprintf(config_file, "\n[%s]\n", device_section);
     fprintf(config_file, "%s = %s\n", device_pdev, options->gpu_specific_opts[i].linkedGpu->pdev);
     fprintf(config_file, "%s = %s\n", device_monitor, boolean_string(!options->gpu_specific_opts[i].doNotMonitor));
+    fprintf(config_file, "%s = %s\n", device_show_system_memory,
+            boolean_string(options->gpu_specific_opts[i].show_system_memory));
     bool draw_any = false;
     for (enum plot_information j = plot_gpu_rate; j < plot_information_count; ++j) {
       if (plot_isset_draw_info(j, options->gpu_specific_opts[i].to_draw)) {

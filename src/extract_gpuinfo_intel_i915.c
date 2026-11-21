@@ -130,6 +130,21 @@ static inline void *intel_i915_query_alloc_fetch(int fd, uint64_t query_id, int3
 }
 // End Copy
 
+int gpuinfo_intel_i915_has_device_memory(struct gpu_info_intel *gpu_info) {
+  int32_t length = 0;
+  struct drm_i915_query_memory_regions *regions =
+      intel_i915_query_alloc_fetch(gpu_info->card_fd, DRM_I915_QUERY_MEMORY_REGIONS, &length);
+  if (!regions)
+    return -1;
+  int has_device_memory = 0;
+  for (unsigned i = 0; i < regions->num_regions; i++) {
+    if (regions->regions[i].region.memory_class == I915_MEMORY_CLASS_DEVICE)
+      has_device_memory = 1;
+  }
+  free(regions);
+  return has_device_memory;
+}
+
 void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
@@ -141,10 +156,10 @@ void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (regions) {
       for (unsigned i = 0; i < regions->num_regions; i++) {
         struct drm_i915_memory_region_info mr = regions->regions[i];
-        // ARC will have device memory and system memory, integrated graphics will have only one system region
-        if (mr.region.memory_class == I915_MEMORY_CLASS_DEVICE || regions->num_regions == 1) {
+        // Only discrete GPUs get here: report their device memory region
+        if (mr.region.memory_class == I915_MEMORY_CLASS_DEVICE) {
           SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.probed_size);
-          // i915 will report the total memory as the unallocated size if we don't have CAP_PERFMON
+          // i915 reports the total memory as the unallocated size if we don't have CAP_PERFMON
           if (mr.unallocated_size != mr.probed_size) {
             SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mr.unallocated_size);
             SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, dynamic_info->total_memory - dynamic_info->free_memory);
@@ -164,8 +179,16 @@ static const char i915_drm_intel_copy[] = "drm-engine-copy";
 static const char i915_drm_intel_video[] = "drm-engine-video";
 static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
 static const char i915_drm_intel_compute[] = "drm-engine-compute";
-static const char i915_drm_intel_vram[] = "drm-total-local0";
-static const char i915_drm_intel_gtt[] = "drm-total-system0";
+// Resident sizes: drm-total-* also counts allocations that are not backed by
+// memory yet, which integrated GPUs compare against MemAvailable. Devices
+// sharing their memory with the host only have the system memory region;
+// discrete GPUs only count their device memory, which their capacity
+// describes, as the amdgpu backend does.
+static const char i915_drm_intel_vram[] = "drm-resident-local0";
+static const char i915_drm_intel_gtt[] = "drm-resident-system0";
+// Part of the same memory in buffers shared with other DRM clients.
+static const char i915_drm_intel_shared_vram[] = "drm-shared-local0";
+static const char i915_drm_intel_shared_gtt[] = "drm-shared-system0";
 
 bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
@@ -205,18 +228,17 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
       bool is_video_enhance = !strcmp(key, i915_drm_intel_video_enhance);
       bool is_compute = !strcmp(key, i915_drm_intel_compute);
 
-      if (!strcmp(key, i915_drm_intel_vram) || !strcmp(key, i915_drm_intel_gtt)) {
-        unsigned long mem_int;
-        char *endptr;
-
-        mem_int = strtoul(val, &endptr, 10);
-        if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
+      bool shared_memory = info->static_info.memory_shared_with_host;
+      bool is_memory = !strcmp(key, shared_memory ? i915_drm_intel_gtt : i915_drm_intel_vram);
+      bool is_shared = !strcmp(key, shared_memory ? i915_drm_intel_shared_gtt : i915_drm_intel_shared_vram);
+      if (is_memory || is_shared) {
+        unsigned long long mem_bytes;
+        if (!gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
           continue;
-
-        if GPUINFO_PROCESS_FIELD_VALID (process_info, gpu_memory_usage)
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + (mem_int * 1024));
+        if (is_shared)
+          gpuinfo_intel_add_process_shared_memory(process_info, mem_bytes);
         else
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+          gpuinfo_intel_add_process_memory(process_info, mem_bytes);
 
       } else if (is_render || is_copy || is_video || is_video_enhance || is_compute) {
         char *endptr;

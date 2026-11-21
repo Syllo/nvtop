@@ -41,7 +41,7 @@
 // Core NVML types needed throughout the file (from nvml.h — cannot include directly
 // due to dlsym function pointer conflicts with nvtop's architecture).
 
-// NVML return codes (subset — we only use NVML_SUCCESS and NVML_ERROR_NOT_SUPPORTED)
+// NVML return codes used by the backend and its injected-driver tests.
 typedef enum nvmlReturn_enum {
   NVML_SUCCESS = 0,
   NVML_ERROR_UNINITIALIZED = 1,
@@ -50,6 +50,8 @@ typedef enum nvmlReturn_enum {
   NVML_ERROR_NO_PERMISSION = 4,
   NVML_ERROR_NOT_FOUND = 6,
   NVML_ERROR_INSUFFICIENT_SIZE = 7,
+  NVML_ERROR_FUNCTION_NOT_FOUND = 13,
+  NVML_ERROR_UNKNOWN = 999,
 } nvmlReturn_t;
 
 // Opaque device handle (nvml.h defines as struct nvmlDevice_st*)
@@ -206,6 +208,11 @@ typedef struct {
 } nvmlC2cModeInfo_v1_t;
 
 static nvmlReturn_t (*nvmlDeviceGetC2cModeInfoV)(nvmlDevice_t device, nvmlC2cModeInfo_v1_t *info);
+
+// NVLink-C2C link count from nvml.h, queried through nvmlDeviceGetFieldValues.
+// A C2C link replaces the PCIe link between the GPU and the CPU on SoCs such
+// as GB10, where the PCIe link queries answer with placeholder values.
+#define NVML_FI_DEV_C2C_LINK_COUNT 170
 
 typedef enum {
   NVML_PCIE_UTIL_TX_BYTES = 0,
@@ -583,57 +590,62 @@ static char didnt_call_gpuinfo_init[] = "The NVIDIA extraction has not been init
                                         "gpuinfo_nvidia_init\n";
 static const char *local_error_string = didnt_call_gpuinfo_init;
 
-// On UMA platforms the GPU has no dedicated framebuffer and shares the system
-// memory pool with the host, so there is no framebuffer size to query. Report
-// the whole system RAM as the total capacity and what the kernel says is still
-// allocatable as free. The used memory is deliberately left unset here: the
-// generic process accounting in
-// gpuinfo_fix_dynamic_info_from_process_info() fills it with the sum of the
-// running processes' GPU allocations, which is the only per-device figure NVML
-// exposes on these platforms.
-static bool set_unified_system_memory_info(struct gpuinfo_dynamic_info *dynamic_info) {
-  FILE *meminfo = fopen("/proc/meminfo", "r");
-  if (!meminfo)
+// Processes GPU Utilization
+
+// Reads a single unsigned NVML field value, widening the member identified by
+// valueType. Missing entry points, failed queries and other value types leave
+// the output untouched.
+static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int field_id, unsigned int scope_id,
+                                               unsigned long long *value) {
+  if (!nvmlDeviceGetFieldValues)
     return false;
-
-  unsigned long long total_memory_kb = 0;
-  unsigned long long available_memory_kb = 0;
-  bool total_memory_found = false;
-  bool available_memory_found = false;
-  char line[256];
-
-  while (fgets(line, sizeof(line), meminfo)) {
-    if (sscanf(line, "MemTotal: %llu kB", &total_memory_kb) == 1) {
-      total_memory_found = true;
-      continue;
-    }
-    if (sscanf(line, "MemAvailable: %llu kB", &available_memory_kb) == 1) {
-      available_memory_found = true;
-      continue;
-    }
+  nvmlFieldValue_t field = {0};
+  field.fieldId = field_id;
+  field.scopeId = scope_id;
+  if (nvmlDeviceGetFieldValues(device, 1, &field) != NVML_SUCCESS || field.nvmlReturn != NVML_SUCCESS)
+    return false;
+  switch (field.valueType) {
+  case NVML_VALUE_TYPE_UNSIGNED_INT:
+    *value = field.value.uiVal;
+    break;
+  case NVML_VALUE_TYPE_UNSIGNED_LONG:
+    *value = field.value.ulVal;
+    break;
+  case NVML_VALUE_TYPE_UNSIGNED_LONG_LONG:
+    *value = field.value.ullVal;
+    break;
+  case NVML_VALUE_TYPE_UNSIGNED_SHORT:
+    *value = field.value.usVal;
+    break;
+  default:
+    return false;
   }
-
-  fclose(meminfo);
-
-  if (!total_memory_found || !available_memory_found || total_memory_kb == 0 ||
-      available_memory_kb > total_memory_kb)
-    return false;
-
-  unsigned long long total_memory = total_memory_kb * 1024;
-  unsigned long long free_memory = available_memory_kb * 1024;
-
-  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
-  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, free_memory);
-
-  // The used memory is recomputed from the process list every refresh by the
-  // generic pass, so invalidate it (and the derived rate) for it to fill in.
-  RESET_GPUINFO_DYNAMIC(dynamic_info, used_memory);
-  RESET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate);
-
   return true;
 }
 
-// Processes GPU Utilization
+// Number of NVLink-C2C links the GPU is attached over. The C2C mode query only
+// says whether the attachment is enabled; the link count is what the header can
+// display in place of a PCIe link. Devices without a C2C attach report either a
+// failed query or a count of zero, and both mean "no links".
+static unsigned gpuinfo_nvidia_c2c_link_count(nvmlDevice_t device) {
+  unsigned long long count = 0;
+  if (!gpuinfo_nvidia_get_field_value_u64(device, NVML_FI_DEV_C2C_LINK_COUNT, 0, &count))
+    return 0;
+  return count > UINT_MAX ? UINT_MAX : (unsigned)count;
+}
+
+// True when the GPU is attached over NVLink-C2C rather than PCIe. The link
+// count is the direct statement of the attachment, but some drivers expose the
+// older boolean instead, so both are consulted. A failed query is never read as
+// an attach, which keeps discrete GPUs on the PCIe path.
+static bool gpuinfo_nvidia_uses_c2c(nvmlDevice_t device, unsigned link_count) {
+  if (link_count > 0)
+    return true;
+  if (!nvmlDeviceGetC2cModeInfoV)
+    return false;
+  nvmlC2cModeInfo_v1_t c2c_mode = {0};
+  return nvmlDeviceGetC2cModeInfoV(device, &c2c_mode) == NVML_SUCCESS && c2c_mode.isC2cEnabled != 0;
+}
 
 typedef struct {
   unsigned int pid;
@@ -1039,7 +1051,14 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
     static_info->memory_shared_with_host =
         ret == NVML_ERROR_NOT_SUPPORTED || (ret == NVML_SUCCESS && memory_info.total == 0);
   }
+  // Treat shared-memory SoCs as integrated devices. If NVML reports no fan
+  // measurement, the interface displays "SYS-FAN" to indicate system cooling.
+  static_info->integrated_graphics = static_info->memory_shared_with_host;
+  static_info->c2c_link_count = gpuinfo_nvidia_c2c_link_count(device);
   RESET_ALL(static_info->valid);
+
+  if (static_info->c2c_link_count > 0)
+    SET_VALID(gpuinfo_c2c_link_count_valid, static_info->valid);
 
   last_nvml_return_status = nvmlDeviceGetName(device, static_info->device_name, MAX_DEVICE_NAME);
   if (last_nvml_return_status == NVML_SUCCESS)
@@ -1102,13 +1121,18 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
     }
   }
 
-  last_nvml_return_status = nvmlDeviceGetMaxPcieLinkGeneration(device, &static_info->max_pcie_gen);
-  if (last_nvml_return_status == NVML_SUCCESS)
-    SET_VALID(gpuinfo_max_pcie_gen_valid, static_info->valid);
+  // The PCIe link queries answer with placeholder values on a C2C-attached
+  // device (GB10 reports "Max Gen 1 / Max Width 16x" while the actual link is an
+  // NVLink-C2C with no PCIe topology behind it), so leave them unknown there.
+  if (!gpuinfo_nvidia_uses_c2c(device, static_info->c2c_link_count)) {
+    last_nvml_return_status = nvmlDeviceGetMaxPcieLinkGeneration(device, &static_info->max_pcie_gen);
+    if (last_nvml_return_status == NVML_SUCCESS)
+      SET_VALID(gpuinfo_max_pcie_gen_valid, static_info->valid);
 
-  last_nvml_return_status = nvmlDeviceGetMaxPcieLinkWidth(device, &static_info->max_pcie_link_width);
-  if (last_nvml_return_status == NVML_SUCCESS)
-    SET_VALID(gpuinfo_max_pcie_link_width_valid, static_info->valid);
+    last_nvml_return_status = nvmlDeviceGetMaxPcieLinkWidth(device, &static_info->max_pcie_link_width);
+    if (last_nvml_return_status == NVML_SUCCESS)
+      SET_VALID(gpuinfo_max_pcie_link_width_valid, static_info->valid);
+  }
 
   last_nvml_return_status = nvmlDeviceGetTemperatureThreshold(device, NVML_TEMPERATURE_THRESHOLD_SHUTDOWN,
                                                               &static_info->temperature_shutdown_threshold);
@@ -1196,11 +1220,11 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // Device memory info (total,used,free). Devices sharing memory with the host
   // (a fixed property, recorded in the static info) have no dedicated
-  // framebuffer: report the Linux system memory counters recommended by NVIDIA
-  // for memory reporting. The used memory is reconstructed from the process
-  // list by the generic pass after this one.
+  // framebuffer. Keep Linux system counters separate; the generic pass derives
+  // GPU capacity from its process allocations plus MemAvailable after querying
+  // processes. Missing GPU accounting can still display system RAM separately.
   if (gpu_info->base.static_info.memory_shared_with_host) {
-    set_unified_system_memory_info(dynamic_info);
+    gpuinfo_refresh_system_memory(dynamic_info);
   } else {
     bool got_meminfo = false;
     if (nvmlDeviceGetMemoryInfo_v2) {
@@ -1230,19 +1254,16 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // Pcie generation and width used by the device.
   // Only report these for PCIe devices without an active NVLink-C2C attach.
   // DGX Spark / GB10 and RTX Spark N1X report PCIe with placeholder link
-  // values even though C2C is enabled. Do not infer the link from UMA alone.
+  // values even though C2C is enabled. Do not infer the link from UMA alone:
+  // the C2C link count is a direct statement of the attachment.
   bool device_on_pcie_bus = nvmlDeviceGetBusType == NULL; // Older drivers: assume PCIe as before.
   if (nvmlDeviceGetBusType) {
     unsigned int bus_type;
     if (nvmlDeviceGetBusType(device, &bus_type) == NVML_SUCCESS)
       device_on_pcie_bus = bus_type == NVML_BUS_TYPE_PCIE;
   }
-
-  if (device_on_pcie_bus && nvmlDeviceGetC2cModeInfoV) {
-    nvmlC2cModeInfo_v1_t c2c_mode = {0};
-    if (nvmlDeviceGetC2cModeInfoV(device, &c2c_mode) == NVML_SUCCESS && c2c_mode.isC2cEnabled)
-      device_on_pcie_bus = false;
-  }
+  if (device_on_pcie_bus && gpuinfo_nvidia_uses_c2c(device, gpu_info->base.static_info.c2c_link_count))
+    device_on_pcie_bus = false;
 
   if (device_on_pcie_bus) {
     last_nvml_return_status = nvmlDeviceGetCurrPcieLinkGeneration(device, &dynamic_info->pcie_link_gen);
@@ -1390,7 +1411,9 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
   struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
   nvmlDevice_t device = gpu_info->gpuhandle;
   bool validProcessGathering = false;
+  _gpu_info->processes_query_succeeded = false;
   for (unsigned version = 3; !validProcessGathering && version > 0; version--) {
+    bool process_query_failed = false;
     // Get the size of the actual function being used
     size_t sizeof_nvmlProcessInfo;
     switch (version) {
@@ -1426,6 +1449,9 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
       if (last_nvml_return_status == NVML_SUCCESS) {
         validProcessGathering = true;
         graphical_count = recovered_count;
+      } else if (last_nvml_return_status != NVML_ERROR_NOT_SUPPORTED &&
+                 last_nvml_return_status != NVML_ERROR_FUNCTION_NOT_FOUND) {
+        process_query_failed = true;
       }
     }
 
@@ -1446,6 +1472,9 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
       if (last_nvml_return_status == NVML_SUCCESS) {
         validProcessGathering = true;
         compute_count = recovered_count;
+      } else if (last_nvml_return_status != NVML_ERROR_NOT_SUPPORTED &&
+                 last_nvml_return_status != NVML_ERROR_FUNCTION_NOT_FOUND) {
+        process_query_failed = true;
       }
     }
 
@@ -1466,12 +1495,18 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
       if (last_nvml_return_status == NVML_SUCCESS) {
         validProcessGathering = true;
         compute_count += recovered_count;
+      } else if (last_nvml_return_status != NVML_ERROR_NOT_SUPPORTED &&
+                 last_nvml_return_status != NVML_ERROR_FUNCTION_NOT_FOUND) {
+        process_query_failed = true;
       }
     }
 
     if (!validProcessGathering)
       continue;
 
+    // Unsupported query types are optional, but a failed supported query can
+    // hide processes even if another query successfully returned an empty list.
+    _gpu_info->processes_query_succeeded = !process_query_failed;
     _gpu_info->processes_count = graphical_count + compute_count;
     if (_gpu_info->processes_count > 0) {
       if (_gpu_info->processes_count > _gpu_info->processes_array_size) {
@@ -1514,7 +1549,7 @@ static void gpuinfo_nvidia_get_running_processes(struct gpu_info *_gpu_info) {
   }
   // NVML can return the same PID in the graphics, compute and MPS lists.
   // Its memory is a per-process total, not an allocation for each context:
-  // counting it twice inflates UMA usage reconstructed by the generic pass.
+  // counting it twice would overstate that process' memory in the list.
   unsigned unique_count = 0;
   for (unsigned i = 0; i < _gpu_info->processes_count; ++i) {
     struct gpu_process *process = &_gpu_info->processes[i];

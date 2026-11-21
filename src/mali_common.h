@@ -83,7 +83,6 @@ struct mali_gpu_state {
   struct gpu_info_mali *gpu_infos;
 
   void *libdrm_handle;
-  FILE *meminfo_file;
 
   int last_libdrm_return_status;
   char *didnt_call_gpuinfo_init;
@@ -123,10 +122,6 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
 				    struct list_head *devices, unsigned *count,
 				    bool (*handle_model) (struct gpu_info_mali *),
 				    enum mali_version version);
-void mali_common_refresh_dynamic_info(struct gpuinfo_dynamic_info *dynamic_info,
-				      struct mali_gpu_state *state,
-				      const char *meminfo_total,
-				      const char *meminfo_available);
 void mali_common_get_running_processes(struct gpu_info *_gpu_info, enum mali_version version);
 
 void mali_common_parse_fdinfo_handle_cache(struct gpu_info_mali *gpu_info,
