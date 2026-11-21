@@ -28,6 +28,7 @@
 
 #include <assert.h>
 #include <ctype.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
@@ -219,8 +220,10 @@ bool gpuinfo_intel_parse_fdinfo_size(const char *val, unsigned long long *bytes)
   if (!isdigit((unsigned char)*val))
     return false;
   char *endptr;
+  errno = 0;
   unsigned long long size = strtoull(val, &endptr, 10);
-  if (endptr == val)
+  // ERANGE and ULLONG_MAX are the overflow sentinel, not a memory size.
+  if (endptr == val || errno == ERANGE || size == ULLONG_MAX)
     return false;
   unsigned long long multiplier;
   if (!*endptr)
@@ -238,14 +241,20 @@ bool gpuinfo_intel_parse_fdinfo_size(const char *val, unsigned long long *bytes)
 }
 
 void gpuinfo_intel_add_process_memory(struct gpu_process *process_info, unsigned long long bytes) {
-  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage))
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage)) {
+    if (bytes > ULLONG_MAX - process_info->gpu_memory_usage)
+      return;
     bytes += process_info->gpu_memory_usage;
+  }
   SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, bytes);
 }
 
 void gpuinfo_intel_add_process_shared_memory(struct gpu_process *process_info, unsigned long long bytes) {
-  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_shared))
+  if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_shared)) {
+    if (bytes > ULLONG_MAX - process_info->gpu_memory_shared)
+      return;
     bytes += process_info->gpu_memory_shared;
+  }
   SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, bytes);
 }
 
