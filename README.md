@@ -8,13 +8,13 @@ NVTOP stands for Neat Videocard TOP, a (h)top like task monitor for GPUs and
 accelerators. It can handle multiple GPUs and print information about them in a
 htop-familiar way.
 
-Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
-M2 support), Huawei (Ascend), Intel (Linux i915/Xe GPU drivers and the NPU
-through intel_vpu), NVIDIA (Linux proprietary drivers), Qualcomm Adreno (Linux
-MSM driver), Broadcom VideoCore (Linux v3d driver), Rockchip, MetaX (MXSML
-driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver),
-Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML), Intel Gaudi and Goya (Linux
-habanalabs driver).
+Currently supported vendors are AMD (Linux amdgpu GPU driver and the NPU through
+amdxdna), Apple (limited M1 & M2 support), Huawei (Ascend), Intel (Linux i915/Xe
+GPU drivers and the NPU through intel_vpu), NVIDIA (Linux proprietary drivers),
+Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver),
+Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Tenstorrent (Linux
+tt-kmd driver), Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML), Intel Gaudi
+and Goya (Linux habanalabs driver).
 
 Because a picture is worth a thousand words:
 
@@ -31,6 +31,7 @@ Table of Contents
   - [AMD](#amd)
   - [Intel](#intel)
   - [Intel NPU](#intel-npu)
+  - [AMD NPU](#amd-npu)
   - [NVIDIA](#nvidia)
   - [Adreno](#adreno)
   - [Apple](#apple)
@@ -167,6 +168,28 @@ than the NPU's own allocations.
 Utilization requires kernel 6.11 or newer and frequency information requires
 6.15 or newer; older kernels simply show fewer fields. Temperature and
 per-process usage are not exposed by the driver and are not reported.
+
+### AMD NPU
+
+NVTOP supports the Ryzen AI NPUs (Phoenix, Hawk Point, Strix, Krackan, Strix
+Halo and their successors) driven by the in-kernel `amdxdna` accel driver. Like
+the Intel NPU, it needs no extra library. Support is enabled by default on Linux
+and can be disabled with `-DAMD_NPU_SUPPORT=OFF`.
+
+The NPU is named from the product the driver reports in its `vbnv` sysfs
+attribute (for example "Krackan 1"), or else from its PCI IDs. The processes
+holding `/dev/accel/accelN` open are listed with the NPU memory they hold, read
+from the DRM fdinfo of the driver (the `internal-alloc` and `external-alloc`
+keys, or `drm-total-memory` on kernels without them). A process that only opened
+the device, as frameworks enumerating every accelerator do, has no device heap
+yet and keeps an unknown kind (`"kind": null` in the JSON output); once it has
+set up a hardware context to submit work it is reported as a compute process.
+The memory row reports system-wide RAM usage, as the NPU allocates from system
+memory.
+
+The driver does not expose a busy time, so NPU utilization is not reported (it
+shows as N/A, not 0%), and neither are frequency, temperature or power. Seeing
+the processes of other users requires root, as for the GPU backends.
 
 ### NVIDIA
 

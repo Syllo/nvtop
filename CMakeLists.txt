@@ -139,6 +139,13 @@ else()
   set(INTEL_NPU_SUPPORT_DEFAULT OFF)
 endif()
 
+# AMD NPU support (amdxdna accel driver) is only available on Linux
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(AMD_NPU_SUPPORT_DEFAULT ON)
+else()
+  set(AMD_NPU_SUPPORT_DEFAULT OFF)
+endif()
+
 # Tenstorrent support is only available on Linux
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set(TENSTORRENT_SUPPORT_DEFAULT ON)
@@ -159,6 +166,7 @@ option(V3D_SUPPORT "Build support for Raspberrypi through v3d" ${V3D_SUPPORT_DEF
 option(TPU_SUPPORT "Build support for Google TPUs through GRPC" ${TPU_SUPPORT_DEFAULT})
 option(ROCKCHIP_SUPPORT "Enable support for Rockchip NPU" ${ROCKCHIP_SUPPORT_DEFAULT})
 option(INTEL_NPU_SUPPORT "Build support for Intel NPUs through the intel_vpu driver" ${INTEL_NPU_SUPPORT_DEFAULT})
+option(AMD_NPU_SUPPORT "Build support for AMD NPUs through the amdxdna driver" ${AMD_NPU_SUPPORT_DEFAULT})
 option(METAX_SUPPORT "Build support for MetaX GPUs through libmxsml" ${METAX_SUPPORT_DEFAULT})
 option(ENFLAME_SUPPORT "Build support for Enflame GCUs through libefml" ${ENFLAME_SUPPORT_DEFAULT})
 option(TENSTORRENT_SUPPORT "Build support for Tenstorrent accelerators through tt-kmd" ${TENSTORRENT_SUPPORT_DEFAULT})
