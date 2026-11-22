@@ -168,14 +168,24 @@ static bool device_discovery(void) {
   CHECK(mkdir(path, 0755) == 0);
   snprintf(path, sizeof(path), "%s/class", root);
   CHECK(mkdir(path, 0755) == 0);
+  snprintf(path, sizeof(path), "%s/dev", root);
+  CHECK(mkdir(path, 0755) == 0);
 
   CHECK(add_accel_node(root, "accel0", "0000:c5:00.1", "amdxdna", "0x17f0\n", "0x20\n", "NPU Krackan 1\n", "261:0\n"));
   CHECK(add_accel_node(root, "accel1", "0000:00:0b.0", "intel_vpu", "0x7d1d\n", "0x04\n", NULL, "261:1\n"));
   CHECK(add_accel_node(root, "accel2", "0000:c6:00.1", "amdxdna", "0x17f2\n", "0x10\n", NULL, "261:2\n"));
+  /* An amdxdna device whose node cannot be opened is ignored. */
+  CHECK(add_accel_node(root, "accel3", "0000:c7:00.1", "amdxdna", "0x17f3\n", "0x10\n", NULL, "261:3\n"));
 
   static char class_root[PATH_MAX];
   snprintf(class_root, sizeof(class_root), "%s/class", root);
   amd_npu_class_root = class_root;
+  static char dev_root[PATH_MAX];
+  snprintf(dev_root, sizeof(dev_root), "%s/dev/accel", root);
+  CHECK(mkdir(dev_root, 0755) == 0);
+  CHECK(write_file(dev_root, "accel0", ""));
+  CHECK(write_file(dev_root, "accel2", ""));
+  amd_npu_dev_root = dev_root;
 
   LIST_HEAD(devices);
   unsigned count = 0;

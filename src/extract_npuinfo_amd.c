@@ -29,6 +29,7 @@
 
 #include <ctype.h>
 #include <dirent.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
@@ -63,6 +64,7 @@ struct amdxdna_fdinfo {
 };
 
 static const char *amd_npu_class_root = "/sys/class/accel";
+static const char *amd_npu_dev_root = "/dev/accel";
 
 static struct gpu_info_amd_npu *amd_npu_info = NULL;
 static unsigned amd_npu_count = 0;
@@ -263,6 +265,17 @@ static bool gpuinfo_amd_npu_get_device_handles(struct list_head *devices, unsign
     if (!is_amdxdna(sysfs_dev))
       continue;
 
+    // Only list an NPU whose device node can be opened. The fdinfo dispatcher
+    // attributes processes through that node; without it the device could not
+    // be monitored. Do not keep the descriptor: an open accel node is a driver
+    // client and would show up in the process list.
+    char node_path[PATH_MAX];
+    snprintf(node_path, sizeof(node_path), "%s/%s", amd_npu_dev_root, entry->d_name);
+    int node_fd = open(node_path, O_RDONLY | O_CLOEXEC);
+    if (node_fd < 0)
+      continue;
+    close(node_fd);
+
     struct gpu_info_amd_npu *npu = &amd_npu_info[amd_npu_count];
     snprintf(npu->sysfs_dev, sizeof(npu->sysfs_dev), "%s", sysfs_dev);
 
@@ -285,8 +298,6 @@ static bool gpuinfo_amd_npu_get_device_handles(struct list_head *devices, unsign
     npu->base.processes_count = 0;
     npu->base.processes = NULL;
     npu->base.processes_array_size = 0;
-    char node_path[PATH_MAX];
-    snprintf(node_path, sizeof(node_path), "/dev/accel/%s", entry->d_name);
     processinfo_register_fdinfo_callback(parse_drm_fdinfo_amdxdna, &npu->base, node_path);
     list_add_tail(&npu->base.list, devices);
     amd_npu_count++;
