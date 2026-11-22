@@ -603,7 +603,7 @@ WSL2. Nvtop should work out of the box for the following configurations:
 
 - NVIDIA: Please refer to [NVIDIA's user guide to get started with CUDA on
 WSL2](https://docs.nvidia.com/cuda/wsl-user-guide/index.html#getting-started-with-cuda-on-wsl)
-to avoid overiding the driver exposed by WSL2 (from Windows) with the NVIDIA
+to avoid overriding the driver exposed by WSL2 (from Windows) with the NVIDIA
 Linux drivers.
 
 ## NVTOP Build
@@ -640,14 +640,13 @@ Troubleshoot
 - **Putty**: Tell putty not to lie about its capabilities (`$TERM`) by setting the field ``Terminal-type string`` to ``putty`` in the menu
   ``Connection > Data > Terminal Details``.
 - `NO GPU to monitor.` for NVIDIA GPUs:
-  - `nvtop` loads a shared library named `libnvml.so` (shipped with the NVIDIA
-  drivers) to querry device information. If the library is not present, nvtop
-  will not be able to monitor your NVIDIA device.
-  - On `WSL2`, the installation instructions are slightly different since the
-  driver is being exposed by Windows to the virtual machine (see instruction
-  link in [the WSL2 section](#wsl2)). If you install the NVIDIA linux drivers
-  inside WSL2, you may encounter a version mismatch error or nvtop may silently
-  not work at all.
+  - To query device information, `nvtop` tries to load `libnvidia-ml.so.1`
+  first, then `libnvidia-ml.so`. If neither NVIDIA driver library can be
+  loaded, `nvtop` cannot monitor your NVIDIA device.
+  - On `WSL2`, the driver is exposed by Windows to the virtual machine (see
+  [the WSL2 section](#wsl2)). Do not install NVIDIA's Linux driver packages
+  inside WSL2: they can shadow the WSL-provided `libnvidia-ml.so.1` that
+  nvtop uses and cause version mismatch errors.
 
 License
 -------
