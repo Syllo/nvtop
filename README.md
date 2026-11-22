@@ -225,12 +225,12 @@ The NPU is named from the product the driver reports in its `vbnv` sysfs
 attribute (for example "Krackan 1"), or else from its PCI IDs. The processes
 holding `/dev/accel/accelN` open are listed with the NPU memory they hold, read
 from the DRM fdinfo of the driver (the `internal-alloc` and `external-alloc`
-keys, or `drm-total-memory` on kernels without them). A process that only opened
-the device, as frameworks enumerating every accelerator do, has no device heap
-yet and keeps an unknown kind (`"kind": null` in the JSON output); once it has
-set up a hardware context to submit work it is reported as a compute process.
-The memory row reports system-wide RAM usage, as the NPU allocates from system
-memory.
+keys, or `drm-total-memory` on kernels without them). NPU clients are reported
+as compute processes. A client shared between processes, such as an accel fd
+inherited through `fork()`, is listed for each holder but its memory is counted
+once. The memory row shows the client allocations plus available system memory;
+when no client allocation is available it falls back to system-wide RAM, as the
+NPU allocates from system memory.
 
 The driver does not expose a busy time, so NPU utilization is not reported (it
 shows as N/A, not 0%), and neither are frequency, temperature or power. Seeing

@@ -158,7 +158,7 @@ if(BUILD_TESTING AND AMD_NPU_SUPPORT)
   target_link_libraries(amdxdnaTests PRIVATE m ${CMAKE_DL_LIBS})
   add_sanitizers(amdxdnaTests)
   foreach (test_case fdinfo_idle fdinfo_active fdinfo_total_fallback fdinfo_other_driver
-                    process_accounting scan_processes device_discovery)
+                    fdinfo_callback device_discovery)
     add_test(NAME Amdxdna.${test_case} COMMAND amdxdnaTests ${test_case})
   endforeach()
 endif()

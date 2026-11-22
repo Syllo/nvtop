@@ -19,39 +19,31 @@
 
 /*
  * The amdxdna driver (Ryzen AI NPUs) exposes /dev/accel/accelN. The driver does not expose a busy time, so no
- * utilization is reported. Processes are found by scanning /proc/<pid>/fd for the accel node of the device, and their
- * memory is read from the DRM fdinfo of that file. The generic fdinfo sweep (extract_processinfo_fdinfo.c) only
- * considers DRM nodes (major 226) and hands every node to all the registered GPU parsers, some of which do not check
- * the driver, so the accel nodes are scanned here instead.
+ * utilization is reported. The generic fdinfo sweep finds the processes holding the accel node open; this backend
+ * registers that node and parses the driver's fdinfo for the memory each client holds.
  */
 
 #include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/extract_processinfo_fdinfo.h"
 
 #include <ctype.h>
 #include <dirent.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
-#include <sys/sysmacros.h>
-#include <sys/types.h>
 #include <unistd.h>
 
 #define MAX_AMD_NPUS 4
 #define AMDXDNA_KERNEL_DRIVER "amdxdna"
 #define AMDXDNA_FDINFO_DRIVER "amdxdna_accel_driver"
-// Distinct DRM clients (open() calls) of one process that are told apart; more are accounted without deduplication
-#define AMDXDNA_MAX_CLIENTS_PER_PID 16
 
 struct gpu_info_amd_npu {
   struct gpu_info base;
   char sysfs_dev[PATH_MAX]; // e.g. /sys/class/accel/accel0/device
-  dev_t rdev;               // Device number of /dev/accel/accelN
-  bool have_rdev;
   unsigned pci_device_id;
   unsigned pci_revision;
 };
@@ -68,15 +60,7 @@ struct amdxdna_fdinfo {
   uint64_t external;     // Imported and user-created BOs
 };
 
-// Clients already accounted for the process being scanned
-struct amdxdna_pid_clients {
-  pid_t pid;
-  unsigned count;
-  unsigned long long ids[AMDXDNA_MAX_CLIENTS_PER_PID];
-};
-
 static const char *amd_npu_class_root = "/sys/class/accel";
-static const char *amd_npu_proc_root = "/proc";
 
 static struct gpu_info_amd_npu *amd_npu_info = NULL;
 static unsigned amd_npu_count = 0;
@@ -220,118 +204,19 @@ static bool amdxdna_client_memory(const struct amdxdna_fdinfo *info, uint64_t *m
   return false;
 }
 
-// A client that set up a hardware context to submit work has a device heap. A client that only opened the device
-// (e.g. a framework enumerating every accelerator) has none.
-static bool amdxdna_client_active(const struct amdxdna_fdinfo *info) { return info->have_heap && info->heap > 0; }
-
-// Account one client of the NPU to the process list of the device. The processes are scanned one after the other, so
-// the entry of the process being scanned is always the last one.
-static void amd_npu_account_client(struct gpu_info *gpu_info, struct amdxdna_pid_clients *clients, pid_t pid,
-                                   const struct amdxdna_fdinfo *info) {
-  if (clients->pid != pid) {
-    clients->pid = pid;
-    clients->count = 0;
-  }
-  // Duplicated file descriptors (dup, fork, SCM_RIGHTS) share one DRM client: count it once
-  if (info->have_client_id) {
-    for (unsigned i = 0; i < clients->count; ++i) {
-      if (clients->ids[i] == info->client_id)
-        return;
-    }
-    if (clients->count < AMDXDNA_MAX_CLIENTS_PER_PID)
-      clients->ids[clients->count++] = info->client_id;
-  }
-
-  struct gpu_process *process = NULL;
-  if (gpu_info->processes_count > 0 && gpu_info->processes[gpu_info->processes_count - 1].pid == pid) {
-    process = &gpu_info->processes[gpu_info->processes_count - 1];
-  } else {
-    if (gpu_info->processes_count == gpu_info->processes_array_size) {
-      gpu_info->processes_array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
-      gpu_info->processes =
-          reallocarray(gpu_info->processes, gpu_info->processes_array_size, sizeof(*gpu_info->processes));
-      if (!gpu_info->processes) {
-        perror("Could not re-allocate memory: ");
-        exit(EXIT_FAILURE);
-      }
-    }
-    process = &gpu_info->processes[gpu_info->processes_count++];
-    memset(process, 0, sizeof(*process));
-    process->pid = pid;
-    process->type = gpu_process_unknown;
-  }
+static bool parse_drm_fdinfo_amdxdna(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
+  (void)info;
+  struct amdxdna_fdinfo client;
+  if (!amdxdna_parse_fdinfo(fdinfo_file, &client))
+    return false;
 
   uint64_t memory;
-  if (amdxdna_client_memory(info, &memory)) {
-    unsigned long long previous =
-        GPUINFO_PROCESS_FIELD_VALID(process, gpu_memory_usage) ? process->gpu_memory_usage : 0;
-    SET_GPUINFO_PROCESS(process, gpu_memory_usage, previous + memory);
-  }
-  // nvtop's process model has no "idle" kind: a process that submitted work is a compute process, one that only holds
-  // the device open keeps the unknown type.
-  if (amdxdna_client_active(info))
-    process->type = gpu_process_compute;
-}
-
-// Scan /proc for the processes holding the accel node of this NPU open
-static void amd_npu_scan_processes(struct gpu_info_amd_npu *npu) {
-  struct amdxdna_pid_clients clients = {.pid = 0, .count = 0};
-
-  DIR *proc_dir = opendir(amd_npu_proc_root);
-  if (!proc_dir)
-    return;
-
-  struct dirent *proc_dent;
-  while ((proc_dent = readdir(proc_dir)) != NULL) {
-    if (!isdigit((unsigned char)proc_dent->d_name[0]))
-      continue;
-    pid_t pid = (pid_t)atoi(proc_dent->d_name);
-    if (pid <= 0)
-      continue;
-
-    int pid_dir_fd = openat(dirfd(proc_dir), proc_dent->d_name, O_DIRECTORY | O_RDONLY);
-    if (pid_dir_fd < 0)
-      continue;
-    int fd_dir_fd = openat(pid_dir_fd, "fd", O_DIRECTORY | O_RDONLY);
-    int fdinfo_dir_fd = openat(pid_dir_fd, "fdinfo", O_DIRECTORY | O_RDONLY);
-    close(pid_dir_fd);
-    DIR *fd_dir = fd_dir_fd >= 0 ? fdopendir(fd_dir_fd) : NULL;
-    if (!fd_dir || fdinfo_dir_fd < 0) {
-      if (fd_dir)
-        closedir(fd_dir);
-      else if (fd_dir_fd >= 0)
-        close(fd_dir_fd);
-      if (fdinfo_dir_fd >= 0)
-        close(fdinfo_dir_fd);
-      continue;
-    }
-
-    struct dirent *fd_dent;
-    while ((fd_dent = readdir(fd_dir)) != NULL) {
-      if (!isdigit((unsigned char)fd_dent->d_name[0]))
-        continue;
-      // Follows the fd magic link, which resolves even for a process in another mount namespace
-      struct stat st;
-      if (fstatat(dirfd(fd_dir), fd_dent->d_name, &st, 0) != 0 || !S_ISCHR(st.st_mode) || st.st_rdev != npu->rdev)
-        continue;
-
-      int fdinfo_fd = openat(fdinfo_dir_fd, fd_dent->d_name, O_RDONLY);
-      if (fdinfo_fd < 0)
-        continue;
-      FILE *fdinfo_file = fdopen(fdinfo_fd, "r");
-      if (!fdinfo_file) {
-        close(fdinfo_fd);
-        continue;
-      }
-      struct amdxdna_fdinfo info;
-      if (amdxdna_parse_fdinfo(fdinfo_file, &info))
-        amd_npu_account_client(&npu->base, &clients, pid, &info);
-      fclose(fdinfo_file);
-    }
-    closedir(fd_dir);
-    close(fdinfo_dir_fd);
-  }
-  closedir(proc_dir);
+  if (amdxdna_client_memory(&client, &memory))
+    SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, memory);
+  // NPU work is compute by definition; the generic sweep also defaults unknown
+  // NPU process types to compute.
+  process_info->type |= gpu_process_compute;
+  return true;
 }
 
 static bool gpuinfo_amd_npu_init(void) { return access(amd_npu_class_root, R_OK) == 0; }
@@ -387,19 +272,13 @@ static bool gpuinfo_amd_npu_get_device_handles(struct list_head *devices, unsign
     if (read_str(sysfs_dev, "revision", str, sizeof(str)))
       npu->pci_revision = (unsigned)strtoul(str, NULL, 16);
 
-    // Device number of the accel node ("major:minor"), to find the processes holding it open
-    char class_dev[PATH_MAX];
-    unsigned major_num, minor_num;
-    snprintf(class_dev, sizeof(class_dev), "%s/%s", amd_npu_class_root, entry->d_name);
-    if (read_str(class_dev, "dev", str, sizeof(str)) && sscanf(str, "%u:%u", &major_num, &minor_num) == 2) {
-      npu->rdev = makedev(major_num, minor_num);
-      npu->have_rdev = true;
-    }
-
     npu->base.vendor = &gpu_vendor_amd_npu;
     npu->base.processes_count = 0;
     npu->base.processes = NULL;
     npu->base.processes_array_size = 0;
+    char node_path[PATH_MAX];
+    snprintf(node_path, sizeof(node_path), "/dev/accel/%s", entry->d_name);
+    processinfo_register_fdinfo_callback(parse_drm_fdinfo_amdxdna, &npu->base, node_path);
     list_add_tail(&npu->base.list, devices);
     amd_npu_count++;
   }
@@ -441,10 +320,10 @@ static void gpuinfo_amd_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 }
 
 static void gpuinfo_amd_npu_get_running_processes(struct gpu_info *_gpu_info) {
-  struct gpu_info_amd_npu *npu = container_of(_gpu_info, struct gpu_info_amd_npu, base);
-  _gpu_info->processes_count = 0;
-  if (npu->have_rdev)
-    amd_npu_scan_processes(npu);
+  // The generic fdinfo sweep has already populated the process list from the
+  // accel node. Keep an empty list from being read as zero allocations so the
+  // idle NPU continues to show system RAM.
+  _gpu_info->processes_query_succeeded = false;
 }
 
 struct gpu_vendor gpu_vendor_amd_npu = {.init = gpuinfo_amd_npu_init,
