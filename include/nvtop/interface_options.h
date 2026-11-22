@@ -31,8 +31,8 @@
 typedef struct {
   plot_info_to_draw to_draw;  // The set of metrics to draw for this gpu
   bool doNotMonitor;          // True if this GPU should not be monitored
-  bool show_system_memory;    // Show the system RAM rather than the GPU memory
-                              // derived from its processes, if the GPU shares
+  bool show_system_memory;    // Show the system RAM rather than the device memory
+                              // derived from its processes, if the device shares
                               // its memory with the host
   struct gpu_info *linkedGpu; // The gpu to which this option apply
 } nvtop_interface_gpu_opts;

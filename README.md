@@ -131,8 +131,8 @@ instead, labelled `RAM`. To always see the system memory for these devices
 used), enable it in the setup window (for all monitored devices sharing memory
 in the Devices section, or for one device in its Chart section entry) or start
 nvtop with `-M` (`--system-memory`); the process memory percentages stay
-relative to the GPU memory. `-M` changes the interactive display only: snapshot and loop
-output always report the GPU counters in `mem_*` and the system counters
+relative to the device memory. `-M` changes the interactive display only: snapshot and loop
+output always report the device counters in `mem_*` and the system counters
 separately in `system_total_memory` and `system_free_memory`. The Devices row
 is only shown when at least one monitored device shares its memory with the
 host.
