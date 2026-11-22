@@ -28,38 +28,36 @@ static bool parse_fixture(const char *name, struct amdxdna_fdinfo *info) {
   return ok;
 }
 
-/* A process that only enumerated the NPU (PyTorch ROCm on a Ryzen AI 7 350): no device heap. */
+/* A process that only enumerated the NPU (PyTorch ROCm on a Ryzen AI 7 350). */
 static bool fdinfo_idle(void) {
   struct amdxdna_fdinfo info;
   uint64_t memory;
   CHECK(parse_fixture("idle.fdinfo", &info));
   CHECK(info.have_client_id && info.client_id == 35632);
   CHECK(info.have_total_memory && info.total_memory == MiB(64));
-  CHECK(info.have_heap && info.heap == 0);
   CHECK(amdxdna_client_memory(&info, &memory));
   CHECK(memory == MiB(64));
   return true;
 }
 
-/* A process with a hardware context: the device heap is allocated and drm-total-memory counts its BOs twice. */
+/* A process with a hardware context: drm-total-memory counts the device BOs twice. */
 static bool fdinfo_active(void) {
   struct amdxdna_fdinfo info;
   uint64_t memory;
   CHECK(parse_fixture("active.fdinfo", &info));
   CHECK(info.have_client_id && info.client_id == 35640);
-  CHECK(info.have_heap && info.heap == MiB(8));
   CHECK(info.have_total_memory && info.total_memory == MiB(84));
   CHECK(amdxdna_client_memory(&info, &memory));
   CHECK(memory == MiB(64) + MiB(12));
   return true;
 }
 
-/* Without the driver-specific keys, the total comes from drm-total-memory and the activity is unknown. */
+/* Without the driver-specific keys, the total comes from drm-total-memory. */
 static bool fdinfo_total_fallback(void) {
   struct amdxdna_fdinfo info;
   uint64_t memory;
   CHECK(parse_fixture("total_only.fdinfo", &info));
-  CHECK(!info.have_heap && !info.have_internal && !info.have_external);
+  CHECK(!info.have_internal && !info.have_external);
   CHECK(amdxdna_client_memory(&info, &memory));
   CHECK(memory == MiB(8));
   return true;

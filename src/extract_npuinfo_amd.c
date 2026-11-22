@@ -54,9 +54,8 @@ struct amdxdna_fdinfo {
   bool is_amdxdna;
   bool have_client_id;
   unsigned long long client_id;
-  bool have_total_memory, have_heap, have_internal, have_external;
+  bool have_total_memory, have_internal, have_external;
   uint64_t total_memory; // drm-total-memory, counts the device BOs twice (once alone, once in the heap BO)
-  uint64_t heap;         // Device BOs, sub-allocated from the heap; 0 until a hardware context is set up
   uint64_t internal;     // Driver-internal BOs, including the heap BO
   uint64_t external;     // Imported and user-created BOs
 };
@@ -181,8 +180,6 @@ static bool amdxdna_parse_fdinfo(FILE *fdinfo_file, struct amdxdna_fdinfo *info)
       info->have_client_id = endptr != val && *endptr == '\0';
     } else if (!strcmp(key, "drm-total-memory")) {
       info->have_total_memory = parse_fdinfo_size(val, &info->total_memory);
-    } else if (!strcmp(key, AMDXDNA_FDINFO_DRIVER "-heap-alloc")) {
-      info->have_heap = parse_fdinfo_size(val, &info->heap);
     } else if (!strcmp(key, AMDXDNA_FDINFO_DRIVER "-internal-alloc")) {
       info->have_internal = parse_fdinfo_size(val, &info->internal);
     } else if (!strcmp(key, AMDXDNA_FDINFO_DRIVER "-external-alloc")) {
