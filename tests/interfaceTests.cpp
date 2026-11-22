@@ -320,11 +320,14 @@ TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
   options.sort_processes_by = process_memory;
   options.process_fields_displayed = process_default_displayed_field();
   options.dynamic_memory_units = true;
+  options.plot_style = nvtop_plot_style_line;
 
   ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
   options.dynamic_memory_units = false;
+  options.plot_style = nvtop_plot_style_braille;
   ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
   EXPECT_TRUE(options.dynamic_memory_units);
+  EXPECT_EQ(options.plot_style, nvtop_plot_style_line);
 
   EXPECT_EQ(std::remove(config_path), 0);
 }

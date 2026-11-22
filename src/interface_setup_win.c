@@ -73,6 +73,7 @@ static const char *setup_header_option_descriptions[setup_header_options_count] 
 
 enum setup_chart_options {
   setup_chart_reverse,
+  setup_chart_graph_style,
   // One color row per plot line position, shown even when unused by the
   // current layout so every line color can be configured.
   setup_chart_color_start,
@@ -81,6 +82,7 @@ enum setup_chart_options {
 };
 
 static const char *setup_chart_reverse_description = "Reverse plot direction";
+static const char *setup_chart_graph_style_description = "Smooth braille plots (requires Unicode)";
 static const char *setup_chart_all_gpu_description  = "Displayed all GPUs";
 static const char *setup_chart_gpu_description      = "Displayed GPU";
 static const char *setup_chart_system_memory_description = "Show system RAM instead of GPU memory";
@@ -423,6 +425,15 @@ static void draw_setup_window_chart(unsigned devices_count, struct list_head *de
   if (interface->setup_win.indentation_level == 1 &&
       interface->setup_win.options_selected[0] == setup_chart_reverse) {
     mvwchgat(option_list_win, setup_chart_reverse + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+
+  // Smooth braille plot style
+  option_state = interface->options.plot_style == nvtop_plot_style_braille;
+  mvwprintw(option_list_win, setup_chart_graph_style + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_chart_graph_style_description);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_chart_graph_style) {
+    mvwchgat(option_list_win, setup_chart_graph_style + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
 
   // Colors apply to line positions within each plot. Different GPUs and
@@ -907,6 +918,11 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
         if (interface->setup_win.indentation_level == 1) {
           if (interface->setup_win.options_selected[0] == setup_chart_reverse) {
             interface->options.plot_left_to_right = !interface->options.plot_left_to_right;
+          }
+          if (interface->setup_win.options_selected[0] == setup_chart_graph_style) {
+            interface->options.plot_style = interface->options.plot_style == nvtop_plot_style_braille
+                                                ? nvtop_plot_style_line
+                                                : nvtop_plot_style_braille;
           }
           // Color rows
           unsigned sel = interface->setup_win.options_selected[0];

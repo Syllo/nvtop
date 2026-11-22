@@ -30,8 +30,8 @@
 
 #define PLOT_MAX_LEGEND_SIZE 35
 
-void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned num_plots, bool legend_left,
-                     char legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE]);
+void nvtop_line_plot(WINDOW *win, size_t num_data, const double *data, unsigned num_lines, enum nvtop_plot_style style,
+                     bool legend_left, char legend[MAX_LINES_PER_PLOT][PLOT_MAX_LEGEND_SIZE]);
 
 void draw_rectangle(WINDOW *win, unsigned startX, unsigned startY, unsigned sizeX, unsigned sizeY);
 

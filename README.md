@@ -81,6 +81,11 @@ In the ``Chart`` section you can choose which metrics are plotted, including GPU
 utilization, temperature, power, clocks, and the **PCIe RX / TX load** (the receive and transmit
 throughput as a percentage of the maximum link bandwidth).
 
+Charts are drawn with Unicode braille dots by default, which gives a smoother curve at eight
+times the resolution of a character cell. The ``Smooth braille plots`` option switches back to
+the legacy line-drawing style. If the terminal or locale cannot represent braille characters,
+nvtop automatically falls back to the legacy renderer. Press ``F12`` to save the choice.
+
 ![NVTOP Setup Window](/screenshot/Nvtop-config.png)
 
 ### Saving Preferences
