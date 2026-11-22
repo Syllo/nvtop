@@ -137,13 +137,13 @@ separately in `system_total_memory` and `system_free_memory`. The Devices row
 is only shown when at least one monitored device shares its memory with the
 host.
 
-For drivers whose process list is read from DRM fdinfo, a DRM client shared by
-several processes (for example a file descriptor inherited through `fork()` or
-passed between processes) is counted once for its GPU utilization,
-encoder/decoder rates and memory. Those values are attributed to the first
-process found holding the client in `/proc` scan order; the other holders are
-still listed, but without GPU metrics for that client. A holder that later
-opens its own DRM client gets separate metrics for it.
+For drivers whose process list is read from fdinfo (DRM or accel), a device
+client shared by several processes (for example a file descriptor inherited
+through `fork()` or passed between processes) is counted once for its device
+utilization, encoder/decoder rates and memory. Those values are attributed to
+the first process found holding the client in `/proc` scan order; the other
+holders are still listed, but without device metrics for that client. A holder
+that later opens its own client gets separate metrics for it.
 
 ### AMD
 

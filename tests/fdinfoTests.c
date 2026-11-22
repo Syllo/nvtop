@@ -245,11 +245,11 @@ int main(void) {
     processinfo_register_fdinfo_callback(parse_fixture, &devices[i], nodes[i] ? node_path : NULL);
   }
   // Sibling nodes come from sysfs; control nodes are not DRM client nodes.
-  CHECK(callback_entries[INTEL].drm_nodes_count == 2);
-  CHECK(callback_entries[INTEL].drm_nodes[0] == makedev(226, 0));
-  CHECK(callback_entries[INTEL].drm_nodes[1] == makedev(226, 128));
-  CHECK(callback_entries[MALI].drm_nodes_count == 1);
-  CHECK(callback_entries[LEGACY].drm_nodes_count == 0);
+  CHECK(callback_entries[INTEL].device_nodes_count == 2);
+  CHECK(callback_entries[INTEL].device_nodes[0] == makedev(226, 0));
+  CHECK(callback_entries[INTEL].device_nodes[1] == makedev(226, 128));
+  CHECK(callback_entries[MALI].device_nodes_count == 1);
+  CHECK(callback_entries[LEGACY].device_nodes_count == 0);
 
   // All fdinfo backends must distinguish a successful empty scan from failure.
   sweep();
@@ -449,12 +449,17 @@ int main(void) {
   CHECK(devices[INTEL].processes[0].gpu_memory_usage == 128);
   CHECK(remove_fixture("proc/4194400/fd/4") && remove_fixture("proc/4194400/fdinfo/4"));
 
-  // Descriptors that are not DRM devices are ignored without reading their fdinfo.
+  // Descriptors that are not DRM/accel devices are ignored without reading
+  // their fdinfo, even if they are character devices.
   CHECK(write_fixture("proc/4194400/fd/3", "not a device"));
+  CHECK(write_fixture("proc/4194400/fd/6", "1:3"));
+  CHECK(write_fixture("proc/4194400/fdinfo/6", "Intel 64\n"));
   failed_path = "fdinfo/3";
   injected_errno = EIO;
   sweep();
   CHECK(all_succeeded());
+  CHECK(devices[INTEL].processes_count == 0);
+  CHECK(remove_fixture("proc/4194400/fd/6") && remove_fixture("proc/4194400/fdinfo/6"));
   failed_path = NULL;
 
   // Dropped callbacks must no longer receive writes during future sweeps.
