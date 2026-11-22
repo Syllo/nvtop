@@ -111,20 +111,26 @@ snapshots report `"System Fan"`. Versions up to 3.4.0 showed `CPU-FAN` and
 
 Devices without memory of their own (integrated GPUs and NPUs such as Intel,
 Adreno and Mali GPUs, and unified-memory systems such as DGX Spark) share the
-system memory with the host. For them, `MEM` shows the memory allocated by the
-device's processes, out of a capacity of those allocations plus the memory
-Linux still has available (`MemAvailable`), at most `MemTotal`: memory used by
-other programs reduces the capacity. Buffers that the driver reports as shared
-between clients (`drm-shared-*`) are counted once, as the largest amount
-reported by a single client, so the used memory is a lower bound; per-process
-values still include them. When the allocations cannot be accounted for, the
-header shows the system memory instead, labelled `RAM`. To always see the
-system memory for these devices (`MemTotal` as the total, `MemTotal` minus
-`MemAvailable` as used), enable it in the setup window (for all monitored
-devices sharing memory in the Devices section, or for one device in its Chart
-section entry) or start nvtop
-with `-M` (`--system-memory`); the process memory percentages stay relative to
-the GPU memory. `-M` changes the interactive display only: snapshot and loop
+system memory with the host. For them, `MEM` reports two amounts. The first is
+the **device allocation** — only the memory that processes have allocated for
+this device, not their total process memory or their allocations for another
+device. The second is the **memory still available for new allocations**:
+currently unused memory plus memory the system can reclaim from caches when
+needed. This is the headroom left after the CPU, other devices and other
+programs have taken their share. The displayed capacity is the device
+allocation plus that available memory, capped at the total system memory.
+Memory used by the CPU, other devices or other programs reduces the available
+system memory, and therefore the capacity shown for this device.
+Buffers that the driver reports as shared between clients (`drm-shared-*`) are
+counted once, as the largest amount reported by a single client, so the used
+memory is a lower bound; per-process values still include them. When the
+allocations cannot be accounted for, the header shows the system memory
+instead, labelled `RAM`. To always see the system memory for these devices
+(total system memory as the total, and total minus available system memory as
+used), enable it in the setup window (for all monitored devices sharing memory
+in the Devices section, or for one device in its Chart section entry) or start
+nvtop with `-M` (`--system-memory`); the process memory percentages stay
+relative to the GPU memory. `-M` changes the interactive display only: snapshot and loop
 output always report the GPU counters in `mem_*` and the system counters
 separately in `system_total_memory` and `system_free_memory`. The Devices row
 is only shown when at least one monitored device shares its memory with the
