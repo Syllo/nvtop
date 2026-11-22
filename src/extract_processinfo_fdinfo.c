@@ -25,6 +25,7 @@
 
 #include <ctype.h>
 #include <dirent.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,10 +42,20 @@
 #define KCMP_FILE 0
 #endif
 
+#define DRM_MAJOR 226
+// A DRM device exposes a primary (card) node and usually a render node.
+#define FDINFO_MAX_DRM_NODES 4
+
 struct callback_entry {
   struct gpu_info *gpu_info;
   processinfo_fdinfo_callback callback;
+  // Device numbers of the DRM nodes owned by this device. Empty when the
+  // backend could not provide a node, in which case the entry is a candidate
+  // for every DRM fd that no other device owns.
+  dev_t drm_nodes[FDINFO_MAX_DRM_NODES];
+  unsigned drm_nodes_count;
   bool active;
+  bool scan_failed;
 };
 
 static unsigned registered_callback_entries;
@@ -56,13 +67,57 @@ void processinfo_drop_callback(const struct gpu_info *info) {
   for (unsigned index = 0; index < registered_callback_entries; ++index) {
     if (callback_entries[index].gpu_info == info) {
       memmove(&callback_entries[index], &callback_entries[index + 1],
-              (registered_callback_entries - index) * sizeof(*callback_entries));
+              (registered_callback_entries - index - 1) * sizeof(*callback_entries));
+      --registered_callback_entries;
       return;
     }
   }
 }
 
-void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info) {
+static void add_drm_node(struct callback_entry *entry, dev_t node) {
+  for (unsigned i = 0; i < entry->drm_nodes_count; ++i) {
+    if (entry->drm_nodes[i] == node)
+      return;
+  }
+  if (entry->drm_nodes_count < FDINFO_MAX_DRM_NODES)
+    entry->drm_nodes[entry->drm_nodes_count++] = node;
+}
+
+// Record the node and its siblings listed in /sys/dev/char/<major>:<minor>/device/drm,
+// so that processes holding either the primary or the render node are attributed.
+static void resolve_drm_nodes(struct callback_entry *entry, const char *drm_node) {
+  struct stat node_stat;
+  entry->drm_nodes_count = 0;
+  if (!drm_node || fstatat(AT_FDCWD, drm_node, &node_stat, 0) != 0 || (node_stat.st_mode & S_IFMT) != S_IFCHR ||
+      major(node_stat.st_rdev) != DRM_MAJOR)
+    return;
+  add_drm_node(entry, node_stat.st_rdev);
+
+  char drm_dir_path[64];
+  snprintf(drm_dir_path, sizeof(drm_dir_path), "/sys/dev/char/%u:%u/device/drm", major(node_stat.st_rdev),
+           minor(node_stat.st_rdev));
+  DIR *drm_dir = opendir(drm_dir_path);
+  if (!drm_dir)
+    return;
+  struct dirent *drm_dent;
+  while ((drm_dent = readdir(drm_dir)) != NULL) {
+    if (strncmp(drm_dent->d_name, "card", 4) && strncmp(drm_dent->d_name, "renderD", 7))
+      continue;
+    char dev_path[sizeof(drm_dir_path) + sizeof(drm_dent->d_name) + 8];
+    snprintf(dev_path, sizeof(dev_path), "%s/%s/dev", drm_dir_path, drm_dent->d_name);
+    FILE *dev_file = fopen(dev_path, "r");
+    if (!dev_file)
+      continue;
+    unsigned node_major, node_minor;
+    if (fscanf(dev_file, "%u:%u", &node_major, &node_minor) == 2 && node_major == DRM_MAJOR)
+      add_drm_node(entry, makedev(node_major, node_minor));
+    fclose(dev_file);
+  }
+  closedir(drm_dir);
+}
+
+void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info,
+                                          const char *drm_node) {
   if (callback_entries_size == registered_callback_entries) {
     callback_entries_size += FDINFO_CALLBACK_ARRAY_INCREMENT;
     callback_entries = reallocarray(callback_entries, callback_entries_size, sizeof(*callback_entries));
@@ -71,9 +126,12 @@ void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, 
       exit(EXIT_FAILURE);
     }
   }
-  callback_entries[registered_callback_entries].gpu_info = info;
-  callback_entries[registered_callback_entries].callback = callback;
-  callback_entries[registered_callback_entries].active = true;
+  struct callback_entry *entry = &callback_entries[registered_callback_entries];
+  entry->gpu_info = info;
+  entry->callback = callback;
+  entry->active = true;
+  entry->scan_failed = false;
+  resolve_drm_nodes(entry, drm_node);
   registered_callback_entries++;
 }
 
@@ -85,13 +143,127 @@ void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool e
   }
 }
 
-static bool is_drm_fd(int fd_dir_fd, const char *name) {
+// Processes and descriptors can disappear while /proc is being scanned, and
+// the processes of other users cannot be inspected without privileges. Neither
+// makes the scan of the visible processes incomplete.
+static bool fdinfo_error_is_skippable(void) {
+  return errno == ENOENT || errno == ESRCH || errno == EACCES || errno == EPERM;
+}
+
+static struct callback_entry *find_drm_node_owner(dev_t node) {
+  for (unsigned index = 0; index < registered_callback_entries; ++index) {
+    struct callback_entry *entry = &callback_entries[index];
+    for (unsigned i = 0; i < entry->drm_nodes_count; ++i) {
+      if (entry->drm_nodes[i] == node)
+        return entry;
+    }
+  }
+  return NULL;
+}
+
+// A failure while handling a fd only affects the device owning it. A fd that no
+// device owns most likely belongs to a driver without nvtop support, even when
+// a device without known nodes cannot parse it, so it affects no device.
+static void mark_fd_failure(struct callback_entry *owner) {
+  if (owner)
+    owner->scan_failed = true;
+}
+
+// Reading the fdinfo of a descriptor that was closed, or of a process that
+// exited, since it was opened fails with ENOENT or ESRCH: the fd is gone.
+static bool fdinfo_read_vanished(FILE *fdinfo_file) {
+  return ferror(fdinfo_file) && fdinfo_error_is_skippable();
+}
+
+static bool run_callback(struct callback_entry *entry, FILE *fdinfo_file, struct gpu_process *process_info) {
+  rewind(fdinfo_file);
+  RESET_ALL(process_info->valid);
+  process_info->type = gpu_process_unknown;
+  errno = 0;
+  return entry->callback(entry->gpu_info, fdinfo_file, process_info) && !ferror(fdinfo_file);
+}
+
+// Any stat failure means the fd is not usable as a DRM fd: a DRM node cannot
+// fail stat the way an fd to an unreachable network or FUSE file can, so the
+// error does not affect the scan.
+static bool get_drm_fd_node(int fd_dir_fd, const char *name, dev_t *node) {
   struct stat stat;
-  int ret;
+  if (fstatat(fd_dir_fd, name, &stat, 0) < 0)
+    return false;
+  if ((stat.st_mode & S_IFMT) != S_IFCHR || major(stat.st_rdev) != DRM_MAJOR)
+    return false;
+  *node = stat.st_rdev;
+  return true;
+}
 
-  ret = fstatat(fd_dir_fd, name, &stat, 0);
+// Reads the drm-client-id key, which identifies the open DRM file: duplicated
+// and shared descriptors (dup, fork, fd passing) report the same value. The DRM
+// core prints it near the top, so stop as soon as it is found.
+static bool read_drm_client_id(FILE *fdinfo_file, unsigned long long *client_id) {
+  static const char key[] = "drm-client-id:";
+  char line[256];
+  while (fgets(line, sizeof(line), fdinfo_file)) {
+    if (strncmp(line, key, sizeof(key) - 1))
+      continue;
+    char *endptr;
+    *client_id = strtoull(line + sizeof(key) - 1, &endptr, 10);
+    return endptr != line + sizeof(key) - 1;
+  }
+  return false;
+}
 
-  return ret == 0 && (stat.st_mode & S_IFMT) == S_IFCHR && major(stat.st_rdev) == 226;
+// DRM clients already accounted for during the current sweep. A client id is
+// unique for the node it was opened on.
+static struct seen_client {
+  dev_t node;
+  unsigned long long id;
+  struct gpu_info *gpu_info;
+} *seen_clients;
+static unsigned seen_clients_count, seen_clients_capacity;
+
+static struct seen_client *find_seen_client(dev_t node, unsigned long long id) {
+  for (unsigned i = 0; i < seen_clients_count; ++i) {
+    if (seen_clients[i].node == node && seen_clients[i].id == id)
+      return &seen_clients[i];
+  }
+  return NULL;
+}
+
+// Only record clients whose fdinfo was parsed: if this fd could not be, another
+// descriptor of the same client still can.
+static void record_client(dev_t node, unsigned long long id, struct gpu_info *gpu_info) {
+  if (seen_clients_count == seen_clients_capacity) {
+    seen_clients_capacity = seen_clients_capacity ? 2 * seen_clients_capacity : 16;
+    seen_clients = reallocarray(seen_clients, seen_clients_capacity, sizeof(*seen_clients));
+    if (!seen_clients) {
+      perror("Could not re-allocate memory: ");
+      exit(EXIT_FAILURE);
+    }
+  }
+  seen_clients[seen_clients_count++] = (struct seen_client){.node = node, .id = id, .gpu_info = gpu_info};
+}
+
+// Find the process entry for this pid, appending one when the pid differs from
+// the last entry. The sweep handles all the fds of a pid together, so the entry
+// of the current pid, if any, is always the last one.
+static struct gpu_process *process_entry_for(struct gpu_info *gpu_info, unsigned pid) {
+  unsigned process_index = gpu_info->processes_count ? gpu_info->processes_count - 1 : 0;
+  if (gpu_info->processes_count > 0 && gpu_info->processes[process_index].pid == (pid_t)pid)
+    return &gpu_info->processes[process_index];
+
+  if (gpu_info->processes_count == gpu_info->processes_array_size) {
+    gpu_info->processes_array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
+    gpu_info->processes = reallocarray(gpu_info->processes, gpu_info->processes_array_size,
+                                       sizeof(*gpu_info->processes));
+    if (!gpu_info->processes) {
+      perror("Could not re-allocate memory: ");
+      exit(EXIT_FAILURE);
+    }
+  }
+  process_index = gpu_info->processes_count++;
+  memset(&gpu_info->processes[process_index], 0, sizeof(*gpu_info->processes));
+  gpu_info->processes[process_index].pid = pid;
+  return &gpu_info->processes[process_index];
 }
 
 // Increment for the number DRM FD tracked per process
@@ -100,26 +272,45 @@ static bool is_drm_fd(int fd_dir_fd, const char *name) {
 
 void processinfo_sweep_fdinfos(void) {
   bool anyActiveCallback = false;
-  for (unsigned callback_idx = 0; !anyActiveCallback && callback_idx < registered_callback_entries; ++callback_idx) {
+  bool anyActiveWithoutNodes = false;
+  for (unsigned callback_idx = 0; callback_idx < registered_callback_entries; ++callback_idx) {
     struct callback_entry *current_callback = &callback_entries[callback_idx];
+    current_callback->gpu_info->processes_query_succeeded = false;
+    current_callback->scan_failed = false;
     anyActiveCallback = anyActiveCallback || current_callback->active;
+    anyActiveWithoutNodes = anyActiveWithoutNodes || (current_callback->active && !current_callback->drm_nodes_count);
   }
   if (!anyActiveCallback)
     return;
+  seen_clients_count = 0;
 
   DIR *proc_dir = opendir("/proc");
   if (!proc_dir)
     return;
+  // Failures that cannot be attributed to a device make the whole scan incomplete.
+  bool scan_failed = false;
 
+  // DRM fds already handled for the current process, with the node they are
+  // opened to: only fds to the same node can refer to the same open file.
   static unsigned seen_fds_capacity = 0;
-  static int *seen_fds = NULL;
+  static struct {
+    int fd;
+    dev_t node;
+  } *seen_fds = NULL;
 
   struct dirent *proc_dent;
-  while ((proc_dent = readdir(proc_dir)) != NULL) {
-    int pid_dir_fd = -1, fd_dir_fd = -1, fdinfo_dir_fd = -1;
-    DIR *fdinfo_dir = NULL;
+  while (true) {
+    errno = 0;
+    proc_dent = readdir(proc_dir);
+    if (!proc_dent) {
+      if (errno)
+        scan_failed = true;
+      break;
+    }
+    int pid_dir_fd = -1, fd_dir_fd = -1;
+    DIR *fd_dir = NULL;
     unsigned int seen_fds_len = 0;
-    struct dirent *fdinfo_dent;
+    struct dirent *fd_dent;
     unsigned int client_pid;
 
     if (proc_dent->d_type != DT_DIR)
@@ -128,118 +319,188 @@ void processinfo_sweep_fdinfos(void) {
       continue;
 
     pid_dir_fd = openat(dirfd(proc_dir), proc_dent->d_name, O_DIRECTORY);
-    if (pid_dir_fd < 0)
+    if (pid_dir_fd < 0) {
+      if (!fdinfo_error_is_skippable())
+        scan_failed = true;
       continue;
+    }
 
     client_pid = atoi(proc_dent->d_name);
     if (!client_pid)
       goto next;
 
     fd_dir_fd = openat(pid_dir_fd, "fd", O_DIRECTORY);
-    if (fd_dir_fd < 0)
+    if (fd_dir_fd < 0) {
+      if (!fdinfo_error_is_skippable())
+        scan_failed = true;
       goto next;
+    }
 
-    fdinfo_dir_fd = openat(pid_dir_fd, "fdinfo", O_DIRECTORY);
-    if (fdinfo_dir_fd < 0)
-      goto next;
-
-    fdinfo_dir = fdopendir(fdinfo_dir_fd);
-    if (!fdinfo_dir) {
-      close(fdinfo_dir_fd);
+    // Walk the fds and only open the fdinfo of the few that are DRM fds.
+    fd_dir = fdopendir(fd_dir_fd);
+    if (!fd_dir) {
+      scan_failed = true;
       goto next;
     }
 
   next_fd:
-    while ((fdinfo_dent = readdir(fdinfo_dir)) != NULL) {
+    while (true) {
+      errno = 0;
+      fd_dent = readdir(fd_dir);
+      if (!fd_dent) {
+        // The directory of an exiting process can vanish while it is read.
+        if (errno && !fdinfo_error_is_skippable())
+          scan_failed = true;
+        break;
+      }
       struct gpu_process processes_info_local = {0};
       int fd_num;
+      dev_t drm_node;
 
-      if (fdinfo_dent->d_type != DT_REG)
-        continue;
-      if (!isdigit(fdinfo_dent->d_name[0]))
-        continue;
-
-      if (!is_drm_fd(fd_dir_fd, fdinfo_dent->d_name))
+      if (!isdigit(fd_dent->d_name[0]))
         continue;
 
-      fd_num = atoi(fdinfo_dent->d_name);
+      if (!get_drm_fd_node(fd_dir_fd, fd_dent->d_name, &drm_node))
+        continue;
 
-      // check if this fd refers to the same open file as any seen ones.
-      // we only care about unique opens
-      for (unsigned i = 0; i < seen_fds_len; i++) {
-        if (syscall(SYS_kcmp, client_pid, client_pid, KCMP_FILE, fd_num, seen_fds[i]) <= 0)
-          goto next_fd;
+      // Only parse fds of monitored devices. A fd owned by no device belongs to a
+      // driver without process reporting (or to an unmonitored device).
+      struct callback_entry *owner = find_drm_node_owner(drm_node);
+      if (owner ? !owner->active : !anyActiveWithoutNodes)
+        continue;
+
+      fd_num = atoi(fd_dent->d_name);
+
+      char fdinfo_path[sizeof("fdinfo/") + sizeof(fd_dent->d_name)];
+      snprintf(fdinfo_path, sizeof(fdinfo_path), "fdinfo/%s", fd_dent->d_name);
+      int fdinfo_fd = openat(pid_dir_fd, fdinfo_path, O_RDONLY);
+      if (fdinfo_fd < 0) {
+        if (!fdinfo_error_is_skippable())
+          mark_fd_failure(owner);
+        continue;
       }
-
-      if (seen_fds_len == seen_fds_capacity) {
-        seen_fds_capacity += DRM_FD_LINEAR_REALLOC_INC;
-        seen_fds = reallocarray(seen_fds, seen_fds_capacity, sizeof(*seen_fds));
-        if (!seen_fds) {
-          perror("Could not re-allocate memory: ");
-          exit(EXIT_FAILURE);
-        }
-      }
-      seen_fds[seen_fds_len++] = fd_num;
-
-      int fdinfo_fd = openat(fdinfo_dir_fd, fdinfo_dent->d_name, O_RDONLY);
-      if (fdinfo_fd < 0)
-        continue;
       FILE *fdinfo_file = fdopen(fdinfo_fd, "r");
       if (!fdinfo_file) {
+        mark_fd_failure(owner);
         close(fdinfo_fd);
         continue;
       }
 
-      bool callback_success = false;
+      // Account for each DRM client once, in the first process found holding
+      // it. This must happen before invoking the callback: callbacks are
+      // stateful, updating per-client caches from engine counters and merging
+      // the client's memory into a process entry. A duplicate would update the
+      // cache twice and double-count usage or memory. The client id also lets
+      // the sweep attribute the metrics to one process and list the other
+      // holders without them.
+      //
+      // Current kernels expose drm-client-id, which is more robust across
+      // processes than kcmp: kcmp can be unavailable or restricted by a
+      // seccomp policy. Older kernels without it fall back to kcmp for
+      // duplicates within a process.
+      unsigned long long client_id;
+      errno = 0;
+      bool have_client_id = read_drm_client_id(fdinfo_file, &client_id);
+      if (ferror(fdinfo_file)) {
+        if (!fdinfo_read_vanished(fdinfo_file))
+          mark_fd_failure(owner);
+        fclose(fdinfo_file);
+        continue;
+      }
+      if (have_client_id) {
+        struct seen_client *seen = find_seen_client(drm_node, client_id);
+        if (seen) {
+          // The metrics of this client are already accounted under another pid.
+          // Still list every holder, but leave its GPU fields unknown: usage and
+          // memory belong to the shared client, not to an individual process.
+          (void)process_entry_for(seen->gpu_info, client_pid);
+          fclose(fdinfo_file);
+          continue;
+        }
+      } else {
+        // Without a client id, detect duplicated descriptors within the
+        // process. If kcmp is unavailable (e.g., denied by a seccomp policy),
+        // parse the fd rather than drop a possibly distinct client.
+        for (unsigned i = 0; i < seen_fds_len; i++) {
+          if (seen_fds[i].node == drm_node &&
+              syscall(SYS_kcmp, client_pid, client_pid, KCMP_FILE, fd_num, seen_fds[i].fd) == 0) {
+            fclose(fdinfo_file);
+            goto next_fd;
+          }
+        }
+      }
+
       struct callback_entry *current_callback = NULL;
       processes_info_local.pid = client_pid;
-      for (unsigned callback_idx = 0; !callback_success && callback_idx < registered_callback_entries; ++callback_idx) {
-        rewind(fdinfo_file);
-        fflush(fdinfo_file);
-        RESET_ALL(processes_info_local.valid);
-        processes_info_local.type = gpu_process_unknown;
-        current_callback = &callback_entries[callback_idx];
-        if (current_callback->active)
-          callback_success = current_callback->callback(current_callback->gpu_info, fdinfo_file, &processes_info_local);
-        else
-          callback_success = false;
-      }
-      fclose(fdinfo_file);
-      if (!callback_success)
-        continue;
-
-      unsigned process_index =
-          current_callback->gpu_info->processes_count ? current_callback->gpu_info->processes_count - 1 : 0;
-      // Alloc when array is empty or realloc when this pid does not correspond to the last entry and the array is full
-      if ((current_callback->gpu_info->processes_count == 0 ||
-           current_callback->gpu_info->processes[process_index].pid != (pid_t)client_pid) &&
-          current_callback->gpu_info->processes_count == current_callback->gpu_info->processes_array_size) {
-        current_callback->gpu_info->processes_array_size += COMMON_PROCESS_LINEAR_REALLOC_INC;
-        current_callback->gpu_info->processes =
-            reallocarray(current_callback->gpu_info->processes, current_callback->gpu_info->processes_array_size,
-                         sizeof(*current_callback->gpu_info->processes));
-        if (!current_callback->gpu_info->processes) {
-          perror("Could not re-allocate memory: ");
-          exit(EXIT_FAILURE);
+      if (owner) {
+        if (run_callback(owner, fdinfo_file, &processes_info_local))
+          current_callback = owner;
+      } else {
+        for (unsigned callback_idx = 0; !current_callback && callback_idx < registered_callback_entries;
+             ++callback_idx) {
+          struct callback_entry *candidate = &callback_entries[callback_idx];
+          if (candidate->active && !candidate->drm_nodes_count &&
+              run_callback(candidate, fdinfo_file, &processes_info_local))
+            current_callback = candidate;
         }
-      new_empty_process_entry:
-        process_index = current_callback->gpu_info->processes_count++;
-        memset(&current_callback->gpu_info->processes[process_index], 0,
-               sizeof(*current_callback->gpu_info->processes));
-        current_callback->gpu_info->processes[process_index].pid = client_pid;
       }
-      // No alloc/realloc with different pid case
-      if (current_callback->gpu_info->processes_count == 0 ||
-          current_callback->gpu_info->processes[process_index].pid != (pid_t)client_pid) {
-        goto new_empty_process_entry;
+      bool vanished = !current_callback && fdinfo_read_vanished(fdinfo_file);
+      fclose(fdinfo_file);
+      if (!current_callback && !vanished) {
+        // The fd may have been closed and its number reused for another file
+        // between the stat and the fdinfo read.
+        dev_t current_node;
+        vanished = !get_drm_fd_node(fd_dir_fd, fd_dent->d_name, &current_node) || current_node != drm_node;
       }
-      struct gpu_process *process_info = &current_callback->gpu_info->processes[process_index];
+      if (!current_callback) {
+        // The device's own fd could not be parsed (e.g., a kernel without fdinfo
+        // support for it), so its process list cannot establish zero usage.
+        if (!vanished)
+          mark_fd_failure(owner);
+        continue;
+      }
+      if (have_client_id)
+        record_client(drm_node, client_id, current_callback->gpu_info);
+      else {
+        // Record the fd only after its fdinfo was parsed: a copy that could not
+        // be parsed must not suppress a later, valid copy of the same client.
+        if (seen_fds_len == seen_fds_capacity) {
+          seen_fds_capacity += DRM_FD_LINEAR_REALLOC_INC;
+          seen_fds = reallocarray(seen_fds, seen_fds_capacity, sizeof(*seen_fds));
+          if (!seen_fds) {
+            perror("Could not re-allocate memory: ");
+            exit(EXIT_FAILURE);
+          }
+        }
+        seen_fds[seen_fds_len].fd = fd_num;
+        seen_fds[seen_fds_len].node = drm_node;
+        seen_fds_len++;
+      }
+
+      struct gpu_process *process_info = process_entry_for(current_callback->gpu_info, client_pid);
 
       process_info->type |= processes_info_local.type;
 
       if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_memory_usage)) {
         SET_GPUINFO_PROCESS(process_info, gpu_memory_usage,
                             process_info->gpu_memory_usage + processes_info_local.gpu_memory_usage);
+      }
+
+      // drm-shared-* is not limited to resident buffers: bound the shared part
+      // of each client by its resident memory before merging the clients of a
+      // process, and keep the largest one, since the clients of one process can
+      // share the same buffers.
+      if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_memory_shared)) {
+        unsigned long long client_shared = 0;
+        if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_memory_usage))
+          client_shared = processes_info_local.gpu_memory_shared < processes_info_local.gpu_memory_usage
+                              ? processes_info_local.gpu_memory_shared
+                              : processes_info_local.gpu_memory_usage;
+        if (!GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_shared))
+          process_info->gpu_memory_shared_max = 0;
+        if (client_shared > process_info->gpu_memory_shared_max)
+          process_info->gpu_memory_shared_max = client_shared;
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, process_info->gpu_memory_shared + client_shared);
       }
 
       if (GPUINFO_PROCESS_FIELD_VALID(&processes_info_local, gpu_usage)) {
@@ -299,14 +560,18 @@ void processinfo_sweep_fdinfos(void) {
     }
 
   next:
-    if (fdinfo_dir)
-      closedir(fdinfo_dir);
-
-    if (fd_dir_fd >= 0)
+    // The directory stream owns fd_dir_fd once it has been created.
+    if (fd_dir)
+      closedir(fd_dir);
+    else if (fd_dir_fd >= 0)
       close(fd_dir_fd);
     close(pid_dir_fd);
   }
 
   closedir(proc_dir);
-  return;
+  for (unsigned callback_idx = 0; callback_idx < registered_callback_entries; ++callback_idx) {
+    struct callback_entry *current_callback = &callback_entries[callback_idx];
+    if (current_callback->active)
+      current_callback->gpu_info->processes_query_succeeded = !scan_failed && !current_callback->scan_failed;
+  }
 }

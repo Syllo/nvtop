@@ -36,10 +36,21 @@ typedef bool (*processinfo_fdinfo_callback)(struct gpu_info *info, FILE *fdinfo_
 /**
  * @brief Register a callback function to parse a fdinfo file opened to a DRM driver
  *
+ * The DRM node lets the sweep decide which device owns each fd without running
+ * every backend's parser on fdinfo files from other drivers. It is resolved to
+ * a device number and expanded to the device's sibling card/render nodes
+ * through sysfs. This also keeps driver-specific parsing from being applied to
+ * a file descriptor of another device that happens to expose similar keys.
+ *
  * @param callback The callback function
  * @param info The struct gpu_info that will be updated when the callback succeeds.
+ * @param drm_node Path to any DRM node of the device (e.g., /dev/dri/renderD128). The
+ * device's other nodes are found through sysfs, and only the fds opened to these
+ * nodes are passed to \p callback. When NULL or unusable, \p callback is instead
+ * tried on every DRM fd that no other registered device owns.
  */
-void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info);
+void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info,
+                                          const char *drm_node);
 
 /**
  * @brief Remove a previously registered callback.
@@ -57,10 +68,13 @@ void processinfo_drop_callback(const struct gpu_info *info);
 void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool enable);
 
 /**
- * @brief Scan all the processes in /proc. Call the registered callbacks on
- * each file descriptor to the DRM driver that can successfully be opened. If a
- * callback succeeds, the gpu_info structure processes array will be updated
- * with the retrieved data.
+ * @brief Scan all the processes in /proc. Call the callback of the device owning
+ * each DRM file descriptor that can successfully be opened. If the callback
+ * succeeds, the gpu_info structure processes array will be updated with the
+ * retrieved data. Active devices also receive processes_query_succeeded unless
+ * the scan of /proc failed, or one of their own fds could not be read or parsed.
+ * Processes or descriptors that disappear during the scan, processes that cannot
+ * be inspected without privileges, and fds of other devices are skipped.
  */
 void processinfo_sweep_fdinfos(void);
 

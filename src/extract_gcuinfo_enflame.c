@@ -732,29 +732,18 @@ static void gcuinfo_enflame_refresh_dynamic_info(struct gpu_info *_gcu_info) {
       }
     }
 
-    // Read MemAvailable from /proc/meminfo for available memory
-    FILE *meminfo = fopen("/proc/meminfo", "r");
-    if (meminfo) {
-      unsigned long long available_ram = 0;
-      char line[256];
+    // The device memory is the system memory: report the device allocations
+    // as used and what the system still has available as free.
+    gpuinfo_refresh_system_memory(dynamic_info);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, system_free_memory)) {
+      unsigned long long available_ram = dynamic_info->system_free_memory;
+      unsigned long long total_memory = gcu_used_memory + available_ram;
 
-      while (fgets(line, sizeof(line), meminfo)) {
-        if (sscanf(line, "MemAvailable: %llu kB", &available_ram) == 1) {
-          available_ram *= 1024; // Convert KB to bytes
-          break;
-        }
-      }
-      fclose(meminfo);
-
-      if (available_ram > 0) {
-        unsigned long long total_memory = gcu_used_memory + available_ram;
-
-        SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
-        SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, gcu_used_memory);
-        SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, available_ram);
-        if (total_memory > 0) {
-          SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, gcu_used_memory * 100 / total_memory);
-        }
+      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, total_memory);
+      SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, gcu_used_memory);
+      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, available_ram);
+      if (total_memory > 0) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, gcu_used_memory * 100 / total_memory);
       }
     }
   }
@@ -862,7 +851,9 @@ static void gcuinfo_enflame_get_running_processes(struct gpu_info *_gcu_info) {
   struct gcu_info_enflame *gcu_info = container_of(_gcu_info, struct gcu_info_enflame, base);
   efmlDevice_t device = gcu_info->gcuhandle;
   bool validProcessGathering = false;
+  _gcu_info->processes_query_succeeded = false;
   for (unsigned version = 3; !validProcessGathering && version > 0; version--) {
+    bool process_query_failed = false;
     // Get the size of the actual function being used
     size_t sizeof_efmlProcessInfo;
     switch (version) {
@@ -898,6 +889,8 @@ static void gcuinfo_enflame_get_running_processes(struct gpu_info *_gcu_info) {
       if (last_efml_return_status == EFML_SUCCESS) {
         validProcessGathering = true;
         graphical_count = recovered_count;
+      } else {
+        process_query_failed = true;
       }
     }
 
@@ -918,6 +911,8 @@ static void gcuinfo_enflame_get_running_processes(struct gpu_info *_gcu_info) {
       if (last_efml_return_status == EFML_SUCCESS) {
         validProcessGathering = true;
         compute_count = recovered_count;
+      } else {
+        process_query_failed = true;
       }
     }
 
@@ -938,12 +933,15 @@ static void gcuinfo_enflame_get_running_processes(struct gpu_info *_gcu_info) {
       if (last_efml_return_status == EFML_SUCCESS) {
         validProcessGathering = true;
         compute_count += recovered_count;
+      } else {
+        process_query_failed = true;
       }
     }
 
     if (!validProcessGathering)
       continue;
 
+    _gcu_info->processes_query_succeeded = !process_query_failed;
     _gcu_info->processes_count = graphical_count + compute_count;
     if (_gcu_info->processes_count > 0) {
       if (_gcu_info->processes_count > _gcu_info->processes_array_size) {

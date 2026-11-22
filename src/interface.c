@@ -1046,10 +1046,12 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       draw_percentage_meter(gpu_util_win, DEVICE_UNIT_NAME(device), 0, buff);
     }
 
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory) &&
-        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, used_memory)) {
-      double total_mem = device->dynamic_info.total_memory;
-      double used_mem = device->dynamic_info.used_memory;
+    struct gpuinfo_memory_display memory_info =
+        gpuinfo_get_memory_display(device, interface->options.gpu_specific_opts[dev_id].show_system_memory);
+    const char *memory_label = memory_info.system_memory ? "RAM" : "MEM";
+    if (memory_info.total_memory_valid && memory_info.used_memory_valid) {
+      double total_mem = memory_info.total_memory;
+      double used_mem = memory_info.used_memory;
       double total_prefixed = total_mem, used_prefixed = used_mem;
       size_t prefix_off;
       for (prefix_off = 0; prefix_off < 5 && total_prefixed >= 1000.; ++prefix_off) {
@@ -1058,19 +1060,19 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       }
       snprintf(buff, 1024, "%.3f%s/%.3f%s", used_prefixed, memory_prefix[prefix_off], total_prefixed,
                memory_prefix[prefix_off]);
-      draw_percentage_meter(mem_util_win, "MEM", (unsigned int)(100. * used_mem / total_mem), buff);
-    } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, total_memory)) {
-      double total_mem = device->dynamic_info.total_memory;
+      draw_percentage_meter(mem_util_win, memory_label, total_mem > 0 ? (unsigned int)(100. * used_mem / total_mem) : 0, buff);
+    } else if (memory_info.total_memory_valid) {
+      double total_mem = memory_info.total_memory;
       double total_prefixed = total_mem;
       size_t prefix_off;
       for (prefix_off = 0; prefix_off < 5 && total_prefixed >= 1000.; ++prefix_off) {
         total_prefixed /= 1024.;
       }
       snprintf(buff, 1024, "N/A/%.3f%s", total_prefixed, memory_prefix[prefix_off]);
-      draw_percentage_meter(mem_util_win, "MEM", 0, buff);
+      draw_percentage_meter(mem_util_win, memory_label, 0, buff);
     } else {
       snprintf(buff, 1024, "N/A");
-      draw_percentage_meter(mem_util_win, "MEM", 0, buff);
+      draw_percentage_meter(mem_util_win, memory_label, 0, buff);
     }
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
       if (!GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_slowdown_threshold))
@@ -1101,7 +1103,7 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         mvwchgat(dev->fan_speed, 0, 1, 3, 0, cyan_color, NULL);
       }
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_rpm)) {
-      // A real tachometer reading is more useful than the "CPU-FAN"
+      // A real tachometer reading is more useful than the "SYS-FAN"
       // placeholder, which is only a fallback for integrated GPUs with no
       // fan reporting (this also matches the snapshot output).
       if (any_device_has_nvlink_active) {
@@ -1114,11 +1116,12 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         mvwchgat(dev->fan_speed, 0, 0, 3, 0, cyan_color, NULL);
       }
     } else if (device->static_info.integrated_graphics) {
+      // Indicate system cooling when no fan measurement is reported.
       if (any_device_has_nvlink_active) {
-        mvwprintw(dev->fan_speed, 0, 0, "CPU-FAN");
+        mvwprintw(dev->fan_speed, 0, 0, "SYS-FAN");
         mvwchgat(dev->fan_speed, 0, 0, 7, 0, cyan_color, NULL);
       } else {
-        mvwprintw(dev->fan_speed, 0, 0, "  CPU-FAN  ");
+        mvwprintw(dev->fan_speed, 0, 0, "  SYS-FAN  ");
         mvwchgat(dev->fan_speed, 0, 2, 7, 0, cyan_color, NULL);
       }
     } else {
@@ -1232,7 +1235,21 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     // replaced with the chassis slot label (AAPL,slot-name, e.g. "Slot-1")
     // and the die index for multi-die cards.
     werase(dev->pcie_info);
-    if (device->static_info.integrated_graphics) {
+    if (device->static_info.c2c_attachment) {
+      // The device is attached over NVLink-C2C instead of PCIe, so reporting a
+      // PCIe generation and width would describe a link it does not use. NVML
+      // exposes no byte throughput counter for C2C either, so only the link
+      // count is shown, styled like the PCIe link it replaces.
+      wcolor_set(dev->pcie_info, cyan_color, NULL);
+      mvwprintw(dev->pcie_info, 0, 0, "C2C ");
+      wcolor_set(dev->pcie_info, magenta_color, NULL);
+      wprintw(dev->pcie_info, "LINK ");
+      wstandend(dev->pcie_info);
+      if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count))
+        wprintw(dev->pcie_info, "%ux", device->static_info.c2c_link_count);
+      else
+        wprintw(dev->pcie_info, "N/A");
+    } else if (device->static_info.integrated_graphics) {
       wcolor_set(dev->pcie_info, cyan_color, NULL);
       mvwprintw(dev->pcie_info, 0, 0, "Integrated %s", DEVICE_UNIT_NAME(device));
     } else {
@@ -1273,20 +1290,22 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       wprintw(dev->pcie_info, "%s", die_suffix);
     }
 #else
-    wcolor_set(dev->pcie_info, magenta_color, NULL);
-    wprintw(dev->pcie_info, " RX: ");
-    wstandend(dev->pcie_info);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
-      print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
-    else
-      wprintw(dev->pcie_info, "N/A");
-    wcolor_set(dev->pcie_info, magenta_color, NULL);
-    wprintw(dev->pcie_info, " TX: ");
-    wstandend(dev->pcie_info);
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
-      print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
-    else
-      wprintw(dev->pcie_info, "N/A");
+    if (!device->static_info.c2c_attachment) {
+      wcolor_set(dev->pcie_info, magenta_color, NULL);
+      wprintw(dev->pcie_info, " RX: ");
+      wstandend(dev->pcie_info);
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_rx))
+        print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_rx);
+      else
+        wprintw(dev->pcie_info, "N/A");
+      wcolor_set(dev->pcie_info, magenta_color, NULL);
+      wprintw(dev->pcie_info, " TX: ");
+      wstandend(dev->pcie_info);
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_tx))
+        print_data_at_scale(dev->pcie_info, device->dynamic_info.pcie_tx);
+      else
+        wprintw(dev->pcie_info, "N/A");
+    }
 #endif
 
     wnoutrefresh(dev->pcie_info);
@@ -2126,11 +2145,16 @@ static void draw_shortcuts(struct nvtop_interface *interface) {
   }
 }
 
+// Consecutive samples of the other memory kind before the memory graph switches.
+#define MEMORY_PLOT_SWITCH_SAMPLES 3
+
 void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface *interface) {
   struct gpu_info *device;
   unsigned dev_id = 0;
 
   list_for_each_entry(device, devices, list) {
+    struct gpuinfo_memory_display memory_info =
+        gpuinfo_get_memory_display(device, interface->options.gpu_specific_opts[dev_id].show_system_memory);
     unsigned data_index = 0;
     for (enum plot_information info = plot_gpu_rate; info < plot_information_count; ++info) {
       if (plot_isset_draw_info(info, interface->options.gpu_specific_opts[dev_id].to_draw)) {
@@ -2141,9 +2165,43 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
             data_val = device->dynamic_info.gpu_util_rate;
           break;
         case plot_gpu_mem_rate:
-          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_util_rate))
-            data_val = device->dynamic_info.mem_util_rate;
+        {
+          // A graph must not relabel historical GPU usage as system RAM (or
+          // vice versa) when allocation accounting becomes unavailable. Only
+          // switch, clearing the history, once the other kind has persisted:
+          // until then, repeat the last value rather than plot a sample of a
+          // different kind for a transient accounting failure.
+          struct device_window *dev_win = &interface->devices_win[dev_id];
+          // An empty graph shows whichever kind its first sample has, and the
+          // user switching the displayed memory switches the graph at once, if
+          // that changes what this device displays.
+          bool system_option = interface->options.gpu_specific_opts[dev_id].show_system_memory;
+          if (dev_win->memory_plot_system_option != system_option) {
+            dev_win->memory_plot_system_option = system_option;
+            if (dev_win->memory_plot_system_memory != memory_info.system_memory) {
+              interface_ring_buffer_empty_select(&interface->saved_data_ring, dev_id, data_index);
+              dev_win->memory_plot_system_memory = memory_info.system_memory;
+              dev_win->memory_plot_switch_samples = 0;
+            }
+          }
+          if (!interface_ring_buffer_data_stored(&interface->saved_data_ring, dev_id, data_index))
+            dev_win->memory_plot_system_memory = memory_info.system_memory;
+          if (dev_win->memory_plot_system_memory == memory_info.system_memory) {
+            dev_win->memory_plot_switch_samples = 0;
+          } else if (++dev_win->memory_plot_switch_samples >= MEMORY_PLOT_SWITCH_SAMPLES) {
+            interface_ring_buffer_empty_select(&interface->saved_data_ring, dev_id, data_index);
+            dev_win->memory_plot_system_memory = memory_info.system_memory;
+            dev_win->memory_plot_switch_samples = 0;
+          }
+          if (dev_win->memory_plot_system_memory != memory_info.system_memory) {
+            unsigned stored = interface_ring_buffer_data_stored(&interface->saved_data_ring, dev_id, data_index);
+            if (stored)
+              data_val = interface_ring_buffer_get(&interface->saved_data_ring, dev_id, data_index, stored - 1);
+          } else if (memory_info.mem_util_rate_valid) {
+            data_val = memory_info.mem_util_rate;
+          }
           break;
+        }
         case plot_encoder_rate:
           if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate))
             data_val = device->dynamic_info.encoder_rate;
@@ -2259,6 +2317,7 @@ static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices, c
     plot_info_to_draw to_draw = interface->options.gpu_specific_opts[dev_id].to_draw;
     struct gpu_info *device = get_device_by_id(devices, dev_id);
     const char *unit = device ? DEVICE_UNIT_NAME(device) : "GPU";
+    const char *memory_label = interface->devices_win[dev_id].memory_plot_system_memory ? "ram" : "mem";
     unsigned data_ring_index = 0;
     for (enum plot_information info = plot_gpu_rate; info < plot_information_count; ++info) {
       if (plot_isset_draw_info(info, to_draw)) {
@@ -2268,7 +2327,7 @@ static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices, c
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u %%", unit, dev_id);
           break;
         case plot_gpu_mem_rate:
-          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u mem%%", unit, dev_id);
+          snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u %s%%", unit, dev_id, memory_label);
           break;
         case plot_encoder_rate:
           snprintf(plot_legend[in_processing], PLOT_MAX_LEGEND_SIZE, "%s%u encode%%", unit, dev_id);
@@ -2945,7 +3004,7 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"%s\": \"%uRPM\",\n", indent_level_four, fan_field,
              device->dynamic_info.fan_rpm > 9999 ? 9999 : device->dynamic_info.fan_rpm);
     else if (device->static_info.integrated_graphics)
-      printf("%s\"%s\": \"CPU Fan\",\n", indent_level_four, fan_field);
+      printf("%s\"%s\": \"System Fan\",\n", indent_level_four, fan_field);
     else
       printf("%s\"%s\": null,\n", indent_level_four, fan_field);
 
@@ -3031,6 +3090,15 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
     else
       printf("%s\"%s\": null,\n", indent_level_four, mpx_die_index_field);
 #endif
+    // Keep system RAM counters distinct from GPU allocation accounting.
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, system_total_memory))
+      printf("%s\"system_total_memory\": \"%llu\",\n", indent_level_four, device->dynamic_info.system_total_memory);
+    else
+      printf("%s\"system_total_memory\": null,\n", indent_level_four);
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, system_free_memory))
+      printf("%s\"system_free_memory\": \"%llu\",\n", indent_level_four, device->dynamic_info.system_free_memory);
+    else
+      printf("%s\"system_free_memory\": null,\n", indent_level_four);
 
     // PCIe link status
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, pcie_link_gen))
@@ -3053,6 +3121,13 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"pcie_tx\": \"%uKiB/s\",\n", indent_level_four, device->dynamic_info.pcie_tx);
     else
       printf("%s\"pcie_tx\": null,\n", indent_level_four);
+
+    // NVLink-C2C attachment, when the device uses one instead of a PCIe link
+    printf("%s\"c2c_attachment\": %s,\n", indent_level_four, device->static_info.c2c_attachment ? "true" : "false");
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, c2c_link_count))
+      printf("%s\"c2c_link_count\": %u,\n", indent_level_four, device->static_info.c2c_link_count);
+    else
+      printf("%s\"c2c_link_count\": null,\n", indent_level_four);
 
     // Effective load rate
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate))

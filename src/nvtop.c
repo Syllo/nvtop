@@ -66,6 +66,8 @@ static const char helpstring[] = "Available options:\n"
                                  "  -p --no-plot              : Disable bar plot\n"
                                  "  -P --no-processes         : Disable process list\n"
                                  "  -u --dynamic-memory-units : Scale process memory units automatically\n"
+                                 "  -M --system-memory        : Show the system RAM instead of the GPU memory for "
+                                 "GPUs sharing their memory with the host (interactive mode)\n"
                                  "  -r --reverse-abs          : Reverse abscissa: plot the recent data left and "
                                  "older on the right\n"
                                  "  -C --no-color             : No colors\n"
@@ -111,13 +113,14 @@ static const struct option long_opts[] = {
     {.name = "no-plot", .has_arg = no_argument, .flag = NULL, .val = 'p'},
     {.name = "no-processes", .has_arg = no_argument, .flag = NULL, .val = 'P'},
     {.name = "dynamic-memory-units", .has_arg = no_argument, .flag = NULL, .val = 'u'},
+    {.name = "system-memory", .has_arg = no_argument, .flag = NULL, .val = 'M'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
     {.name = "loop", .has_arg = no_argument, .flag = NULL, .val = 'l'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pPrislXu";
+static const char opts[] = "hvd:c:CfE:pPrislXuM";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -129,6 +132,7 @@ int main(int argc, char **argv) {
   bool use_fahrenheit_option = false;
   bool hide_plot_option = false;
   bool hide_processes_option = false;
+  bool show_system_memory_option = false;
   bool reverse_plot_direction_option = false;
   bool encode_decode_timer_option_set = false;
   bool show_gpu_info_bar = false;
@@ -195,6 +199,9 @@ int main(int argc, char **argv) {
       break;
     case 'P':
       hide_processes_option = true;
+      break;
+    case 'M':
+      show_system_memory_option = true;
       break;
     case 'u':
       dynamic_memory_units_option = true;
@@ -343,6 +350,14 @@ int main(int argc, char **argv) {
   allDevicesOptions.dynamic_memory_units = allDevicesOptions.dynamic_memory_units || dynamic_memory_units_option;
 
   gpuinfo_populate_static_infos(&monitoredGpus);
+  // The system memory option is meaningful only for devices sharing their
+  // memory with the host, so do not keep it set on dedicated devices.
+  for (unsigned i = 0; i < allDevCount; ++i) {
+    nvtop_interface_gpu_opts *gpu_opts = &allDevicesOptions.gpu_specific_opts[i];
+    gpu_opts->show_system_memory =
+        gpu_opts->linkedGpu->static_info.memory_shared_with_host &&
+        (gpu_opts->show_system_memory || show_system_memory_option);
+  }
   unsigned numMonitoredGpus =
       interface_check_and_fix_monitored_gpus(allDevCount, &monitoredGpus, &nonMonitoredGpus, &allDevicesOptions);
 
@@ -384,6 +399,12 @@ int main(int argc, char **argv) {
         gpuinfo_refresh_processes(&monitoredGpus);
         gpuinfo_utilisation_rate(&monitoredGpus);
         gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
+      } else {
+        // Keep GPU allocations frozen with the kill menu's process list, while
+        // still updating capacity from the current system memory availability.
+        struct gpu_info *device;
+        list_for_each_entry(device, &monitoredGpus, list)
+          gpuinfo_fix_shared_memory_from_process_info(device);
       }
       save_current_data_to_ring(&monitoredGpus, interface);
       timeout(interface_update_interval(interface));

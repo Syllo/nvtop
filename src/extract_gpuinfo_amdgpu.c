@@ -512,7 +512,8 @@ static bool gpuinfo_amdgpu_get_device_handles(struct list_head *devices, unsigne
       initDeviceSysfsPaths(&gpu_infos[amdgpu_count]);
       list_add_tail(&gpu_infos[amdgpu_count].base.list, devices);
       // Register a fdinfo callback for this GPU
-      processinfo_register_fdinfo_callback(parse_drm_fdinfo_amd, &gpu_infos[amdgpu_count].base);
+      processinfo_register_fdinfo_callback(parse_drm_fdinfo_amd, &gpu_infos[amdgpu_count].base,
+                                           devs[i]->nodes[is_render_node ? DRM_NODE_RENDER : DRM_NODE_PRIMARY]);
       amdgpu_count++;
     } else {
       _drmFreeVersion(ver);
@@ -897,7 +898,10 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
   }
 
-  // Mark integrated graphics
+  // Mark integrated graphics. APUs are deliberately not flagged as sharing
+  // their memory with the host: their memory is the VRAM carve-out, which Linux
+  // MemTotal excludes, plus the GTT, and the driver accounts for both itself
+  // (see the memory usage in the dynamic info).
   if (info_query_success && (info.ids_flags & AMDGPU_IDS_FLAGS_FUSION)) {
     static_info->integrated_graphics = true;
   }
