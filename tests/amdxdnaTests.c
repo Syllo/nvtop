@@ -34,6 +34,7 @@ static bool fdinfo_idle(void) {
   uint64_t memory;
   CHECK(parse_fixture("idle.fdinfo", &info));
   CHECK(info.have_client_id && info.client_id == 35632);
+  CHECK(info.have_pdev && !strcmp(info.pdev, "0000:c5:00.1"));
   CHECK(info.have_total_memory && info.total_memory == MiB(64));
   CHECK(info.have_heap && info.heap == 0);
   CHECK(amdxdna_client_memory(&info, &memory));
@@ -124,18 +125,21 @@ static bool fdinfo_callback(void) {
   const struct {
     const char *name;
     unsigned long long memory;
+    const char *pdev;
     bool accepted;
   } cases[] = {
-      {"idle.fdinfo", MiB(64), true},
-      {"active.fdinfo", MiB(76), true},
-      {"total_only.fdinfo", MiB(8), true},
-      {"amdgpu.fdinfo", 0, false},
+      {"idle.fdinfo", MiB(64), "0000:c5:00.1", true},
+      {"active.fdinfo", MiB(76), "0000:c5:00.1", true},
+      {"total_only.fdinfo", MiB(8), "0000:03:00.0", true},
+      {"amdgpu.fdinfo", 0, "0000:c4:00.0", false},
   };
   for (unsigned i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
     FILE *file = open_fixture(cases[i].name);
     CHECK(file);
+    struct gpu_info info = {0};
+    snprintf(info.pdev, sizeof(info.pdev), "%s", cases[i].pdev);
     struct gpu_process process = {0};
-    bool accepted = parse_drm_fdinfo_amdxdna(NULL, file, &process);
+    bool accepted = parse_drm_fdinfo_amdxdna(&info, file, &process);
     fclose(file);
     CHECK(accepted == cases[i].accepted);
     if (accepted) {
@@ -144,6 +148,15 @@ static bool fdinfo_callback(void) {
       CHECK(process.gpu_memory_usage == cases[i].memory);
     }
   }
+
+  // A node-less callback must not accept another NPU's clients.
+  FILE *file = open_fixture("idle.fdinfo");
+  CHECK(file);
+  struct gpu_info other = {0};
+  snprintf(other.pdev, sizeof(other.pdev), "%s", "0000:03:00.0");
+  struct gpu_process process = {0};
+  CHECK(!parse_drm_fdinfo_amdxdna(&other, file, &process));
+  fclose(file);
   return true;
 }
 

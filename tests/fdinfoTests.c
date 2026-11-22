@@ -96,12 +96,18 @@ static int fixture_fstatat(int dir, const char *path, struct stat *stat, int fla
   char contents[16] = {0};
   ssize_t length = read(fd, contents, sizeof(contents) - 1);
   close(fd);
+  if (length <= 0)
+    return ret;
   char *end;
-  unsigned long node_minor = strtoul(contents, &end, 10);
-  if (length > 0 && end != contents) {
-    stat->st_mode = S_IFCHR;
-    stat->st_rdev = makedev(226, node_minor);
+  unsigned long node_major = 226, node_minor = strtoul(contents, &end, 10);
+  if (end == contents)
+    return ret;
+  if (*end == ':') {
+    node_major = node_minor;
+    node_minor = strtoul(end + 1, NULL, 10);
   }
+  stat->st_mode = S_IFCHR;
+  stat->st_rdev = makedev(node_major, node_minor);
   return ret;
 }
 
@@ -233,6 +239,7 @@ int main(void) {
   CHECK(write_fixture("dev/card0", "0"));
   CHECK(write_fixture("dev/renderD129", "129"));
   CHECK(write_fixture("dev/card2", "2"));
+  CHECK(write_fixture("dev/accel0", "261:0"));
 
   // The legacy device registers without a usable node.
   const char *names[DEVICE_COUNT] = {"Intel", "Mali", "MSM", "Legacy"};
@@ -461,6 +468,31 @@ int main(void) {
   CHECK(devices[INTEL].processes_count == 0);
   CHECK(remove_fixture("proc/4194400/fd/6") && remove_fixture("proc/4194400/fdinfo/6"));
   failed_path = NULL;
+
+  // A non-DRM accel node is dispatched like a DRM node: register its single
+  // node, reach the callback for a process holding that fd, and default an
+  // unknown NPU process type to compute.
+  struct gpu_vendor npu_vendor = {.processing_unit = gpu_processing_unit_npu};
+  struct gpu_info accel = {.vendor = &npu_vendor};
+  snprintf(accel.pdev, sizeof(accel.pdev), "%s", "Accel");
+  char accel_node[256];
+  snprintf(accel_node, sizeof(accel_node), "%s/dev/accel0", fixture_root);
+  processinfo_register_fdinfo_callback(parse_fixture, &accel, accel_node);
+  CHECK(registered_callback_entries > 0);
+  struct callback_entry *accel_entry = &callback_entries[registered_callback_entries - 1];
+  CHECK(accel_entry->device_nodes_count == 1);
+  CHECK(accel_entry->device_nodes[0] == makedev(261, 0));
+  CHECK(write_fixture("proc/4194400/fd/5", "261:0"));
+  CHECK(write_fixture("proc/4194400/fdinfo/5", "Accel 32\n"));
+  accel.processes_count = 0;
+  processinfo_sweep_fdinfos();
+  CHECK(accel.processes_count == 1);
+  CHECK(accel.processes[0].gpu_memory_usage == 32);
+  CHECK(accel.processes[0].type == gpu_process_compute);
+  CHECK(accel.processes_query_succeeded);
+  CHECK(remove_fixture("proc/4194400/fd/5") && remove_fixture("proc/4194400/fdinfo/5"));
+  processinfo_drop_callback(&accel);
+  free(accel.processes);
 
   // Dropped callbacks must no longer receive writes during future sweeps.
   for (unsigned i = 0; i < DEVICE_COUNT; ++i)
