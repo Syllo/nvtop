@@ -587,8 +587,8 @@ static bool system_memory_counters(void) {
   CHECK(gpu.dynamic_info.used_memory == 2000);
   CHECK(gpu.dynamic_info.free_memory == 6000);
   CHECK(gpu.dynamic_info.mem_util_rate == 25);
-  // Subsequent devices must read from the beginning after the cached stream
-  // reached EOF, and receive fresh valid counters rather than an empty sample.
+  // Repeated reads must return fresh valid counters rather than an empty
+  // sample.
   struct gpuinfo_dynamic_info next = {0};
   for (unsigned i = 0; i < 3; ++i) {
     RESET_ALL(next.valid);
