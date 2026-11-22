@@ -1,0 +1,4 @@
+drm-driver:	amdxdna_accel_driver
+drm-client-id:	4242
+drm-engine-npu:	0 ns
+drm-total-memory:	8 MiB

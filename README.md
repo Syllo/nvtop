@@ -237,9 +237,12 @@ memory is the sum of the NPU memory held by the processes, and total memory is
 that sum plus the currently available system memory (`MemAvailable`). With no NPU
 clients it reports zero used out of the available memory.
 
-The driver does not expose a busy time, so NPU utilization is not reported (it
-shows as N/A, not 0%), and neither are frequency, temperature or power. Seeing
-the processes of other users requires root, as for the GPU backends.
+NPU utilization is reported on kernels whose amdxdna driver exposes the
+`drm-engine-npu` fdinfo counter (Linux 7.4 and newer): each process gets its busy
+rate and the device rate is their sum. Earlier kernels expose no busy time, so
+utilization is not reported (it shows as N/A, not 0%); frequency, temperature and
+power are not reported. Seeing the processes of other users requires root, as for
+the GPU backends.
 
 ### NVIDIA
 

@@ -132,9 +132,9 @@ static bool fdinfo_callback(void) {
   for (unsigned i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
     FILE *file = open_fixture(cases[i].name);
     CHECK(file);
-    struct gpu_info info = {0};
+    struct gpu_info_amd_npu npu = {0};
     struct gpu_process process = {0};
-    bool accepted = parse_drm_fdinfo_amdxdna(&info, file, &process);
+    bool accepted = parse_drm_fdinfo_amdxdna(&npu.base, file, &process);
     fclose(file);
     CHECK(accepted == cases[i].accepted);
     if (accepted) {
@@ -142,7 +142,43 @@ static bool fdinfo_callback(void) {
       CHECK(GPUINFO_PROCESS_FIELD_VALID(&process, gpu_memory_usage));
       CHECK(process.gpu_memory_usage == cases[i].memory);
     }
+    free_process_cache(&npu.last_update_process_cache);
+    free_process_cache(&npu.current_update_process_cache);
   }
+  return true;
+}
+
+static bool process_utilization(void) {
+  struct gpu_info_amd_npu npu = {0};
+  struct gpu_process process = {0};
+  process.pid = 4242;
+
+  FILE *file = open_fixture("engine_start.fdinfo");
+  CHECK(file);
+  CHECK(parse_drm_fdinfo_amdxdna(&npu.base, file, &process));
+  fclose(file);
+  CHECK(!GPUINFO_PROCESS_FIELD_VALID(&process, gpu_usage));
+
+  swap_process_cache_for_next_update(&npu);
+  CHECK(npu.last_update_process_cache != NULL);
+
+  // Make the two samples one second apart so the 500 ms busy delta is ~50%.
+  nvtop_time elapsed;
+  nvtop_get_current_time(&elapsed);
+  npu.last_update_process_cache->last_measurement_tstamp = elapsed;
+  npu.last_update_process_cache->last_measurement_tstamp.tv_sec -= 1;
+
+  struct gpu_process next = {0};
+  next.pid = 4242;
+  file = open_fixture("engine_busy.fdinfo");
+  CHECK(file);
+  CHECK(parse_drm_fdinfo_amdxdna(&npu.base, file, &next));
+  fclose(file);
+  CHECK(GPUINFO_PROCESS_FIELD_VALID(&next, gpu_usage));
+  CHECK(next.gpu_usage >= 45 && next.gpu_usage <= 55);
+
+  free_process_cache(&npu.last_update_process_cache);
+  free_process_cache(&npu.current_update_process_cache);
   return true;
 }
 
@@ -290,6 +326,7 @@ int main(int argc, char **argv) {
       {"fdinfo_total_fallback", fdinfo_total_fallback},
       {"fdinfo_other_driver", fdinfo_other_driver},
       {"fdinfo_callback", fdinfo_callback},
+      {"process_utilization", process_utilization},
       {"memory_display", memory_display},
       {"device_discovery", device_discovery},
   };

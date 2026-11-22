@@ -26,6 +26,7 @@
 #include "nvtop/common.h"
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/extract_processinfo_fdinfo.h"
+#include "nvtop/time.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -37,16 +38,33 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <uthash.h>
 
 #define MAX_AMD_NPUS 4
 #define AMDXDNA_KERNEL_DRIVER "amdxdna"
 #define AMDXDNA_FDINFO_DRIVER "amdxdna_accel_driver"
+
+struct amdxdna_cache_id {
+  unsigned long long client_id;
+  pid_t pid;
+} __attribute__((__packed__));
+
+#define HASH_FIND_CLIENT(head, key_ptr, out_ptr) HASH_FIND(hh, head, key_ptr, sizeof(struct amdxdna_cache_id), out_ptr)
+#define HASH_ADD_CLIENT(head, in_ptr) HASH_ADD(hh, head, id, sizeof(struct amdxdna_cache_id), in_ptr)
+
+struct amdxdna_process_info_cache {
+  struct amdxdna_cache_id id;
+  uint64_t busy_ns;
+  nvtop_time last_measurement_tstamp;
+  UT_hash_handle hh;
+};
 
 struct gpu_info_amd_npu {
   struct gpu_info base;
   char sysfs_dev[PATH_MAX]; // e.g. /sys/class/accel/accel0/device
   unsigned pci_device_id;
   unsigned pci_revision;
+  struct amdxdna_process_info_cache *last_update_process_cache, *current_update_process_cache;
 };
 
 // What one fdinfo file of an amdxdna client reports (drivers/accel/amdxdna/amdxdna_pci_drv.c amdxdna_show_fdinfo)
@@ -54,6 +72,8 @@ struct amdxdna_fdinfo {
   bool is_amdxdna;
   bool have_client_id;
   unsigned long long client_id;
+  bool have_busy;
+  uint64_t busy_ns; // drm-engine-npu, cumulative engine busy time
   bool have_total_memory, have_internal, have_external;
   uint64_t total_memory; // drm-total-memory, counts the device BOs twice (once alone, once in the heap BO)
   uint64_t internal;     // Driver-internal BOs, including the heap BO
@@ -178,6 +198,13 @@ static bool amdxdna_parse_fdinfo(FILE *fdinfo_file, struct amdxdna_fdinfo *info)
       char *endptr;
       info->client_id = strtoull(val, &endptr, 10);
       info->have_client_id = endptr != val && *endptr == '\0';
+    } else if (!strcmp(key, "drm-engine-npu")) {
+      char *endptr;
+      uint64_t busy_ns = strtoull(val, &endptr, 10);
+      if (endptr != val && !strcmp(endptr, " ns")) {
+        info->busy_ns = busy_ns;
+        info->have_busy = true;
+      }
     } else if (!strcmp(key, "drm-total-memory")) {
       info->have_total_memory = parse_fdinfo_size(val, &info->total_memory);
     } else if (!strcmp(key, AMDXDNA_FDINFO_DRIVER "-internal-alloc")) {
@@ -203,8 +230,45 @@ static bool amdxdna_client_memory(const struct amdxdna_fdinfo *info, uint64_t *m
   return false;
 }
 
+static void amdxdna_account_busy(struct gpu_info_amd_npu *npu, const struct amdxdna_fdinfo *client,
+                                 struct gpu_process *process_info) {
+  if (!client->have_client_id || !client->have_busy)
+    return;
+
+  nvtop_time current_time;
+  nvtop_get_current_time(&current_time);
+  struct amdxdna_cache_id key = {.client_id = client->client_id, .pid = process_info->pid};
+  struct amdxdna_process_info_cache *cache_entry;
+  HASH_FIND_CLIENT(npu->last_update_process_cache, &key, cache_entry);
+  if (cache_entry) {
+    uint64_t time_elapsed = nvtop_difftime_u64(cache_entry->last_measurement_tstamp, current_time);
+    HASH_DEL(npu->last_update_process_cache, cache_entry);
+    if (client->busy_ns >= cache_entry->busy_ns)
+      SET_GPUINFO_PROCESS(process_info, gpu_usage,
+                          busy_usage_from_time_usage_round(client->busy_ns, cache_entry->busy_ns, time_elapsed));
+  } else {
+    cache_entry = calloc(1, sizeof(*cache_entry));
+    if (!cache_entry)
+      return;
+    cache_entry->id = key;
+  }
+
+  // The sweep accounts each client once per update, but keep the cache robust
+  // if a callback is invoked twice for the same client.
+  struct amdxdna_process_info_cache *duplicate;
+  HASH_FIND_CLIENT(npu->current_update_process_cache, &key, duplicate);
+  if (duplicate) {
+    free(cache_entry);
+    return;
+  }
+
+  cache_entry->busy_ns = client->busy_ns;
+  cache_entry->last_measurement_tstamp = current_time;
+  HASH_ADD_CLIENT(npu->current_update_process_cache, cache_entry);
+}
+
 static bool parse_drm_fdinfo_amdxdna(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
-  (void)info;
+  struct gpu_info_amd_npu *npu = container_of(info, struct gpu_info_amd_npu, base);
   struct amdxdna_fdinfo client;
   if (!amdxdna_parse_fdinfo(fdinfo_file, &client))
     return false;
@@ -215,13 +279,40 @@ static bool parse_drm_fdinfo_amdxdna(struct gpu_info *info, FILE *fdinfo_file, s
   // NPU work is compute by definition; the generic sweep also defaults unknown
   // NPU process types to compute.
   process_info->type |= gpu_process_compute;
+  amdxdna_account_busy(npu, &client, process_info);
   return true;
+}
+
+static void free_process_cache(struct amdxdna_process_info_cache **cache) {
+  if (!*cache)
+    return;
+  struct amdxdna_process_info_cache *cache_entry, *tmp;
+  HASH_ITER(hh, *cache, cache_entry, tmp) {
+    HASH_DEL(*cache, cache_entry);
+    free(cache_entry);
+  }
+  *cache = NULL;
+}
+
+static void swap_process_cache_for_next_update(struct gpu_info_amd_npu *npu) {
+  free_process_cache(&npu->last_update_process_cache);
+  npu->last_update_process_cache = npu->current_update_process_cache;
+  npu->current_update_process_cache = NULL;
+}
+
+static void gpuinfo_amd_npu_get_running_processes(struct gpu_info *_gpu_info) {
+  struct gpu_info_amd_npu *npu = container_of(_gpu_info, struct gpu_info_amd_npu, base);
+  swap_process_cache_for_next_update(npu);
 }
 
 static bool gpuinfo_amd_npu_init(void) { return access(amd_npu_class_root, R_OK) == 0; }
 
 // The process arrays are freed by gpuinfo_shutdown_info_extraction() before the vendors shut down
 static void gpuinfo_amd_npu_shutdown(void) {
+  for (unsigned i = 0; i < amd_npu_count; ++i) {
+    free_process_cache(&amd_npu_info[i].last_update_process_cache);
+    free_process_cache(&amd_npu_info[i].current_update_process_cache);
+  }
   free(amd_npu_info);
   amd_npu_info = NULL;
   amd_npu_count = 0;
@@ -322,7 +413,9 @@ static void gpuinfo_amd_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpuinfo_dynamic_info *dynamic_info = &npu->base.dynamic_info;
 
   RESET_ALL(dynamic_info->valid);
-  // The in-tree driver exposes no busy time: the utilization stays unset rather than 0%.
+  // Kernels before 7.4 expose no busy time: utilization stays unset rather than
+  // 0%. Newer kernels print drm-engine-npu in fdinfo; the process callback turns
+  // it into a per-process rate and the generic code sums those rates.
   // The NPU allocates from system RAM, so report system-wide memory pressure.
   gpuinfo_refresh_system_memory(dynamic_info);
 }
@@ -333,6 +426,7 @@ struct gpu_vendor gpu_vendor_amd_npu = {.init = gpuinfo_amd_npu_init,
                                         .get_device_handles = gpuinfo_amd_npu_get_device_handles,
                                         .populate_static_info = gpuinfo_amd_npu_populate_static_info,
                                         .refresh_dynamic_info = gpuinfo_amd_npu_refresh_dynamic_info,
+                                        .refresh_running_processes = gpuinfo_amd_npu_get_running_processes,
                                         .name = "AMD-NPU",
                                         .processing_unit = gpu_processing_unit_npu};
 
