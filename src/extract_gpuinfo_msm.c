@@ -102,7 +102,6 @@ unsigned msm_gpu_count;
 static struct gpu_info_msm *gpu_infos;
 
 static void *libdrm_handle;
-static FILE* meminfo_file = NULL;
 
 static int last_libdrm_return_status = 0;
 static char didnt_call_gpuinfo_init[] = "uninitialized";
@@ -203,7 +202,6 @@ bool gpuinfo_msm_init(void) {
 
   local_error_string = NULL;
 
-  meminfo_file = fopen("/proc/meminfo", "r");
   return true;
 
 init_error_clean_exit:
@@ -226,11 +224,6 @@ void gpuinfo_msm_shutdown(void) {
     dlclose(libdrm_handle);
     libdrm_handle = NULL;
     local_error_string = didnt_call_gpuinfo_init;
-  }
-
-  if (meminfo_file) {
-    fclose(meminfo_file);
-    meminfo_file = NULL;
   }
 }
 
@@ -279,6 +272,8 @@ static const char drm_msm_engine_gpu[] = "drm-engine-gpu";
 static const char drm_msm_cycles_gpu[] = "drm-cycles-gpu";
 static const char drm_msm_maxfreq_gpu[] = "drm-maxfreq-gpu";
 static const char drm_msm_resident_mem[] = "drm-resident-memory";
+static const char drm_msm_total_mem[] = "drm-total-memory";
+static const char drm_msm_shared_mem[] = "drm-shared-memory";
 
 static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_msm *gpu_info = container_of(info, struct gpu_info_msm, base);
@@ -286,7 +281,7 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
   static size_t line_buf_size = 0;
   ssize_t count = 0;
 
-  bool client_id_set = false;
+  bool client_id_set = false, total_memory_seen = false;
   unsigned cid;
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
@@ -312,6 +307,8 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
       bool is_cycles = !strcmp(key, drm_msm_cycles_gpu);
       bool is_maxfreq = !strcmp(key, drm_msm_maxfreq_gpu);
       bool is_resident = !strcmp(key, drm_msm_resident_mem);
+      total_memory_seen = total_memory_seen || !strcmp(key, drm_msm_total_mem);
+      bool is_shared = !strcmp(key, drm_msm_shared_mem);
 
       if (is_engine || is_cycles || is_maxfreq) {
         char *endptr;
@@ -322,7 +319,7 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
           SET_GPUINFO_PROCESS(process_info, gfx_engine_used, time_spent);
         }
       }
-      else if (is_resident) {
+      else if (is_resident || is_shared) {
         uint64_t mem_int;
         char *endptr;
 
@@ -331,12 +328,21 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
           continue;
 
         uint64_t multiplier = parse_memory_multiplier(endptr);
-        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
+        if (is_resident)
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
+        else
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, mem_int * multiplier);
       }
     }
   }
   if (!client_id_set)
     return false;
+
+  // The DRM memory stats only print the resident size once a buffer of the
+  // client reports its status, so a client without buffers (such as nvtop's own
+  // query fd) only prints its total: it has no resident memory.
+  if (total_memory_seen && !GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage))
+    SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, 0);
 
   // The msm driver does not expose compute engine metrics as of yet
   process_info->type |= gpu_process_graphical;
@@ -408,15 +414,18 @@ static bool gpuinfo_msm_get_device_handles(struct list_head *devices, unsigned *
 
   for (unsigned int i = 0; i < libdrm_count; i++) {
     int fd = -1;
+    const char *drm_node = NULL;
 
     // Try render node first
     if (1 << DRM_NODE_RENDER & devs[i]->available_nodes) {
       fd = open(devs[i]->nodes[DRM_NODE_RENDER], O_RDWR);
+      drm_node = devs[i]->nodes[DRM_NODE_RENDER];
     }
     if (fd < 0) {
       // Fallback to primary node (control nodes are unused according to the DRM documentation)
       if (1 << DRM_NODE_PRIMARY & devs[i]->available_nodes) {
         fd = open(devs[i]->nodes[DRM_NODE_PRIMARY], O_RDWR);
+        drm_node = devs[i]->nodes[DRM_NODE_PRIMARY];
       }
     }
 
@@ -446,7 +455,7 @@ static bool gpuinfo_msm_get_device_handles(struct list_head *devices, unsigned *
 
     list_add_tail(&gpu_infos[msm_gpu_count].base.list, devices);
     // Register a fdinfo callback for this GPU
-    processinfo_register_fdinfo_callback(parse_drm_fdinfo_msm, &gpu_infos[msm_gpu_count].base);
+    processinfo_register_fdinfo_callback(parse_drm_fdinfo_msm, &gpu_infos[msm_gpu_count].base, drm_node);
     msm_gpu_count++;
   }
 
@@ -534,6 +543,7 @@ void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = true;
   static_info->encode_decode_shared = true;
+  static_info->memory_shared_with_host = true;
   RESET_ALL(static_info->valid);
 
   msm_find_sysfs_paths(gpu_info);
@@ -552,9 +562,6 @@ void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
   }
 }
 
-
-static const char meminfo_total[] = "MemTotal";
-static const char meminfo_available[] = "MemAvailable";
 
 void gpuinfo_msm_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_msm *gpu_info = container_of(_gpu_info, struct gpu_info_msm, base);
@@ -594,51 +601,7 @@ void gpuinfo_msm_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   // TODO: find how to extract global utilization
   // gpu util will be computed as the sum of all the processes utilization for now
 
-  rewind(meminfo_file);
-  fflush(meminfo_file);
-  static char *line = NULL;
-  static size_t line_buf_size = 0;
-  ssize_t count = 0;
-  uint64_t mem_total = 0;
-  uint64_t mem_available = 0;
-  size_t keys_acquired = 0;
-  while (keys_acquired != 2 && (count = getline(&line, &line_buf_size, meminfo_file)) != -1) {
-    char *key, *val;
-    // Get rid of the newline if present
-    if (line[count - 1] == '\n') {
-      line[--count] = '\0';
-    }
-
-    if (!extract_drm_fdinfo_key_value(line, &key, &val))
-      continue;
-
-    bool is_total = !strcmp(key, meminfo_total);
-    bool is_available = !strcmp(key, meminfo_available);
-
-    if (is_total || is_available) {
-      uint64_t mem_int;
-      char *endptr;
-
-      mem_int = strtoull(val, &endptr, 10);
-      if (endptr == val)
-        continue;
-
-      mem_int *= parse_memory_multiplier(endptr);
-      if (is_total) {
-        mem_total = mem_int;
-      }
-      else if (is_available) {
-        mem_available = mem_int;
-      }
-      ++keys_acquired;
-    }
-  }
-
-  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mem_total);
-  SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mem_total - mem_available);
-  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mem_available);
-  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
-                      (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
+  gpuinfo_refresh_system_memory(dynamic_info);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_msm *gpu_info) {

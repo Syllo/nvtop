@@ -74,5 +74,18 @@ struct gpu_info_intel {
 extern void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info);
 extern void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info);
 
+// 1 if the device has a dedicated (VRAM) memory region, 0 if it only has the
+// system memory region, -1 if the memory regions could not be queried.
+extern int gpuinfo_intel_i915_has_device_memory(struct gpu_info_intel *gpu_info);
+extern int gpuinfo_intel_xe_has_device_memory(struct gpu_info_intel *gpu_info);
+
 extern bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info);
 extern bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info);
+
+// Parses a DRM fdinfo memory size, printed by the kernel in bytes, KiB or MiB
+// (whichever unit divides it exactly), or in kB by older i915 kernels.
+extern bool gpuinfo_intel_parse_fdinfo_size(const char *val, unsigned long long *bytes);
+// Adds bytes to the memory usage of the process, or to the part of it shared
+// with other DRM clients.
+extern void gpuinfo_intel_add_process_memory(struct gpu_process *process_info, unsigned long long bytes);
+extern void gpuinfo_intel_add_process_shared_memory(struct gpu_process *process_info, unsigned long long bytes);

@@ -74,6 +74,25 @@ static void *xe_device_query_alloc_fetch(int fd, uint32_t query_id, uint32_t *le
 }
 // End Copy
 
+int gpuinfo_intel_xe_has_device_memory(struct gpu_info_intel *gpu_info) {
+  uint32_t length = 0;
+  struct drm_xe_query_mem_regions *regions =
+      xe_device_query_alloc_fetch(gpu_info->card_fd, DRM_XE_DEVICE_QUERY_MEM_REGIONS, &length);
+  if (!regions)
+    return -1;
+  // Every device has a system memory region; the driver reports none at all
+  // when its queries are restricted (admin-only mode), leaving it unknown.
+  int has_device_memory = -1;
+  for (unsigned i = 0; i < regions->num_mem_regions; i++) {
+    if (regions->mem_regions[i].mem_class == DRM_XE_MEM_REGION_CLASS_VRAM)
+      has_device_memory = 1;
+    else if (regions->mem_regions[i].mem_class == DRM_XE_MEM_REGION_CLASS_SYSMEM && has_device_memory < 0)
+      has_device_memory = 0;
+  }
+  free(regions);
+  return has_device_memory;
+}
+
 void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
@@ -85,10 +104,10 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
     if (regions) {
       for (unsigned i = 0; i < regions->num_mem_regions; i++) {
         struct drm_xe_mem_region mr = regions->mem_regions[i];
-        // ARC will have VRAM and SYSMEM, integrated graphics will have only one SYSMEM region
-        if (mr.mem_class == DRM_XE_MEM_REGION_CLASS_VRAM || regions->num_mem_regions == 1) {
+        // Only discrete GPUs get here: report their VRAM region
+        if (mr.mem_class == DRM_XE_MEM_REGION_CLASS_VRAM) {
           SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mr.total_size);
-          // xe will report 0 kb used if we don't have CAP_PERFMON
+          // Kernels before the CAP_PERFMON check was dropped report 0 kb used without it
           if (mr.used != 0) {
             SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mr.used);
             SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, dynamic_info->total_memory - dynamic_info->used_memory);
@@ -102,8 +121,21 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   }
 }
 
-static const char xe_drm_intel_vram[] = "drm-total-vram0";
-// static const char xe_drm_intel_gtt[] = "drm-total-gtt";
+// Resident memory of the client, indexed by whether the device shares its
+// memory with the host. Such devices only have the system memory regions
+// (system and gtt). Discrete GPUs only count the device memory their capacity
+// describes, as the amdgpu backend does: the first VRAM region, the only one
+// the dynamic info reports. Stolen memory is reserved by the firmware outside
+// of the system memory.
+static const char *const xe_drm_intel_memory[2][2] = {
+    [false] = {"drm-resident-vram0", NULL},
+    [true] = {"drm-resident-system", "drm-resident-gtt"},
+};
+// Part of the same memory in buffers shared with other DRM clients.
+static const char *const xe_drm_intel_shared_memory[2][2] = {
+    [false] = {"drm-shared-vram0", NULL},
+    [true] = {"drm-shared-system", "drm-shared-gtt"},
+};
 // Render
 static const char xe_drm_intel_cycles_rcs[] = "drm-cycles-rcs";
 static const char xe_drm_intel_total_cycles_rcs[] = "drm-total-cycles-rcs";
@@ -163,18 +195,22 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
         continue;
       client_id_set = true;
     } else {
-      if (!strcmp(key, xe_drm_intel_vram)) {
-        unsigned long mem_int;
-        char *endptr;
-
-        mem_int = strtoul(val, &endptr, 10);
-        if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
+      bool shared_memory = info->static_info.memory_shared_with_host;
+      bool is_memory = false, is_shared = false;
+      for (unsigned i = 0; !is_memory && !is_shared && i < ARRAY_SIZE(xe_drm_intel_memory[0]) &&
+                           xe_drm_intel_memory[shared_memory][i];
+           i++) {
+        is_memory = !strcmp(key, xe_drm_intel_memory[shared_memory][i]);
+        is_shared = !strcmp(key, xe_drm_intel_shared_memory[shared_memory][i]);
+      }
+      if (is_memory || is_shared) {
+        unsigned long long mem_bytes;
+        if (!gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
           continue;
-
-        if GPUINFO_PROCESS_FIELD_VALID (process_info, gpu_memory_usage)
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + (mem_int * 1024));
+        if (is_shared)
+          gpuinfo_intel_add_process_shared_memory(process_info, mem_bytes);
         else
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+          gpuinfo_intel_add_process_memory(process_info, mem_bytes);
       } else {
         unsigned long cycles;
         char *endptr;

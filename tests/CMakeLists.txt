@@ -1,5 +1,36 @@
 find_package(GTest)
 
+if (BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_executable(fdinfoTests fdinfoTests.c)
+  target_include_directories(fdinfoTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_compile_definitions(fdinfoTests PRIVATE _GNU_SOURCE)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(fdinfoTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET fdinfoTests PROPERTY C_STANDARD 11)
+  add_sanitizers(fdinfoTests)
+  add_test(NAME Fdinfo.sweep COMMAND fdinfoTests)
+endif()
+
+if (BUILD_TESTING AND ENFLAME_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_executable(enflameTests
+    enflameTests.c
+    ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo.c
+    ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c
+    ${PROJECT_SOURCE_DIR}/src/get_process_info_linux.c
+    ${PROJECT_SOURCE_DIR}/src/time.c
+  )
+  target_include_directories(enflameTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_compile_definitions(enflameTests PRIVATE _GNU_SOURCE)
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(enflameTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET enflameTests PROPERTY C_STANDARD 11)
+  target_link_libraries(enflameTests PRIVATE m ${CMAKE_DL_LIBS})
+  add_sanitizers(enflameTests)
+  add_test(NAME Enflame.query_status COMMAND enflameTests)
+endif()
+
 # The NVIDIA backend tests use injected NVML entry points and need neither
 # GTest nor an NVIDIA driver/SDK, so they can also run on CPU-only CI hosts.
 if (BUILD_TESTING AND NVIDIA_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -18,8 +49,11 @@ if (BUILD_TESTING AND NVIDIA_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   set_property(TARGET nvidiaTests PROPERTY C_STANDARD 11)
   target_link_libraries(nvidiaTests PRIVATE m ${CMAKE_DL_LIBS})
   add_sanitizers(nvidiaTests)
-  foreach (test_case uma_version legacy_fallback mixed_processes c2c_link unavailable_memory
-                    memory_probes pcie_preserved uma_idle
+  foreach (test_case uma_version legacy_fallback mixed_processes process_query empty_process_memory
+                    shared_memory_accounting shared_memory_cap shared_memory_buffers
+                    system_memory_counters
+                    c2c_link c2c_link_count c2c_field_types unavailable_memory
+                    memory_probes pcie_preserved uma_idle frozen_process_memory
                     utilization_probe_not_found utilization_buffered_not_found utilization_samples)
     add_test(NAME Nvidia.${test_case} COMMAND nvidiaTests ${test_case})
   endforeach()

@@ -8,7 +8,7 @@ nvtop \- interactive GPU process viewer
 
 .SH SYNOPSIS
 .B nvtop
-\fR[\fB\-hvCfpPurislX\fR]
+\fR[\fB\-hvCfpPurislXM\fR]
 \fR[\fB\-d\fR \fIdelay\fR]
 \fR[\fB\-c\fR \fIconfig-file\fR]
 \fR[\fB\-E\fR \fIseconds\fR]
@@ -35,6 +35,9 @@ Do not display the process list.
 .TP
 .BR \-u ", " \-\-dynamic\-memory\-units
 Automatically scale the process memory units, choosing a suitable binary unit from bytes up to PiB instead of always displaying MiB.
+.TP
+.BR \-M ", " \-\-system\-memory
+For the GPUs sharing their memory with the host (integrated GPUs and NPUs, unified-memory systems), show the system RAM (\fIMemTotal\fR as the total and \fIMemTotal\fR \- \fIMemAvailable\fR as used) instead of the GPU memory derived from the allocations of their processes. Applies to all devices sharing their memory with the host; the setup window also offers it per device. This changes the interactive display only: snapshot and loop output always report the GPU counters separately from \fIsystem_total_memory\fR and \fIsystem_free_memory\fR.
 .TP
 .BR \-r ", " \-\-reverse\-abs
 Reverse abscissa: switch the plot data order from "old --- recent" (default) to "recent --- old".
@@ -71,13 +74,15 @@ You can enter the setup utility by pressing \fBF2\fR to view and modify the foll
 This section deals with general interface options. \fBColor support\fR and \fBinterface update interval\fR can be modified.
 .TP
 .I Devices
-This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR, \fBset the encoder/decoder hiding timer\fR, \fBdisplay the dynamic GPU info bar\fR and \fBdisplay the static GPU info and secondary clock domains\fR.
+This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR, \fBset the encoder/decoder hiding timer\fR, \fBdisplay the dynamic GPU info bar\fR, \fBdisplay the static GPU info and secondary clock domains\fR and \fBshow the system RAM instead of the GPU memory\fR for all the GPUs sharing their memory with the host. The system RAM option is shown only when at least one monitored GPU shares its memory with the host.
 .TP
 .I Chart
-This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR. The available metrics are GPU utilization, GPU memory utilization, encoder rate, decoder rate, temperature, power draw rate, fan speed, GPU clock rate, GPU memory clock rate, effective load rate and PCIe RX / TX load. The PCIe RX and TX load are the receive and transmit throughput expressed as a percentage of the maximum link bandwidth (link generation times link width).
+This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR. The entry of a GPU sharing its memory with the host also offers to \fBshow the system RAM instead of the GPU memory\fR for that GPU. The available metrics are GPU utilization, GPU memory utilization, encoder rate, decoder rate, temperature, power draw rate, fan speed, GPU clock rate, GPU memory clock rate, effective load rate and PCIe RX / TX load. The PCIe RX and TX load are the receive and transmit throughput expressed as a percentage of the maximum link bandwidth (link generation times link width).
 .TP
 .I Processes
 This section deals with the process list (bottom of the interface). You can \fBscale the process memory units automatically\fR, \fBselect the sort order\fR, \fBselect the metric by which to sort the processes by\fR and \fBselect which metric is displayed\fR.
+
+For drivers whose process list comes from DRM fdinfo, a DRM client shared by several processes (for example an fd inherited through \fBfork\fR) is counted once for its GPU utilization, encoder/decoder rates and memory. These values are attributed to the first process found holding the client; the other holders are listed without GPU metrics for that client. A holder that later opens its own DRM client gets separate metrics for it.
 
 .SH INTERACTIVE COMMANDS
 .TP
