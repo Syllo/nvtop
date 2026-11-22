@@ -228,9 +228,10 @@ from the DRM fdinfo of the driver (the `internal-alloc` and `external-alloc`
 keys, or `drm-total-memory` on kernels without them). NPU clients are reported
 as compute processes. A client shared between processes, such as an accel fd
 inherited through `fork()`, is listed for each holder but its memory is counted
-once. The memory row shows the client allocations plus available system memory;
-when no client allocation is available it falls back to system-wide RAM, as the
-NPU allocates from system memory.
+once. The memory row uses the shared-memory accounting described above: used
+memory is the sum of the NPU memory held by the processes, and total memory is
+that sum plus the currently available system memory (`MemAvailable`). With no NPU
+clients it reports zero used out of the available memory.
 
 The driver does not expose a busy time, so NPU utilization is not reported (it
 shows as N/A, not 0%), and neither are frequency, temperature or power. Seeing

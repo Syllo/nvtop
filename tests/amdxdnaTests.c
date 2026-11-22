@@ -148,6 +148,61 @@ static bool fdinfo_callback(void) {
   return true;
 }
 
+static bool memory_display(void) {
+  struct gpu_info_amd_npu npu = {0};
+  struct gpuinfo_dynamic_info *dynamic_info = &npu.base.dynamic_info;
+  npu.base.static_info.memory_shared_with_host = true;
+  SET_GPUINFO_DYNAMIC(dynamic_info, system_total_memory, MiB(16));
+  SET_GPUINFO_DYNAMIC(dynamic_info, system_free_memory, MiB(8));
+
+  // An idle NPU with a successful process query reports zero allocations, and
+  // MemAvailable is the total, as for any shared-memory device.
+  npu.base.processes_count = 0;
+  npu.base.processes_query_succeeded = true;
+  gpuinfo_fix_shared_memory_from_process_info(&npu.base);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory));
+  CHECK(dynamic_info->used_memory == 0);
+  CHECK(dynamic_info->free_memory == MiB(8));
+  CHECK(dynamic_info->total_memory == MiB(8));
+  struct gpuinfo_memory_display display = gpuinfo_get_memory_display(&npu.base, false);
+  CHECK(!display.system_memory);
+  CHECK(display.used_memory_valid && display.used_memory == 0);
+  CHECK(display.total_memory_valid && display.total_memory == MiB(8));
+
+  // The used memory is the process sum; the total adds MemAvailable.
+  struct gpu_process process = {0};
+  SET_GPUINFO_PROCESS(&process, gpu_memory_usage, MiB(2));
+  npu.base.processes = &process;
+  npu.base.processes_count = 1;
+  RESET_GPUINFO_DYNAMIC(dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(dynamic_info, free_memory);
+  RESET_GPUINFO_DYNAMIC(dynamic_info, total_memory);
+  RESET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate);
+  gpuinfo_fix_shared_memory_from_process_info(&npu.base);
+  CHECK(dynamic_info->used_memory == MiB(2));
+  CHECK(dynamic_info->free_memory == MiB(8));
+  CHECK(dynamic_info->total_memory == MiB(10));
+  display = gpuinfo_get_memory_display(&npu.base, false);
+  CHECK(!display.system_memory);
+  CHECK(display.used_memory == MiB(2) && display.total_memory == MiB(10));
+  npu.base.processes = NULL;
+
+  // An unavailable process query uses the shared-memory RAM fallback, as for
+  // other unified-memory devices.
+  npu.base.processes_count = 0;
+  npu.base.processes_query_succeeded = false;
+  RESET_GPUINFO_DYNAMIC(dynamic_info, used_memory);
+  RESET_GPUINFO_DYNAMIC(dynamic_info, free_memory);
+  RESET_GPUINFO_DYNAMIC(dynamic_info, total_memory);
+  RESET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate);
+  gpuinfo_fix_shared_memory_from_process_info(&npu.base);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory));
+  display = gpuinfo_get_memory_display(&npu.base, false);
+  CHECK(display.system_memory);
+  CHECK(display.total_memory == MiB(16) && display.used_memory == MiB(8));
+  return true;
+}
+
 static bool device_discovery(void) {
   char root[] = "/tmp/nvtop-amdxdna-XXXXXX";
   char path[PATH_MAX];
@@ -237,6 +292,7 @@ int main(int argc, char **argv) {
       {"fdinfo_total_fallback", fdinfo_total_fallback},
       {"fdinfo_other_driver", fdinfo_other_driver},
       {"fdinfo_callback", fdinfo_callback},
+      {"memory_display", memory_display},
       {"device_discovery", device_discovery},
   };
   for (unsigned i = 0; argc == 2 && i < sizeof(tests) / sizeof(*tests); ++i)

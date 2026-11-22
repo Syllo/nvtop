@@ -330,20 +330,12 @@ static void gpuinfo_amd_npu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   gpuinfo_refresh_system_memory(dynamic_info);
 }
 
-static void gpuinfo_amd_npu_get_running_processes(struct gpu_info *_gpu_info) {
-  // The generic fdinfo sweep has already populated the process list from the
-  // accel node. Keep an empty list from being read as zero allocations so the
-  // idle NPU continues to show system RAM.
-  _gpu_info->processes_query_succeeded = false;
-}
-
 struct gpu_vendor gpu_vendor_amd_npu = {.init = gpuinfo_amd_npu_init,
                                         .shutdown = gpuinfo_amd_npu_shutdown,
                                         .last_error_string = gpuinfo_amd_npu_last_error_string,
                                         .get_device_handles = gpuinfo_amd_npu_get_device_handles,
                                         .populate_static_info = gpuinfo_amd_npu_populate_static_info,
                                         .refresh_dynamic_info = gpuinfo_amd_npu_refresh_dynamic_info,
-                                        .refresh_running_processes = gpuinfo_amd_npu_get_running_processes,
                                         .name = "AMD-NPU",
                                         .processing_unit = gpu_processing_unit_npu};
 
