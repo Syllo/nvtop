@@ -224,6 +224,12 @@ static nvmlReturn_t (*nvmlDeviceGetPcieThroughput)(nvmlDevice_t device, nvmlPcie
 
 static nvmlReturn_t (*nvmlDeviceGetFanSpeed)(nvmlDevice_t device, unsigned int *speed);
 
+// Optional per-fan APIs. Used to report the maximum speed across all fans:
+// some cards expose several fan sockets but only some of them are actually
+// plugged, the unplugged ones reporting 0%.
+static nvmlReturn_t (*nvmlDeviceGetNumFans)(nvmlDevice_t device, unsigned int *numFans);
+static nvmlReturn_t (*nvmlDeviceGetFanSpeed_v2)(nvmlDevice_t device, unsigned int fan, unsigned int *speed);
+
 typedef enum {
   NVML_TEMPERATURE_GPU = 0,
 } nvmlTemperatureSensors_t;
@@ -850,6 +856,12 @@ static bool gpuinfo_nvidia_init_with_lib(const char *libname) {
   if (!nvmlDeviceGetFanSpeed)
     goto init_error_clean_exit;
 
+  // Optional: per-fan speed APIs. When present we report the max across fans
+  // (some cards report 0% for unplugged fan sockets). When absent we fall
+  // back to the single-fan nvmlDeviceGetFanSpeed above.
+  nvmlDeviceGetNumFans = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNumFans");
+  nvmlDeviceGetFanSpeed_v2 = dlsym(libnvidia_ml_handle, "nvmlDeviceGetFanSpeed_v2");
+
   nvmlDeviceGetTemperature = dlsym(libnvidia_ml_handle, "nvmlDeviceGetTemperature");
   if (!nvmlDeviceGetTemperature)
     goto init_error_clean_exit;
@@ -1286,10 +1298,36 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_pcie_tx_valid, dynamic_info->valid);
 
-  // Fan speed
-  last_nvml_return_status = nvmlDeviceGetFanSpeed(device, &dynamic_info->fan_speed);
-  if (last_nvml_return_status == NVML_SUCCESS)
-    SET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
+  // Fan speed. Some GPUs expose multiple fan sockets but only some are
+  // actually plugged; unplugged ones report 0% through the legacy single-fan
+  // API. When the per-fan APIs are available, report the maximum speed over
+  // all the fans instead, so a plugged secondary fan is still shown.
+  bool fan_speed_reported = false;
+  if (nvmlDeviceGetNumFans && nvmlDeviceGetFanSpeed_v2) {
+    unsigned int num_fans = 0;
+    last_nvml_return_status = nvmlDeviceGetNumFans(device, &num_fans);
+    if (last_nvml_return_status == NVML_SUCCESS && num_fans > 0) {
+      unsigned int max_fan_speed = 0;
+      for (unsigned int fan = 0; fan < num_fans; ++fan) {
+        unsigned int fan_speed = 0;
+        if (nvmlDeviceGetFanSpeed_v2(device, fan, &fan_speed) == NVML_SUCCESS) {
+          fan_speed_reported = true;
+          if (fan_speed > max_fan_speed)
+            max_fan_speed = fan_speed;
+        }
+      }
+      if (fan_speed_reported) {
+        dynamic_info->fan_speed = max_fan_speed;
+        SET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
+      }
+    }
+  }
+  if (!fan_speed_reported) {
+    // Fall back to the legacy single-fan API
+    last_nvml_return_status = nvmlDeviceGetFanSpeed(device, &dynamic_info->fan_speed);
+    if (last_nvml_return_status == NVML_SUCCESS)
+      SET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
+  }
 
   // GPU temperature
   last_nvml_return_status = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &dynamic_info->gpu_temp);
