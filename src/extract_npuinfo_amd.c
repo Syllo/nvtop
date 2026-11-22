@@ -54,8 +54,6 @@ struct amdxdna_fdinfo {
   bool is_amdxdna;
   bool have_client_id;
   unsigned long long client_id;
-  bool have_pdev;
-  char pdev[PDEV_LEN];
   bool have_total_memory, have_heap, have_internal, have_external;
   uint64_t total_memory; // drm-total-memory, counts the device BOs twice (once alone, once in the heap BO)
   uint64_t heap;         // Device BOs, sub-allocated from the heap; 0 until a hardware context is set up
@@ -181,9 +179,6 @@ static bool amdxdna_parse_fdinfo(FILE *fdinfo_file, struct amdxdna_fdinfo *info)
       char *endptr;
       info->client_id = strtoull(val, &endptr, 10);
       info->have_client_id = endptr != val && *endptr == '\0';
-    } else if (!strcmp(key, drm_pdev)) {
-      snprintf(info->pdev, sizeof(info->pdev), "%s", val);
-      info->have_pdev = true;
     } else if (!strcmp(key, "drm-total-memory")) {
       info->have_total_memory = parse_fdinfo_size(val, &info->total_memory);
     } else if (!strcmp(key, AMDXDNA_FDINFO_DRIVER "-heap-alloc")) {
@@ -212,13 +207,9 @@ static bool amdxdna_client_memory(const struct amdxdna_fdinfo *info, uint64_t *m
 }
 
 static bool parse_drm_fdinfo_amdxdna(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
+  (void)info;
   struct amdxdna_fdinfo client;
   if (!amdxdna_parse_fdinfo(fdinfo_file, &client))
-    return false;
-  // A node-less callback (e.g. /dev not available in a container) is offered
-  // every unowned character-device fd. Reject another NPU's clients so each
-  // device keeps its own processes.
-  if (info && client.have_pdev && strcmp(client.pdev, info->pdev) != 0)
     return false;
 
   uint64_t memory;
