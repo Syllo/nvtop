@@ -89,8 +89,7 @@ static bool resolve_device_nodes(struct callback_entry *entry, const char *devic
   const unsigned drm_major = 226;
   struct stat node_stat;
   entry->device_nodes_count = 0;
-  if (!device_node || fstatat(AT_FDCWD, device_node, &node_stat, 0) != 0 ||
-      (node_stat.st_mode & S_IFMT) != S_IFCHR)
+  if (!device_node || fstatat(AT_FDCWD, device_node, &node_stat, 0) != 0 || (node_stat.st_mode & S_IFMT) != S_IFCHR)
     return false;
   add_device_node(entry, node_stat.st_rdev);
 
