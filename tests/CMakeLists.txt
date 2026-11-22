@@ -54,7 +54,8 @@ if (BUILD_TESTING AND NVIDIA_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
                     system_memory_counters
                     c2c_link c2c_link_count c2c_field_types unavailable_memory
                     memory_probes pcie_preserved uma_idle frozen_process_memory
-                    utilization_probe_not_found utilization_buffered_not_found utilization_samples)
+                    utilization_probe_not_found utilization_buffered_not_found utilization_samples
+                    multi_fan_max multi_fan_legacy_fallback fan_count_zero)
     add_test(NAME Nvidia.${test_case} COMMAND nvidiaTests ${test_case})
   endforeach()
 endif()

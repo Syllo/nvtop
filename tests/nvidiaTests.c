@@ -95,6 +95,37 @@ static nvmlReturn_t unsupported_temperature(nvmlDevice_t device, nvmlTemperature
   return unsupported_uint(device, value);
 }
 
+static unsigned fan_count_value;
+static nvmlReturn_t fan_count_status;
+static unsigned fan_speed_v2_values[4];
+static nvmlReturn_t fan_speed_v2_status[4];
+static unsigned fan_speed_v2_calls;
+static unsigned legacy_fan_speed_value;
+static nvmlReturn_t legacy_fan_speed_status;
+static unsigned legacy_fan_speed_calls;
+
+static nvmlReturn_t fan_count(nvmlDevice_t device, unsigned *numFans) {
+  (void)device;
+  *numFans = fan_count_value;
+  return fan_count_status;
+}
+
+static nvmlReturn_t fan_speed_v2(nvmlDevice_t device, unsigned fan, unsigned *speed) {
+  (void)device;
+  ++fan_speed_v2_calls;
+  if (fan >= sizeof(fan_speed_v2_values) / sizeof(*fan_speed_v2_values))
+    return NVML_ERROR_INVALID_ARGUMENT;
+  *speed = fan_speed_v2_values[fan];
+  return fan_speed_v2_status[fan];
+}
+
+static nvmlReturn_t legacy_fan_speed(nvmlDevice_t device, unsigned *speed) {
+  (void)device;
+  ++legacy_fan_speed_calls;
+  *speed = legacy_fan_speed_value;
+  return legacy_fan_speed_status;
+}
+
 static void setup(void) {
   memory_v2_calls = memory_v1_calls = memory_v2_version = 0;
   memory_total = 8ULL * 1024 * 1024 * 1024;
@@ -106,6 +137,11 @@ static void setup(void) {
   nvmlDeviceGetBusType = NULL;
   nvmlDeviceGetC2cModeInfoV = NULL;
   nvmlDeviceGetFieldValues = NULL;
+  nvmlDeviceGetNumFans = NULL;
+  nvmlDeviceGetFanSpeed_v2 = NULL;
+  fan_count_status = legacy_fan_speed_status = NVML_SUCCESS;
+  fan_count_value = legacy_fan_speed_value = 0;
+  fan_speed_v2_calls = legacy_fan_speed_calls = 0;
   memset(nvmlDeviceGetGraphicsRunningProcesses, 0, sizeof(nvmlDeviceGetGraphicsRunningProcesses));
   memset(nvmlDeviceGetComputeRunningProcesses, 0, sizeof(nvmlDeviceGetComputeRunningProcesses));
   memset(nvmlDeviceGetMPSComputeRunningProcesses, 0, sizeof(nvmlDeviceGetMPSComputeRunningProcesses));
@@ -1058,6 +1094,63 @@ static bool utilization_samples(void) {
   return true;
 }
 
+// A card with unplugged fan sockets: those report 0%, the plugged one does
+// not, and the maximum surfaces the fan that actually spins.
+static bool multi_fan_max(void) {
+  setup();
+  fan_count_value = 3;
+  fan_speed_v2_status[0] = fan_speed_v2_status[2] = NVML_SUCCESS;
+  fan_speed_v2_status[1] = NVML_ERROR_NOT_SUPPORTED;
+  fan_speed_v2_values[0] = 0;
+  fan_speed_v2_values[1] = 0;
+  fan_speed_v2_values[2] = 63;
+  nvmlDeviceGetNumFans = fan_count;
+  nvmlDeviceGetFanSpeed_v2 = fan_speed_v2;
+  nvmlDeviceGetFanSpeed = legacy_fan_speed;
+  struct gpu_info_nvidia gpu = {0};
+  gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+  CHECK(fan_speed_v2_calls == 3);
+  CHECK(legacy_fan_speed_calls == 0);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, fan_speed));
+  CHECK(gpu.base.dynamic_info.fan_speed == 63);
+  return true;
+}
+
+// When every per-fan query fails, keep using the single-fan legacy query.
+static bool multi_fan_legacy_fallback(void) {
+  setup();
+  fan_count_value = 2;
+  fan_speed_v2_status[0] = fan_speed_v2_status[1] = NVML_ERROR_NOT_SUPPORTED;
+  legacy_fan_speed_value = 48;
+  nvmlDeviceGetNumFans = fan_count;
+  nvmlDeviceGetFanSpeed_v2 = fan_speed_v2;
+  nvmlDeviceGetFanSpeed = legacy_fan_speed;
+  struct gpu_info_nvidia gpu = {0};
+  gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+  CHECK(fan_speed_v2_calls == 2);
+  CHECK(legacy_fan_speed_calls == 1);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, fan_speed));
+  CHECK(gpu.base.dynamic_info.fan_speed == 48);
+  return true;
+}
+
+// Devices without a fan (e.g. shared-memory SoCs) report zero fans and fall
+// back to the legacy query, which leaves the field unknown when it fails.
+static bool fan_count_zero(void) {
+  setup();
+  fan_count_value = 0;
+  legacy_fan_speed_status = NVML_ERROR_NOT_SUPPORTED;
+  nvmlDeviceGetNumFans = fan_count;
+  nvmlDeviceGetFanSpeed_v2 = fan_speed_v2;
+  nvmlDeviceGetFanSpeed = legacy_fan_speed;
+  struct gpu_info_nvidia gpu = {0};
+  gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+  CHECK(fan_speed_v2_calls == 0);
+  CHECK(legacy_fan_speed_calls == 1);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, fan_speed));
+  return true;
+}
+
 int main(int argc, char **argv) {
   const struct {
     const char *name;
@@ -1083,6 +1176,9 @@ int main(int argc, char **argv) {
       {"utilization_probe_not_found", utilization_probe_not_found},
       {"utilization_buffered_not_found", utilization_buffered_not_found},
       {"utilization_samples", utilization_samples},
+      {"multi_fan_max", multi_fan_max},
+      {"multi_fan_legacy_fallback", multi_fan_legacy_fallback},
+      {"fan_count_zero", fan_count_zero},
   };
   for (unsigned i = 0; argc == 2 && i < sizeof(tests) / sizeof(*tests); ++i)
     if (!strcmp(argv[1], tests[i].name))

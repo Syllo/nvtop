@@ -224,9 +224,9 @@ static nvmlReturn_t (*nvmlDeviceGetPcieThroughput)(nvmlDevice_t device, nvmlPcie
 
 static nvmlReturn_t (*nvmlDeviceGetFanSpeed)(nvmlDevice_t device, unsigned int *speed);
 
-// Optional per-fan APIs (NVML >= 4.305). Used to report the maximum speed
-// across all fans: some cards expose several fan sockets but only some of
-// them are actually plugged, the unplugged ones reporting 0%.
+// Optional per-fan APIs. Used to report the maximum speed across all fans:
+// some cards expose several fan sockets but only some of them are actually
+// plugged, the unplugged ones reporting 0%.
 static nvmlReturn_t (*nvmlDeviceGetNumFans)(nvmlDevice_t device, unsigned int *numFans);
 static nvmlReturn_t (*nvmlDeviceGetFanSpeed_v2)(nvmlDevice_t device, unsigned int fan, unsigned int *speed);
 
