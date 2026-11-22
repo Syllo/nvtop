@@ -221,6 +221,10 @@ Halo and their successors) driven by the in-kernel `amdxdna` accel driver. Like
 the Intel NPU, it needs no extra library. Support is enabled by default on Linux
 and can be disabled with `-DAMD_NPU_SUPPORT=OFF`.
 
+An NPU is listed only when its `/dev/accel/accelN` node can be opened. If the
+node is missing or inaccessible, nvtop cannot attribute its processes and does
+not list the device.
+
 The NPU is named from the product the driver reports in its `vbnv` sysfs
 attribute (for example "Krackan 1"), or else from its PCI IDs. The processes
 holding `/dev/accel/accelN` open are listed with the NPU memory they hold, read
