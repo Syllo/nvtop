@@ -34,23 +34,28 @@
 typedef bool (*processinfo_fdinfo_callback)(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info);
 
 /**
- * @brief Register a callback function to parse a fdinfo file opened to a DRM driver
+ * @brief Register a callback function to parse a fdinfo file opened to a device driver
  *
- * The DRM node lets the sweep decide which device owns each fd without running
- * every backend's parser on fdinfo files from other drivers. It is resolved to
- * a device number and expanded to the device's sibling card/render nodes
- * through sysfs. This also keeps driver-specific parsing from being applied to
- * a file descriptor of another device that happens to expose similar keys.
+ * The device node lets the sweep decide which device owns each fd without
+ * running every backend's parser on fdinfo files from other drivers. It is
+ * resolved to a device number; for DRM devices it is also expanded to the
+ * sibling card/render nodes through sysfs. This keeps driver-specific parsing
+ * from being applied to a file descriptor of another device that happens to
+ * expose similar keys.
+ *
+ * A usable device node is mandatory: if \p device_node is NULL or cannot be
+ * resolved to a character device, no callback is registered.
  *
  * @param callback The callback function
  * @param info The struct gpu_info that will be updated when the callback succeeds.
- * @param drm_node Path to any DRM node of the device (e.g., /dev/dri/renderD128). The
- * device's other nodes are found through sysfs, and only the fds opened to these
- * nodes are passed to \p callback. When NULL or unusable, \p callback is instead
- * tried on every DRM fd that no other registered device owns.
+ * @param device_node Path to a device node of the device (e.g.,
+ * /dev/dri/renderD128 or /dev/accel/accel0). The device's other DRM nodes are
+ * found through sysfs, and only the fds opened to the registered nodes are
+ * passed to \p callback.
+ * @return true when the node was resolved and the callback registered.
  */
-void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info,
-                                          const char *drm_node);
+bool processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info,
+                                          const char *device_node);
 
 /**
  * @brief Remove a previously registered callback.
@@ -69,7 +74,7 @@ void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool e
 
 /**
  * @brief Scan all the processes in /proc. Call the callback of the device owning
- * each DRM file descriptor that can successfully be opened. If the callback
+ * each device file descriptor that can successfully be opened. If the callback
  * succeeds, the gpu_info structure processes array will be updated with the
  * retrieved data. Active devices also receive processes_query_succeeded unless
  * the scan of /proc failed, or one of their own fds could not be read or parsed.

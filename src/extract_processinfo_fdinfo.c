@@ -42,18 +42,15 @@
 #define KCMP_FILE 0
 #endif
 
-#define DRM_MAJOR 226
-// A DRM device exposes a primary (card) node and usually a render node.
-#define FDINFO_MAX_DRM_NODES 4
+#define FDINFO_MAX_DEVICE_NODES 4
 
 struct callback_entry {
   struct gpu_info *gpu_info;
   processinfo_fdinfo_callback callback;
-  // Device numbers of the DRM nodes owned by this device. Empty when the
-  // backend could not provide a node, in which case the entry is a candidate
-  // for every DRM fd that no other device owns.
-  dev_t drm_nodes[FDINFO_MAX_DRM_NODES];
-  unsigned drm_nodes_count;
+  // Device numbers of the nodes owned by this device. A registration without
+  // a usable node is rejected, so a registered entry always has at least one.
+  dev_t device_nodes[FDINFO_MAX_DEVICE_NODES];
+  unsigned device_nodes_count;
   bool active;
   bool scan_failed;
 };
@@ -74,50 +71,60 @@ void processinfo_drop_callback(const struct gpu_info *info) {
   }
 }
 
-static void add_drm_node(struct callback_entry *entry, dev_t node) {
-  for (unsigned i = 0; i < entry->drm_nodes_count; ++i) {
-    if (entry->drm_nodes[i] == node)
+static void add_device_node(struct callback_entry *entry, dev_t node) {
+  for (unsigned i = 0; i < entry->device_nodes_count; ++i) {
+    if (entry->device_nodes[i] == node)
       return;
   }
-  if (entry->drm_nodes_count < FDINFO_MAX_DRM_NODES)
-    entry->drm_nodes[entry->drm_nodes_count++] = node;
+  if (entry->device_nodes_count < FDINFO_MAX_DEVICE_NODES)
+    entry->device_nodes[entry->device_nodes_count++] = node;
 }
 
-// Record the node and its siblings listed in /sys/dev/char/<major>:<minor>/device/drm,
-// so that processes holding either the primary or the render node are attributed.
-static void resolve_drm_nodes(struct callback_entry *entry, const char *drm_node) {
+// Record the node and, for DRM devices, the siblings listed in
+// /sys/dev/char/<major>:<minor>/device/drm, so that processes holding either
+// the primary or the render node are attributed. Accel devices have no such
+// directory and simply keep their single node. Return false if the node cannot
+// be resolved to a character device.
+static bool resolve_device_nodes(struct callback_entry *entry, const char *device_node) {
+  const unsigned drm_major = 226;
   struct stat node_stat;
-  entry->drm_nodes_count = 0;
-  if (!drm_node || fstatat(AT_FDCWD, drm_node, &node_stat, 0) != 0 || (node_stat.st_mode & S_IFMT) != S_IFCHR ||
-      major(node_stat.st_rdev) != DRM_MAJOR)
-    return;
-  add_drm_node(entry, node_stat.st_rdev);
+  entry->device_nodes_count = 0;
+  if (!device_node || fstatat(AT_FDCWD, device_node, &node_stat, 0) != 0 || (node_stat.st_mode & S_IFMT) != S_IFCHR)
+    return false;
+  add_device_node(entry, node_stat.st_rdev);
 
-  char drm_dir_path[64];
-  snprintf(drm_dir_path, sizeof(drm_dir_path), "/sys/dev/char/%u:%u/device/drm", major(node_stat.st_rdev),
-           minor(node_stat.st_rdev));
-  DIR *drm_dir = opendir(drm_dir_path);
-  if (!drm_dir)
-    return;
-  struct dirent *drm_dent;
-  while ((drm_dent = readdir(drm_dir)) != NULL) {
-    if (strncmp(drm_dent->d_name, "card", 4) && strncmp(drm_dent->d_name, "renderD", 7))
-      continue;
-    char dev_path[sizeof(drm_dir_path) + sizeof(drm_dent->d_name) + 8];
-    snprintf(dev_path, sizeof(dev_path), "%s/%s/dev", drm_dir_path, drm_dent->d_name);
-    FILE *dev_file = fopen(dev_path, "r");
-    if (!dev_file)
-      continue;
-    unsigned node_major, node_minor;
-    if (fscanf(dev_file, "%u:%u", &node_major, &node_minor) == 2 && node_major == DRM_MAJOR)
-      add_drm_node(entry, makedev(node_major, node_minor));
-    fclose(dev_file);
+  // Only DRM devices have card/render siblings; accel and other device nodes
+  // keep their single node.
+  if (major(node_stat.st_rdev) == drm_major) {
+    char drm_dir_path[64];
+    snprintf(drm_dir_path, sizeof(drm_dir_path), "/sys/dev/char/%u:%u/device/drm", major(node_stat.st_rdev),
+             minor(node_stat.st_rdev));
+    DIR *drm_dir = opendir(drm_dir_path);
+    if (drm_dir) {
+      struct dirent *drm_dent;
+      while ((drm_dent = readdir(drm_dir)) != NULL) {
+        if (strncmp(drm_dent->d_name, "card", 4) && strncmp(drm_dent->d_name, "renderD", 7))
+          continue;
+        char dev_path[sizeof(drm_dir_path) + sizeof(drm_dent->d_name) + 8];
+        snprintf(dev_path, sizeof(dev_path), "%s/%s/dev", drm_dir_path, drm_dent->d_name);
+        FILE *dev_file = fopen(dev_path, "r");
+        if (!dev_file)
+          continue;
+        unsigned node_major, node_minor;
+        // The device/drm directory only lists DRM card/render nodes; ignore
+        // anything else rather than trusting an unexpected major.
+        if (fscanf(dev_file, "%u:%u", &node_major, &node_minor) == 2 && node_major == drm_major)
+          add_device_node(entry, makedev(node_major, node_minor));
+        fclose(dev_file);
+      }
+      closedir(drm_dir);
+    }
   }
-  closedir(drm_dir);
+  return true;
 }
 
-void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info,
-                                          const char *drm_node) {
+bool processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info,
+                                          const char *device_node) {
   if (callback_entries_size == registered_callback_entries) {
     callback_entries_size += FDINFO_CALLBACK_ARRAY_INCREMENT;
     callback_entries = reallocarray(callback_entries, callback_entries_size, sizeof(*callback_entries));
@@ -127,12 +134,14 @@ void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, 
     }
   }
   struct callback_entry *entry = &callback_entries[registered_callback_entries];
+  if (!resolve_device_nodes(entry, device_node))
+    return false;
   entry->gpu_info = info;
   entry->callback = callback;
   entry->active = true;
   entry->scan_failed = false;
-  resolve_drm_nodes(entry, drm_node);
   registered_callback_entries++;
+  return true;
 }
 
 void processinfo_enable_disable_callback_for(const struct gpu_info *info, bool enable) {
@@ -150,11 +159,11 @@ static bool fdinfo_error_is_skippable(void) {
   return errno == ENOENT || errno == ESRCH || errno == EACCES || errno == EPERM;
 }
 
-static struct callback_entry *find_drm_node_owner(dev_t node) {
+static struct callback_entry *find_node_owner(dev_t node) {
   for (unsigned index = 0; index < registered_callback_entries; ++index) {
     struct callback_entry *entry = &callback_entries[index];
-    for (unsigned i = 0; i < entry->drm_nodes_count; ++i) {
-      if (entry->drm_nodes[i] == node)
+    for (unsigned i = 0; i < entry->device_nodes_count; ++i) {
+      if (entry->device_nodes[i] == node)
         return entry;
     }
   }
@@ -183,22 +192,22 @@ static bool run_callback(struct callback_entry *entry, FILE *fdinfo_file, struct
   return entry->callback(entry->gpu_info, fdinfo_file, process_info) && !ferror(fdinfo_file);
 }
 
-// Any stat failure means the fd is not usable as a DRM fd: a DRM node cannot
-// fail stat the way an fd to an unreachable network or FUSE file can, so the
-// error does not affect the scan.
-static bool get_drm_fd_node(int fd_dir_fd, const char *name, dev_t *node) {
+// Any stat failure means the fd is not usable as a registered device node: a
+// device node cannot fail stat the way an fd to an unreachable network or FUSE
+// file can, so the error does not affect the scan.
+static bool get_fd_node(int fd_dir_fd, const char *name, dev_t *node) {
   struct stat stat;
   if (fstatat(fd_dir_fd, name, &stat, 0) < 0)
     return false;
-  if ((stat.st_mode & S_IFMT) != S_IFCHR || major(stat.st_rdev) != DRM_MAJOR)
+  if ((stat.st_mode & S_IFMT) != S_IFCHR)
     return false;
   *node = stat.st_rdev;
   return true;
 }
 
-// Reads the drm-client-id key, which identifies the open DRM file: duplicated
-// and shared descriptors (dup, fork, fd passing) report the same value. The DRM
-// core prints it near the top, so stop as soon as it is found.
+// Reads the drm-client-id key, which identifies the open device file: duplicated
+// and shared descriptors (dup, fork, fd passing) report the same value. The
+// driver prints it near the top, so stop as soon as it is found.
 static bool read_drm_client_id(FILE *fdinfo_file, unsigned long long *client_id) {
   static const char key[] = "drm-client-id:";
   char line[256];
@@ -212,7 +221,7 @@ static bool read_drm_client_id(FILE *fdinfo_file, unsigned long long *client_id)
   return false;
 }
 
-// DRM clients already accounted for during the current sweep. A client id is
+// Device clients already accounted for during the current sweep. A client id is
 // unique for the node it was opened on.
 static struct seen_client {
   dev_t node;
@@ -266,19 +275,17 @@ static struct gpu_process *process_entry_for(struct gpu_info *gpu_info, unsigned
   return &gpu_info->processes[process_index];
 }
 
-// Increment for the number DRM FD tracked per process
+// Increment for the number device FD tracked per process
 // 8 has been experimentally selected for being small while avoiding multiple allocations in most common cases
-#define DRM_FD_LINEAR_REALLOC_INC 8
+#define FD_LINEAR_REALLOC_INC 8
 
 void processinfo_sweep_fdinfos(void) {
   bool anyActiveCallback = false;
-  bool anyActiveWithoutNodes = false;
   for (unsigned callback_idx = 0; callback_idx < registered_callback_entries; ++callback_idx) {
     struct callback_entry *current_callback = &callback_entries[callback_idx];
     current_callback->gpu_info->processes_query_succeeded = false;
     current_callback->scan_failed = false;
     anyActiveCallback = anyActiveCallback || current_callback->active;
-    anyActiveWithoutNodes = anyActiveWithoutNodes || (current_callback->active && !current_callback->drm_nodes_count);
   }
   if (!anyActiveCallback)
     return;
@@ -290,7 +297,7 @@ void processinfo_sweep_fdinfos(void) {
   // Failures that cannot be attributed to a device make the whole scan incomplete.
   bool scan_failed = false;
 
-  // DRM fds already handled for the current process, with the node they are
+  // Device fds already handled for the current process, with the node they are
   // opened to: only fds to the same node can refer to the same open file.
   static unsigned seen_fds_capacity = 0;
   static struct {
@@ -336,7 +343,7 @@ void processinfo_sweep_fdinfos(void) {
       goto next;
     }
 
-    // Walk the fds and only open the fdinfo of the few that are DRM fds.
+    // Walk the fds and only open the fdinfo of the few owned by a device.
     fd_dir = fdopendir(fd_dir_fd);
     if (!fd_dir) {
       scan_failed = true;
@@ -355,18 +362,18 @@ void processinfo_sweep_fdinfos(void) {
       }
       struct gpu_process processes_info_local = {0};
       int fd_num;
-      dev_t drm_node;
+      dev_t device_node;
 
       if (!isdigit(fd_dent->d_name[0]))
         continue;
 
-      if (!get_drm_fd_node(fd_dir_fd, fd_dent->d_name, &drm_node))
+      if (!get_fd_node(fd_dir_fd, fd_dent->d_name, &device_node))
         continue;
 
       // Only parse fds of monitored devices. A fd owned by no device belongs to a
       // driver without process reporting (or to an unmonitored device).
-      struct callback_entry *owner = find_drm_node_owner(drm_node);
-      if (owner ? !owner->active : !anyActiveWithoutNodes)
+      struct callback_entry *owner = find_node_owner(device_node);
+      if (!owner || !owner->active)
         continue;
 
       fd_num = atoi(fd_dent->d_name);
@@ -386,7 +393,7 @@ void processinfo_sweep_fdinfos(void) {
         continue;
       }
 
-      // Account for each DRM client once, in the first process found holding
+      // Account for each device client once, in the first process found holding
       // it. This must happen before invoking the callback: callbacks are
       // stateful, updating per-client caches from engine counters and merging
       // the client's memory into a process entry. A duplicate would update the
@@ -408,7 +415,7 @@ void processinfo_sweep_fdinfos(void) {
         continue;
       }
       if (have_client_id) {
-        struct seen_client *seen = find_seen_client(drm_node, client_id);
+        struct seen_client *seen = find_seen_client(device_node, client_id);
         if (seen) {
           // The metrics of this client are already accounted under another pid.
           // Still list every holder, but leave its GPU fields unknown: usage and
@@ -422,7 +429,7 @@ void processinfo_sweep_fdinfos(void) {
         // process. If kcmp is unavailable (e.g., denied by a seccomp policy),
         // parse the fd rather than drop a possibly distinct client.
         for (unsigned i = 0; i < seen_fds_len; i++) {
-          if (seen_fds[i].node == drm_node &&
+          if (seen_fds[i].node == device_node &&
               syscall(SYS_kcmp, client_pid, client_pid, KCMP_FILE, fd_num, seen_fds[i].fd) == 0) {
             fclose(fdinfo_file);
             goto next_fd;
@@ -432,25 +439,15 @@ void processinfo_sweep_fdinfos(void) {
 
       struct callback_entry *current_callback = NULL;
       processes_info_local.pid = client_pid;
-      if (owner) {
-        if (run_callback(owner, fdinfo_file, &processes_info_local))
-          current_callback = owner;
-      } else {
-        for (unsigned callback_idx = 0; !current_callback && callback_idx < registered_callback_entries;
-             ++callback_idx) {
-          struct callback_entry *candidate = &callback_entries[callback_idx];
-          if (candidate->active && !candidate->drm_nodes_count &&
-              run_callback(candidate, fdinfo_file, &processes_info_local))
-            current_callback = candidate;
-        }
-      }
+      if (run_callback(owner, fdinfo_file, &processes_info_local))
+        current_callback = owner;
       bool vanished = !current_callback && fdinfo_read_vanished(fdinfo_file);
       fclose(fdinfo_file);
       if (!current_callback && !vanished) {
         // The fd may have been closed and its number reused for another file
         // between the stat and the fdinfo read.
         dev_t current_node;
-        vanished = !get_drm_fd_node(fd_dir_fd, fd_dent->d_name, &current_node) || current_node != drm_node;
+        vanished = !get_fd_node(fd_dir_fd, fd_dent->d_name, &current_node) || current_node != device_node;
       }
       if (!current_callback) {
         // The device's own fd could not be parsed (e.g., a kernel without fdinfo
@@ -460,12 +457,12 @@ void processinfo_sweep_fdinfos(void) {
         continue;
       }
       if (have_client_id)
-        record_client(drm_node, client_id, current_callback->gpu_info);
+        record_client(device_node, client_id, current_callback->gpu_info);
       else {
         // Record the fd only after its fdinfo was parsed: a copy that could not
         // be parsed must not suppress a later, valid copy of the same client.
         if (seen_fds_len == seen_fds_capacity) {
-          seen_fds_capacity += DRM_FD_LINEAR_REALLOC_INC;
+          seen_fds_capacity += FD_LINEAR_REALLOC_INC;
           seen_fds = reallocarray(seen_fds, seen_fds_capacity, sizeof(*seen_fds));
           if (!seen_fds) {
             perror("Could not re-allocate memory: ");
@@ -473,7 +470,7 @@ void processinfo_sweep_fdinfos(void) {
           }
         }
         seen_fds[seen_fds_len].fd = fd_num;
-        seen_fds[seen_fds_len].node = drm_node;
+        seen_fds[seen_fds_len].node = device_node;
         seen_fds_len++;
       }
 
@@ -544,9 +541,10 @@ void processinfo_sweep_fdinfos(void) {
       }
     }
 
-    // We need to default to 'graphical' for processes with unknown workload types.
-    // Do this once all fds of this pid are merged: an idle fd must not mark a process that uses compute
-    // on its other fds as graphical. (The entry of the pid being scanned is always the last one.)
+    // Default unknown workload types once all fds of this pid are merged: an
+    // idle fd must not mark a process that uses compute on its other fds as
+    // graphical. NPU clients are compute by default; GPU clients graphical.
+    // (The entry of the pid being scanned is always the last one.)
     for (unsigned callback_idx = 0; callback_idx < registered_callback_entries; ++callback_idx) {
       // Skip disabled callbacks: their parser did not run, so they hold no entry for this pid.
       if (!callback_entries[callback_idx].active)
@@ -554,8 +552,10 @@ void processinfo_sweep_fdinfos(void) {
       struct gpu_info *gpu_info = callback_entries[callback_idx].gpu_info;
       if (gpu_info->processes_count > 0) {
         struct gpu_process *process_info = &gpu_info->processes[gpu_info->processes_count - 1];
-        if (process_info->pid == (pid_t)client_pid && process_info->type == gpu_process_unknown)
-          process_info->type = gpu_process_graphical;
+        if (process_info->pid == (pid_t)client_pid && process_info->type == gpu_process_unknown) {
+          bool is_npu = gpu_info->vendor && gpu_info->vendor->processing_unit == gpu_processing_unit_npu;
+          process_info->type = is_npu ? gpu_process_compute : gpu_process_graphical;
+        }
       }
     }
 

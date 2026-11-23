@@ -15,8 +15,9 @@
 
 // Exercise the real sweep against small /proc and /sys fixtures without GPU
 // hardware. The fixture pids are above the kernel's maximum pid, so that kcmp
-// never inspects a real process. A regular fixture file containing a number N stands for the DRM
-// character device 226:N; any other file is not a DRM device.
+// never inspects a real process. A regular fixture file containing a number N
+// stands for the DRM character device 226:N; a file containing major:minor
+// stands for that character device; any other file is not a device.
 static char fixture_root[] = "/tmp/nvtop-fdinfo-XXXXXX";
 static bool fail_proc_open, fail_proc_read;
 static const char *failed_path;
@@ -96,12 +97,18 @@ static int fixture_fstatat(int dir, const char *path, struct stat *stat, int fla
   char contents[16] = {0};
   ssize_t length = read(fd, contents, sizeof(contents) - 1);
   close(fd);
+  if (length <= 0)
+    return ret;
   char *end;
-  unsigned long node_minor = strtoul(contents, &end, 10);
-  if (length > 0 && end != contents) {
-    stat->st_mode = S_IFCHR;
-    stat->st_rdev = makedev(226, node_minor);
+  unsigned long node_major = 226, node_minor = strtoul(contents, &end, 10);
+  if (end == contents)
+    return ret;
+  if (*end == ':') {
+    node_major = node_minor;
+    node_minor = strtoul(end + 1, NULL, 10);
   }
+  stat->st_mode = S_IFCHR;
+  stat->st_rdev = makedev(node_major, node_minor);
   return ret;
 }
 
@@ -186,8 +193,8 @@ static int remove_entry(const char *path, const struct stat *stat, int type, str
   return remove(path);
 }
 
-#define DEVICE_COUNT 4
-enum { INTEL, MALI, MSM, LEGACY };
+#define DEVICE_COUNT 3
+enum { INTEL, MALI, MSM };
 static struct gpu_info devices[DEVICE_COUNT];
 
 static void sweep(void) {
@@ -233,23 +240,32 @@ int main(void) {
   CHECK(write_fixture("dev/card0", "0"));
   CHECK(write_fixture("dev/renderD129", "129"));
   CHECK(write_fixture("dev/card2", "2"));
+  CHECK(write_fixture("dev/accel0", "261:0"));
 
-  // The legacy device registers without a usable node.
-  const char *names[DEVICE_COUNT] = {"Intel", "Mali", "MSM", "Legacy"};
-  const char *nodes[DEVICE_COUNT] = {"dev/card0", "dev/renderD129", "dev/card2", NULL};
+  // Every backend registers with a usable device node.
+  const char *names[DEVICE_COUNT] = {"Intel", "Mali", "MSM"};
+  const char *nodes[DEVICE_COUNT] = {"dev/card0", "dev/renderD129", "dev/card2"};
   for (unsigned i = 0; i < DEVICE_COUNT; ++i) {
     snprintf(devices[i].pdev, sizeof(devices[i].pdev), "%s", names[i]);
     char node_path[256];
-    if (nodes[i])
-      snprintf(node_path, sizeof(node_path), "%s/%s", fixture_root, nodes[i]);
-    processinfo_register_fdinfo_callback(parse_fixture, &devices[i], nodes[i] ? node_path : NULL);
+    snprintf(node_path, sizeof(node_path), "%s/%s", fixture_root, nodes[i]);
+    CHECK(processinfo_register_fdinfo_callback(parse_fixture, &devices[i], node_path));
   }
   // Sibling nodes come from sysfs; control nodes are not DRM client nodes.
-  CHECK(callback_entries[INTEL].drm_nodes_count == 2);
-  CHECK(callback_entries[INTEL].drm_nodes[0] == makedev(226, 0));
-  CHECK(callback_entries[INTEL].drm_nodes[1] == makedev(226, 128));
-  CHECK(callback_entries[MALI].drm_nodes_count == 1);
-  CHECK(callback_entries[LEGACY].drm_nodes_count == 0);
+  CHECK(callback_entries[INTEL].device_nodes_count == 2);
+  CHECK(callback_entries[INTEL].device_nodes[0] == makedev(226, 0));
+  CHECK(callback_entries[INTEL].device_nodes[1] == makedev(226, 128));
+  CHECK(callback_entries[MALI].device_nodes_count == 1);
+
+  // A callback cannot be registered without a usable device node.
+  struct gpu_info node_less = {0};
+  snprintf(node_less.pdev, sizeof(node_less.pdev), "%s", "NodeLess");
+  unsigned registered = registered_callback_entries;
+  char missing_node[256];
+  snprintf(missing_node, sizeof(missing_node), "%s/dev/missing", fixture_root);
+  CHECK(!processinfo_register_fdinfo_callback(parse_fixture, &node_less, NULL));
+  CHECK(!processinfo_register_fdinfo_callback(parse_fixture, &node_less, missing_node));
+  CHECK(registered_callback_entries == registered);
 
   // All fdinfo backends must distinguish a successful empty scan from failure.
   sweep();
@@ -353,27 +369,15 @@ int main(void) {
   processinfo_enable_disable_callback_for(&devices[INTEL], false);
   sweep();
   CHECK(!devices[INTEL].processes_query_succeeded);
-  CHECK(devices[MALI].processes_query_succeeded && devices[MSM].processes_query_succeeded &&
-        devices[LEGACY].processes_query_succeeded);
+  CHECK(devices[MALI].processes_query_succeeded && devices[MSM].processes_query_succeeded);
   processinfo_enable_disable_callback_for(&devices[INTEL], true);
 
-  // A fd owned by no registered device (e.g., a driver without nvtop support)
-  // is offered to the devices without known nodes only, and does not fail them
-  // when they cannot parse it.
+  // A fd owned by no registered device is ignored.
   CHECK(write_fixture("proc/4194400/fd/3", "200"));
   sweep();
   CHECK(all_succeeded());
-  CHECK(devices[LEGACY].processes_count == 0);
-  CHECK(write_fixture("proc/4194400/fdinfo/3", "Legacy 32\n"));
-  sweep();
-  CHECK(all_succeeded());
-  CHECK(devices[LEGACY].processes_count == 1);
-  CHECK(devices[LEGACY].processes[0].gpu_memory_usage == 32);
-  CHECK(write_fixture("proc/4194400/fdinfo/3", "unsupported 64\n"));
-  processinfo_drop_callback(&devices[LEGACY]);
-  devices[LEGACY].processes_query_succeeded = true;
-  sweep();
-  CHECK(all_succeeded());
+  for (unsigned i = 0; i < DEVICE_COUNT; ++i)
+    CHECK(devices[i].processes_count == 0);
 
   // A DRM client is accounted for once, whichever descriptors refer to it:
   // fd 3 and its duplicate fd 4 in one process, and fd 3 of another process which
@@ -449,13 +453,43 @@ int main(void) {
   CHECK(devices[INTEL].processes[0].gpu_memory_usage == 128);
   CHECK(remove_fixture("proc/4194400/fd/4") && remove_fixture("proc/4194400/fdinfo/4"));
 
-  // Descriptors that are not DRM devices are ignored without reading their fdinfo.
+  // Descriptors that are not DRM/accel devices are ignored without reading
+  // their fdinfo, even if they are character devices.
   CHECK(write_fixture("proc/4194400/fd/3", "not a device"));
+  CHECK(write_fixture("proc/4194400/fd/6", "1:3"));
+  CHECK(write_fixture("proc/4194400/fdinfo/6", "Intel 64\n"));
   failed_path = "fdinfo/3";
   injected_errno = EIO;
   sweep();
   CHECK(all_succeeded());
+  CHECK(devices[INTEL].processes_count == 0);
+  CHECK(remove_fixture("proc/4194400/fd/6") && remove_fixture("proc/4194400/fdinfo/6"));
   failed_path = NULL;
+
+  // A non-DRM accel node is dispatched like a DRM node: register its single
+  // node, reach the callback for a process holding that fd, and default an
+  // unknown NPU process type to compute.
+  struct gpu_vendor npu_vendor = {.processing_unit = gpu_processing_unit_npu};
+  struct gpu_info accel = {.vendor = &npu_vendor};
+  snprintf(accel.pdev, sizeof(accel.pdev), "%s", "Accel");
+  char accel_node[256];
+  snprintf(accel_node, sizeof(accel_node), "%s/dev/accel0", fixture_root);
+  CHECK(processinfo_register_fdinfo_callback(parse_fixture, &accel, accel_node));
+  CHECK(registered_callback_entries > 0);
+  struct callback_entry *accel_entry = &callback_entries[registered_callback_entries - 1];
+  CHECK(accel_entry->device_nodes_count == 1);
+  CHECK(accel_entry->device_nodes[0] == makedev(261, 0));
+  CHECK(write_fixture("proc/4194400/fd/5", "261:0"));
+  CHECK(write_fixture("proc/4194400/fdinfo/5", "Accel 32\n"));
+  accel.processes_count = 0;
+  processinfo_sweep_fdinfos();
+  CHECK(accel.processes_count == 1);
+  CHECK(accel.processes[0].gpu_memory_usage == 32);
+  CHECK(accel.processes[0].type == gpu_process_compute);
+  CHECK(accel.processes_query_succeeded);
+  CHECK(remove_fixture("proc/4194400/fd/5") && remove_fixture("proc/4194400/fdinfo/5"));
+  processinfo_drop_callback(&accel);
+  free(accel.processes);
 
   // Dropped callbacks must no longer receive writes during future sweeps.
   for (unsigned i = 0; i < DEVICE_COUNT; ++i)

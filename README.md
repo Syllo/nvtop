@@ -8,13 +8,13 @@ NVTOP stands for Neat Videocard TOP, a (h)top like task monitor for GPUs and
 accelerators. It can handle multiple GPUs and print information about them in a
 htop-familiar way.
 
-Currently supported vendors are AMD (Linux amdgpu driver), Apple (limited M1 &
-M2 support), Huawei (Ascend), Intel (Linux i915/Xe GPU drivers and the NPU
-through intel_vpu), NVIDIA (Linux proprietary drivers), Qualcomm Adreno (Linux
-MSM driver), Broadcom VideoCore (Linux v3d driver), Rockchip, MetaX (MXSML
-driver), Enflame (Linux EFML driver), Tenstorrent (Linux tt-kmd driver),
-Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML), Intel Gaudi and Goya (Linux
-habanalabs driver).
+Currently supported vendors are AMD (Linux amdgpu GPU driver and the NPU through
+amdxdna), Apple (limited M1 & M2 support), Huawei (Ascend), Intel (Linux i915/Xe
+GPU drivers and the NPU through intel_vpu), NVIDIA (Linux proprietary drivers),
+Qualcomm Adreno (Linux MSM driver), Broadcom VideoCore (Linux v3d driver),
+Rockchip, MetaX (MXSML driver), Enflame (Linux EFML driver), Tenstorrent (Linux
+tt-kmd driver), Iluvatar CoreX (ixML / libixml), T-Head PPU (HGML), Intel Gaudi
+and Goya (Linux habanalabs driver).
 
 Because a picture is worth a thousand words:
 
@@ -31,6 +31,7 @@ Table of Contents
   - [AMD](#amd)
   - [Intel](#intel)
   - [Intel NPU](#intel-npu)
+  - [AMD NPU](#amd-npu)
   - [NVIDIA](#nvidia)
   - [Adreno](#adreno)
   - [Apple](#apple)
@@ -130,19 +131,19 @@ instead, labelled `RAM`. To always see the system memory for these devices
 used), enable it in the setup window (for all monitored devices sharing memory
 in the Devices section, or for one device in its Chart section entry) or start
 nvtop with `-M` (`--system-memory`); the process memory percentages stay
-relative to the GPU memory. `-M` changes the interactive display only: snapshot and loop
-output always report the GPU counters in `mem_*` and the system counters
+relative to the device memory. `-M` changes the interactive display only: snapshot and loop
+output always report the device counters in `mem_*` and the system counters
 separately in `system_total_memory` and `system_free_memory`. The Devices row
 is only shown when at least one monitored device shares its memory with the
 host.
 
-For drivers whose process list is read from DRM fdinfo, a DRM client shared by
-several processes (for example a file descriptor inherited through `fork()` or
-passed between processes) is counted once for its GPU utilization,
-encoder/decoder rates and memory. Those values are attributed to the first
-process found holding the client in `/proc` scan order; the other holders are
-still listed, but without GPU metrics for that client. A holder that later
-opens its own DRM client gets separate metrics for it.
+For drivers whose process list is read from fdinfo (DRM or accel), a device
+client shared by several processes (for example a file descriptor inherited
+through `fork()` or passed between processes) is counted once for its device
+utilization, encoder/decoder rates and memory. Those values are attributed to
+the first process found holding the client in `/proc` scan order; the other
+holders are still listed, but without device metrics for that client. A holder
+that later opens its own client gets separate metrics for it.
 
 ### AMD
 
@@ -212,6 +213,36 @@ than the NPU's own allocations.
 Utilization requires kernel 6.11 or newer and frequency information requires
 6.15 or newer; older kernels simply show fewer fields. Temperature and
 per-process usage are not exposed by the driver and are not reported.
+
+### AMD NPU
+
+NVTOP supports the Ryzen AI NPUs (Phoenix, Hawk Point, Strix, Krackan, Strix
+Halo and their successors) driven by the in-kernel `amdxdna` accel driver. Like
+the Intel NPU, it needs no extra library. Support is enabled by default on Linux
+and can be disabled with `-DAMD_NPU_SUPPORT=OFF`.
+
+An NPU is listed only when its `/dev/accel/accelN` node can be opened. If the
+node is missing or inaccessible, nvtop cannot attribute its processes and does
+not list the device.
+
+The NPU is named from the product the driver reports in its `vbnv` sysfs
+attribute (for example "Krackan 1"), or else from its PCI IDs. The processes
+holding `/dev/accel/accelN` open are listed with the NPU memory they hold, read
+from the DRM fdinfo of the driver (the `internal-alloc` and `external-alloc`
+keys, or `drm-total-memory` on kernels without them). NPU clients are reported
+as compute processes. A client shared between processes, such as an accel fd
+inherited through `fork()`, is listed for each holder but its memory is counted
+once. The memory row uses the shared-memory accounting described above: used
+memory is the sum of the NPU memory held by the processes, and total memory is
+that sum plus the currently available system memory (`MemAvailable`). With no NPU
+clients it reports zero used out of the available memory.
+
+NPU utilization is reported on kernels whose amdxdna driver exposes the
+`drm-engine-npu` fdinfo counter (Linux 7.4 and newer): each process gets its busy
+rate and the device rate is their sum. Earlier kernels expose no busy time, so
+utilization is not reported (it shows as N/A, not 0%); frequency, temperature and
+power are not reported. Seeing the processes of other users requires root, as for
+the GPU backends.
 
 ### NVIDIA
 
