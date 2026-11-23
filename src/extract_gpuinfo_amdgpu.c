@@ -1128,17 +1128,14 @@ static bool parse_drm_fdinfo_amd(struct gpu_info *info, FILE *fdinfo_file, struc
       if ((!strcmp(key, drm_amdgpu_gtt_old) || !strcmp(key, drm_amdgpu_gtt)) && !static_info->integrated_graphics)
         continue;
 
-      unsigned long mem_int;
-      char *endptr;
-
-      mem_int = strtoul(val, &endptr, 10);
-      if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
+      unsigned long long mem_bytes;
+      if (!extract_drm_fdinfo_size(val, &mem_bytes))
         continue;
 
       if (GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage))
-        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + mem_int * 1024);
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, process_info->gpu_memory_usage + mem_bytes);
       else
-        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_bytes);
     } else {
       bool is_gfx_old = !strncmp(key, drm_amdgpu_gfx_old, sizeof(drm_amdgpu_gfx_old) - 1);
       bool is_compute_old = !strncmp(key, drm_amdgpu_compute_old, sizeof(drm_amdgpu_compute_old) - 1);

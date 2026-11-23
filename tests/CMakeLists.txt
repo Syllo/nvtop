@@ -140,6 +140,31 @@ if(BUILD_TESTING AND GAUDI_SUPPORT)
   add_test(NAME gaudiTests COMMAND gaudiTests)
 endif()
 
+# The Intel NPU tests parse fdinfo fixture files and need no NPU.
+if(BUILD_TESTING AND INTEL_NPU_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_executable(ivpuTests
+    ivpuTests.c
+    ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo.c
+    ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c
+    ${PROJECT_SOURCE_DIR}/src/get_process_info_linux.c
+    ${PROJECT_SOURCE_DIR}/src/time.c
+  )
+  target_include_directories(ivpuTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_compile_definitions(ivpuTests PRIVATE _GNU_SOURCE
+    IVPU_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/ivpu")
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(ivpuTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET ivpuTests PROPERTY C_STANDARD 11)
+  target_link_libraries(ivpuTests PRIVATE m ${CMAKE_DL_LIBS})
+  add_sanitizers(ivpuTests)
+  foreach (test_case fdinfo_active fdinfo_idle fdinfo_imported fdinfo_unpopulated
+                    fdinfo_no_memory fdinfo_other_driver fdinfo_size fdinfo_callback memory_display device_discovery
+                    zero_usage_claim)
+    add_test(NAME Ivpu.${test_case} COMMAND ivpuTests ${test_case})
+  endforeach()
+endif()
+
 # The AMD NPU tests parse fdinfo fixture files and need no NPU.
 if(BUILD_TESTING AND AMD_NPU_SUPPORT)
   add_executable(amdxdnaTests

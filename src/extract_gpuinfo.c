@@ -20,6 +20,7 @@
  */
 
 #include <ctype.h>
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -412,6 +413,36 @@ bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val) {
   *key = buf;
   *val = p;
 
+  return true;
+}
+
+bool extract_drm_fdinfo_size(const char *val, unsigned long long *bytes) {
+  // strtoull accepts leading whitespace and negates a leading minus sign.
+  if (!isdigit((unsigned char)*val))
+    return false;
+  char *endptr;
+  errno = 0;
+  unsigned long long value = strtoull(val, &endptr, 10);
+  if (errno == ERANGE)
+    return false;
+  while (isspace((unsigned char)*endptr))
+    endptr++;
+  unsigned long long unit;
+  if (*endptr == '\0' || !strcmp(endptr, "B"))
+    unit = 1;
+  else if (!strcmp(endptr, "KiB") || !strcmp(endptr, "kB"))
+    unit = 1ULL << 10;
+  else if (!strcmp(endptr, "MiB"))
+    unit = 1ULL << 20;
+  else if (!strcmp(endptr, "GiB"))
+    unit = 1ULL << 30;
+  else if (!strcmp(endptr, "TiB"))
+    unit = 1ULL << 40;
+  else
+    return false;
+  if (value > ULLONG_MAX / unit)
+    return false;
+  *bytes = value * unit;
   return true;
 }
 

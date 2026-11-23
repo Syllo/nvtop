@@ -136,12 +136,10 @@ static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struc
         continue;
       client_id_set = true;
     } else if (!strcmp(key, v3d_drm_total_memory)) {
-      unsigned long mem_int;
-      char *endptr;
-      mem_int = strtoul(val, &endptr, 10);
-      if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
+      unsigned long long mem_bytes;
+      if (!extract_drm_fdinfo_size(val, &mem_bytes))
         continue;
-      SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+      SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_bytes);
     } else if (!strcmp(key, v3d_drm_engine_render)) {
       char *endptr;
       uint64_t time_spent = strtoull(val, &endptr, 10);
