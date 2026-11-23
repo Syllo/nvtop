@@ -29,7 +29,6 @@
 #include "nvtop/time.h"
 
 #include <dirent.h>
-#include <fcntl.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
@@ -286,6 +285,9 @@ static bool gpuinfo_amd_npu_init(void) { return access(amd_npu_class_root, R_OK)
 // The process arrays are freed by gpuinfo_shutdown_info_extraction() before the vendors shut down
 static void gpuinfo_amd_npu_shutdown(void) {
   for (unsigned i = 0; i < amd_npu_count; ++i) {
+    // The fdinfo sweep keeps a pointer to each registered device: drop it before
+    // freeing the array, or a later sweep writes through the freed memory.
+    processinfo_drop_callback(&amd_npu_info[i].base);
     free_process_cache(&amd_npu_info[i].last_update_process_cache);
     free_process_cache(&amd_npu_info[i].current_update_process_cache);
   }
@@ -320,16 +322,16 @@ static bool gpuinfo_amd_npu_get_device_handles(struct list_head *devices, unsign
     if (!is_amdxdna(sysfs_dev))
       continue;
 
-    // Only list an NPU whose device node can be opened. The fdinfo dispatcher
-    // attributes processes through that node; without it the device could not
-    // be monitored. Do not keep the descriptor: an open accel node is a driver
-    // client and would show up in the process list.
+    // Only list an NPU whose device node the user can read. The fdinfo
+    // dispatcher attributes processes through that node; without it the device
+    // could not be monitored. Check the permission with access() rather than
+    // opening the node: an open creates a driver client and binds the address
+    // space of nvtop to the IOMMU (SVA), and a refused client (no PASID left
+    // without a carveout, say) would hide the device for the whole session.
     char node_path[PATH_MAX];
     snprintf(node_path, sizeof(node_path), "%s/%s", amd_npu_dev_root, entry->d_name);
-    int node_fd = open(node_path, O_RDONLY | O_CLOEXEC);
-    if (node_fd < 0)
+    if (access(node_path, R_OK))
       continue;
-    close(node_fd);
 
     struct gpu_info_amd_npu *npu = &amd_npu_info[amd_npu_count];
     snprintf(npu->sysfs_dev, sizeof(npu->sysfs_dev), "%s", sysfs_dev);

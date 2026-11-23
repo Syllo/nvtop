@@ -251,7 +251,7 @@ static bool device_discovery(void) {
   CHECK(add_accel_node(root, "accel0", "0000:c5:00.1", "amdxdna", "0x17f0\n", "0x20\n", "NPU Krackan 1\n", "261:0\n"));
   CHECK(add_accel_node(root, "accel1", "0000:00:0b.0", "intel_vpu", "0x7d1d\n", "0x04\n", NULL, "261:1\n"));
   CHECK(add_accel_node(root, "accel2", "0000:c6:00.1", "amdxdna", "0x17f2\n", "0x10\n", NULL, "261:2\n"));
-  /* An amdxdna device whose node cannot be opened is ignored. */
+  /* An amdxdna device whose node cannot be accessed is ignored. */
   CHECK(add_accel_node(root, "accel3", "0000:c7:00.1", "amdxdna", "0x17f3\n", "0x10\n", NULL, "261:3\n"));
 
   static char class_root[PATH_MAX];
