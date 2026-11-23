@@ -233,7 +233,7 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
       bool is_shared = !strcmp(key, shared_memory ? i915_drm_intel_shared_gtt : i915_drm_intel_shared_vram);
       if (is_memory || is_shared) {
         unsigned long long mem_bytes;
-        if (!gpuinfo_intel_parse_fdinfo_size(val, &mem_bytes))
+        if (!extract_drm_fdinfo_size(val, &mem_bytes))
           continue;
         if (is_shared)
           gpuinfo_intel_add_process_shared_memory(process_info, mem_bytes);

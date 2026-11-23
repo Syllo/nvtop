@@ -27,7 +27,6 @@
 #include "extract_gpuinfo_intel.h"
 
 #include <assert.h>
-#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -213,31 +212,6 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base, devname);
   (*count)++;
-}
-
-bool gpuinfo_intel_parse_fdinfo_size(const char *val, unsigned long long *bytes) {
-  // strtoull accepts and negates a leading minus sign.
-  if (!isdigit((unsigned char)*val))
-    return false;
-  char *endptr;
-  errno = 0;
-  unsigned long long size = strtoull(val, &endptr, 10);
-  // ERANGE and ULLONG_MAX are the overflow sentinel, not a memory size.
-  if (endptr == val || errno == ERANGE || size == ULLONG_MAX)
-    return false;
-  unsigned long long multiplier;
-  if (!*endptr)
-    multiplier = 1;
-  else if (!strcmp(endptr, " KiB") || !strcmp(endptr, " kB"))
-    multiplier = 1024;
-  else if (!strcmp(endptr, " MiB"))
-    multiplier = 1024 * 1024;
-  else
-    return false;
-  if (size > ULLONG_MAX / multiplier)
-    return false;
-  *bytes = size * multiplier;
-  return true;
 }
 
 void gpuinfo_intel_add_process_memory(struct gpu_process *process_info, unsigned long long bytes) {

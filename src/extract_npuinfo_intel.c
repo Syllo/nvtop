@@ -30,7 +30,6 @@
 #include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/time.h"
 
-#include <ctype.h>
 #include <dirent.h>
 #include <limits.h>
 #include <stdio.h>
@@ -104,35 +103,10 @@ static bool is_intel_vpu(const char *sysfs_dev) {
 struct intel_vpu_fdinfo {
   bool is_intel_vpu;
   bool have_total, have_resident, have_shared;
-  uint64_t total;    // drm-total-memory, private + shared
-  uint64_t resident; // drm-resident-memory, buffers backed by pages (ivpu_bo_is_resident)
-  uint64_t shared;   // drm-shared-memory, buffers exported or imported
+  unsigned long long total;    // drm-total-memory, private + shared
+  unsigned long long resident; // drm-resident-memory, buffers backed by pages (ivpu_bo_is_resident)
+  unsigned long long shared;   // drm-shared-memory, buffers exported or imported
 };
-
-// Parse a size printed by drm_fdinfo_print_size(): bytes, KiB or MiB.
-static bool parse_fdinfo_size(const char *val, uint64_t *size) {
-  char *endptr;
-  unsigned long long value = strtoull(val, &endptr, 10);
-  if (endptr == val)
-    return false;
-  while (isspace((unsigned char)*endptr))
-    endptr++;
-  uint64_t unit;
-  if (*endptr == '\0')
-    unit = 1;
-  else if (!strcmp(endptr, "KiB") || !strcmp(endptr, "kB"))
-    unit = UINT64_C(1) << 10;
-  else if (!strcmp(endptr, "MiB"))
-    unit = UINT64_C(1) << 20;
-  else if (!strcmp(endptr, "GiB"))
-    unit = UINT64_C(1) << 30;
-  else
-    return false;
-  if (value > UINT64_MAX / unit)
-    return false;
-  *size = (uint64_t)value * unit;
-  return true;
-}
 
 // Only an fdinfo naming the intel_vpu driver is accepted. Kernels whose accel
 // fops lack show_fdinfo print no drm-driver line: the client cannot be
@@ -155,11 +129,11 @@ static bool intel_vpu_parse_fdinfo(FILE *fdinfo_file, struct intel_vpu_fdinfo *i
     if (!strcmp(key, "drm-driver")) {
       info->is_intel_vpu = !strcmp(val, IVPU_DRIVER);
     } else if (!strcmp(key, "drm-total-memory")) {
-      info->have_total = parse_fdinfo_size(val, &info->total);
+      info->have_total = extract_drm_fdinfo_size(val, &info->total);
     } else if (!strcmp(key, "drm-resident-memory")) {
-      info->have_resident = parse_fdinfo_size(val, &info->resident);
+      info->have_resident = extract_drm_fdinfo_size(val, &info->resident);
     } else if (!strcmp(key, "drm-shared-memory")) {
-      info->have_shared = parse_fdinfo_size(val, &info->shared);
+      info->have_shared = extract_drm_fdinfo_size(val, &info->shared);
     }
   }
   return info->is_intel_vpu;

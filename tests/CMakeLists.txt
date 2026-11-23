@@ -159,7 +159,7 @@ if(BUILD_TESTING AND INTEL_NPU_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_link_libraries(ivpuTests PRIVATE m ${CMAKE_DL_LIBS})
   add_sanitizers(ivpuTests)
   foreach (test_case fdinfo_active fdinfo_idle fdinfo_imported fdinfo_unpopulated
-                    fdinfo_no_memory fdinfo_other_driver fdinfo_callback memory_display device_discovery
+                    fdinfo_no_memory fdinfo_other_driver fdinfo_size fdinfo_callback memory_display device_discovery
                     zero_usage_claim)
     add_test(NAME Ivpu.${test_case} COMMAND ivpuTests ${test_case})
   endforeach()

@@ -293,23 +293,6 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
   return true;
 }
 
-uint64_t parse_memory_multiplier(const char *str) {
-  if (strcmp(str, " B") == 0) {
-    return 1;
-  }
-  else if (strcmp(str, " KiB") == 0 || strcmp(str, " kB") == 0) {
-    return 1024;
-  }
-  else if (strcmp(str, " MiB") == 0) {
-    return 1024 * 1024;
-  }
-  else if (strcmp(str, " GiB") == 0) {
-    return 1024 * 1024 * 1024;
-  }
-
-  return 1;
-}
-
 static void swap_process_cache_for_next_update(struct gpu_info_mali *gpu_info) {
   // Free old cache data and set the cache for the next update
   if (gpu_info->last_update_process_cache) {
@@ -460,18 +443,14 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
 
         fid->total_cycles += cycles;
       } else if (is_resident || is_shared) {
-        uint64_t mem_int;
-        char *endptr;
-
-        mem_int = strtoull(val, &endptr, 10);
-        if (endptr == val)
+        unsigned long long mem_bytes;
+        if (!extract_drm_fdinfo_size(val, &mem_bytes))
           continue;
 
-        uint64_t multiplier = parse_memory_multiplier(endptr);
         if (is_resident)
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_bytes);
         else
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, mem_int * multiplier);
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, mem_bytes);
       }
     }
   }

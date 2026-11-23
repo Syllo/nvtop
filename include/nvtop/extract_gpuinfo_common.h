@@ -314,6 +314,10 @@ static inline const char *processing_unit_name(enum gpu_processing_unit unit) {
 void register_gpu_vendor(struct gpu_vendor *vendor);
 
 bool extract_drm_fdinfo_key_value(char *buf, char **key, char **val);
+// Parse a size printed by drm_fdinfo_print_size() or drm_print_memory_stats():
+// a number of bytes (bare or B), KiB, kB, MiB, GiB or TiB, the unit optionally
+// preceded by spaces. Rejects signs, unknown units and out-of-range values.
+bool extract_drm_fdinfo_size(const char *val, unsigned long long *bytes);
 
 void gpuinfo_refresh_utilisation_rate(struct gpu_info *gpu_info);
 

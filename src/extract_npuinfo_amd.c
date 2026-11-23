@@ -28,7 +28,6 @@
 #include "nvtop/extract_processinfo_fdinfo.h"
 #include "nvtop/time.h"
 
-#include <ctype.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <inttypes.h>
@@ -75,9 +74,9 @@ struct amdxdna_fdinfo {
   bool have_busy;
   uint64_t busy_ns; // drm-engine-npu, cumulative engine busy time
   bool have_total_memory, have_internal, have_external;
-  uint64_t total_memory; // drm-total-memory, counts the device BOs twice (once alone, once in the heap BO)
-  uint64_t internal;     // Driver-internal BOs, including the heap BO
-  uint64_t external;     // Imported and user-created BOs
+  unsigned long long total_memory; // drm-total-memory, counts the device BOs twice (once alone, once in the heap BO)
+  unsigned long long internal;     // Driver-internal BOs, including the heap BO
+  unsigned long long external;     // Imported and user-created BOs
 };
 
 static const char *amd_npu_class_root = "/sys/class/accel";
@@ -156,29 +155,6 @@ static void amd_npu_device_name(const char *vbnv, unsigned device_id, unsigned r
     snprintf(name, len, "AMD NPU [1022:%04x]", device_id);
 }
 
-// Parse a size printed by drm_fdinfo_print_size() or drm_print_memory_stats(): a number of bytes, KiB or MiB.
-static bool parse_fdinfo_size(const char *val, uint64_t *size) {
-  char *endptr;
-  unsigned long long value = strtoull(val, &endptr, 10);
-  if (endptr == val)
-    return false;
-  while (isspace((unsigned char)*endptr))
-    endptr++;
-  uint64_t unit;
-  if (*endptr == '\0')
-    unit = 1;
-  else if (!strcmp(endptr, "KiB") || !strcmp(endptr, "kB"))
-    unit = UINT64_C(1) << 10;
-  else if (!strcmp(endptr, "MiB"))
-    unit = UINT64_C(1) << 20;
-  else if (!strcmp(endptr, "GiB"))
-    unit = UINT64_C(1) << 30;
-  else
-    return false;
-  *size = (uint64_t)value * unit;
-  return true;
-}
-
 static bool amdxdna_parse_fdinfo(FILE *fdinfo_file, struct amdxdna_fdinfo *info) {
   static char *line = NULL;
   static size_t line_buf_size = 0;
@@ -206,11 +182,11 @@ static bool amdxdna_parse_fdinfo(FILE *fdinfo_file, struct amdxdna_fdinfo *info)
         info->have_busy = true;
       }
     } else if (!strcmp(key, "drm-total-memory")) {
-      info->have_total_memory = parse_fdinfo_size(val, &info->total_memory);
+      info->have_total_memory = extract_drm_fdinfo_size(val, &info->total_memory);
     } else if (!strcmp(key, AMDXDNA_FDINFO_DRIVER "-internal-alloc")) {
-      info->have_internal = parse_fdinfo_size(val, &info->internal);
+      info->have_internal = extract_drm_fdinfo_size(val, &info->internal);
     } else if (!strcmp(key, AMDXDNA_FDINFO_DRIVER "-external-alloc")) {
-      info->have_external = parse_fdinfo_size(val, &info->external);
+      info->have_external = extract_drm_fdinfo_size(val, &info->external);
     }
   }
   return info->is_amdxdna;

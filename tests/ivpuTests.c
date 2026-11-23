@@ -94,6 +94,41 @@ static bool fdinfo_no_memory(void) {
   return true;
 }
 
+/* The shared DRM size parser rejects signs, leading spaces, unknown units and
+ * values that do not fit. */
+static bool fdinfo_size(void) {
+  const struct {
+    const char *val;
+    bool ok;
+    unsigned long long bytes;
+  } cases[] = {
+      {"0", true, 0},
+      {"123", true, 123},
+      {"7 B", true, 7},
+      {"4 KiB", true, 4ULL << 10},
+      {"3 kB", true, 3ULL << 10},
+      {"2 MiB", true, 2ULL << 20},
+      {"1 GiB", true, 1ULL << 30},
+      {"18446744073709551615", true, ULLONG_MAX},
+      {"", false, 0},
+      {"-1", false, 0},
+      {" 5", false, 0},
+      {"abc", false, 0},
+      {"5 TiB", true, 5ULL << 40},
+      {"5 PiB", false, 0},
+      {"16777216 TiB", false, 0},
+      {"18446744073709551616", false, 0},
+      {"18014398509481984 KiB", false, 0},
+  };
+  for (unsigned i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
+    unsigned long long bytes = 0;
+    CHECK(extract_drm_fdinfo_size(cases[i].val, &bytes) == cases[i].ok);
+    if (cases[i].ok)
+      CHECK(bytes == cases[i].bytes);
+  }
+  return true;
+}
+
 static bool fdinfo_other_driver(void) {
   struct intel_vpu_fdinfo info;
   CHECK(!parse_fixture("amdxdna.fdinfo", &info));
@@ -362,8 +397,9 @@ int main(int argc, char **argv) {
       {"fdinfo_active", fdinfo_active},       {"fdinfo_idle", fdinfo_idle},
       {"fdinfo_imported", fdinfo_imported},   {"fdinfo_unpopulated", fdinfo_unpopulated},
       {"fdinfo_no_memory", fdinfo_no_memory}, {"fdinfo_other_driver", fdinfo_other_driver},
-      {"fdinfo_callback", fdinfo_callback},   {"memory_display", memory_display},
-      {"device_discovery", device_discovery}, {"zero_usage_claim", zero_usage_claim},
+      {"fdinfo_size", fdinfo_size},           {"fdinfo_callback", fdinfo_callback},
+      {"memory_display", memory_display},     {"device_discovery", device_discovery},
+      {"zero_usage_claim", zero_usage_claim},
   };
   for (unsigned i = 0; argc == 2 && i < sizeof(tests) / sizeof(*tests); ++i)
     if (!strcmp(argv[1], tests[i].name))
