@@ -301,6 +301,12 @@ struct gpu_info {
   struct gpu_process *processes;
   unsigned processes_array_size;
   char pdev[PDEV_LEN];
+  // SR-IOV: a virtual function reports its parent PF's PCI address and its
+  // 1-based index under that PF. A PF with enabled VFs sets sriov_pf.
+  bool sriov_pf;
+  bool sriov_vf;
+  unsigned sriov_vf_index;
+  char sriov_pf_pdev[PDEV_LEN];
 };
 
 // Short 3-character label for a processing unit (e.g. "GPU", "NPU")

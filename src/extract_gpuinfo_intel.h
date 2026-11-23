@@ -50,6 +50,8 @@ struct intel_process_info_cache {
   UT_hash_handle hh;
 };
 
+#define XE_FN_MAX_ENGINES 32
+
 struct gpu_info_intel {
   struct gpu_info base;
   enum { DRIVER_I915, DRIVER_XE } driver;
@@ -69,10 +71,26 @@ struct gpu_info_intel {
   } energy;
 
   int perf_event_fd;
+
+  // Per-function engine counters from the PF's xe PMU (SR-IOV). VF clients do
+  // not export drm-cycles in fdinfo, so GPU utilisation is read from the PF.
+  struct {
+    enum { XE_FN_PMU_UNINIT, XE_FN_PMU_READY, XE_FN_PMU_UNAVAILABLE } state;
+    unsigned num_engines;
+    struct {
+      unsigned engine_class, engine_instance, gt;
+      int fd[2]; // 0 = active ticks, 1 = total ticks
+      uint64_t prev[2];
+    } engine[XE_FN_MAX_ENGINES];
+    bool have_prev;
+  } xe_fn_pmu;
 };
 
 extern void gpuinfo_intel_i915_refresh_dynamic_info(struct gpu_info *_gpu_info);
 extern void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info);
+
+// Fills the SR-IOV identity (PF/VF, VF index, parent PF) of an xe device.
+extern void gpuinfo_intel_xe_detect_sriov(struct gpu_info *gpu_info);
 
 // 1 if the device has a dedicated (VRAM) memory region, 0 if it only has the
 // system memory region, -1 if the memory regions could not be queried.

@@ -160,6 +160,9 @@ void gpuinfo_intel_shutdown(void) {
       ioctl(current->perf_event_fd, PERF_EVENT_IOC_DISABLE, 0);
       close(current->perf_event_fd);
     }
+    for (unsigned e = 0; e < current->xe_fn_pmu.num_engines; e++)
+      for (unsigned k = 0; k < 2; k++)
+        close(current->xe_fn_pmu.engine[e].fd[k]);
     nvtop_device_unref(current->card_device);
     nvtop_device_unref(current->driver_device);
   }
@@ -209,6 +212,8 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   int retval = nvtop_device_get_property_value(thisGPU->driver_device, "PCI_SLOT_NAME", &pdev_val);
   assert(retval >= 0 && pdev_val != NULL && "Could not retrieve device PCI slot name");
   strncpy(thisGPU->base.pdev, pdev_val, PDEV_LEN);
+  if (thisGPU->driver == DRIVER_XE)
+    gpuinfo_intel_xe_detect_sriov(&thisGPU->base);
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base, devname);
@@ -314,6 +319,16 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
       if (static_info->device_name[idx] == ']')
         static_info->device_name[idx] = ')';
     }
+  }
+
+  // Make SR-IOV functions recognisable in the device name.
+  if (GPUINFO_STATIC_FIELD_VALID(static_info, device_name) && (gpu_info->base.sriov_vf || gpu_info->base.sriov_pf)) {
+    size_t len = strlen(static_info->device_name);
+    if (gpu_info->base.sriov_vf)
+      snprintf(static_info->device_name + len, sizeof(static_info->device_name) - len, " SR-IOV VF%u",
+               gpu_info->base.sriov_vf_index);
+    else
+      snprintf(static_info->device_name + len, sizeof(static_info->device_name) - len, " SR-IOV PF");
   }
 
   // Mark integrated GPUs. The driver's memory regions are authoritative: a

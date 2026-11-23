@@ -27,13 +27,17 @@
 #include "extract_gpuinfo_intel.h"
 
 #include <assert.h>
-#include <libdrm/drm.h>
-#include <libdrm/xe_drm.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <libdrm/drm.h>
+#include <libdrm/xe_drm.h>
+#include <libgen.h>
+#include <linux/perf_event.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 #include <uthash.h>
 
@@ -93,6 +97,174 @@ int gpuinfo_intel_xe_has_device_memory(struct gpu_info_intel *gpu_info) {
   return has_device_memory;
 }
 
+// ---- SR-IOV: per-function utilisation from the PF's xe PMU ----------------
+// xe_pmu.c packs the event as: event[0:11] engine_instance[12:19]
+// engine_class[20:27] function[44:59] gt[60:63]. Function 0 is the PF and
+// function N is VF N. active/total ticks are relative to the function's
+// scheduling share, so the ratio is utilisation of what the function was given.
+#define XE_PMU_EVENT_ACTIVE 0x02
+#define XE_PMU_EVENT_TOTAL 0x03
+
+static long xe_perf_open(struct perf_event_attr *attr) { return syscall(SYS_perf_event_open, attr, -1, 0, -1, 0); }
+
+// Resolves the PF PCI address and function number for this device: function 0
+// is the PF itself, N >= 1 is the Nth VF (virtfnN-1). Returns false if the VF
+// cannot be located under its PF.
+static bool xe_fn_resolve(const char *pdev, char *pf_pdev, size_t pf_len, unsigned *function) {
+  char path[256], target[256];
+  snprintf(path, sizeof(path), "/sys/bus/pci/devices/%s/physfn", pdev);
+  ssize_t n = readlink(path, target, sizeof(target) - 1);
+  if (n < 0) {
+    snprintf(pf_pdev, pf_len, "%s", pdev);
+    *function = 0;
+    return true;
+  }
+  target[n] = 0;
+  snprintf(pf_pdev, pf_len, "%s", basename(target));
+  for (unsigned i = 0; i < 256; i++) {
+    snprintf(path, sizeof(path), "/sys/bus/pci/devices/%s/virtfn%u", pf_pdev, i);
+    n = readlink(path, target, sizeof(target) - 1);
+    if (n < 0)
+      break;
+    target[n] = 0;
+    if (!strcmp(basename(target), pdev)) {
+      *function = i + 1;
+      return true;
+    }
+  }
+  return false;
+}
+
+void gpuinfo_intel_xe_detect_sriov(struct gpu_info *gpu_info) {
+  char pf_pdev[PDEV_LEN];
+  unsigned function = 0;
+  gpu_info->sriov_pf = gpu_info->sriov_vf = false;
+  if (!xe_fn_resolve(gpu_info->pdev, pf_pdev, sizeof(pf_pdev), &function))
+    return;
+  if (function > 0) {
+    gpu_info->sriov_vf = true;
+    gpu_info->sriov_vf_index = function;
+    snprintf(gpu_info->sriov_pf_pdev, sizeof(gpu_info->sriov_pf_pdev), "%s", pf_pdev);
+    return;
+  }
+  char path[256];
+  unsigned numvfs = 0;
+  snprintf(path, sizeof(path), "/sys/bus/pci/devices/%s/sriov_numvfs", gpu_info->pdev);
+  FILE *f = fopen(path, "r");
+  if (f) {
+    if (fscanf(f, "%u", &numvfs) != 1)
+      numvfs = 0;
+    fclose(f);
+  }
+  gpu_info->sriov_pf = numvfs > 0;
+}
+
+// Discovers the engines through the DRM engine query rather than assuming a
+// topology, then opens the active/total counters for each on the PF's PMU.
+static void xe_fn_pmu_init(struct gpu_info_intel *gpu_info) {
+  gpu_info->xe_fn_pmu.state = XE_FN_PMU_UNAVAILABLE;
+  if (!gpu_info->card_fd)
+    return;
+
+  char pf_pdev[PDEV_LEN];
+  unsigned function;
+  if (!xe_fn_resolve(gpu_info->base.pdev, pf_pdev, sizeof(pf_pdev), &function))
+    return;
+
+  char pmu_name[64], path[160];
+  snprintf(pmu_name, sizeof(pmu_name), "xe_%s", pf_pdev);
+  for (char *ch = pmu_name; *ch; ++ch)
+    if (*ch == ':')
+      *ch = '_';
+  snprintf(path, sizeof(path), "/sys/bus/event_source/devices/%s/type", pmu_name);
+  FILE *f = fopen(path, "r");
+  unsigned type;
+  if (!f)
+    return;
+  if (fscanf(f, "%u", &type) != 1) {
+    fclose(f);
+    return;
+  }
+  fclose(f);
+
+  uint32_t length = 0;
+  struct drm_xe_query_engines *engines =
+      xe_device_query_alloc_fetch(gpu_info->card_fd, DRM_XE_DEVICE_QUERY_ENGINES, &length);
+  if (!engines)
+    return;
+
+  for (unsigned i = 0; i < engines->num_engines && gpu_info->xe_fn_pmu.num_engines < XE_FN_MAX_ENGINES; i++) {
+    struct drm_xe_engine_class_instance inst = engines->engines[i].instance;
+    // Only the user-visible classes have PMU counters (not VM_BIND).
+    if (inst.engine_class > DRM_XE_ENGINE_CLASS_COMPUTE)
+      continue;
+    unsigned slot = gpu_info->xe_fn_pmu.num_engines;
+    bool opened = true;
+    for (unsigned k = 0; k < 2; k++) {
+      uint64_t cfg = (k ? XE_PMU_EVENT_TOTAL : XE_PMU_EVENT_ACTIVE) | ((uint64_t)inst.engine_instance << 12) |
+                     ((uint64_t)inst.engine_class << 20) | ((uint64_t)function << 44) | ((uint64_t)inst.gt_id << 60);
+      struct perf_event_attr attr = {.type = type, .size = sizeof(attr), .config = cfg};
+      gpu_info->xe_fn_pmu.engine[slot].fd[k] = (int)xe_perf_open(&attr);
+      if (gpu_info->xe_fn_pmu.engine[slot].fd[k] < 0)
+        opened = false;
+    }
+    if (!opened) {
+      for (unsigned k = 0; k < 2; k++)
+        if (gpu_info->xe_fn_pmu.engine[slot].fd[k] >= 0)
+          close(gpu_info->xe_fn_pmu.engine[slot].fd[k]);
+      continue;
+    }
+    gpu_info->xe_fn_pmu.engine[slot].engine_class = inst.engine_class;
+    gpu_info->xe_fn_pmu.engine[slot].engine_instance = inst.engine_instance;
+    gpu_info->xe_fn_pmu.engine[slot].gt = inst.gt_id;
+    gpu_info->xe_fn_pmu.num_engines++;
+  }
+  free(engines);
+  if (gpu_info->xe_fn_pmu.num_engines)
+    gpu_info->xe_fn_pmu.state = XE_FN_PMU_READY;
+}
+
+static void xe_fn_pmu_refresh(struct gpu_info_intel *gpu_info, struct gpuinfo_dynamic_info *dynamic_info) {
+  if (gpu_info->xe_fn_pmu.state == XE_FN_PMU_UNINIT)
+    xe_fn_pmu_init(gpu_info);
+  if (gpu_info->xe_fn_pmu.state != XE_FN_PMU_READY)
+    return;
+
+  double video = 0, enhance = 0, overall = 0;
+  for (unsigned e = 0; e < gpu_info->xe_fn_pmu.num_engines; e++) {
+    uint64_t cur[2] = {0, 0};
+    for (unsigned k = 0; k < 2; k++)
+      if (read(gpu_info->xe_fn_pmu.engine[e].fd[k], &cur[k], sizeof(cur[k])) != sizeof(cur[k]))
+        cur[k] = gpu_info->xe_fn_pmu.engine[e].prev[k];
+
+    if (gpu_info->xe_fn_pmu.have_prev) {
+      uint64_t da = cur[0] - gpu_info->xe_fn_pmu.engine[e].prev[0];
+      uint64_t dt = cur[1] - gpu_info->xe_fn_pmu.engine[e].prev[1];
+      if (dt > 0) {
+        double pct = 100.0 * (double)da / (double)dt;
+        if (pct > 100.0)
+          pct = 100.0;
+        if (pct > overall)
+          overall = pct;
+        if (gpu_info->xe_fn_pmu.engine[e].engine_class == DRM_XE_ENGINE_CLASS_VIDEO_DECODE && pct > video)
+          video = pct;
+        if (gpu_info->xe_fn_pmu.engine[e].engine_class == DRM_XE_ENGINE_CLASS_VIDEO_ENHANCE && pct > enhance)
+          enhance = pct;
+      }
+    }
+    gpu_info->xe_fn_pmu.engine[e].prev[0] = cur[0];
+    gpu_info->xe_fn_pmu.engine[e].prev[1] = cur[1];
+  }
+
+  if (gpu_info->xe_fn_pmu.have_prev) {
+    // Overall GPU load is the busiest engine of the function.
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, (unsigned)(overall + 0.5));
+    SET_GPUINFO_DYNAMIC(dynamic_info, encoder_rate, (unsigned)(video + 0.5));
+    SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, (unsigned)(enhance + 0.5));
+  }
+  gpu_info->xe_fn_pmu.have_prev = true;
+}
+
 void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
@@ -119,6 +291,7 @@ void gpuinfo_intel_xe_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       free(regions);
     }
   }
+  xe_fn_pmu_refresh(gpu_info, dynamic_info);
 }
 
 // Resident memory of the client, indexed by whether the device shares its

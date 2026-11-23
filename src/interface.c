@@ -606,7 +606,7 @@ struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devic
   interface->devices_win = calloc(devices_count, sizeof(*interface->devices_win));
   interface->total_dev_count = total_devices;
   interface->monitored_dev_count = devices_count;
-  sizeof_device_field[device_name] = largest_device_name + 11;
+  sizeof_device_field[device_name] = largest_device_name + 13;
   initscr();
   refresh();
   if (interface->options.use_color && has_colors() == TRUE) {
@@ -969,6 +969,50 @@ static struct gpu_info *get_device_by_id(struct list_head *devices, unsigned id)
   return NULL;
 }
 
+// Display label of a device: top-level devices are numbered 0, 1, ... and an
+// SR-IOV VF is shown under its PF as "<pf>.<vf index>" (e.g. 0.2). The internal
+// device index is unchanged.
+static void device_label(struct list_head *devices, unsigned dev_id, char *buf, size_t len) {
+  struct gpu_info *device;
+  unsigned idx = 0, top = 0;
+  const struct gpu_info *target = NULL;
+  list_for_each_entry(device, devices, list) {
+    if (idx++ == dev_id) {
+      target = device;
+      break;
+    }
+  }
+  if (!target) {
+    snprintf(buf, len, "%u", dev_id);
+    return;
+  }
+  if (!target->sriov_vf) {
+    list_for_each_entry(device, devices, list) {
+      if (device == target)
+        break;
+      if (!device->sriov_vf)
+        top++;
+    }
+    snprintf(buf, len, "%u", top);
+    return;
+  }
+  // VF: number of the parent PF among the top-level devices
+  bool found = false;
+  list_for_each_entry(device, devices, list) {
+    if (device->sriov_vf)
+      continue;
+    if (!strcmp(device->pdev, target->sriov_pf_pdev)) {
+      found = true;
+      break;
+    }
+    top++;
+  }
+  if (found)
+    snprintf(buf, len, "%u.%u", top, target->sriov_vf_index);
+  else
+    snprintf(buf, len, "?.%u", target->sriov_vf_index);
+}
+
 static void draw_devices(struct list_head *devices, struct nvtop_interface *interface) {
   struct gpu_info *device;
   unsigned dev_id = 0;
@@ -977,7 +1021,9 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     struct device_window *dev = &interface->devices_win[dev_id];
 
     wcolor_set(dev->name_win, cyan_color, NULL);
-    mvwprintw(dev->name_win, 0, 0, "Device %-2u", dev_id);
+    char dev_label[16];
+    device_label(devices, dev_id, dev_label, sizeof(dev_label));
+    mvwprintw(dev->name_win, 0, 0, "Device %-4s", dev_label);
     wstandend(dev->name_win);
     if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name)) {
       wprintw(dev->name_win, "[%s]", device->static_info.device_name);
@@ -1370,6 +1416,7 @@ typedef struct {
   unsigned processes_count;
   struct gpuid_and_process {
     unsigned gpu_id;
+    char gpu_label[8];
     struct gpu_process *process;
   } *processes;
 } all_processes;
@@ -1397,6 +1444,8 @@ static all_processes all_processes_array(struct list_head *devices) {
   list_for_each_entry(device, devices, list) {
     for (unsigned int j = 0; j < device->processes_count; ++j) {
       merged_devices_processes.processes[offset].gpu_id = dev_id;
+      device_label(devices, dev_id, merged_devices_processes.processes[offset].gpu_label,
+                   sizeof(merged_devices_processes.processes[offset].gpu_label));
       merged_devices_processes.processes[offset++].process = &device->processes[j];
     }
 
@@ -1745,7 +1794,7 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
     }
 
     if (process_is_field_displayed(process_gpu_id, fields_to_display)) {
-      size_t size = snprintf(guid_str, sizeof_process_field[process_gpu_id] + 1, "%u", processes[i].gpu_id);
+      size_t size = snprintf(guid_str, sizeof_process_field[process_gpu_id] + 1, "%s", processes[i].gpu_label);
       if (size >= sizeof_process_field[process_gpu_id] + 1)
         pid_str[sizeof_process_field[process_gpu_id]] = '\0';
       printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
