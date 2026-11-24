@@ -272,7 +272,7 @@ static void xe_fn_pmu_refresh(struct gpu_info_intel *gpu_info, struct gpuinfo_dy
   nvtop_get_current_time(&now);
   double elapsed = gpu_info->xe_fn_pmu.have_prev ? nvtop_difftime(gpu_info->xe_fn_pmu.prev_time, now) : 0;
 
-  double video = 0, enhance = 0, overall = 0;
+  double video = 0, overall = 0;
   for (unsigned e = 0; e < gpu_info->xe_fn_pmu.num_engines; e++) {
     uint64_t cur = 0;
     bool ok = true;
@@ -295,8 +295,6 @@ static void xe_fn_pmu_refresh(struct gpu_info_intel *gpu_info, struct gpuinfo_dy
         overall = pct;
       if (gpu_info->xe_fn_pmu.engine[e].engine_class == DRM_XE_ENGINE_CLASS_VIDEO_DECODE && pct > video)
         video = pct;
-      if (gpu_info->xe_fn_pmu.engine[e].engine_class == DRM_XE_ENGINE_CLASS_VIDEO_ENHANCE && pct > enhance)
-        enhance = pct;
     }
     gpu_info->xe_fn_pmu.engine[e].prev_active = cur;
   }
@@ -304,8 +302,10 @@ static void xe_fn_pmu_refresh(struct gpu_info_intel *gpu_info, struct gpuinfo_dy
   if (gpu_info->xe_fn_pmu.have_prev && elapsed > 0) {
     // Overall GPU load is the busiest engine of the device.
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, (unsigned)(overall + 0.5));
+    // Intel shares one ENC/DEC meter (decoder_rate) for the video (VCS) engines,
+    // which do both decode and encode. Video enhance (VECS) is not part of it.
     SET_GPUINFO_DYNAMIC(dynamic_info, encoder_rate, (unsigned)(video + 0.5));
-    SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, (unsigned)(enhance + 0.5));
+    SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, (unsigned)(video + 0.5));
   }
   gpu_info->xe_fn_pmu.prev_time = now;
   gpu_info->xe_fn_pmu.have_prev = true;
