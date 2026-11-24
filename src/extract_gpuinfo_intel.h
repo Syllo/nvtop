@@ -51,6 +51,8 @@ struct intel_process_info_cache {
 };
 
 #define XE_FN_MAX_ENGINES 32
+// Functions (the PF and its VFs) whose activity the PF row aggregates.
+#define XE_FN_MAX_FUNCS 16
 
 struct gpu_info_intel {
   struct gpu_info base;
@@ -79,9 +81,12 @@ struct gpu_info_intel {
     unsigned num_engines;
     struct {
       unsigned engine_class, engine_instance, gt;
-      int fd[2]; // 0 = active ticks, 1 = total ticks
-      uint64_t prev[2];
+      unsigned num_fd;
+      int fd[XE_FN_MAX_FUNCS]; // active ticks of this device's function (or of every function for the PF)
+      uint64_t prev_active;    // sum of the counters at the last refresh
+      uint32_t ref_clock;      // GT timestamp frequency, Hz
     } engine[XE_FN_MAX_ENGINES];
+    nvtop_time prev_time;
     bool have_prev;
   } xe_fn_pmu;
 };
