@@ -970,7 +970,7 @@ static struct gpu_info *get_device_by_id(struct list_head *devices, unsigned id)
 }
 
 // Display label of a device: top-level devices are numbered 0, 1, ... and an
-// SR-IOV VF is shown under its PF as "<pf>.<vf index>" (e.g. 0.2). The internal
+// SR-IOV VF is shown under its PF as "<pf>:<vf index>" (e.g. 0:2). The internal
 // device index is unchanged.
 static void device_label(struct list_head *devices, unsigned dev_id, char *buf, size_t len) {
   struct gpu_info *device;
@@ -1008,7 +1008,7 @@ static void device_label(struct list_head *devices, unsigned dev_id, char *buf, 
     top++;
   }
   if (found)
-    snprintf(buf, len, "%u.%u", top, target->sriov_vf_index);
+    snprintf(buf, len, "%u:%u", top, target->sriov_vf_index);
   else
     snprintf(buf, len, "?.%u", target->sriov_vf_index);
 }
