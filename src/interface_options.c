@@ -140,6 +140,9 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->gpu_plot_color_idx[2] = 2;  // Green
   options->gpu_plot_color_idx[3] = 4;  // Blue
   options->plot_style = nvtop_plot_style_braille;
+  options->meter_style = nvtop_meter_style_graphical;
+  options->meter_effective_load = true;
+  options->meter_levels = (struct nvtop_meter_levels){.yellow = true, .red = true, .yellow_from = 75, .red_from = 90};
   if (config_location) {
     options->config_file_location = malloc(strlen(config_location) + 1);
     if (!options->config_file_location) {
@@ -183,6 +186,13 @@ static const char header_value_use_fahrenheit[] = "UseFahrenheit";
 static const char header_value_encode_decode_timer[] = "EncodeHideTimer";
 static const char header_value_gpu_info_bar[] = "GPUInfoBar";
 static const char header_value_all_info_bar[] = "AllInfoBar";
+static const char header_value_meter_style[] = "MeterStyle";
+static const char *header_meter_style_names[nvtop_meter_style_count] = {"graphical", "legacy"};
+static const char header_value_meter_effective_load[] = "MeterEffectiveLoad";
+static const char header_value_meter_yellow[] = "MeterYellow";
+static const char header_value_meter_yellow_from[] = "MeterYellowFrom";
+static const char header_value_meter_red[] = "MeterRed";
+static const char header_value_meter_red_from[] = "MeterRedFrom";
 
 static const char chart_section[] = "ChartOption";
 static const char chart_value_reverse[] = "ReverseChart";
@@ -273,6 +283,34 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
       if (strcmp(value, "false") == 0) {
         ini_data->options->has_all_info_bar = false;
       }
+    }
+    if (strcmp(name, header_value_meter_style) == 0) {
+      for (unsigned i = 0; i < nvtop_meter_style_count; ++i) {
+        if (strcmp(value, header_meter_style_names[i]) == 0)
+          ini_data->options->meter_style = (enum nvtop_meter_style)i;
+      }
+    }
+    if (strcmp(name, header_value_meter_effective_load) == 0) {
+      if (strcmp(value, "true") == 0)
+        ini_data->options->meter_effective_load = true;
+      if (strcmp(value, "false") == 0)
+        ini_data->options->meter_effective_load = false;
+    }
+    if (strcmp(name, header_value_meter_yellow) == 0 || strcmp(name, header_value_meter_red) == 0) {
+      bool *enabled = strcmp(name, header_value_meter_yellow) == 0 ? &ini_data->options->meter_levels.yellow
+                                                                   : &ini_data->options->meter_levels.red;
+      if (strcmp(value, "true") == 0)
+        *enabled = true;
+      if (strcmp(value, "false") == 0)
+        *enabled = false;
+    }
+    if (strcmp(name, header_value_meter_yellow_from) == 0 || strcmp(name, header_value_meter_red_from) == 0) {
+      unsigned *from = strcmp(name, header_value_meter_yellow_from) == 0 ? &ini_data->options->meter_levels.yellow_from
+                                                                         : &ini_data->options->meter_levels.red_from;
+      unsigned percentage;
+      char extra;
+      if (sscanf(value, "%u%c", &percentage, &extra) == 1 && percentage <= 100)
+        *from = percentage;
     }
   }
   // Chart Options
@@ -460,6 +498,12 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   fprintf(config_file, "%s = %e\n", header_value_encode_decode_timer, options->encode_decode_hiding_timer);
   fprintf(config_file, "%s = %s\n", header_value_gpu_info_bar, boolean_string(options->has_gpu_info_bar));
   fprintf(config_file, "%s = %s\n", header_value_all_info_bar, boolean_string(options->has_all_info_bar));
+  fprintf(config_file, "%s = %s\n", header_value_meter_style, header_meter_style_names[options->meter_style]);
+  fprintf(config_file, "%s = %s\n", header_value_meter_effective_load, boolean_string(options->meter_effective_load));
+  fprintf(config_file, "%s = %s\n", header_value_meter_yellow, boolean_string(options->meter_levels.yellow));
+  fprintf(config_file, "%s = %u\n", header_value_meter_yellow_from, options->meter_levels.yellow_from);
+  fprintf(config_file, "%s = %s\n", header_value_meter_red, boolean_string(options->meter_levels.red));
+  fprintf(config_file, "%s = %u\n", header_value_meter_red_from, options->meter_levels.red_from);
 
   // Chart Options
   fprintf(config_file, "\n[%s]\n", chart_section);

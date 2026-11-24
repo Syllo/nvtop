@@ -60,6 +60,10 @@ enum setup_header_options {
   setup_header_enc_dec_timer,
   setup_header_gpu_info_bar,
   setup_header_all_info_bar,
+  setup_header_meter_style,
+  setup_header_meter_effective_load,
+  setup_header_meter_yellow,
+  setup_header_meter_red,
   setup_header_options_count
 };
 
@@ -67,8 +71,14 @@ static const char *setup_header_system_memory_all_description =
     "Show system RAM instead of device memory (shared-memory devices)";
 
 static const char *setup_header_option_descriptions[setup_header_options_count] = {
-    "Temperature in fahrenheit", "Keep displaying Encoder/Decoder rate (after reaching an idle state)",
-    "Display dynamic GPU info (clock domains, NVLink errors)", "Display static GPU info and secondary clock domains"};
+    "Temperature in fahrenheit",
+    "Keep displaying Encoder/Decoder rate (after reaching an idle state)",
+    "Display dynamic GPU info (clock domains, NVLink errors)",
+    "Display static GPU info and secondary clock domains",
+    "Graphical utilization bars (falls back on low-color terminals)",
+    "Utilization bars: effective load overlay",
+    "Utilization bars: yellow from",
+    "Utilization bars: red from"};
 
 // Chart Options
 
@@ -300,8 +310,32 @@ static void draw_setup_window_general(struct nvtop_interface *interface) {
   wnoutrefresh(interface->setup_win.single);
 }
 
+// The rows of the meter levels have two fields: whether the level is used,
+// then its percentage. The second field is selected one indentation level
+// deeper, with the right arrow.
+static bool setup_header_is_meter_level(unsigned option) {
+  return option == setup_header_meter_yellow || option == setup_header_meter_red;
+}
+
+// Whether the percentage of a meter level row is selected. Up and down then
+// move to the next row: its percentage if it is the other level row, else its
+// first field.
+static bool setup_header_level_field_selected(const struct nvtop_interface *interface) {
+  return interface->setup_win.selected_section == setup_header_selected &&
+         interface->setup_win.indentation_level == 2 &&
+         setup_header_is_meter_level(interface->setup_win.options_selected[0]);
+}
+
+static void setup_header_select_from_level_field(struct nvtop_interface *interface, unsigned option) {
+  interface->setup_win.options_selected[0] = option;
+  if (!setup_header_is_meter_level(option))
+    interface->setup_win.indentation_level = 1;
+}
+
 static void draw_setup_window_header(struct nvtop_interface *interface) {
-  if (interface->setup_win.indentation_level > 1)
+  if (interface->setup_win.indentation_level > 1 &&
+      (interface->setup_win.indentation_level > 2 ||
+       !setup_header_is_meter_level(interface->setup_win.options_selected[0])))
     interface->setup_win.indentation_level = 1;
   bool has_shared_memory = shared_memory_device_count(interface) > 0;
   unsigned last_option = has_shared_memory ? setup_header_options_count : setup_header_options_count - 1;
@@ -361,6 +395,45 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
   if (interface->setup_win.indentation_level == 1 &&
       interface->setup_win.options_selected[0] == setup_header_all_info_bar) {
     mvwchgat(options_win, setup_header_all_info_bar + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+
+  // Graphical utilization bars
+  if (interface->options.meter_style == nvtop_meter_style_graphical)
+    option_state = interface_supports_graphical_meters(interface) ? option_on : option_partially_active;
+  else
+    option_state = option_off;
+  mvwprintw(options_win, setup_header_meter_style + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_header_option_descriptions[setup_header_meter_style]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_header_meter_style) {
+    mvwchgat(options_win, setup_header_meter_style + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+
+  // Effective load overlay
+  option_state = interface->options.meter_effective_load;
+  mvwprintw(options_win, setup_header_meter_effective_load + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_header_option_descriptions[setup_header_meter_effective_load]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_header_meter_effective_load) {
+    mvwchgat(options_win, setup_header_meter_effective_load + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+
+  // Meter levels, used by the graphical bars only
+  bool graphical_meters = interface_supports_graphical_meters(interface);
+  for (unsigned option = setup_header_meter_yellow; option <= setup_header_meter_red; ++option) {
+    bool enabled = option == setup_header_meter_yellow ? interface->options.meter_levels.yellow
+                                                       : interface->options.meter_levels.red;
+    unsigned from = option == setup_header_meter_yellow ? interface->options.meter_levels.yellow_from
+                                                        : interface->options.meter_levels.red_from;
+    option_state = enabled ? (graphical_meters ? option_on : option_partially_active) : option_off;
+    mvwprintw(options_win, option + 1, 0, "[%c][%3u%%] %s", option_state_char(option_state), from,
+              setup_header_option_descriptions[option]);
+    if (interface->setup_win.options_selected[0] == option) {
+      if (interface->setup_win.indentation_level == 1)
+        mvwchgat(options_win, option + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+      if (interface->setup_win.indentation_level == 2)
+        mvwchgat(options_win, option + 1, 3, 6, A_STANDOUT, cyan_color, NULL);
+    }
   }
 
   // System RAM instead of the device memory, for every device sharing it. The
@@ -803,6 +876,9 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
           werase(interface->setup_win.split[1]);
           wnoutrefresh(interface->setup_win.single);
         }
+      } else if (setup_header_level_field_selected(interface)) {
+        if (interface->setup_win.options_selected[0] != 0)
+          setup_header_select_from_level_field(interface, interface->setup_win.options_selected[0] - 1);
       } else {
         if (interface->setup_win.indentation_level == 1)
           interface->setup_win.options_selected[1] = 0;
@@ -824,6 +900,11 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
           werase(interface->setup_win.split[1]);
           wnoutrefresh(interface->setup_win.single);
         }
+      } else if (setup_header_level_field_selected(interface)) {
+        unsigned last_option =
+            shared_memory_device_count(interface) > 0 ? setup_header_options_count : setup_header_options_count - 1;
+        if (interface->setup_win.options_selected[0] < last_option)
+          setup_header_select_from_level_field(interface, interface->setup_win.options_selected[0] + 1);
       } else {
         if (interface->setup_win.indentation_level == 1)
           interface->setup_win.options_selected[1] = 0;
@@ -846,6 +927,14 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
             interface->options.encode_decode_hiding_timer += 5.;
           }
         }
+        if (interface->setup_win.indentation_level == 2) {
+          unsigned option = interface->setup_win.options_selected[0];
+          if (setup_header_is_meter_level(option)) {
+            unsigned *from = option == setup_header_meter_yellow ? &interface->options.meter_levels.yellow_from
+                                                                 : &interface->options.meter_levels.red_from;
+            *from = *from <= 95 ? *from + 5 : 100;
+          }
+        }
       }
       break;
     case '-':
@@ -864,6 +953,14 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
             if (interface->options.encode_decode_hiding_timer < 0.) {
               interface->options.encode_decode_hiding_timer = 0.;
             }
+          }
+        }
+        if (interface->setup_win.indentation_level == 2) {
+          unsigned option = interface->setup_win.options_selected[0];
+          if (setup_header_is_meter_level(option)) {
+            unsigned *from = option == setup_header_meter_yellow ? &interface->options.meter_levels.yellow_from
+                                                                 : &interface->options.meter_levels.red_from;
+            *from = *from >= 5 ? *from - 5 : 0;
           }
         }
       }
@@ -904,6 +1001,13 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
           if (interface->setup_win.options_selected[0] == setup_header_all_info_bar) {
             interface->options.has_all_info_bar = !interface->options.has_all_info_bar;
           }
+          if (interface->setup_win.options_selected[0] == setup_header_meter_style) {
+            interface->options.meter_style = interface->options.meter_style == nvtop_meter_style_graphical
+                                                 ? nvtop_meter_style_legacy
+                                                 : nvtop_meter_style_graphical;
+          }
+          if (interface->setup_win.options_selected[0] == setup_header_meter_effective_load)
+            interface->options.meter_effective_load = !interface->options.meter_effective_load;
           if (shared_memory_device_count(interface) > 0 &&
               interface->setup_win.options_selected[0] == setup_header_options_count) {
             // Set it for every monitored device sharing its memory with the
@@ -915,6 +1019,13 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
                 gpu_opts->show_system_memory = enable;
             }
           }
+        }
+        // Either field of a meter level row turns it on or off.
+        if (interface->setup_win.indentation_level >= 1) {
+          if (interface->setup_win.options_selected[0] == setup_header_meter_yellow)
+            interface->options.meter_levels.yellow = !interface->options.meter_levels.yellow;
+          if (interface->setup_win.options_selected[0] == setup_header_meter_red)
+            interface->options.meter_levels.red = !interface->options.meter_levels.red;
         }
       }
       // Chart Options

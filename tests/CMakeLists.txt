@@ -31,6 +31,18 @@ if (BUILD_TESTING)
   set_tests_properties(Plot Plot.linux_console PROPERTIES SKIP_RETURN_CODE 77)
 endif()
 
+# Utilization meter rendering, checked the same way as the plots.
+if (BUILD_TESTING)
+  add_executable(meterTests meterTests.c ${PROJECT_SOURCE_DIR}/src/meter.c)
+  target_include_directories(meterTests PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/include)
+  target_compile_definitions(meterTests PRIVATE _GNU_SOURCE)
+  set_property(TARGET meterTests PROPERTY C_STANDARD 11)
+  target_link_libraries(meterTests PRIVATE ncurses m)
+  add_sanitizers(meterTests)
+  add_test(NAME Meter COMMAND meterTests)
+  set_tests_properties(Meter PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
 if (BUILD_TESTING AND ENFLAME_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_executable(enflameTests
     enflameTests.c
