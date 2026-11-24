@@ -329,6 +329,72 @@ TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
   EXPECT_EQ(std::remove(config_path), 0);
 }
 
+TEST(InterfaceOptions, GraphStyleNames) {
+  char config_path[] = "interface-graph-style-names-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  const struct {
+    const char *name;
+    enum nvtop_plot_style style;
+  } names[] = {{"legacy", nvtop_plot_style_line}, {"fine", nvtop_plot_style_braille}};
+  for (const auto &entry : names) {
+    FILE *config = fopen(config_path, "w");
+    ASSERT_NE(config, nullptr);
+    fprintf(config, "[ChartOption]\nGraphStyle = %s\n", entry.name);
+    fclose(config);
+    options.plot_style = entry.style == nvtop_plot_style_line ? nvtop_plot_style_braille : nvtop_plot_style_line;
+    ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+    EXPECT_EQ(options.plot_style, entry.style) << entry.name;
+  }
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, GraphStyleConfig) {
+  char config_path[] = "interface-graph-style-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+  options.plot_style = nvtop_plot_style_line;
+
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.plot_style = nvtop_plot_style_braille;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.plot_style, nvtop_plot_style_line);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, InvalidGraphStyleConfigKeepsCurrent) {
+  char config_path[] = "interface-invalid-graph-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  FILE *config = fopen(config_path, "w");
+  ASSERT_NE(config, nullptr);
+  fprintf(config, "[ChartOption]\nGraphStyle = garbage\n");
+  fclose(config);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.plot_style = nvtop_plot_style_braille;
+
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.plot_style, nvtop_plot_style_braille);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
 TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
   // An unmonitored GPU is no longer refreshed, so its process entries would
   // otherwise keep pointers to process-cache strings freed by later refreshes.

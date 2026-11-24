@@ -47,6 +47,14 @@ static void *nvtop_reallocarray__(void *ptr, size_t nmemb, size_t size) {
 
 #define MAX_LINES_PER_PLOT 4
 
+// How plot lines are rendered. Braille uses Unicode braille patterns for a
+// 2x4 sub-cell resolution; line is the legacy ncurses/ACS renderer.
+enum nvtop_plot_style {
+  nvtop_plot_style_braille = 0,
+  nvtop_plot_style_line,
+  nvtop_plot_style_count,
+};
+
 // Helper macro to stringify an integer
 #define QUOTE(x) #x
 #define EXPAND_AND_QUOTE(x) QUOTE(x)

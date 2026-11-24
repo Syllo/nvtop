@@ -26,6 +26,7 @@
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
+#include "nvtop/plot.h"
 #include "nvtop/time.h"
 
 #include <ncurses.h>
@@ -118,6 +119,7 @@ struct process_window {
 struct plot_window {
   size_t num_data;
   double *data;
+  struct nvtop_braille_plot braille; // Braille renderer state, sized for plot_window
   WINDOW *win;
   WINDOW *plot_window;
   unsigned num_devices_to_plot;

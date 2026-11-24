@@ -383,16 +383,36 @@ static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_posi
   mvwprintw(plot->win, 1 + rows / 2, 0, " 50");
   mvwprintw(plot->win, 1, 0, "100");
   mvwprintw(plot->win, rows, 0, "  0");
-  plot->data = calloc(cols, sizeof(*plot->data));
-  plot->num_data = cols;
-
   unsigned column_divisor = 0;
   for (unsigned i = 0; i < plot->num_devices_to_plot; ++i) {
     unsigned dev_id = plot->devices_ids[i];
-    plot_info_to_draw to_draw = options->gpu_specific_opts[dev_id].to_draw;
-    column_divisor += plot_count_draw_info(to_draw);
+    column_divisor += plot_count_draw_info(options->gpu_specific_opts[dev_id].to_draw);
   }
+  // The layout never creates a plot without metrics.
   assert(column_divisor > 0);
+
+  // Both renderers advance one column per metric per update, so the plot
+  // width is shared between the metrics displayed in this plot. The oldest
+  // group may be clipped, so the time axis only counts the groups that fit
+  // entirely.
+  unsigned long long axis_samples = cols / column_divisor;
+  // Sized for the most samples per line (one metric) and the most lines: the
+  // renderers draw the newest samples they need.
+  plot->num_data = nvtop_plot_braille_samples(cols, 1) * MAX_LINES_PER_PLOT;
+  plot->data = calloc(plot->num_data, sizeof(*plot->data));
+  bool braille_ok = nvtop_braille_plot_init(&plot->braille, rows, cols);
+  if (!plot->data || !braille_ok) {
+    endwin();
+    perror("Cannot allocate memory: ");
+    exit(EXIT_FAILURE);
+  }
+
+  unsigned long long axis_ms = (unsigned long long)options->update_interval * axis_samples;
+  int total_seconds = (int)(axis_ms / 1000);
+  int quarter_seconds = (int)(axis_ms / 4 / 1000);
+  int half_seconds = (int)(axis_ms / 2 / 1000);
+  int three_quarter_seconds = (int)(axis_ms * 3 / 4 / 1000);
+
   char elapsedSeconds[16];
   char *err = "err";
   char *zeroSec = "0s";
@@ -400,32 +420,28 @@ static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_posi
     char *toPrint = zeroSec;
     mvwprintw(plot->win, position->sizeY - 1, 4, "%s", toPrint);
 
-    int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                          options->update_interval * cols / 4 / column_divisor / 1000);
+    int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", quarter_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 4 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols / 2 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", half_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 2 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols * 3 / 4 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", three_quarter_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols * 3 / 4 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", total_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
@@ -433,32 +449,28 @@ static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_posi
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols - strlen(toPrint), "%s", toPrint);
   } else {
     char *toPrint;
-    int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                          options->update_interval * cols / column_divisor / 1000);
+    int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", total_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols * 3 / 4 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", three_quarter_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 4 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols / 2 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", half_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 2 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols / 4 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", quarter_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
@@ -568,6 +580,7 @@ static void delete_all_windows(struct nvtop_interface *dwin) {
     delwin(dwin->plots[i].win);
     delwin(dwin->plots[i].plot_window);
     free(dwin->plots[i].data);
+    nvtop_braille_plot_free(&dwin->plots[i].braille);
   }
   free_setup_window(&dwin->setup_win);
   free(dwin->plots);
@@ -2307,7 +2320,6 @@ static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices, c
   }
 
   assert(total_to_draw > 0);
-  assert(size_data_buff % total_to_draw == 0);
   unsigned max_data_to_copy = size_data_buff / total_to_draw;
   double (*data_split)[total_to_draw] = (double (*)[total_to_draw])data;
 
@@ -2403,8 +2415,9 @@ static void draw_plots(struct list_head *devices, struct nvtop_interface *interf
                                                              interface->plots[plot_id].num_data,
                                                              interface->plots[plot_id].data, plot_legend);
 
-    nvtop_line_plot(interface->plots[plot_id].plot_window, interface->plots[plot_id].num_data,
-                    interface->plots[plot_id].data, num_lines, !interface->options.plot_left_to_right, plot_legend);
+    nvtop_line_plot(interface->plots[plot_id].plot_window, interface->plots[plot_id].num_data / num_lines,
+                    interface->plots[plot_id].data, num_lines, interface->options.plot_style,
+                    interface->options.plot_left_to_right, &interface->plots[plot_id].braille, plot_legend);
 
     wnoutrefresh(interface->plots[plot_id].plot_window);
   }

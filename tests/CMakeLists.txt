@@ -12,6 +12,25 @@ if (BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_test(NAME Fdinfo.sweep COMMAND fdinfoTests)
 endif()
 
+# Plot rendering, checked through an off-screen ncurses window. The braille
+# cases need the wide character ncurses API (NVTOP_HAVE_WIDE_CURSES) and a
+# UTF-8 locale; without the API, only the other cases are built.
+if (BUILD_TESTING)
+  add_executable(plotTests plotTests.c ${PROJECT_SOURCE_DIR}/src/plot.c)
+  target_include_directories(plotTests PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/include)
+  # Same feature-test macros as nvtop, which builds plot.c with them.
+  target_compile_definitions(plotTests PRIVATE _GNU_SOURCE)
+  set_property(TARGET plotTests PROPERTY C_STANDARD 11)
+  target_link_libraries(plotTests PRIVATE ncurses m)
+  add_sanitizers(plotTests)
+  # A single test running every case, so a case cannot be left out; failing
+  # cases are named in the output.
+  add_test(NAME Plot COMMAND plotTests)
+  # The braille capability is checked once per run: on its own.
+  add_test(NAME Plot.linux_console COMMAND plotTests linux_console)
+  set_tests_properties(Plot Plot.linux_console PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
 if (BUILD_TESTING AND ENFLAME_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_executable(enflameTests
     enflameTests.c

@@ -82,6 +82,14 @@ In the ``Chart`` section you can choose which metrics are plotted, including GPU
 utilization, temperature, power, clocks, and the **PCIe RX / TX load** (the receive and transmit
 throughput as a percentage of the maximum link bandwidth).
 
+Charts are drawn with Unicode braille dots by default. Each metric of a chart gets its own
+column per update and is always drawn in its own color, so metrics with close values stay
+distinguishable. Uncheck ``Finer plot lines``, use ``--legacy-plot``, or set
+``GraphStyle = legacy`` in the ``[ChartOption]`` section of the configuration file to select the
+legacy line-drawing style. nvtop falls back to it automatically when the locale is not UTF-8,
+on the Linux console, whose fonts have no braille characters, and when nvtop was built
+without wide character support in curses. Press ``F12`` to save the choice.
+
 ![NVTOP Setup Window](/screenshot/Nvtop-config.png)
 
 ### Saving Preferences

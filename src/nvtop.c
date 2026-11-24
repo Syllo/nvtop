@@ -79,6 +79,7 @@ static const char helpstring[] = "Available options:\n"
                                  "domains\n"
                                  "  -E --encode-hide          : Set encode/decode auto hide time in seconds "
                                  "(default 30s, negative = always on screen)\n"
+                                 "  -L --legacy-plot          : Use the legacy ncurses line plot style\n"
                                  "  -h --help                 : Print help and exit\n"
                                  "  -s --snapshot             : Output the current gpu stats without ncurses"
                                  "(useful for scripting)\n"
@@ -115,12 +116,13 @@ static const struct option long_opts[] = {
     {.name = "dynamic-memory-units", .has_arg = no_argument, .flag = NULL, .val = 'u'},
     {.name = "system-memory", .has_arg = no_argument, .flag = NULL, .val = 'M'},
     {.name = "reverse-abs", .has_arg = no_argument, .flag = NULL, .val = 'r'},
+    {.name = "legacy-plot", .has_arg = no_argument, .flag = NULL, .val = 'L'},
     {.name = "snapshot", .has_arg = no_argument, .flag = NULL, .val = 's'},
     {.name = "loop", .has_arg = no_argument, .flag = NULL, .val = 'l'},
     {0, 0, 0, 0},
 };
 
-static const char opts[] = "hvd:c:CfE:pPrislXuM";
+static const char opts[] = "hvd:c:CfE:pPrislXuML";
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -134,6 +136,7 @@ int main(int argc, char **argv) {
   bool hide_processes_option = false;
   bool show_system_memory_option = false;
   bool reverse_plot_direction_option = false;
+  bool legacy_plot_option = false;
   bool encode_decode_timer_option_set = false;
   bool show_gpu_info_bar = false;
   bool show_all_info_bar = false;
@@ -208,6 +211,9 @@ int main(int argc, char **argv) {
       break;
     case 'r':
       reverse_plot_direction_option = true;
+      break;
+    case 'L':
+      legacy_plot_option = true;
       break;
     case 's':
       show_snapshot = true;
@@ -341,6 +347,8 @@ int main(int argc, char **argv) {
   }
   if (reverse_plot_direction_option)
     allDevicesOptions.plot_left_to_right = true;
+  if (legacy_plot_option)
+    allDevicesOptions.plot_style = nvtop_plot_style_line;
   if (use_fahrenheit_option)
     allDevicesOptions.temperature_in_fahrenheit = true;
   if (update_interval_option_set)
