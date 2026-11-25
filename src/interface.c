@@ -397,9 +397,13 @@ static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_posi
   // group may be clipped, so the time axis only counts the groups that fit
   // entirely.
   unsigned long long axis_samples = cols / column_divisor;
-  // Sized for the most samples per line (one metric) and the most lines: the
-  // renderers draw the newest samples they need.
-  plot->num_data = nvtop_plot_braille_samples(cols, 1) * MAX_LINES_PER_PLOT;
+  // Sized for the most samples per line any number of lines takes, for the
+  // most lines: the renderers draw the newest samples they need.
+  size_t max_samples = 0;
+  for (unsigned lines = 1; lines <= MAX_LINES_PER_PLOT; ++lines)
+    if (nvtop_plot_braille_samples(cols, lines) > max_samples)
+      max_samples = nvtop_plot_braille_samples(cols, lines);
+  plot->num_data = max_samples * MAX_LINES_PER_PLOT;
   plot->data = calloc(plot->num_data, sizeof(*plot->data));
   bool braille_ok = nvtop_braille_plot_init(&plot->braille, rows, cols);
   if (!plot->data || !braille_ok) {

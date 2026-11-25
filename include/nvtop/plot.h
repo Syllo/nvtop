@@ -35,8 +35,8 @@
 //
 // A braille cell has a single color. Like the legacy renderer, updates take
 // one character column per metric, so every metric has columns of its own
-// where it is drawn in its own color. The other metrics continue flat
-// through these columns, in the cells the column's metric does not use.
+// where it is drawn in its own color. The other metrics go through these
+// columns, in the cells the column's metric does not use.
 struct nvtop_braille_plot {
   unsigned rows, cols;
   // Scratch: one dot mask per cell for every line.
@@ -52,7 +52,9 @@ void nvtop_braille_plot_free(struct nvtop_braille_plot *plot);
 // characters wide showing num_lines metrics. Every update takes a group of
 // num_lines columns, one per metric; the oldest group may only be partially
 // visible. One more sample is needed than shown: the oldest shown samples are
-// joined to it.
+// joined to it. With several metrics, one more again: whether a line goes
+// straight depends on the strokes of the other metrics' columns it crosses,
+// and for the oldest line these start from that older sample.
 size_t nvtop_plot_braille_samples(unsigned cols, unsigned num_lines);
 
 // braille is only used by the braille renderer and must have been initialized

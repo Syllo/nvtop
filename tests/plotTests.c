@@ -165,8 +165,8 @@ static int test_legend_truncation(void) {
 
 static int test_sample_counts(void) {
   CHECK(nvtop_plot_braille_samples(10, 1) == 11);
-  CHECK(nvtop_plot_braille_samples(10, 3) == 5);
-  CHECK(nvtop_plot_braille_samples(9, 3) == 4);
+  CHECK(nvtop_plot_braille_samples(10, 3) == 6);
+  CHECK(nvtop_plot_braille_samples(9, 3) == 5);
   return EXIT_SUCCESS;
 }
 
@@ -175,8 +175,9 @@ static int test_sample_counts(void) {
 // Braille renderer tests.
 
 // Plot num_shown samples per line given in screen order, sample-major. The
-// renderer also takes the sample preceding the oldest shown one, which is not
-// shown; here it repeats the oldest shown sample.
+// renderer also takes samples preceding the oldest shown one, which are not
+// shown: one here, repeating the oldest shown sample. With several metrics,
+// the renderer takes one more, which it then takes as the oldest one given.
 static void plot_shown(WINDOW *win, struct nvtop_braille_plot *state, size_t num_shown, unsigned num_lines,
                        const double *data, bool newest_left) {
   double extended[(2 * MAX_SAMPLES + 1) * MAX_LINES_PER_PLOT];
@@ -370,9 +371,10 @@ static int test_free_cell_goes_to_nearest_metric(void) {
 
 static int test_column_metric_keeps_its_cells(void) {
   // Two rows of four dots. Line 0 drops from 100 (dot row 0) onto line 1's
-  // level, dot row 4. The bottom cell of line 0's newest column still shows
-  // line 0, so its sample is not drawn as line 1's, and as it lands on line 1
-  // the joining dot column ends on that level too: line 1 has no notch.
+  // level, dot row 4, straight through the free top cell of line 1's column.
+  // The bottom cell of line 0's newest column still shows line 0, so its
+  // sample is not drawn as line 1's, and as it lands on line 1 the joining dot
+  // column ends on that level too: line 1 has no notch.
   enum { rows = 2, cols = 4 };
   WINDOW *win = newwin(rows, cols, 0, 0);
   struct nvtop_braille_plot state;
@@ -380,8 +382,9 @@ static int test_column_metric_keeps_its_cells(void) {
   const double older[] = {100, 43};
   const double newest[] = {43, 43};
   render_steps(win, &state, cols / 2, 2, older, newest, false);
+  CHECK(cell_pair(win, 0, 1) == PAIR_LINE0 && cell_char(win, 0, 1) == glyph(0x22));
   CHECK(cell_pair(win, 1, 2) == PAIR_LINE0 && cell_char(win, 1, 2) == glyph(0x09));
-  CHECK(cell_pair(win, 0, 2) == PAIR_LINE0 && cell_char(win, 0, 2) == glyph(0x46));
+  CHECK(cell_pair(win, 0, 2) == PAIR_LINE0 && cell_char(win, 0, 2) == glyph(0x40));
   nvtop_braille_plot_free(&state);
   delwin(win);
   return EXIT_SUCCESS;
@@ -425,27 +428,139 @@ static int test_climb_leaves_other_line(void) {
   return EXIT_SUCCESS;
 }
 
-// Other metrics continue through a column at their level when it comes in
-// time: before their own column of the update, the previous one; after it, the
-// new one. Two rows of four dots: line 0 is flat at 100, line 1 climbs from 0
-// (dot row 7) to 40 (dot row 4) in the newest update.
-static int test_continuation_level(void) {
+// Between two samples, a metric goes straight through the columns of the
+// other metrics. Two rows of four dots: line 0 is flat at 100, line 1 climbs
+// from 0 (dot row 7) to 40 (dot row 4) in the newest update.
+static int test_straight_between_samples(void) {
   enum { rows = 2, cols = 4 };
   WINDOW *win = newwin(rows, cols, 0, 0);
   struct nvtop_braille_plot state;
   CHECK(nvtop_braille_plot_init(&state, rows, cols));
   const double older[] = {100, 0};
   const double newest[] = {100, 40};
-  // Newest on the right: line 0's column comes first, line 1 is still at 0.
+  // Newest on the right: line 1 starts climbing in line 0's column, then
+  // joins its sample in its own column.
   render_steps(win, &state, cols / 2, 2, older, newest, false);
-  CHECK(cell_pair(win, 1, 2) == PAIR_LINE1 && cell_char(win, 1, 2) == glyph(0xc0));
-  CHECK(cell_pair(win, 1, 3) == PAIR_LINE1 && cell_char(win, 1, 3) == glyph(0x0e));
+  CHECK(cell_pair(win, 1, 2) == PAIR_LINE1 && cell_char(win, 1, 2) == glyph(0x60));
+  CHECK(cell_pair(win, 1, 3) == PAIR_LINE1 && cell_char(win, 1, 3) == glyph(0x0a));
   CHECK(cell_pair(win, 0, 3) == PAIR_LINE0 && cell_char(win, 0, 3) == glyph(0x09));
-  // Newest on the left: line 1's column (further from the newest data) comes
-  // first, so line 1 is already at 40 in line 0's column.
+  // Newest on the left: the same, mirrored. Line 1 continues flat after its
+  // newest sample, through line 0's newest column.
   render_steps(win, &state, cols / 2, 2, older, newest, true);
+  CHECK(cell_pair(win, 1, 2) == PAIR_LINE1 && cell_char(win, 1, 2) == glyph(0x84));
+  CHECK(cell_pair(win, 1, 1) == PAIR_LINE1 && cell_char(win, 1, 1) == glyph(0x11));
   CHECK(cell_pair(win, 1, 0) == PAIR_LINE1 && cell_char(win, 1, 0) == glyph(0x09));
-  CHECK(cell_pair(win, 1, 1) == PAIR_LINE1 && cell_char(win, 1, 1) == glyph(0x31));
+  nvtop_braille_plot_free(&state);
+  delwin(win);
+  return EXIT_SUCCESS;
+}
+
+// Where a straight line would be hidden by the column's metric, the metric
+// continues flat and drops in its own column. Two rows of four dots: line 0
+// drops from 100 (dot row 0) to 0 (dot row 7), line 1 is flat at 0. Straight,
+// line 0 would go through line 1's bottom cell; flat, it goes through the free
+// top cell.
+static int test_straight_falls_back_to_flat(void) {
+  enum { rows = 2, cols = 4 };
+  WINDOW *win = newwin(rows, cols, 0, 0);
+  struct nvtop_braille_plot state;
+  CHECK(nvtop_braille_plot_init(&state, rows, cols));
+  const double older[] = {100, 0};
+  const double newest[] = {0, 0};
+  render_steps(win, &state, cols / 2, 2, older, newest, false);
+  CHECK(cell_pair(win, 0, 1) == PAIR_LINE0 && cell_char(win, 0, 1) == glyph(0x09));
+  CHECK(cell_pair(win, 1, 1) == PAIR_LINE1 && cell_char(win, 1, 1) == glyph(0xc0));
+  CHECK(cell_pair(win, 0, 2) == PAIR_LINE0 && cell_char(win, 0, 2) == glyph(0x46));
+  CHECK(cell_pair(win, 1, 2) == PAIR_LINE0 && cell_char(win, 1, 2) == glyph(0xc7));
+  // Line 1 flat at 72 (dot row 2): straight or flat, line 0 is hidden in line
+  // 1's top cell for two dots. Smoothing then loses nothing: line 0 arrives at
+  // dot row 2 in its own column, attached to line 1.
+  const double older_high[] = {100, 72};
+  const double newest_high[] = {43, 72};
+  render_steps(win, &state, cols / 2, 2, older_high, newest_high, false);
+  CHECK(cell_pair(win, 0, 1) == PAIR_LINE1 && cell_char(win, 0, 1) == glyph(0x24));
+  CHECK(cell_pair(win, 0, 2) == PAIR_LINE0 && cell_char(win, 0, 2) == glyph(0x44));
+  nvtop_braille_plot_free(&state);
+  delwin(win);
+  return EXIT_SUCCESS;
+}
+
+// A steep straight line is drawn where it is not hidden. Three rows of four
+// dots: line 0 drops from 100 (dot row 0) to 0 (dot row 11), line 1 is flat
+// at 0. Line 0 goes straight through the free top and middle cells of line
+// 1's column.
+static int test_straight_steep(void) {
+  enum { rows = 3, cols = 4 };
+  WINDOW *win = newwin(rows, cols, 0, 0);
+  struct nvtop_braille_plot state;
+  CHECK(nvtop_braille_plot_init(&state, rows, cols));
+  const double older[] = {100, 0};
+  const double newest[] = {0, 0};
+  render_steps(win, &state, cols / 2, 2, older, newest, false);
+  CHECK(cell_pair(win, 0, 1) == PAIR_LINE0 && cell_char(win, 0, 1) == glyph(0x46));
+  CHECK(cell_pair(win, 1, 1) == PAIR_LINE0 && cell_char(win, 1, 1) == glyph(0x38));
+  CHECK(cell_pair(win, 1, 2) == PAIR_LINE0 && cell_char(win, 1, 2) == glyph(0x40));
+  nvtop_braille_plot_free(&state);
+  delwin(win);
+  return EXIT_SUCCESS;
+}
+
+// Hidden for more dots straight than flat, a line continues flat even where
+// the flat line is entirely hidden: its drop then starts from its level in its
+// own column, rather than below the line hiding it. Three rows of four dots:
+// line 0 drops from 100 (dot row 0) to 0 (dot row 11), line 1 is flat at 82
+// (dot row 2), in the top cells.
+static int test_straight_hidden_keeps_drop_start(void) {
+  enum { rows = 3, cols = 4 };
+  WINDOW *win = newwin(rows, cols, 0, 0);
+  struct nvtop_braille_plot state;
+  CHECK(nvtop_braille_plot_init(&state, rows, cols));
+  const double older[] = {100, 82};
+  const double newest[] = {0, 82};
+  render_steps(win, &state, cols / 2, 2, older, newest, false);
+  CHECK(cell_pair(win, 0, 1) == PAIR_LINE1 && cell_char(win, 0, 1) == glyph(0x24));
+  CHECK(cell_pair(win, 0, 2) == PAIR_LINE0 && cell_char(win, 0, 2) == glyph(0x46));
+  CHECK(cell_pair(win, 1, 2) == PAIR_LINE0 && cell_char(win, 1, 2) == glyph(0x47));
+  CHECK(cell_pair(win, 2, 2) == PAIR_LINE0 && cell_char(win, 2, 2) == glyph(0x87));
+  nvtop_braille_plot_free(&state);
+  delwin(win);
+  return EXIT_SUCCESS;
+}
+
+// Whether a straight line would be hidden does not depend on how the column's
+// metric arrives: its join is assumed flat, the longest. Three rows of four
+// dots: line 1 drops from 50 (dot row 6) to 0 (dot row 11) in its column 3,
+// where line 0 goes from 100 (dot row 0) towards 0. Straight, line 0 would go
+// through the middle cell, which line 1 would use arriving flat, so line 0
+// continues flat.
+static int test_straight_assumes_flat_joins(void) {
+  enum { rows = 3, cols = 6 };
+  WINDOW *win = newwin(rows, cols, 0, 0);
+  struct nvtop_braille_plot state;
+  CHECK(nvtop_braille_plot_init(&state, rows, cols));
+  const double data[] = {100, 50, 100, 0, 0, 0};
+  plot_shown(win, &state, cols / 2, 2, data, false);
+  CHECK(cell_pair(win, 0, 3) == PAIR_LINE0 && cell_char(win, 0, 3) == glyph(0x09));
+  CHECK(cell_pair(win, 0, 4) == PAIR_LINE0 && cell_char(win, 0, 4) == glyph(0x46));
+  CHECK(cell_pair(win, 1, 4) == PAIR_LINE0 && cell_char(win, 1, 4) == glyph(0x47));
+  nvtop_braille_plot_free(&state);
+  delwin(win);
+  return EXIT_SUCCESS;
+}
+
+// The assumed join of the column's metric starts after its previous level.
+// Three rows of four dots: line 1 climbs from 64 (dot row 4, the middle cell's
+// first) to 100 in its column 3, so it may only use the top cell there, and
+// line 0 climbs from 0 (dot row 11) to 100 straight through the middle cell.
+static int test_straight_join_after_previous_level(void) {
+  enum { rows = 3, cols = 6 };
+  WINDOW *win = newwin(rows, cols, 0, 0);
+  struct nvtop_braille_plot state;
+  CHECK(nvtop_braille_plot_init(&state, rows, cols));
+  const double data[] = {0, 64, 0, 100, 100, 100};
+  plot_shown(win, &state, cols / 2, 2, data, false);
+  CHECK(cell_pair(win, 1, 3) == PAIR_LINE0 && cell_char(win, 1, 3) == glyph(0xa0));
+  CHECK(cell_pair(win, 2, 3) == PAIR_LINE0 && cell_char(win, 2, 3) == glyph(0x0e));
   nvtop_braille_plot_free(&state);
   delwin(win);
   return EXIT_SUCCESS;
@@ -582,8 +697,11 @@ static int check_scroll_stability(unsigned lines, int rows, int cols, bool newes
       for (int y = 0; y < rows; ++y) {
         for (int x = 0; x < cols; ++x) {
           int old_x = x - shift;
-          // Columns of the newest group, or only partially visible before.
-          bool newest = newest_left ? x < (int)lines : x >= cols - (int)lines;
+          // Columns of the newest group and, with several metrics, of the
+          // previous newest group: there, the lines towards the newest samples
+          // replace the flat ends of the lines.
+          int changing = (lines > 1 ? 2 : 1) * (int)lines;
+          bool newest = newest_left ? x < changing : x >= cols - changing;
           if (newest || old_x < 0 || old_x >= cols || in_legend(y, x, lines, rows, cols, newest_left) ||
               in_legend(y, old_x, lines, rows, cols, newest_left))
             continue;
@@ -609,7 +727,7 @@ static int check_scroll_stability_geometries(bool newest_left) {
   static const struct {
     unsigned lines;
     int rows, cols;
-  } geometries[] = {{1, 2, 9}, {2, 4, 23}, {2, 1, 5}, {3, 3, 24}, {3, 5, 26}, {4, 3, 25}, {4, 2, 23}, {4, 4, 40}};
+  } geometries[] = {{1, 2, 9}, {2, 4, 23}, {2, 1, 7}, {3, 3, 24}, {3, 5, 26}, {4, 3, 25}, {4, 2, 23}, {4, 4, 40}};
   for (size_t i = 0; i < sizeof(geometries) / sizeof(*geometries); ++i)
     if (check_scroll_stability(geometries[i].lines, geometries[i].rows, geometries[i].cols, newest_left) !=
         EXIT_SUCCESS)
@@ -646,7 +764,12 @@ static const struct test_case tests[] = {
     {"column_metric_keeps_its_cells", test_column_metric_keeps_its_cells},
     {"climb_crosses_flat_line", test_climb_crosses_flat_line},
     {"climb_leaves_other_line", test_climb_leaves_other_line},
-    {"continuation_level", test_continuation_level},
+    {"straight_between_samples", test_straight_between_samples},
+    {"straight_falls_back_to_flat", test_straight_falls_back_to_flat},
+    {"straight_steep", test_straight_steep},
+    {"straight_hidden_keeps_drop_start", test_straight_hidden_keeps_drop_start},
+    {"straight_assumes_flat_joins", test_straight_assumes_flat_joins},
+    {"straight_join_after_previous_level", test_straight_join_after_previous_level},
     {"partial_group", test_partial_group},
     {"partial_group_newest_left", test_partial_group_newest_left},
     {"three_metrics", test_three_metrics},

@@ -244,6 +244,119 @@ static int braille_sample_row(const double *data, size_t num_samples, unsigned n
   return (int)plot_value_to_dot_row(data[sample * num_lines + line], dot_rows);
 }
 
+// Metric whose samples character column col draws: groups of num_lines columns
+// start at the newest edge.
+static unsigned braille_column_line(int col, int cols, unsigned num_lines, bool newest_left) {
+  int from_newest_group = newest_left ? col : col - cols;
+  return (unsigned)((from_newest_group % (int)num_lines + (int)num_lines) % (int)num_lines);
+}
+
+// Geometry and data of a plot being drawn.
+struct braille_canvas {
+  uint8_t *masks;
+  unsigned rows, cols, num_lines, dot_rows;
+  bool newest_left;
+  const double *data;
+  size_t num_samples;
+  // Character columns drawn: the groups having their samples.
+  int first_col, last_col;
+};
+
+// Whether dot column x is in the drawn columns.
+static inline bool braille_canvas_has(const struct braille_canvas *canvas, int x) {
+  return x >= 0 && x / BRAILLE_CELL_COLS >= canvas->first_col && x / BRAILLE_CELL_COLS <= canvas->last_col;
+}
+
+// Level a straight line from y_prev to y_new is at when it leaves the columns
+// of the other metrics, entering the line's own column.
+static inline int braille_straight_level(int y_prev, int y_new, unsigned num_lines) {
+  return (int)lround(y_prev + (double)(y_new - y_prev) * (num_lines - 1) / num_lines);
+}
+
+// First dot of the join from y_from to y_new in the joining dot column.
+static inline int braille_join_start(int y_from, int y_new) {
+  if (abs(y_new - y_from) <= 1)
+    return y_from;
+  return y_from + (y_from < y_new ? 1 : -1);
+}
+
+// Whether the metric of character column col (possibly outside the window) may
+// use the cell holding dot row y there: between the start of its join when it
+// arrives flat and its sample. Arriving straight, its join is within. Only
+// depends on the samples, so the choice of a line does not depend on the
+// choices of the others, nor on what is visible.
+static bool braille_owner_may_use(const struct braille_canvas *canvas, int col, int y) {
+  unsigned n = canvas->num_lines;
+  unsigned owner = braille_column_line(col, (int)canvas->cols, n, canvas->newest_left);
+  size_t age = (size_t)(canvas->newest_left ? col : (int)canvas->cols - 1 - col) / n;
+  int y_new =
+      braille_sample_row(canvas->data, canvas->num_samples, n, canvas->newest_left, canvas->dot_rows, age, owner);
+  int y_prev =
+      braille_sample_row(canvas->data, canvas->num_samples, n, canvas->newest_left, canvas->dot_rows, age + 1, owner);
+  int start = braille_join_start(y_prev, y_new);
+  int lo = (start < y_new ? start : y_new) / BRAILLE_CELL_ROWS;
+  int hi = (start < y_new ? y_new : start) / BRAILLE_CELL_ROWS;
+  int row = y / BRAILLE_CELL_ROWS;
+  return row >= lo && row <= hi;
+}
+
+// Set dot (x, y) of `line` if drawing, else count it when the metric of its
+// column may use its cell: there, it would be hidden.
+static unsigned braille_path_dot(struct braille_canvas *canvas, unsigned line, int x, int y, bool draw) {
+  if (draw) {
+    if (braille_canvas_has(canvas, x))
+      braille_set_dot(canvas->masks, canvas->rows, canvas->cols, line, x, y);
+    return 0;
+  }
+  int col = x >= 0 ? x / BRAILLE_CELL_COLS : -1 - (-1 - x) / BRAILLE_CELL_COLS;
+  return braille_owner_may_use(canvas, col, y) ? 1 : 0;
+}
+
+// Path of `line` through the dot columns of the other metrics, between its
+// sample at dot column x_from (level y_from) and its next own column, where it
+// arrives at y_to. Straight when smooth, else flat at y_from. Draws the path or
+// returns the number of its dots that would be hidden.
+static unsigned braille_path(struct braille_canvas *canvas, unsigned line, int x_from, int y_from, int y_to,
+                             bool smooth, bool draw) {
+  int dir = canvas->newest_left ? -1 : 1;
+  // The dot columns of the other metrics.
+  int span = 2 * (int)canvas->num_lines - 2;
+  unsigned hidden = 0;
+  int last = y_from;
+  for (int i = 1; i <= span; ++i) {
+    int x = x_from + dir * i;
+    int y = smooth ? (int)lround(y_from + (double)(y_to - y_from) * i / span) : y_from;
+    int step = y > last ? 1 : -1;
+    for (int dot = abs(y - last) > 1 ? last + step : y;; dot += step) {
+      hidden += braille_path_dot(canvas, line, x, dot, draw);
+      if (dot == y)
+        break;
+    }
+    last = y;
+  }
+  return hidden;
+}
+
+// Level `line` arrives at in its own character column col, drawing the sample
+// taken `age` updates ago: straight towards the sample, or flat at the
+// previous one where a straight line may be hidden more than a flat one.
+static int braille_arrival_level(struct braille_canvas *canvas, int col, unsigned line, size_t age) {
+  unsigned n = canvas->num_lines;
+  int y_prev =
+      braille_sample_row(canvas->data, canvas->num_samples, n, canvas->newest_left, canvas->dot_rows, age + 1, line);
+  int y_new =
+      braille_sample_row(canvas->data, canvas->num_samples, n, canvas->newest_left, canvas->dot_rows, age, line);
+  int y_straight = braille_straight_level(y_prev, y_new, n);
+  if (n == 1 || y_straight == y_prev)
+    return y_prev;
+  // The line's previous sample, in its previous own column.
+  int dir = canvas->newest_left ? -1 : 1;
+  int x_prev = col * BRAILLE_CELL_COLS + (canvas->newest_left ? 0 : 1) - dir * (int)n * BRAILLE_CELL_COLS;
+  bool smooth = braille_path(canvas, line, x_prev, y_prev, y_straight, true, false) <=
+                braille_path(canvas, line, x_prev, y_prev, y_prev, false, false);
+  return smooth ? y_straight : y_prev;
+}
+
 // Draw the plot using Unicode braille patterns. Each character cell provides a
 // 2x4 dot matrix, i.e. eight times more detail than a regular character.
 //
@@ -252,17 +365,21 @@ static int braille_sample_row(const double *data, size_t num_samples, unsigned n
 // drawing the sample of metric k. The newest group is at the edge of the
 // newest data, the oldest one may be cut by the other edge. In its column, a
 // metric's sample is on the dot column facing the newest data and the other
-// dot column joins it to the metric's previous sample (on the level of the
-// previous sample for a one dot climb). The other metrics continue flat
-// through the column: at their new level if their own column of the group
-// comes earlier in time, else at their previous level.
+// dot column joins it to where the metric arrives from (on that level for a one
+// dot climb).
+//
+// Between two of its columns, a metric goes through the columns of the other
+// metrics in a straight line towards its next sample. Where the line may be
+// hidden by the columns' metrics more than a flat one, the metric continues
+// flat at its previous level and joins its next sample in its own column
+// instead. After its newest sample, a metric continues flat to the newest edge.
 //
 // A cell only shows the dots of one metric, in its color, so no metric is ever
 // drawn in the color of another one. It is the column's metric when it has
 // dots there, so a metric's samples are always shown. Otherwise, it is the
-// metric continuing through the cell whose own column is the nearest (the
-// earlier one in time on a tie), so that a row shared by several metrics is
-// evenly split between them. Crossing a climb, a flat line has a one cell gap.
+// metric going through the cell whose own column is the nearest (the earlier
+// one in time on a tie), so that a row shared by several metrics is evenly
+// split between them. Crossing a climb, a flat line has a one cell gap.
 // Columns move as a whole when the graph scrolls.
 static void nvtop_line_plot_braille(WINDOW *win, size_t num_samples, const double *data, unsigned num_lines, int rows,
                                     int cols, bool newest_left, struct nvtop_braille_plot *state) {
@@ -276,57 +393,78 @@ static void nvtop_line_plot_braille(WINDOW *win, size_t num_samples, const doubl
   unsigned groups = ((unsigned)cols + num_lines - 1) / num_lines;
   if (num_samples <= groups)
     groups = num_samples > 1 ? (unsigned)(num_samples - 1) : 1;
+  struct braille_canvas canvas = {.masks = masks,
+                                  .rows = (unsigned)rows,
+                                  .cols = (unsigned)cols,
+                                  .num_lines = num_lines,
+                                  .dot_rows = dot_rows,
+                                  .newest_left = newest_left,
+                                  .data = data,
+                                  .num_samples = num_samples,
+                                  .first_col = 0,
+                                  .last_col = cols - 1};
+  if (newest_left)
+    canvas.last_col = (int)(groups * num_lines) - 1;
+  else
+    canvas.first_col = cols - (int)(groups * num_lines);
+  // Dot column direction towards the newest data.
+  int dir = newest_left ? -1 : 1;
 
   for (unsigned group = 0; group < groups; ++group) {
-    for (unsigned column_line = 0; column_line < num_lines; ++column_line) {
-      int col = newest_left ? (int)(group * num_lines + column_line)
-                            : cols - (int)((group + 1) * num_lines) + (int)column_line;
+    for (unsigned line = 0; line < num_lines; ++line) {
+      int col = newest_left ? (int)(group * num_lines + line) : cols - (int)((group + 1) * num_lines) + (int)line;
       if (col < 0 || col >= cols)
         continue;
       // Dot columns of the cell, towards the newest data and away from it.
       int x_new = col * BRAILLE_CELL_COLS + (newest_left ? 0 : 1);
-      int x_old = col * BRAILLE_CELL_COLS + (newest_left ? 1 : 0);
-      // Levels of the column's metric: previous and new samples.
-      int y_prev = braille_sample_row(data, num_samples, num_lines, newest_left, dot_rows, group + 1, column_line);
-      int y_new = braille_sample_row(data, num_samples, num_lines, newest_left, dot_rows, group, column_line);
-      for (unsigned line = 0; line < num_lines; ++line) {
-        if (line == column_line) {
-          if (abs(y_new - y_prev) > 1) {
-            int step = y_prev < y_new ? 1 : -1;
-            braille_set_vertical(masks, (unsigned)rows, (unsigned)cols, line, x_old, y_prev + step, y_new - step);
-          } else {
-            braille_set_dot(masks, (unsigned)rows, (unsigned)cols, line, x_old, y_prev);
-          }
-          braille_set_dot(masks, (unsigned)rows, (unsigned)cols, line, x_new, y_new);
-        } else {
-          // Columns follow the time order towards the newest data: the line's
-          // own column of the group comes first when it is further away.
-          bool updated = newest_left ? line > column_line : line < column_line;
-          int y = braille_sample_row(data, num_samples, num_lines, newest_left, dot_rows, updated ? group : group + 1,
-                                     line);
-          braille_set_dot(masks, (unsigned)rows, (unsigned)cols, line, x_old, y);
-          braille_set_dot(masks, (unsigned)rows, (unsigned)cols, line, x_new, y);
-        }
-      }
-      // The column's metric owns its cells, so another line crossing them is
-      // hidden there. Where that line is on one end of the join, draw the end
-      // in the joining dot column as well: landing on another line, the line
-      // keeps its shape instead of losing a dot; leaving one from a cell the
-      // stroke already uses, the stroke stays attached to it.
-      if (y_new != y_prev &&
-          braille_other_line_dot(masks, (unsigned)rows, (unsigned)cols, num_lines, column_line, x_old, y_new))
-        braille_set_dot(masks, (unsigned)rows, (unsigned)cols, column_line, x_old, y_new);
-      if (abs(y_new - y_prev) > 1 &&
-          braille_cell_is_used(masks, (unsigned)rows, (unsigned)cols, column_line, x_old, y_prev) &&
-          braille_other_line_dot(masks, (unsigned)rows, (unsigned)cols, num_lines, column_line, x_old, y_prev))
-        braille_set_dot(masks, (unsigned)rows, (unsigned)cols, column_line, x_old, y_prev);
+      int x_old = x_new - dir;
+      // The line's previous sample, in its previous own column.
+      int x_prev = x_new - dir * (int)num_lines * BRAILLE_CELL_COLS;
+      int y_prev = braille_sample_row(data, num_samples, num_lines, newest_left, dot_rows, group + 1, line);
+      int y_new = braille_sample_row(data, num_samples, num_lines, newest_left, dot_rows, group, line);
+      int y_from = braille_arrival_level(&canvas, col, line, group);
+      braille_path(&canvas, line, x_prev, y_prev, y_from, y_from != y_prev, true);
+      // The join in the own column.
+      int join_start = braille_join_start(y_from, y_new);
+      int join_end = abs(y_new - y_from) > 1 ? y_new + (y_from < y_new ? -1 : 1) : join_start;
+      braille_set_vertical(masks, (unsigned)rows, (unsigned)cols, line, x_old, join_start, join_end);
+      braille_set_dot(masks, (unsigned)rows, (unsigned)cols, line, x_new, y_new);
     }
+  }
+  // After their newest sample, the metrics continue flat to the newest edge.
+  for (unsigned line = 0; line < num_lines; ++line) {
+    int col = newest_left ? (int)line : cols - (int)num_lines + (int)line;
+    int later_cols = newest_left ? (int)line : (int)num_lines - 1 - (int)line;
+    int x_new = col * BRAILLE_CELL_COLS + (newest_left ? 0 : 1);
+    int y = braille_sample_row(data, num_samples, num_lines, newest_left, dot_rows, 0, line);
+    for (int i = 1; i <= later_cols * BRAILLE_CELL_COLS; ++i)
+      braille_path_dot(&canvas, line, x_new + dir * i, y, true);
+  }
+
+  // The column's metric owns its cells, so another line going through them is
+  // hidden there. Where that line is on one end of the join, draw the end in
+  // the joining dot column as well: landing on another line, the line keeps its
+  // shape instead of losing a dot; leaving one from a cell the stroke already
+  // uses, the stroke stays attached to it. These dots are in cells the column's
+  // metric already uses.
+  for (int col = canvas.first_col; col <= canvas.last_col; ++col) {
+    if (col < 0 || col >= cols)
+      continue;
+    unsigned line = braille_column_line(col, cols, num_lines, newest_left);
+    size_t age = (size_t)(newest_left ? col : cols - 1 - col) / num_lines;
+    int x_new = col * BRAILLE_CELL_COLS + (newest_left ? 0 : 1);
+    int x_old = x_new - dir;
+    int y_new = braille_sample_row(data, num_samples, num_lines, newest_left, dot_rows, age, line);
+    int y_from = braille_arrival_level(&canvas, col, line, age);
+    if (y_new != y_from && braille_other_line_dot(masks, (unsigned)rows, (unsigned)cols, num_lines, line, x_old, y_new))
+      braille_set_dot(masks, (unsigned)rows, (unsigned)cols, line, x_old, y_new);
+    if (abs(y_new - y_from) > 1 && braille_cell_is_used(masks, (unsigned)rows, (unsigned)cols, line, x_old, y_from) &&
+        braille_other_line_dot(masks, (unsigned)rows, (unsigned)cols, num_lines, line, x_old, y_from))
+      braille_set_dot(masks, (unsigned)rows, (unsigned)cols, line, x_old, y_from);
   }
 
   for (int col = 0; col < cols; ++col) {
-    // Metric whose samples the column draws: groups start at the newest edge.
-    int from_newest_group = newest_left ? col : col - cols;
-    unsigned column_line = (unsigned)((from_newest_group % (int)num_lines + (int)num_lines) % (int)num_lines);
+    unsigned column_line = braille_column_line(col, cols, num_lines, newest_left);
     // The other metrics by preference: the nearest own column first, then the
     // metric whose own column of the group came earlier in time.
     unsigned order[MAX_LINES_PER_PLOT];
@@ -380,7 +518,9 @@ void nvtop_braille_plot_free(struct nvtop_braille_plot *plot) {
 size_t nvtop_plot_braille_samples(unsigned cols, unsigned num_lines) {
   if (num_lines == 0)
     num_lines = 1;
-  return ((size_t)cols + num_lines - 1) / num_lines + 1;
+  // With several metrics, one more: the strokes of the other metrics' columns
+  // the oldest line crosses start from the sample before.
+  return ((size_t)cols + num_lines - 1) / num_lines + (num_lines > 1 ? 2 : 1);
 }
 
 // The locale is set once at startup (before any drawing), so the capability
