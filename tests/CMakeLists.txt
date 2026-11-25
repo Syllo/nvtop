@@ -219,3 +219,16 @@ if(BUILD_TESTING AND AMD_NPU_SUPPORT)
     add_test(NAME Amdxdna.${test_case} COMMAND amdxdnaTests ${test_case})
   endforeach()
 endif()
+
+# The test target only runs the test programs. check builds the ones of this
+# directory first, then runs them all, for the configuration being built
+# (multi-configuration generators need it).
+if (BUILD_TESTING)
+  get_property(test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+  add_custom_target(check
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure "$<$<BOOL:$<CONFIG>>:-C;$<CONFIG>>"
+    COMMAND_EXPAND_LISTS
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    USES_TERMINAL)
+  add_dependencies(check ${test_targets})
+endif()
