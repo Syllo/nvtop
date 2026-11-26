@@ -378,6 +378,12 @@ static const char *total_cycles_keys[] = {xe_drm_intel_total_cycles_rcs, xe_drm_
                                           xe_drm_intel_total_cycles_vecs, xe_drm_intel_total_cycles_bcs,
                                           xe_drm_intel_total_cycles_ccs};
 
+// Number of engines of a class, when there is more than one. drm-cycles adds
+// up the busy cycles of all the engines of the class, so the load of the class
+// is divided by its capacity, as gputop (igt-gpu-tools) does.
+static const char *capacity_keys[] = {"drm-engine-capacity-rcs", "drm-engine-capacity-vcs", "drm-engine-capacity-vecs",
+                                      "drm-engine-capacity-bcs", "drm-engine-capacity-ccs"};
+
 bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct gpu_process *process_info) {
   struct gpu_info_intel *gpu_info = container_of(info, struct gpu_info_intel, base);
   static char *line = NULL;
@@ -392,6 +398,9 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
   union intel_cycles gpu_cycles = {.array = {0}};
 
   union intel_cycles total_cycles = {.array = {0}};
+
+  // A class without a capacity key has a single engine
+  union intel_cycles capacity = {.array = {1, 1, 1, 1, 1}};
 
   while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
     char *key, *val;
@@ -449,6 +458,15 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
             total_cycles.array[i] = cycles;
           }
         }
+
+        // Check for the number of engines of a class (zero is not allowed)
+        for (unsigned i = 0; i < ARRAY_SIZE(capacity_keys); i++) {
+          if (!strcmp(key, capacity_keys[i])) {
+            unsigned long long engines = strtoull(val, &endptr, 10);
+            if (endptr != val && !*endptr && engines > 0)
+              capacity.array[i] = engines;
+          }
+        }
       }
     }
   }
@@ -482,22 +500,28 @@ bool parse_drm_fdinfo_intel_xe(struct gpu_info *info, FILE *fdinfo_file, struct 
     {
       uint64_t cycles_delta = gpu_cycles.rcs - cache_entry->gpu_cycles.rcs;
       uint64_t total_cycles_delta = total_cycles.rcs - cache_entry->total_cycles.rcs;
+      // The GPU timestamp of a working device always advances: no total cycles
+      // means the kernel does not report them, as for the clients of a VF
       if (total_cycles_delta > 0)
-        SET_GPUINFO_PROCESS(process_info, gpu_usage, cycles_delta * 100 / total_cycles_delta);
-      else
-        SET_GPUINFO_PROCESS(process_info, gpu_usage, 0);
+        SET_GPUINFO_PROCESS(process_info, gpu_usage, cycles_delta * 100 / (total_cycles_delta * capacity.rcs));
     }
     {
       uint64_t cycles_delta = gpu_cycles.ccs - cache_entry->gpu_cycles.ccs;
       uint64_t total_cycles_delta = total_cycles.ccs - cache_entry->total_cycles.ccs;
-      if (total_cycles_delta > 0)
-        SET_GPUINFO_PROCESS(process_info, gpu_usage, process_info->gpu_usage + cycles_delta * 100 / total_cycles_delta);
+      if (total_cycles_delta > 0) {
+        // Render and compute engines feed the same render/compute unit and can be
+        // busy at the same time, which their sum would count twice. The busier of
+        // the two is the least time either had work, so it never overstates.
+        uint64_t compute_usage = cycles_delta * 100 / (total_cycles_delta * capacity.ccs);
+        if (!GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage) || compute_usage > process_info->gpu_usage)
+          SET_GPUINFO_PROCESS(process_info, gpu_usage, compute_usage);
+      }
     }
     {
       uint64_t cycles_delta = gpu_cycles.vcs - cache_entry->gpu_cycles.vcs;
       uint64_t total_cycles_delta = total_cycles.vcs - cache_entry->total_cycles.vcs;
       if (total_cycles_delta > 0)
-        SET_GPUINFO_PROCESS(process_info, decode_usage, cycles_delta * 100 / total_cycles_delta);
+        SET_GPUINFO_PROCESS(process_info, decode_usage, cycles_delta * 100 / (total_cycles_delta * capacity.vcs));
     }
 
   } else {
