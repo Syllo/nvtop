@@ -164,7 +164,17 @@ struct nvtop_interface {
   interface_ring_buffer saved_data_ring;
   struct setup_window setup_win;
   bool colors_initialized; // Colors were set up at startup (changing the option needs a restart)
+  // SR-IOV root device number of each device, indexed like
+  // options.gpu_specific_opts (see interface_compute_sriov_roots()).
+  // NULL when there is no SR-IOV VF.
+  int *sriov_root;
+  bool has_monitored_sriov_vf; // At least one monitored device is an SR-IOV VF
 };
+
+// SR-IOV root device number of the device gpu_specific_opts[opts_idx]
+static inline int interface_sriov_root(const struct nvtop_interface *interface, unsigned opts_idx) {
+  return interface->sriov_root ? interface->sriov_root[opts_idx] : SRIOV_ROOT_NONE;
+}
 
 // Whether the graphical meter style can actually be drawn. The meters only use
 // the 8 ANSI colors, so they need the colors set up at startup, at least 8

@@ -792,9 +792,32 @@ static void draw_setup_window_gpu_select(struct nvtop_interface *interface) {
   mvwchgat(interface->setup_win.single, 0, cur_col, maxcols - cur_col, A_STANDOUT, green_color, NULL);
 
   for (unsigned devId = 0; devId < interface->total_dev_count; ++devId) {
-    mvwprintw(interface->setup_win.single, devId + 1, 0, "[%c] %s",
-              option_state_char(!interface->options.gpu_specific_opts[devId].doNotMonitor),
-              interface->options.gpu_specific_opts[devId].linkedGpu->static_info.device_name);
+    const struct gpu_info *gpu = interface->options.gpu_specific_opts[devId].linkedGpu;
+    // Keep each row within the window (minus the last column, where ncurses
+    // would wrap the cursor) so a long row does not spill onto the next one
+    int row_width = (int)maxcols - 1;
+    if (row_width <= 0)
+      break;
+    char row[256];
+    snprintf(row, sizeof(row), "[%c] %s", option_state_char(!interface->options.gpu_specific_opts[devId].doNotMonitor),
+             gpu->static_info.device_name);
+    wmove(interface->setup_win.single, devId + 1, 0);
+    waddnstr(interface->setup_win.single, row, row_width);
+    // The SR-IOV details with the PCI addresses, which tell identical cards apart.
+    // The negative number of a PF that is not monitored matches the device
+    // headers and the PF column of the process list.
+    int used = (int)strlen(row);
+    if ((gpu->sriov_vf || gpu->sriov_pf) && used < row_width) {
+      char sriov[64];
+      int len = gpu->sriov_vf ? snprintf(sriov, sizeof(sriov), " VF%u of %s", gpu->sriov_vf_index, gpu->sriov_pf_pdev)
+                              : snprintf(sriov, sizeof(sriov), " PF %s", gpu->pdev);
+      int root = interface_sriov_root(interface, devId);
+      if (root < 0 && root != SRIOV_ROOT_NONE && len < (int)sizeof(sriov))
+        snprintf(sriov + len, sizeof(sriov) - len, " (%d)", root);
+      wcolor_set(interface->setup_win.single, magenta_color, NULL);
+      waddnstr(interface->setup_win.single, sriov, row_width - used);
+      wstandend(interface->setup_win.single);
+    }
     if (interface->setup_win.indentation_level == 1 && interface->setup_win.options_selected[0] == devId)
       mvwchgat(interface->setup_win.single, devId + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }

@@ -429,6 +429,61 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
   return 1;
 }
 
+static int compare_pdev(const void *a, const void *b) {
+  return strcmp(*(const char *const *)a, *(const char *const *)b);
+}
+
+bool interface_compute_sriov_roots(unsigned num_devices, unsigned num_monitored,
+                                   const nvtop_interface_gpu_opts *gpu_opts, int *roots) {
+  bool has_monitored_vf = false;
+  const char **missing_pf = malloc(num_devices * sizeof(*missing_pf));
+  if (num_devices && !missing_pf) {
+    perror("Cannot allocate memory: ");
+    exit(EXIT_FAILURE);
+  }
+
+  // A VF points to its PF when that PF is monitored; collect the PFs that are not
+  unsigned num_missing = 0;
+  for (unsigned i = 0; i < num_devices; ++i) {
+    const struct gpu_info *gpu = gpu_opts[i].linkedGpu;
+    roots[i] = i < num_monitored && !gpu->sriov_vf ? (int)i : SRIOV_ROOT_NONE;
+    if (!gpu->sriov_vf)
+      continue;
+    has_monitored_vf = has_monitored_vf || i < num_monitored;
+    for (unsigned pf = 0; pf < num_monitored; ++pf) {
+      if (!strcmp(gpu_opts[pf].linkedGpu->pdev, gpu->sriov_pf_pdev)) {
+        roots[i] = (int)pf;
+        break;
+      }
+    }
+    if (roots[i] == SRIOV_ROOT_NONE)
+      missing_pf[num_missing++] = gpu->sriov_pf_pdev;
+  }
+
+  // Number the missing PFs -1, -2, ... in PCI address order
+  if (num_missing)
+    qsort(missing_pf, num_missing, sizeof(*missing_pf), compare_pdev);
+  unsigned num_unique = 0;
+  for (unsigned i = 0; i < num_missing; ++i)
+    if (!num_unique || strcmp(missing_pf[num_unique - 1], missing_pf[i]))
+      missing_pf[num_unique++] = missing_pf[i];
+  for (unsigned i = 0; i < num_devices; ++i) {
+    if (roots[i] != SRIOV_ROOT_NONE)
+      continue;
+    // An unmonitored VF uses the number of its PF; an unmonitored PF is found by its own address
+    const struct gpu_info *gpu = gpu_opts[i].linkedGpu;
+    const char *pf_pdev = gpu->sriov_vf ? gpu->sriov_pf_pdev : gpu->pdev;
+    for (unsigned k = 0; k < num_unique; ++k) {
+      if (!strcmp(missing_pf[k], pf_pdev)) {
+        roots[i] = -(int)k - 1;
+        break;
+      }
+    }
+  }
+  free(missing_pf);
+  return has_monitored_vf;
+}
+
 bool load_interface_options_from_config_file(unsigned num_devices, nvtop_interface_option *options) {
   FILE *option_file = fopen(options->config_file_location, "r");
   if (!option_file)
