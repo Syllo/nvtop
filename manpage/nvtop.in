@@ -8,7 +8,7 @@ nvtop \- interactive GPU process viewer
 
 .SH SYNOPSIS
 .B nvtop
-\fR[\fB\-hvCfpPurislXM\fR]
+\fR[\fB\-hvCfpPurislXMLB\fR]
 \fR[\fB\-d\fR \fIdelay\fR]
 \fR[\fB\-c\fR \fIconfig-file\fR]
 \fR[\fB\-E\fR \fIseconds\fR]
@@ -57,6 +57,12 @@ Also show the static GPU specs (shader cores, L2 cache, execution engines) and t
 .BR \-E ", " \-\-encode\-hide =\fIseconds\fR
 Modify the setting for the encode/decode auto-hide timer. Always visible if negative. Default to 30 seconds.
 .TP
+.BR \-L ", " \-\-legacy\-plot
+Use the legacy ncurses line-drawing plot style instead of the finer plot lines.
+.TP
+.BR \-B ", " \-\-legacy\-bars
+Use the legacy bracketed pipe utilization meters instead of the graphical meters.
+.TP
 .BR \-h ", " \-\-help
 Print the help and exit.
 .TP
@@ -74,10 +80,10 @@ You can enter the setup utility by pressing \fBF2\fR to view and modify the foll
 This section deals with general interface options. \fBColor support\fR and \fBinterface update interval\fR can be modified.
 .TP
 .I Devices
-This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR, \fBset the encoder/decoder hiding timer\fR, \fBdisplay the dynamic GPU info bar\fR, \fBdisplay the static GPU info and secondary clock domains\fR and \fBshow the system RAM instead of the device memory\fR for all the devices sharing their memory with the host. The system RAM option is shown only when at least one monitored device shares its memory with the host.
+This section deals with the devices display (top of the interface). You can \fBswitch the temperature scale to fahrenheit\fR, \fBset the encoder/decoder hiding timer\fR, \fBdisplay the dynamic GPU info bar\fR, \fBdisplay the static GPU info and secondary clock domains\fR, \fBswitch between graphical and legacy utilization meters\fR, \fBshow the effective load on the utilization meters\fR, \fBset the levels from which the graphical meters turn yellow and red\fR (\fBEnter\fR turns a level on or off; the right arrow selects its percentage, which \fB+\fR and \fB-\fR change by 5%) and \fBshow the system RAM instead of the device memory\fR for all the devices sharing their memory with the host. The system RAM option is shown only when at least one monitored device shares its memory with the host.
 .TP
 .I Chart
-This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR and \fBselect which metric is being shown in the plots\fR. The entry of a device sharing its memory with the host also offers to \fBshow the system RAM instead of the device memory\fR for that device. The available metrics are GPU utilization, GPU memory utilization, encoder rate, decoder rate, temperature, power draw rate, fan speed, GPU clock rate, GPU memory clock rate, effective load rate and PCIe RX / TX load. The PCIe RX and TX load are the receive and transmit throughput expressed as a percentage of the maximum link bandwidth (link generation times link width).
+This section deals with the line plots (middle of the interface). You can \fBreverse the plot direction\fR, \fBchoose between finer plot lines (Unicode braille dots) and the legacy line style\fR and \fBselect which metric is being shown in the plots\fR. The entry of a device sharing its memory with the host also offers to \fBshow the system RAM instead of the device memory\fR for that device. The available metrics are GPU utilization, GPU memory utilization, encoder rate, decoder rate, temperature, power draw rate, fan speed, GPU clock rate, GPU memory clock rate, effective load rate and PCIe RX / TX load. The PCIe RX and TX load are the receive and transmit throughput expressed as a percentage of the maximum link bandwidth (link generation times link width).
 .TP
 .I Processes
 This section deals with the process list (bottom of the interface). You can \fBscale the process memory units automatically\fR, \fBselect the sort order\fR, \fBselect the metric by which to sort the processes by\fR and \fBselect which metric is displayed\fR.

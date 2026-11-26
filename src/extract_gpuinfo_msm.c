@@ -251,23 +251,6 @@ static const char *gpuinfo_msm_last_error_string(void) {
   }
 }
 
-static uint64_t parse_memory_multiplier(const char *str) {
-  if (strcmp(str, " B") == 0) {
-    return 1;
-  }
-  else if (strcmp(str, " KiB") == 0 || strcmp(str, " kB") == 0) {
-    return 1024;
-  }
-  else if (strcmp(str, " MiB") == 0) {
-    return 1024 * 1024;
-  }
-  else if (strcmp(str, " GiB") == 0) {
-    return 1024 * 1024 * 1024;
-  }
-
-  return 1;
-}
-
 static const char drm_msm_engine_gpu[] = "drm-engine-gpu";
 static const char drm_msm_cycles_gpu[] = "drm-cycles-gpu";
 static const char drm_msm_maxfreq_gpu[] = "drm-maxfreq-gpu";
@@ -320,18 +303,14 @@ static bool parse_drm_fdinfo_msm(struct gpu_info *info, FILE *fdinfo_file, struc
         }
       }
       else if (is_resident || is_shared) {
-        uint64_t mem_int;
-        char *endptr;
-
-        mem_int = strtoull(val, &endptr, 10);
-        if (endptr == val)
+        unsigned long long mem_bytes;
+        if (!extract_drm_fdinfo_size(val, &mem_bytes))
           continue;
 
-        uint64_t multiplier = parse_memory_multiplier(endptr);
         if (is_resident)
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_bytes);
         else
-          SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, mem_int * multiplier);
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, mem_bytes);
       }
     }
   }

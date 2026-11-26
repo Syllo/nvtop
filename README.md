@@ -82,6 +82,26 @@ In the ``Chart`` section you can choose which metrics are plotted, including GPU
 utilization, temperature, power, clocks, and the **PCIe RX / TX load** (the receive and transmit
 throughput as a percentage of the maximum link bandwidth).
 
+Charts are drawn with Unicode braille dots by default. Each metric of a chart gets its own
+column per update and is always drawn in its own color, so metrics with close values stay
+distinguishable. Uncheck ``Finer plot lines``, use ``--legacy-plot``, or set
+``GraphStyle = legacy`` in the ``[ChartOption]`` section of the configuration file to select the
+legacy line-drawing style. nvtop falls back to it automatically when the locale is not UTF-8,
+on the Linux console, whose fonts have no braille characters, and when nvtop was built
+without wide character support in curses. Press ``F12`` to save the choice.
+
+The device utilization meters are graphical bars by default: green, then yellow from 75% and
+red from 90%, with effective load shown in cyan. In the ``Devices`` setup section, check or
+uncheck the yellow and red levels, and press the right arrow then ``+``/``-`` to move them by
+5%; another option hides the effective load overlay. They are saved in the ``[HeaderOption]``
+section of the configuration file (``MeterYellow``, ``MeterYellowFrom``, ``MeterRed``,
+``MeterRedFrom`` and ``MeterEffectiveLoad``). Set
+``MeterStyle = graphical|legacy`` in the ``[HeaderOption]`` section of the configuration file,
+use the ``Graphical utilization bars`` option in the ``Devices`` setup section, or pass
+``--legacy-bars`` to switch to the original bracketed pipe meters. The legacy meters are also
+used when colors are disabled (``--no-color``) or the terminal has fewer than 8 colors or
+color pairs for them.
+
 ![NVTOP Setup Window](/screenshot/Nvtop-config.png)
 
 ### Saving Preferences
@@ -198,21 +218,43 @@ also requires CAP_PERFMON. You can run `sudo setcap cap_perfmon=ep $(which nvtop
 
 NVTOP supports the NPU driven by the in-kernel `intel_vpu` (ivpu) accel driver
 on Meteor Lake, Arrow Lake, Lunar Lake, Panther Lake, Wildcat Lake and Nova
-Lake. All metrics are read from sysfs, so no extra library is needed. Support
-is enabled by default on Linux and can be disabled with
-`-DINTEL_NPU_SUPPORT=OFF`.
+Lake. It needs no extra library. Support is enabled by default on Linux and can
+be disabled with `-DINTEL_NPU_SUPPORT=OFF`.
 
-It reports NPU utilization, the current and maximum frequency, and system
-memory usage. Utilization is derived from the cumulative `npu_busy_time_us`
-counter; the driver recommends sampling it at most once per second. The
-interactive interface defaults to a one-second update interval, while a smaller
-`-d` value (or snapshot mode's 100 ms default) samples it more often. The
-memory row reports system-wide RAM usage, like the other NPU backends, rather
-than the NPU's own allocations.
+The NPU is listed from sysfs. Processes are attributed through
+`/dev/accel/accelN`; if that node is missing or is not readable (for instance
+without access to its group, usually `render`), the NPU metrics are still shown
+but its processes are not listed, so the memory row falls back to system-wide
+RAM usage.
 
-Utilization requires kernel 6.11 or newer and frequency information requires
-6.15 or newer; older kernels simply show fewer fields. Temperature and
-per-process usage are not exposed by the driver and are not reported.
+It reports NPU utilization, the current and maximum frequency, and the NPU
+memory held by each process. Utilization is derived from the cumulative
+`npu_busy_time_us` counter; the driver recommends sampling it at most once per
+second. The interactive interface defaults to a one-second update interval,
+while a smaller `-d` value (or snapshot mode's 100 ms default) samples it more
+often. Utilization and frequency are device-wide: the driver exposes no
+per-client busy time, so process rows do not report utilization.
+
+Kernels since 6.19 print the memory of each client in the DRM fdinfo of the
+accel node. The processes holding `/dev/accel/accelN` open are listed as compute
+processes with the memory resident on the NPU (`drm-resident-memory`), which
+includes the buffers they exported to other devices. Buffers imported from
+another device are left to that device, and buffers not backed by memory yet
+are not counted. A client shared between processes,
+such as an accel fd inherited through `fork()`, is listed for each holder but
+its memory is counted once. The memory row uses the shared-memory accounting
+described above: used memory is the sum of the NPU allocations (a lower bound
+when clients import buffers, as their shared part cannot be told apart from the
+buffers they export), and total memory
+is that sum plus the currently available system memory (`MemAvailable`). With
+no NPU clients it reports zero used out of the available memory. Run
+unprivileged, NVTOP only sees the processes of the current user, so the memory
+row reports the NPU usage of that user. On kernels without fdinfo memory, the
+memory row falls back to system-wide RAM usage.
+
+Utilization requires kernel 6.11 or newer, frequency information 6.15 or newer,
+and process memory 6.19 or newer; older kernels simply show fewer fields.
+Temperature is not exposed by the driver and is not reported.
 
 ### AMD NPU
 

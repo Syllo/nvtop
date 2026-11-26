@@ -26,6 +26,7 @@
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
+#include "nvtop/plot.h"
 #include "nvtop/time.h"
 
 #include <ncurses.h>
@@ -57,6 +58,9 @@ enum interface_color {
   gpu_mem_plot_color,
   gpu_plot_color_3,
   gpu_plot_color_4,
+  bar_effective_green_color,
+  bar_effective_yellow_color,
+  bar_effective_red_color,
 };
 
 struct device_window {
@@ -118,6 +122,7 @@ struct process_window {
 struct plot_window {
   size_t num_data;
   double *data;
+  struct nvtop_braille_plot braille; // Braille renderer state, sized for plot_window
   WINDOW *win;
   WINDOW *plot_window;
   unsigned num_devices_to_plot;
@@ -158,7 +163,17 @@ struct nvtop_interface {
   struct plot_window *plots;
   interface_ring_buffer saved_data_ring;
   struct setup_window setup_win;
+  bool colors_initialized; // Colors were set up at startup (changing the option needs a restart)
 };
+
+// Whether the graphical meter style can actually be drawn. The meters only use
+// the 8 ANSI colors, so they need the colors set up at startup, at least 8
+// terminal colors and enough initialized color pairs; otherwise the legacy
+// meters are used.
+static inline bool interface_supports_graphical_meters(const struct nvtop_interface *interface) {
+  return interface->options.meter_style == nvtop_meter_style_graphical && interface->colors_initialized &&
+         COLORS >= 8 && COLOR_PAIRS > bar_effective_red_color;
+}
 
 enum device_field {
   device_name = 0,

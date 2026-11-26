@@ -107,7 +107,6 @@ struct fdinfo_data {
 #define RESET_PANFROST_CACHE(cachePtr, field) INVALIDATE_VALUE(cachePtr, field, mali_cache_)
 #define MALI_CACHE_FIELD_VALID(cachePtr, field) VALUE_IS_VALID(cachePtr, field, mali_cache_)
 
-uint64_t parse_memory_multiplier(const char *str);
 
 bool mali_init_drm_funcs(struct drmFuncTable *drmFuncs, struct mali_gpu_state *state);
 void mali_deinit_drm(struct mali_gpu_state *state);

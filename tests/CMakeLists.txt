@@ -12,6 +12,37 @@ if (BUILD_TESTING AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_test(NAME Fdinfo.sweep COMMAND fdinfoTests)
 endif()
 
+# Plot rendering, checked through an off-screen ncurses window. The braille
+# cases need the wide character ncurses API (NVTOP_HAVE_WIDE_CURSES) and a
+# UTF-8 locale; without the API, only the other cases are built.
+if (BUILD_TESTING)
+  add_executable(plotTests plotTests.c ${PROJECT_SOURCE_DIR}/src/plot.c)
+  target_include_directories(plotTests PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/include)
+  # Same feature-test macros as nvtop, which builds plot.c with them.
+  target_compile_definitions(plotTests PRIVATE _GNU_SOURCE)
+  set_property(TARGET plotTests PROPERTY C_STANDARD 11)
+  target_link_libraries(plotTests PRIVATE ncurses m)
+  add_sanitizers(plotTests)
+  # A single test running every case, so a case cannot be left out; failing
+  # cases are named in the output.
+  add_test(NAME Plot COMMAND plotTests)
+  # The braille capability is checked once per run: on its own.
+  add_test(NAME Plot.linux_console COMMAND plotTests linux_console)
+  set_tests_properties(Plot Plot.linux_console PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
+# Utilization meter rendering, checked the same way as the plots.
+if (BUILD_TESTING)
+  add_executable(meterTests meterTests.c ${PROJECT_SOURCE_DIR}/src/meter.c)
+  target_include_directories(meterTests PRIVATE ${PROJECT_SOURCE_DIR}/include ${PROJECT_BINARY_DIR}/include)
+  target_compile_definitions(meterTests PRIVATE _GNU_SOURCE)
+  set_property(TARGET meterTests PROPERTY C_STANDARD 11)
+  target_link_libraries(meterTests PRIVATE ncurses m)
+  add_sanitizers(meterTests)
+  add_test(NAME Meter COMMAND meterTests)
+  set_tests_properties(Meter PROPERTIES SKIP_RETURN_CODE 77)
+endif()
+
 if (BUILD_TESTING AND ENFLAME_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
   add_executable(enflameTests
     enflameTests.c
@@ -140,6 +171,31 @@ if(BUILD_TESTING AND GAUDI_SUPPORT)
   add_test(NAME gaudiTests COMMAND gaudiTests)
 endif()
 
+# The Intel NPU tests parse fdinfo fixture files and need no NPU.
+if(BUILD_TESTING AND INTEL_NPU_SUPPORT AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  add_executable(ivpuTests
+    ivpuTests.c
+    ${PROJECT_SOURCE_DIR}/src/extract_gpuinfo.c
+    ${PROJECT_SOURCE_DIR}/src/extract_processinfo_fdinfo.c
+    ${PROJECT_SOURCE_DIR}/src/get_process_info_linux.c
+    ${PROJECT_SOURCE_DIR}/src/time.c
+  )
+  target_include_directories(ivpuTests PRIVATE ${PROJECT_SOURCE_DIR}/include)
+  target_compile_definitions(ivpuTests PRIVATE _GNU_SOURCE
+    IVPU_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/ivpu")
+  if (HAS_REALLOCARRAY)
+    target_compile_definitions(ivpuTests PRIVATE HAS_REALLOCARRAY)
+  endif()
+  set_property(TARGET ivpuTests PROPERTY C_STANDARD 11)
+  target_link_libraries(ivpuTests PRIVATE m ${CMAKE_DL_LIBS})
+  add_sanitizers(ivpuTests)
+  foreach (test_case fdinfo_active fdinfo_idle fdinfo_imported fdinfo_unpopulated
+                    fdinfo_no_memory fdinfo_other_driver fdinfo_size fdinfo_callback memory_display device_discovery
+                    zero_usage_claim)
+    add_test(NAME Ivpu.${test_case} COMMAND ivpuTests ${test_case})
+  endforeach()
+endif()
+
 # The AMD NPU tests parse fdinfo fixture files and need no NPU.
 if(BUILD_TESTING AND AMD_NPU_SUPPORT)
   add_executable(amdxdnaTests
@@ -162,4 +218,17 @@ if(BUILD_TESTING AND AMD_NPU_SUPPORT)
                     fdinfo_callback process_utilization memory_display device_discovery)
     add_test(NAME Amdxdna.${test_case} COMMAND amdxdnaTests ${test_case})
   endforeach()
+endif()
+
+# The test target only runs the test programs. check builds the ones of this
+# directory first, then runs them all, for the configuration being built
+# (multi-configuration generators need it).
+if (BUILD_TESTING)
+  get_property(test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+  add_custom_target(check
+    COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure "$<$<BOOL:$<CONFIG>>:-C;$<CONFIG>>"
+    COMMAND_EXPAND_LISTS
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+    USES_TERMINAL)
+  add_dependencies(check ${test_targets})
 endif()
