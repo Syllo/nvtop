@@ -22,6 +22,8 @@
 #ifndef NVTOP_COMMON_H__
 #define NVTOP_COMMON_H__
 
+#include <stdbool.h>
+
 #if !defined(HAS_REALLOCARRAY)
 
 #include <errno.h>
@@ -46,6 +48,29 @@ static void *nvtop_reallocarray__(void *ptr, size_t nmemb, size_t size) {
 #define COMMON_PROCESS_LINEAR_REALLOC_INC 16
 
 #define MAX_LINES_PER_PLOT 4
+
+// How plot lines are rendered. Braille uses Unicode braille patterns for a
+// 2x4 sub-cell resolution; line is the legacy ncurses/ACS renderer.
+enum nvtop_plot_style {
+  nvtop_plot_style_braille = 0,
+  nvtop_plot_style_line,
+  nvtop_plot_style_count,
+};
+
+// How the utilization meters are rendered. Graphical uses the colored track and
+// sub-cell blocks; legacy uses the original bracketed pipe characters.
+enum nvtop_meter_style {
+  nvtop_meter_style_graphical = 0,
+  nvtop_meter_style_legacy,
+  nvtop_meter_style_count,
+};
+
+// Utilization from which the fill of a graphical meter turns yellow, then red,
+// in percent. A disabled level is never reached.
+struct nvtop_meter_levels {
+  bool yellow, red;
+  unsigned yellow_from, red_from;
+};
 
 // Helper macro to stringify an integer
 #define QUOTE(x) #x

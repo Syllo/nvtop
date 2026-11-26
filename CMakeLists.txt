@@ -28,7 +28,7 @@ set(CURSES_NEED_NCURSES TRUE)
 # Try to find ncurses with unicode support first
 set(CURSES_NEED_WIDE TRUE)
 find_package(Curses QUIET)
-if (NOT CURSE_FOUND)
+if (NOT CURSES_FOUND)
   # Fallback to regular ncurses library, which may also support unicode!
   set(CURSES_NEED_WIDE FALSE)
   find_package(Curses REQUIRED)
@@ -39,6 +39,41 @@ set_property(TARGET ncurses PROPERTY
   INTERFACE_INCLUDE_DIRECTORIES ${CURSES_INCLUDE_DIRS})
 set_property(TARGET ncurses PROPERTY
   INTERFACE_LINK_LIBRARIES ${CURSES_LIBRARIES})
+# Only use the wide character API when the curses library found provides it.
+# Which search succeeded does not tell: the header may enable the API for a
+# narrow library (e.g. with a curses.h shared by both), a narrow library found
+# by an earlier configure stays cached for the wide search, and some systems
+# ship the wide functions in a library named ncurses. So build and link a
+# program calling them. Checked on every configure, as the library may change.
+# When it works, the code is built with NVTOP_HAVE_WIDE_CURSES, its only wide
+# character switch, and with what makes the header declare the wide API, which
+# it otherwise derives from the platform's feature-test macros:
+# NCURSES_WIDECHAR, or _XOPEN_SOURCE_EXTENDED for older headers. The program is
+# built the same way.
+include(CheckCSourceCompiles)
+set(CMAKE_REQUIRED_INCLUDES ${CURSES_INCLUDE_DIRS})
+set(CMAKE_REQUIRED_DEFINITIONS -DNCURSES_WIDECHAR=1 -D_XOPEN_SOURCE_EXTENDED=1 -DNCURSES_ENABLE_STDBOOL_H=1)
+set(CMAKE_REQUIRED_LIBRARIES ${CURSES_LIBRARIES})
+unset(NVTOP_CURSES_HAS_WIDE_API CACHE)
+check_c_source_compiles("
+#include <ncurses.h>
+#include <wchar.h>
+int main(void) {
+  cchar_t cell;
+  wchar_t text[2] = {L'a', 0};
+  setcchar(&cell, text, 0, 0, NULL);
+  wadd_wch(stdscr, &cell);
+  mvwin_wch(stdscr, 0, 0, &cell);
+  getcchar(&cell, text, NULL, NULL, NULL);
+  return waddnwstr(stdscr, text, 1);
+}" NVTOP_CURSES_HAS_WIDE_API)
+unset(CMAKE_REQUIRED_INCLUDES)
+unset(CMAKE_REQUIRED_DEFINITIONS)
+unset(CMAKE_REQUIRED_LIBRARIES)
+if (NVTOP_CURSES_HAS_WIDE_API)
+  set_property(TARGET ncurses PROPERTY
+    INTERFACE_COMPILE_DEFINITIONS NVTOP_HAVE_WIDE_CURSES=1 NCURSES_WIDECHAR=1 _XOPEN_SOURCE_EXTENDED=1)
+endif()
 add_compile_definitions(NCURSES_ENABLE_STDBOOL_H=1)
 
 #///////////////////////////////////////////////////////////////////#

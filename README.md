@@ -82,6 +82,26 @@ In the ``Chart`` section you can choose which metrics are plotted, including GPU
 utilization, temperature, power, clocks, and the **PCIe RX / TX load** (the receive and transmit
 throughput as a percentage of the maximum link bandwidth).
 
+Charts are drawn with Unicode braille dots by default. Each metric of a chart gets its own
+column per update and is always drawn in its own color, so metrics with close values stay
+distinguishable. Uncheck ``Finer plot lines``, use ``--legacy-plot``, or set
+``GraphStyle = legacy`` in the ``[ChartOption]`` section of the configuration file to select the
+legacy line-drawing style. nvtop falls back to it automatically when the locale is not UTF-8,
+on the Linux console, whose fonts have no braille characters, and when nvtop was built
+without wide character support in curses. Press ``F12`` to save the choice.
+
+The device utilization meters are graphical bars by default: green, then yellow from 75% and
+red from 90%, with effective load shown in cyan. In the ``Devices`` setup section, check or
+uncheck the yellow and red levels, and press the right arrow then ``+``/``-`` to move them by
+5%; another option hides the effective load overlay. They are saved in the ``[HeaderOption]``
+section of the configuration file (``MeterYellow``, ``MeterYellowFrom``, ``MeterRed``,
+``MeterRedFrom`` and ``MeterEffectiveLoad``). Set
+``MeterStyle = graphical|legacy`` in the ``[HeaderOption]`` section of the configuration file,
+use the ``Graphical utilization bars`` option in the ``Devices`` setup section, or pass
+``--legacy-bars`` to switch to the original bracketed pipe meters. The legacy meters are also
+used when colors are disabled (``--no-color``) or the terminal has fewer than 8 colors or
+color pairs for them.
+
 ![NVTOP Setup Window](/screenshot/Nvtop-config.png)
 
 ### Saving Preferences

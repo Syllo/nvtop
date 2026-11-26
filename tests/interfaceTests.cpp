@@ -329,6 +329,149 @@ TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
   EXPECT_EQ(std::remove(config_path), 0);
 }
 
+TEST(InterfaceOptions, GraphStyleNames) {
+  char config_path[] = "interface-graph-style-names-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  const struct {
+    const char *name;
+    enum nvtop_plot_style style;
+  } names[] = {{"legacy", nvtop_plot_style_line}, {"fine", nvtop_plot_style_braille}};
+  for (const auto &entry : names) {
+    FILE *config = fopen(config_path, "w");
+    ASSERT_NE(config, nullptr);
+    fprintf(config, "[ChartOption]\nGraphStyle = %s\n", entry.name);
+    fclose(config);
+    options.plot_style = entry.style == nvtop_plot_style_line ? nvtop_plot_style_braille : nvtop_plot_style_line;
+    ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+    EXPECT_EQ(options.plot_style, entry.style) << entry.name;
+  }
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, GraphStyleConfig) {
+  char config_path[] = "interface-graph-style-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+  options.plot_style = nvtop_plot_style_line;
+
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.plot_style = nvtop_plot_style_braille;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.plot_style, nvtop_plot_style_line);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, MeterStyleConfig) {
+  char config_path[] = "interface-meter-style-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+  options.meter_style = nvtop_meter_style_legacy;
+
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.meter_style = nvtop_meter_style_graphical;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.meter_style, nvtop_meter_style_legacy);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, MeterLevelsAndEffectiveLoadConfig) {
+  char config_path[] = "interface-meter-levels-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+  options.meter_levels = {.yellow = false, .red = true, .yellow_from = 35, .red_from = 100};
+  options.meter_effective_load = false;
+
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.meter_levels = {.yellow = true, .red = false, .yellow_from = 75, .red_from = 90};
+  options.meter_effective_load = true;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_FALSE(options.meter_effective_load);
+  EXPECT_FALSE(options.meter_levels.yellow);
+  EXPECT_TRUE(options.meter_levels.red);
+  EXPECT_EQ(options.meter_levels.yellow_from, 35u);
+  EXPECT_EQ(options.meter_levels.red_from, 100u);
+
+  // Levels that are not percentages keep the current ones.
+  FILE *config = fopen(config_path, "w");
+  ASSERT_NE(config, nullptr);
+  fprintf(config, "[HeaderOption]\nMeterYellowFrom = 101\nMeterRedFrom = 50%%\nMeterYellow = maybe\n");
+  fclose(config);
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_FALSE(options.meter_levels.yellow);
+  EXPECT_EQ(options.meter_levels.yellow_from, 35u);
+  EXPECT_EQ(options.meter_levels.red_from, 100u);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, InvalidGraphStyleConfigKeepsCurrent) {
+  char config_path[] = "interface-invalid-graph-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  FILE *config = fopen(config_path, "w");
+  ASSERT_NE(config, nullptr);
+  fprintf(config, "[ChartOption]\nGraphStyle = garbage\n");
+  fclose(config);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.plot_style = nvtop_plot_style_braille;
+
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.plot_style, nvtop_plot_style_braille);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, InvalidMeterStyleConfigKeepsCurrent) {
+  char config_path[] = "interface-invalid-meter-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  FILE *config = fopen(config_path, "w");
+  ASSERT_NE(config, nullptr);
+  fprintf(config, "[HeaderOption]\nMeterStyle = garbage\n");
+  fclose(config);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.meter_style = nvtop_meter_style_graphical;
+
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.meter_style, nvtop_meter_style_graphical);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
 TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
   // An unmonitored GPU is no longer refreshed, so its process entries would
   // otherwise keep pointers to process-cache strings freed by later refreshes.

@@ -28,6 +28,7 @@
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
 #include "nvtop/interface_setup_win.h"
+#include "nvtop/meter.h"
 #include "nvtop/pcie_utilization.h"
 #include "nvtop/plot.h"
 #include "nvtop/time.h"
@@ -383,16 +384,40 @@ static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_posi
   mvwprintw(plot->win, 1 + rows / 2, 0, " 50");
   mvwprintw(plot->win, 1, 0, "100");
   mvwprintw(plot->win, rows, 0, "  0");
-  plot->data = calloc(cols, sizeof(*plot->data));
-  plot->num_data = cols;
-
   unsigned column_divisor = 0;
   for (unsigned i = 0; i < plot->num_devices_to_plot; ++i) {
     unsigned dev_id = plot->devices_ids[i];
-    plot_info_to_draw to_draw = options->gpu_specific_opts[dev_id].to_draw;
-    column_divisor += plot_count_draw_info(to_draw);
+    column_divisor += plot_count_draw_info(options->gpu_specific_opts[dev_id].to_draw);
   }
+  // The layout never creates a plot without metrics.
   assert(column_divisor > 0);
+
+  // Both renderers advance one column per metric per update, so the plot
+  // width is shared between the metrics displayed in this plot. The oldest
+  // group may be clipped, so the time axis only counts the groups that fit
+  // entirely.
+  unsigned long long axis_samples = cols / column_divisor;
+  // Sized for the most samples per line any number of lines takes, for the
+  // most lines: the renderers draw the newest samples they need.
+  size_t max_samples = 0;
+  for (unsigned lines = 1; lines <= MAX_LINES_PER_PLOT; ++lines)
+    if (nvtop_plot_braille_samples(cols, lines) > max_samples)
+      max_samples = nvtop_plot_braille_samples(cols, lines);
+  plot->num_data = max_samples * MAX_LINES_PER_PLOT;
+  plot->data = calloc(plot->num_data, sizeof(*plot->data));
+  bool braille_ok = nvtop_braille_plot_init(&plot->braille, rows, cols);
+  if (!plot->data || !braille_ok) {
+    endwin();
+    perror("Cannot allocate memory: ");
+    exit(EXIT_FAILURE);
+  }
+
+  unsigned long long axis_ms = (unsigned long long)options->update_interval * axis_samples;
+  int total_seconds = (int)(axis_ms / 1000);
+  int quarter_seconds = (int)(axis_ms / 4 / 1000);
+  int half_seconds = (int)(axis_ms / 2 / 1000);
+  int three_quarter_seconds = (int)(axis_ms * 3 / 4 / 1000);
+
   char elapsedSeconds[16];
   char *err = "err";
   char *zeroSec = "0s";
@@ -400,32 +425,28 @@ static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_posi
     char *toPrint = zeroSec;
     mvwprintw(plot->win, position->sizeY - 1, 4, "%s", toPrint);
 
-    int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                          options->update_interval * cols / 4 / column_divisor / 1000);
+    int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", quarter_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 4 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols / 2 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", half_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 2 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols * 3 / 4 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", three_quarter_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols * 3 / 4 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", total_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
@@ -433,32 +454,28 @@ static void initialize_gpu_mem_plot(struct plot_window *plot, struct window_posi
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols - strlen(toPrint), "%s", toPrint);
   } else {
     char *toPrint;
-    int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                          options->update_interval * cols / column_divisor / 1000);
+    int retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", total_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols * 3 / 4 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", three_quarter_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 4 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols / 2 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", half_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
       toPrint = elapsedSeconds;
     mvwprintw(plot->win, position->sizeY - 1, 4 + cols / 2 - strlen(toPrint) / 2, "%s", toPrint);
 
-    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds",
-                      options->update_interval * cols / 4 / column_divisor / 1000);
+    retval = snprintf(elapsedSeconds, sizeof(elapsedSeconds), "%ds", quarter_seconds);
     if (retval >= (int)sizeof(elapsedSeconds))
       toPrint = err;
     else
@@ -568,6 +585,7 @@ static void delete_all_windows(struct nvtop_interface *dwin) {
     delwin(dwin->plots[i].win);
     delwin(dwin->plots[i].plot_window);
     free(dwin->plots[i].data);
+    nvtop_braille_plot_free(&dwin->plots[i].braille);
   }
   free_setup_window(&dwin->setup_win);
   free(dwin->plots);
@@ -593,6 +611,7 @@ static void initialize_colors(const unsigned char plot_color_idx[MAX_LINES_PER_P
   init_pair(yellow_color, COLOR_YELLOW, background_color);
   init_pair(blue_color, COLOR_BLUE, background_color);
   init_pair(magenta_color, COLOR_MAGENTA, background_color);
+  nvtop_meter_init_colors();
   static const short gpu_plot_pairs[MAX_LINES_PER_PLOT] = {
       gpu_util_plot_color, gpu_mem_plot_color, gpu_plot_color_3, gpu_plot_color_4};
   for (unsigned s = 0; s < MAX_LINES_PER_PLOT; ++s)
@@ -611,6 +630,7 @@ struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devic
   refresh();
   if (interface->options.use_color && has_colors() == TRUE) {
     initialize_colors(options.gpu_plot_color_idx);
+    interface->colors_initialized = true;
   }
   cbreak();
   noecho();
@@ -648,49 +668,6 @@ void clean_ncurses(struct nvtop_interface *interface) {
   free(interface->devices_win);
   interface_free_ring_buffer(&interface->saved_data_ring);
   free(interface);
-}
-
-static void draw_percentage_meter(WINDOW *win, const char *prelude, unsigned int new_percentage,
-                                  const char inside_braces_right[1024]) {
-  int rows, cols;
-  getmaxyx(win, rows, cols);
-  (void)rows;
-  size_t size_prelude = strlen(prelude);
-  wcolor_set(win, cyan_color, NULL);
-  mvwprintw(win, 0, 0, "%s", prelude);
-  wstandend(win);
-  waddch(win, '[');
-  int curx, cury;
-  curx = getcurx(win);
-  cury = getcury(win);
-  int between_sbraces = cols - size_prelude - 2;
-  float usage = round((float)between_sbraces * new_percentage / 100.f);
-  int represent_usage = (int)usage;
-  whline(win, '|', (int)represent_usage);
-  mvwhline(win, cury, curx + represent_usage, ' ', between_sbraces - represent_usage);
-  mvwaddch(win, cury, curx + between_sbraces, ']');
-  unsigned int right_side_braces_space_required = strlen(inside_braces_right);
-  wmove(win, cury, curx + between_sbraces - right_side_braces_space_required);
-  wprintw(win, "%s", inside_braces_right);
-  mvwchgat(win, cury, curx, represent_usage, 0, green_color, NULL);
-  wnoutrefresh(win);
-}
-
-// Draw percentage with a yellow highlight percentage (yellow percentage <= new_percentage)
-static void draw_percentage_meter_with_yellow_highlight(WINDOW *win, const char *prelude, unsigned int new_percentage,
-                                                        unsigned int yellow_percentage,
-                                                        const char inside_braces_right[1024]) {
-  draw_percentage_meter(win, prelude, new_percentage, inside_braces_right);
-  if (yellow_percentage > new_percentage)
-    yellow_percentage = new_percentage;
-  int rows, cols;
-  getmaxyx(win, rows, cols);
-  (void)rows;
-  size_t size_prelude = strlen(prelude);
-  int between_sbraces = cols - size_prelude - 2;
-  float usage = round((float)between_sbraces * yellow_percentage / 100.f);
-  mvwchgat(win, 0, size_prelude + 1, (int)usage, 0, yellow_color, NULL);
-  wnoutrefresh(win);
 }
 
 static const char *memory_prefix[] = {" B", "Ki", "Mi", "Gi", "Ti", "Pi"};
@@ -972,6 +949,9 @@ static struct gpu_info *get_device_by_id(struct list_head *devices, unsigned id)
 static void draw_devices(struct list_head *devices, struct nvtop_interface *interface) {
   struct gpu_info *device;
   unsigned dev_id = 0;
+  bool legacy_meters = !interface_supports_graphical_meters(interface);
+  struct nvtop_meter_glyphs meter_glyphs = nvtop_meter_available_glyphs();
+  struct nvtop_meter_levels meter_levels = interface->options.meter_levels;
 
   list_for_each_entry(device, devices, list) {
     struct device_window *dev = &interface->devices_win[dev_id];
@@ -1019,31 +999,37 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       unsigned rate =
           GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate) ? device->dynamic_info.encoder_rate : 0;
       snprintf(buff, 1024, "%u%%", rate);
-      draw_percentage_meter(encode_win, "ENC", rate, buff);
+      nvtop_meter_draw(encode_win, "ENC", rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
     }
     if (display_decode) {
       unsigned rate =
           GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate) ? device->dynamic_info.decoder_rate : 0;
       snprintf(buff, 1024, "%u%%", rate);
       if (device->static_info.encode_decode_shared)
-        draw_percentage_meter(decode_win, "ENC/DEC", rate, buff);
+        nvtop_meter_draw(decode_win, "ENC/DEC", rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
       else
-        draw_percentage_meter(decode_win, "DEC", rate, buff);
+        nvtop_meter_draw(decode_win, "DEC", rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
     }
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate)) {
       if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate)) {
+        int value_space = nvtop_meter_value_space(gpu_util_win, DEVICE_UNIT_NAME(device), legacy_meters);
         snprintf(buff, 1024, "%u%%(eff %u%%)", device->dynamic_info.gpu_util_rate,
                  device->dynamic_info.effective_load_rate);
-        draw_percentage_meter_with_yellow_highlight(gpu_util_win, DEVICE_UNIT_NAME(device),
-                                                    device->dynamic_info.gpu_util_rate,
-                                                    device->dynamic_info.effective_load_rate, buff);
+        if ((int)strlen(buff) > value_space)
+          snprintf(buff, 1024, "%u%%", device->dynamic_info.gpu_util_rate);
+        // Without the overlay, the value still gives the effective load.
+        nvtop_meter_draw(gpu_util_win, DEVICE_UNIT_NAME(device), device->dynamic_info.gpu_util_rate,
+                         interface->options.meter_effective_load, device->dynamic_info.effective_load_rate, buff,
+                         legacy_meters, meter_glyphs, meter_levels);
       } else {
         snprintf(buff, 1024, "%u%%", device->dynamic_info.gpu_util_rate);
-        draw_percentage_meter(gpu_util_win, DEVICE_UNIT_NAME(device), device->dynamic_info.gpu_util_rate, buff);
+        nvtop_meter_draw(gpu_util_win, DEVICE_UNIT_NAME(device), device->dynamic_info.gpu_util_rate, false, 0, buff,
+                         legacy_meters, meter_glyphs, meter_levels);
       }
     } else {
       snprintf(buff, 1024, "N/A");
-      draw_percentage_meter(gpu_util_win, DEVICE_UNIT_NAME(device), 0, buff);
+      nvtop_meter_draw(gpu_util_win, DEVICE_UNIT_NAME(device), 0, false, 0, buff, legacy_meters, meter_glyphs,
+                       meter_levels);
     }
 
     struct gpuinfo_memory_display memory_info =
@@ -1058,9 +1044,17 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
         total_prefixed /= 1024.;
         used_prefixed /= 1024.;
       }
+      int value_space = nvtop_meter_value_space(mem_util_win, memory_label, legacy_meters);
       snprintf(buff, 1024, "%.3f%s/%.3f%s", used_prefixed, memory_prefix[prefix_off], total_prefixed,
                memory_prefix[prefix_off]);
-      draw_percentage_meter(mem_util_win, memory_label, total_mem > 0 ? (unsigned int)(100. * used_mem / total_mem) : 0, buff);
+      unsigned int mem_percentage = total_mem > 0 ? (unsigned int)(100. * used_mem / total_mem) : 0;
+      if ((int)strlen(buff) > value_space)
+        snprintf(buff, 1024, "%.1f%s/%.1f%s", used_prefixed, memory_prefix[prefix_off], total_prefixed,
+                 memory_prefix[prefix_off]);
+      if ((int)strlen(buff) > value_space)
+        snprintf(buff, 1024, "%u%%", mem_percentage);
+      nvtop_meter_draw(mem_util_win, memory_label, mem_percentage, false, 0, buff, legacy_meters, meter_glyphs,
+                       meter_levels);
     } else if (memory_info.total_memory_valid) {
       double total_mem = memory_info.total_memory;
       double total_prefixed = total_mem;
@@ -1068,11 +1062,16 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       for (prefix_off = 0; prefix_off < 5 && total_prefixed >= 1000.; ++prefix_off) {
         total_prefixed /= 1024.;
       }
+      int value_space = nvtop_meter_value_space(mem_util_win, memory_label, legacy_meters);
       snprintf(buff, 1024, "N/A/%.3f%s", total_prefixed, memory_prefix[prefix_off]);
-      draw_percentage_meter(mem_util_win, memory_label, 0, buff);
+      if ((int)strlen(buff) > value_space)
+        snprintf(buff, 1024, "N/A/%.1f%s", total_prefixed, memory_prefix[prefix_off]);
+      if ((int)strlen(buff) > value_space)
+        snprintf(buff, 1024, "N/A");
+      nvtop_meter_draw(mem_util_win, memory_label, 0, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
     } else {
       snprintf(buff, 1024, "N/A");
-      draw_percentage_meter(mem_util_win, memory_label, 0, buff);
+      nvtop_meter_draw(mem_util_win, memory_label, 0, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
     }
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
       if (!GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_slowdown_threshold))
@@ -2307,7 +2306,6 @@ static unsigned populate_plot_data_from_ring_buffer(struct list_head *devices, c
   }
 
   assert(total_to_draw > 0);
-  assert(size_data_buff % total_to_draw == 0);
   unsigned max_data_to_copy = size_data_buff / total_to_draw;
   double (*data_split)[total_to_draw] = (double (*)[total_to_draw])data;
 
@@ -2403,8 +2401,9 @@ static void draw_plots(struct list_head *devices, struct nvtop_interface *interf
                                                              interface->plots[plot_id].num_data,
                                                              interface->plots[plot_id].data, plot_legend);
 
-    nvtop_line_plot(interface->plots[plot_id].plot_window, interface->plots[plot_id].num_data,
-                    interface->plots[plot_id].data, num_lines, !interface->options.plot_left_to_right, plot_legend);
+    nvtop_line_plot(interface->plots[plot_id].plot_window, interface->plots[plot_id].num_data / num_lines,
+                    interface->plots[plot_id].data, num_lines, interface->options.plot_style,
+                    interface->options.plot_left_to_right, &interface->plots[plot_id].braille, plot_legend);
 
     wnoutrefresh(interface->plots[plot_id].plot_window);
   }
