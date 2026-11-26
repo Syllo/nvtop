@@ -47,6 +47,7 @@ static bool gpuinfo_intel_get_device_handles(struct list_head *devices, unsigned
 static void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info);
 static void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info);
 static void gpuinfo_intel_get_running_processes(struct gpu_info *_gpu_info);
+static void gpuinfo_intel_set_monitored(struct gpu_info *_gpu_info, bool monitored);
 
 // State of gpu_info_intel.perf_event_fd: a non-negative value is an open fd,
 // a negative value means no perf event is open
@@ -57,7 +58,7 @@ static long perf_event_open(struct perf_event_attr *hw_event, pid_t pid, int cpu
   return syscall(SYS_perf_event_open, hw_event, pid, cpu, group_fd, flags);
 }
 
-static bool get_perf_event(uint32_t type, uint64_t config, int *fd) {
+bool gpuinfo_intel_open_perf_event(uint32_t type, uint64_t config, int *fd) {
   struct perf_event_attr attr = {
       .type = type,
       .size = sizeof(attr),
@@ -73,6 +74,25 @@ static bool get_perf_event(uint32_t type, uint64_t config, int *fd) {
   return true;
 }
 
+bool gpuinfo_intel_pmu_type(const char *pmu_name, uint32_t *type) {
+  char type_path[128];
+  snprintf(type_path, sizeof(type_path), "/sys/bus/event_source/devices/%s/type", pmu_name);
+  FILE *type_file = fopen(type_path, "r");
+  if (!type_file)
+    return false;
+  bool ok = fscanf(type_file, "%" SCNu32, type) == 1;
+  fclose(type_file);
+  return ok;
+}
+
+void gpuinfo_intel_pmu_name(bool xe, const char *pdev, char *pmu_name, size_t len) {
+  snprintf(pmu_name, len, xe ? "xe_%s" : "i915_%s", pdev);
+  for (char *ch = pmu_name; *ch; ++ch) {
+    if (*ch == ':')
+      *ch = '_';
+  }
+}
+
 // The sysfs event description names the config field after the driver that
 // emits it: xe (drivers/gpu/drm/xe/xe_pmu.c) writes "event=0x.." while i915
 // (drivers/gpu/drm/i915/i915_pmu.c) writes "config=0x..". Accept either key.
@@ -82,16 +102,8 @@ static bool measure_perf_event_by_name(const char *pmu_name, const char *event_n
   uint32_t type;
   uint64_t config = 0;
 
-  snprintf(type_path, sizeof(type_path), "/sys/bus/event_source/devices/%s/type", pmu_name);
-  type_file = fopen(type_path, "r");
-  if (!type_file)
+  if (!gpuinfo_intel_pmu_type(pmu_name, &type))
     return false;
-
-  if (fscanf(type_file, "%u", &type) != 1) {
-    fclose(type_file);
-    return false;
-  }
-  fclose(type_file);
 
   snprintf(type_path, sizeof(type_path), "/sys/bus/event_source/devices/%s/events/%s", pmu_name, event_name);
   type_file = fopen(type_path, "r");
@@ -106,16 +118,12 @@ static bool measure_perf_event_by_name(const char *pmu_name, const char *event_n
   }
   fclose(type_file);
 
-  return get_perf_event(type, config, fd);
+  return gpuinfo_intel_open_perf_event(type, config, fd);
 }
 
 static bool get_perf_event_by_gpu_info(const struct gpu_info_intel *gpu_info, const char *event_name, int *fd) {
   char pmu_name[32];
-  snprintf(pmu_name, sizeof(pmu_name), gpu_info->driver == DRIVER_XE ? "xe_%s" : "i915_%s", gpu_info->base.pdev);
-  for (char *ch = pmu_name; *ch; ++ch) {
-    if (*ch == ':')
-      *ch = '_';
-  }
+  gpuinfo_intel_pmu_name(gpu_info->driver == DRIVER_XE, gpu_info->base.pdev, pmu_name, sizeof(pmu_name));
   if (measure_perf_event_by_name(pmu_name, event_name, fd))
     return true;
   // Devices with more than one GT expose per-GT event names (e.g. actual-frequency-gt0)
@@ -132,6 +140,7 @@ struct gpu_vendor gpu_vendor_intel = {
     .populate_static_info = gpuinfo_intel_populate_static_info,
     .refresh_dynamic_info = gpuinfo_intel_refresh_dynamic_info,
     .refresh_running_processes = gpuinfo_intel_get_running_processes,
+    .set_monitored = gpuinfo_intel_set_monitored,
     .name = "Intel",
 };
 
@@ -159,9 +168,7 @@ void gpuinfo_intel_shutdown(void) {
       ioctl(current->perf_event_fd, PERF_EVENT_IOC_DISABLE, 0);
       close(current->perf_event_fd);
     }
-    for (unsigned e = 0; e < current->xe_fn_pmu.num_engines; e++)
-      for (unsigned k = 0; k < 2; k++)
-        close(current->xe_fn_pmu.engine[e].fd[k]);
+    gpuinfo_intel_xe_close_fn_pmu(current);
     nvtop_device_unref(current->card_device);
     nvtop_device_unref(current->driver_device);
   }
@@ -212,7 +219,7 @@ static void add_intel_cards(struct nvtop_device *dev, struct list_head *devices,
   assert(retval >= 0 && pdev_val != NULL && "Could not retrieve device PCI slot name");
   strncpy(thisGPU->base.pdev, pdev_val, PDEV_LEN);
   if (thisGPU->driver == DRIVER_XE)
-    gpuinfo_intel_xe_detect_sriov(&thisGPU->base);
+    gpuinfo_intel_xe_detect_sriov(thisGPU);
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
   processinfo_register_fdinfo_callback(parse_drm_fdinfo_intel, &thisGPU->base, devname);
@@ -293,16 +300,6 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
       if (static_info->device_name[idx] == ']')
         static_info->device_name[idx] = ')';
     }
-  }
-
-  // Make SR-IOV functions recognisable in the device name.
-  if (GPUINFO_STATIC_FIELD_VALID(static_info, device_name) && (gpu_info->base.sriov_vf || gpu_info->base.sriov_pf)) {
-    size_t len = strlen(static_info->device_name);
-    if (gpu_info->base.sriov_vf)
-      snprintf(static_info->device_name + len, sizeof(static_info->device_name) - len, " SR-IOV VF%u",
-               gpu_info->base.sriov_vf_index);
-    else
-      snprintf(static_info->device_name + len, sizeof(static_info->device_name) - len, " SR-IOV PF");
   }
 
   // Mark integrated GPUs. The driver's memory regions are authoritative: a
@@ -518,6 +515,9 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       break;
     }
   }
+  // SR-IOV does not depend on the memory of the device
+  if (gpu_info->driver == DRIVER_XE)
+    gpuinfo_intel_xe_refresh_sriov(gpu_info);
 
   // Let the temporary devices be garbage collected
   nvtop_device_unref(card_dev_noncached);
@@ -540,6 +540,14 @@ static void swap_process_cache_for_next_update(struct gpu_info_intel *gpu_info) 
   }
   gpu_info->last_update_process_cache = gpu_info->current_update_process_cache;
   gpu_info->current_update_process_cache = NULL;
+}
+
+void gpuinfo_intel_set_monitored(struct gpu_info *_gpu_info, bool monitored) {
+  struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
+  // Do not keep the SR-IOV counters of an unmonitored device open, so it can
+  // go to sleep. They are opened again on its next refresh.
+  if (!monitored && gpu_info->driver == DRIVER_XE)
+    gpuinfo_intel_xe_close_fn_pmu(gpu_info);
 }
 
 void gpuinfo_intel_get_running_processes(struct gpu_info *_gpu_info) {

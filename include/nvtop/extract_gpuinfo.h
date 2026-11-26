@@ -23,6 +23,7 @@
 #define EXTRACT_GPUINFO_H_
 
 #include "nvtop/extract_gpuinfo_common.h"
+#include "nvtop/extract_processinfo_fdinfo.h"
 
 #include <stdbool.h>
 
@@ -31,6 +32,14 @@ bool gpuinfo_init_info_extraction(unsigned *total_dev_count, struct list_head *d
 bool gpuinfo_shutdown_info_extraction(struct list_head *devices);
 
 bool gpuinfo_populate_static_infos(struct list_head *devices);
+
+// Starts or stops monitoring a device: its processes are only scanned, and its
+// backend only keeps the resources it needs to refresh it, while monitored.
+static inline void gpuinfo_set_device_monitored(struct gpu_info *device, bool monitored) {
+  processinfo_enable_disable_callback_for(device, monitored);
+  if (device->vendor && device->vendor->set_monitored)
+    device->vendor->set_monitored(device, monitored);
+}
 
 bool gpuinfo_refresh_dynamic_info(struct list_head *devices);
 

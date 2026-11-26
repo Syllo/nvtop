@@ -319,6 +319,8 @@ int main(int argc, char **argv) {
       sleep(sec > 0 ? sec : 1);
 #endif
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
+      if (gpuinfo_exit_request())
+        break;
       gpuinfo_refresh_processes(&monitoredGpus);
       gpuinfo_utilisation_rate(&monitoredGpus);
       gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
@@ -326,6 +328,10 @@ int main(int argc, char **argv) {
     } while (loop_snapshot && !signal_exit);
 
     gpuinfo_shutdown_info_extraction(&monitoredGpus);
+    if (gpuinfo_exit_request()) {
+      fprintf(stderr, "%s\n", gpuinfo_exit_request());
+      return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
   }
 
@@ -429,6 +435,8 @@ int main(int argc, char **argv) {
     interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
+      if (gpuinfo_exit_request())
+        break;
       if (!interface_freeze_processes(interface)) {
         gpuinfo_refresh_processes(&monitoredGpus);
         gpuinfo_utilisation_rate(&monitoredGpus);
@@ -518,5 +526,9 @@ int main(int argc, char **argv) {
   clean_ncurses(interface);
   gpuinfo_shutdown_info_extraction(&monitoredGpus);
 
+  if (gpuinfo_exit_request()) {
+    fprintf(stderr, "%s\n", gpuinfo_exit_request());
+    return EXIT_FAILURE;
+  }
   return EXIT_SUCCESS;
 }
