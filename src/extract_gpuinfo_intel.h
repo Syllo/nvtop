@@ -12,7 +12,7 @@ enum intel_process_info_cache_valid {
   intel_cache_engine_render_valid = 0,
   intel_cache_engine_copy_valid,
   intel_cache_engine_video_valid,
-  intel_cache_engine_video_enhance_valid,
+  intel_cache_engine_video_encode_valid,
   intel_cache_engine_compute_valid,
   intel_cache_gpu_cycles_valid,
   intel_cache_total_cycles_valid,
@@ -40,8 +40,8 @@ struct intel_process_info_cache {
   struct unique_cache_id client_id;
   uint64_t engine_render;
   uint64_t engine_copy;
-  uint64_t engine_video;
-  uint64_t engine_video_enhance;
+  uint64_t engine_video;        // video engine time used for decode
+  uint64_t engine_video_encode; // the same video engine time, used for encode
   uint64_t engine_compute;
   union intel_cycles gpu_cycles;
   union intel_cycles total_cycles;

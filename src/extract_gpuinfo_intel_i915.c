@@ -298,11 +298,11 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
           busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->engine_video, time_elapsed));
     }
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used) &&
-        INTEL_CACHE_FIELD_VALID(cache_entry, engine_video_enhance) &&
-        process_info->enc_engine_used >= cache_entry->engine_video_enhance) {
+        INTEL_CACHE_FIELD_VALID(cache_entry, engine_video_encode) &&
+        process_info->enc_engine_used >= cache_entry->engine_video_encode) {
       SET_GPUINFO_PROCESS(process_info, encode_usage,
                           busy_usage_from_time_usage_round(process_info->enc_engine_used,
-                                                           cache_entry->engine_video_enhance, time_elapsed));
+                                                           cache_entry->engine_video_encode, time_elapsed));
     }
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used) &&
         GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage) && INTEL_CACHE_FIELD_VALID(cache_entry, engine_compute) &&
@@ -339,7 +339,7 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used))
     SET_INTEL_CACHE(cache_entry, engine_video, process_info->dec_engine_used);
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used))
-    SET_INTEL_CACHE(cache_entry, engine_video_enhance, process_info->enc_engine_used);
+    SET_INTEL_CACHE(cache_entry, engine_video_encode, process_info->enc_engine_used);
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used))
     SET_INTEL_CACHE(cache_entry, engine_compute, process_info->compute_engine_used);
 
