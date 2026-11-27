@@ -120,11 +120,13 @@ snap install nvtop
 snap connect nvtop:process-control
 # Allow reading hardware information such as fan speed and power
 snap connect nvtop:hardware-observe
-# Allow listing AMD GPU processes
+# Allow listing GPU processes and their GPU usage
 snap connect nvtop:system-observe
-# Workaround for per-process GPU usage
-snap connect nvtop:kubernetes-support
 ```
+
+Listing the processes using AMD, Intel and other GPUs driven by in-kernel
+drivers requires snapd from 2026 or newer. With older versions, the devices are
+still monitored but their processes are not shown.
 
 ### Conda-forge
 
