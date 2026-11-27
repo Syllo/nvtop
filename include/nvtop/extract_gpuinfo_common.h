@@ -117,6 +117,8 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_hmx_util_rate_valid,
   gpuinfo_encoder_rate_valid,
   gpuinfo_decoder_rate_valid,
+  gpuinfo_encoder_busiest_engine_rate_valid,
+  gpuinfo_decoder_busiest_engine_rate_valid,
   gpuinfo_total_memory_valid,
   gpuinfo_free_memory_valid,
   gpuinfo_used_memory_valid,
@@ -162,6 +164,11 @@ struct gpuinfo_dynamic_info {
   unsigned int effective_load_rate;   // Effective load rate in %
   unsigned int encoder_rate;          // Encoder utilization rate in %
   unsigned int decoder_rate;          // Decoder utilization rate in %
+  // Busiest engine behind encoder_rate and decoder_rate when these average
+  // several engines, in %. Only set by backends that measure each engine; a
+  // shared encode/decode meter reads the decoder one, like decoder_rate.
+  unsigned int encoder_busiest_engine_rate;
+  unsigned int decoder_busiest_engine_rate;
   unsigned long long total_memory;    // Total memory (bytes)
   unsigned long long free_memory;     // Unallocated memory (bytes)
   unsigned long long used_memory;     // Allocated memory (bytes)

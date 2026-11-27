@@ -349,10 +349,15 @@ void gpuinfo_intel_xe_refresh_sriov(struct gpu_info_intel *gpu_info) {
   if (valid) {
     // Busy percentage of each engine, added up per class
     double class_busy[XE_FN_NUM_ENGINE_CLASSES] = {0};
+    double video_busiest = 0;
     for (unsigned e = 0; e < gpu_info->xe_fn_pmu.num_engines; e++) {
       double wall_ticks = elapsed * gpu_info->xe_fn_pmu.engine[e].ref_clock;
       double pct = 100.0 * (double)(cur[e] - gpu_info->xe_fn_pmu.engine[e].prev_active) / wall_ticks;
-      class_busy[gpu_info->xe_fn_pmu.engine[e].engine_class] += pct > 100.0 ? 100.0 : pct;
+      if (pct > 100.0)
+        pct = 100.0;
+      class_busy[gpu_info->xe_fn_pmu.engine[e].engine_class] += pct;
+      if (gpu_info->xe_fn_pmu.engine[e].engine_class == DRM_XE_ENGINE_CLASS_VIDEO_DECODE && pct > video_busiest)
+        video_busiest = pct;
     }
     double class_pct[XE_FN_NUM_ENGINE_CLASSES] = {0};
     for (unsigned c = 0; c < XE_FN_NUM_ENGINE_CLASSES; c++) {
@@ -380,6 +385,12 @@ void gpuinfo_intel_xe_refresh_sriov(struct gpu_info_intel *gpu_info) {
     if (complete[DRM_XE_ENGINE_CLASS_VIDEO_DECODE] == capacity[DRM_XE_ENGINE_CLASS_VIDEO_DECODE]) {
       SET_GPUINFO_DYNAMIC(dynamic_info, encoder_rate, (unsigned)(video + 0.5));
       SET_GPUINFO_DYNAMIC(dynamic_info, decoder_rate, (unsigned)(video + 0.5));
+      // The average hides a single saturated engine, as a stream runs on one
+      // engine: also give the busiest one when there are several
+      if (capacity[DRM_XE_ENGINE_CLASS_VIDEO_DECODE] > 1) {
+        SET_GPUINFO_DYNAMIC(dynamic_info, encoder_busiest_engine_rate, (unsigned)(video_busiest + 0.5));
+        SET_GPUINFO_DYNAMIC(dynamic_info, decoder_busiest_engine_rate, (unsigned)(video_busiest + 0.5));
+      }
     }
   }
   for (unsigned e = 0; e < gpu_info->xe_fn_pmu.num_engines; e++)

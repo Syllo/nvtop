@@ -991,6 +991,22 @@ static struct gpu_info *get_device_by_id(struct list_head *devices, unsigned id)
   return NULL;
 }
 
+// Value of an encode or decode meter: the rate, followed by the busiest engine
+// when the backend measures it, with a shorter label, or not at all, when it
+// does not fit
+static void encode_decode_meter_value(char *buff, size_t size, WINDOW *win, const char *prelude, bool legacy,
+                                      unsigned rate, bool busiest_valid, unsigned busiest) {
+  int value_space = nvtop_meter_value_space(win, prelude, legacy);
+  snprintf(buff, size, "%u%%", rate);
+  if (!busiest_valid)
+    return;
+  snprintf(buff, size, "%u%%(busiest %u%%)", rate, busiest);
+  if ((int)strlen(buff) > value_space)
+    snprintf(buff, size, "%u%%(max %u%%)", rate, busiest);
+  if ((int)strlen(buff) > value_space)
+    snprintf(buff, size, "%u%%", rate);
+}
+
 static void draw_devices(struct list_head *devices, struct nvtop_interface *interface) {
   struct gpu_info *device;
   unsigned dev_id = 0;
@@ -1047,17 +1063,20 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     if (display_encode) {
       unsigned rate =
           GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate) ? device->dynamic_info.encoder_rate : 0;
-      snprintf(buff, 1024, "%u%%", rate);
+      encode_decode_meter_value(buff, sizeof(buff), encode_win, "ENC", legacy_meters, rate,
+                                GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_busiest_engine_rate),
+                                device->dynamic_info.encoder_busiest_engine_rate);
       nvtop_meter_draw(encode_win, "ENC", rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
     }
     if (display_decode) {
       unsigned rate =
           GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate) ? device->dynamic_info.decoder_rate : 0;
-      snprintf(buff, 1024, "%u%%", rate);
-      if (device->static_info.encode_decode_shared)
-        nvtop_meter_draw(decode_win, "ENC/DEC", rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
-      else
-        nvtop_meter_draw(decode_win, "DEC", rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
+      // A shared meter shows the decoder values, like decoder_rate
+      const char *prelude = device->static_info.encode_decode_shared ? "ENC/DEC" : "DEC";
+      encode_decode_meter_value(buff, sizeof(buff), decode_win, prelude, legacy_meters, rate,
+                                GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_busiest_engine_rate),
+                                device->dynamic_info.decoder_busiest_engine_rate);
+      nvtop_meter_draw(decode_win, prelude, rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
     }
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate)) {
       if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate)) {
@@ -3103,17 +3122,27 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
         printf("\"%u%%\",\n", device->dynamic_info.decoder_rate);
       else
         printf("null,\n");
+      // Only on devices that measure it, so the output is unchanged otherwise
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_busiest_engine_rate))
+        printf("%s\"encode_decode_busiest_engine\": \"%u%%\",\n", indent_level_four,
+               device->dynamic_info.decoder_busiest_engine_rate);
     } else {
       printf("%s\"encode\": ", indent_level_four);
       if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate))
         printf("\"%u%%\",\n", device->dynamic_info.encoder_rate);
       else
         printf("null,\n");
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_busiest_engine_rate))
+        printf("%s\"encode_busiest_engine\": \"%u%%\",\n", indent_level_four,
+               device->dynamic_info.encoder_busiest_engine_rate);
       printf("%s\"decode\": ", indent_level_four);
       if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate))
         printf("\"%u%%\",\n", device->dynamic_info.decoder_rate);
       else
         printf("null,\n");
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_busiest_engine_rate))
+        printf("%s\"decode_busiest_engine\": \"%u%%\",\n", indent_level_four,
+               device->dynamic_info.decoder_busiest_engine_rate);
     }
 
     // Memory Utilization
