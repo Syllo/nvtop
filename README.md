@@ -312,6 +312,11 @@ clock, as in `MEM 1215MHz  38°C`, the same way the GPU temperature follows the 
 clock. It turns yellow within 5°C of the memory's max operating temperature and red
 past it, as the GPU temperature does with its slowdown temperature.
 
+The GPU hotspot temperature needs a driver shipping NVML 13.4 or later; with older drivers
+the GPU temperature is the one NVML has always reported. NVML gives no hotspot slowdown
+temperature, so the hotspot turns yellow and red when the GPU temperature nears its own
+slowdown temperature.
+
 Unified-memory systems such as DGX Spark (GB10) and RTX Spark N1X are supported
 through the same NVML backend. When NVML reports no dedicated framebuffer, the
 GPU has no memory pool of its own. When at least one process reports a valid

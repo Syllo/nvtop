@@ -235,7 +235,17 @@ static nvmlReturn_t (*nvmlDeviceGetFanSpeed_v2)(nvmlDevice_t device, unsigned in
 
 typedef enum {
   NVML_TEMPERATURE_GPU = 0,
+  NVML_TEMPERATURE_GPU_MAX = 1, // Hottest part of the GPU die (hotspot), since NVML 13.4
 } nvmlTemperatureSensors_t;
+
+typedef struct {
+  unsigned int version;
+  nvmlTemperatureSensors_t sensorType;
+  int temperature;
+} nvmlTemperature_v1_t;
+
+// Optional, absent from older drivers
+static nvmlReturn_t (*nvmlDeviceGetTemperatureV)(nvmlDevice_t device, nvmlTemperature_v1_t *temperature);
 
 typedef enum {
   NVML_MEMORY_ERROR_TYPE_CORRECTED = 0,
@@ -677,6 +687,7 @@ struct gpu_info_nvidia {
   NvPhysicalGpuHandle nvapihandle; // NULL unless NvAPI resolved this same GPU
   unsigned int nvapi_clocks_version; // NvAPI clock layout that matched NVML, 0 until one does
   bool isInMigMode;
+  bool has_hotspot_temp; // NVML reports the NVML_TEMPERATURE_GPU_MAX sensor
   unsigned long long last_utilization_timestamp;
 
   // NVLink throughput via NVML API (data counters, aggregate across all links)
@@ -929,6 +940,8 @@ static bool gpuinfo_nvidia_init_with_lib(const char *libname) {
   // These ones might not be available
   nvmlDeviceGetProcessUtilization = dlsym(libnvidia_ml_handle, "nvmlDeviceGetProcessUtilization");
   nvmlDeviceGetMigMode = dlsym(libnvidia_ml_handle, "nvmlDeviceGetMigMode");
+  // Hotspot temperature, since NVML 13.4
+  nvmlDeviceGetTemperatureV = dlsym(libnvidia_ml_handle, "nvmlDeviceGetTemperatureV");
 
   // NVLink functions (optional - not available on all drivers/hardware)
   nvmlDeviceGetNvLinkState = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkState");
@@ -1035,6 +1048,22 @@ static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigne
     }
   }
 
+  return true;
+}
+
+// Reads the hotspot (hottest part of the die) temperature. Older drivers and GPUs without
+// the sensor do not report it.
+static bool nvidia_read_hotspot_temp(nvmlDevice_t device, unsigned int *hotspot_temp) {
+  if (!nvmlDeviceGetTemperatureV)
+    return false;
+  nvmlTemperature_v1_t temperature = {
+      .version = (unsigned int)(sizeof(temperature) | (1u << 24)),
+      .sensorType = NVML_TEMPERATURE_GPU_MAX,
+  };
+  if (nvmlDeviceGetTemperatureV(device, &temperature) != NVML_SUCCESS || temperature.temperature <= 0 ||
+      temperature.temperature >= 200)
+    return false;
+  *hotspot_temp = (unsigned int)temperature.temperature;
   return true;
 }
 
@@ -1186,6 +1215,11 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
   // Only datacenter GPUs report the memory temperature
   unsigned int mem_temp;
   static_info->mem_temp_sensor = nvidia_read_mem_temp(device, &mem_temp);
+
+  // NVML has no hotspot slowdown threshold: the interface colors the hotspot from the GPU
+  // temperature against its slowdown threshold instead
+  unsigned int hotspot_temp;
+  gpu_info->has_hotspot_temp = nvidia_read_hotspot_temp(device, &hotspot_temp);
 }
 
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -1362,6 +1396,11 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &dynamic_info->gpu_temp);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
+
+  // Hotspot temperature
+  unsigned int hotspot_temp;
+  if (gpu_info->has_hotspot_temp && nvidia_read_hotspot_temp(device, &hotspot_temp))
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_hotspot_temp, hotspot_temp);
 
   // Device memory temperature, only reported by datacenter GPUs
   unsigned int mem_temp;

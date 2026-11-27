@@ -95,6 +95,26 @@ static nvmlReturn_t unsupported_temperature(nvmlDevice_t device, nvmlTemperature
   return unsupported_uint(device, value);
 }
 
+static unsigned hotspot_version;
+
+// Reports a 95°C hotspot, rejecting a versioned struct the driver would not recognize
+static nvmlReturn_t hotspot_temperature(nvmlDevice_t device, nvmlTemperature_v1_t *temperature) {
+  (void)device;
+  hotspot_version = temperature->version;
+  if (temperature->version != ((unsigned)sizeof(*temperature) | (1U << 24)))
+    return (nvmlReturn_t)25; // NVML_ERROR_ARGUMENT_VERSION_MISMATCH
+  if (temperature->sensorType != NVML_TEMPERATURE_GPU_MAX)
+    return NVML_ERROR_NOT_SUPPORTED;
+  temperature->temperature = 95;
+  return NVML_SUCCESS;
+}
+
+static nvmlReturn_t no_hotspot_temperature(nvmlDevice_t device, nvmlTemperature_v1_t *temperature) {
+  (void)device;
+  (void)temperature;
+  return NVML_ERROR_NOT_SUPPORTED;
+}
+
 static unsigned fan_count_value;
 static nvmlReturn_t fan_count_status;
 static unsigned fan_speed_v2_values[4];
@@ -137,6 +157,8 @@ static void setup(void) {
   nvmlDeviceGetBusType = NULL;
   nvmlDeviceGetC2cModeInfoV = NULL;
   nvmlDeviceGetFieldValues = NULL;
+  nvmlDeviceGetTemperatureV = NULL;
+  hotspot_version = 0;
   nvmlDeviceGetNumFans = NULL;
   nvmlDeviceGetFanSpeed_v2 = NULL;
   fan_count_status = legacy_fan_speed_status = NVML_SUCCESS;
@@ -1151,6 +1173,34 @@ static bool fan_count_zero(void) {
   return true;
 }
 
+static bool hotspot_temp(void) {
+  setup();
+  nvmlDeviceGetTemperatureV = hotspot_temperature;
+  struct gpu_info_nvidia gpu = {0};
+  gpuinfo_nvidia_populate_static_info(&gpu.base);
+  CHECK(gpu.has_hotspot_temp);
+  CHECK(!GPUINFO_STATIC_FIELD_VALID(&gpu.base.static_info, temperature_hotspot_slowdown_threshold));
+  gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, gpu_hotspot_temp));
+  CHECK(gpu.base.dynamic_info.gpu_hotspot_temp == 95);
+  return true;
+}
+
+static bool hotspot_temp_unavailable(void) {
+  // Drivers before NVML 13.4 lack the entry point; newer ones may lack the sensor
+  nvmlReturn_t (*const getters[])(nvmlDevice_t, nvmlTemperature_v1_t *) = {NULL, no_hotspot_temperature};
+  for (unsigned i = 0; i < sizeof(getters) / sizeof(*getters); ++i) {
+    setup();
+    nvmlDeviceGetTemperatureV = getters[i];
+    struct gpu_info_nvidia gpu = {0};
+    gpuinfo_nvidia_populate_static_info(&gpu.base);
+    CHECK(!gpu.has_hotspot_temp);
+    gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+    CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, gpu_hotspot_temp));
+  }
+  return true;
+}
+
 int main(int argc, char **argv) {
   const struct {
     const char *name;
@@ -1179,6 +1229,8 @@ int main(int argc, char **argv) {
       {"multi_fan_max", multi_fan_max},
       {"multi_fan_legacy_fallback", multi_fan_legacy_fallback},
       {"fan_count_zero", fan_count_zero},
+      {"hotspot_temp", hotspot_temp},
+      {"hotspot_temp_unavailable", hotspot_temp_unavailable},
   };
   for (unsigned i = 0; argc == 2 && i < sizeof(tests) / sizeof(*tests); ++i)
     if (!strcmp(argv[1], tests[i].name))
