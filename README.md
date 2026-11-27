@@ -263,20 +263,16 @@ AMD GPUs are supported through the `amdgpu` driver. Older GPUs using `radeon`
 have limited metrics. Process monitoring with `amdgpu` requires Linux 5.14 or
 newer.
 
-ROCm/HIP compute work is not visible in the regular GPU usage counters. NVTOP
-adds it to the process utilization when the kernel reports it, which depends on
-the GPU family:
+The GPU usage of ROCm/HIP processes is shown on these GPUs and kernels:
 
 | GPU family | Minimum kernel |
 | --- | --- |
 | CDNA: MI100 / MI200 / MI300 | Linux 5.11 / 6.2 / 6.6 |
 | RDNA 3 and RDNA 4 | Linux 7.3 |
 | RDNA 1 and RDNA 2 | Linux 7.4 |
-| GCN 1-4 | Not reported by the kernel |
 
-This also requires a kernel built with ROCm support (`CONFIG_HSA_AMD`). GCN 1-4
-GPUs are still monitored; only the ROCm/HIP part of process utilization is
-missing.
+On other GPUs and older kernels, ROCm/HIP processes are listed without their GPU
+usage.
 
 ### Intel
 
