@@ -401,6 +401,9 @@ installed driver; unavailable values remain unset. Enable it with
 `-DASCEND_SUPPORT=ON`, and set `-DASCEND_ROOT=/path/to/Ascend` when CANN is
 installed outside the standard locations.
 
+Devices with HBM also show its temperature after the memory clock, as reported by
+the HBM query; DCMI gives no limit for it, so it stays green.
+
 ### Iluvatar CoreX
 
 NVTOP supports Iluvatar CoreX GPUs through the ixML library.
