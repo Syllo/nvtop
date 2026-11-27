@@ -87,6 +87,7 @@ struct gpuinfo_static_info {
   unsigned n_exec_engines;
   unsigned engine_count;
   bool c2c_attachment;     // Attached over NVLink-C2C instead of PCIe
+  bool mem_temp_sensor;    // Reports a device memory temperature (mem_temp)
   unsigned c2c_link_count; // Number of NVLink-C2C links, 0 when unknown or none
   bool integrated_graphics;
   bool encode_decode_shared;
@@ -427,12 +428,9 @@ bool nvtop_get_ecc_support(struct gpu_info *gpu_info);
 // the ECC field when a monitored GPU actually supports ECC.
 bool nvtop_probe_ecc_list(struct list_head *devices);
 
-// Device memory temperature support: true if the GPU reports NVML_FI_DEV_MEMORY_TEMP
-// (datacenter GPUs). Consumer GPUs do not report it.
-bool nvtop_get_mem_temp_support(struct gpu_info *gpu_info);
-
-// Memory temperature probe — call before initialize_curses so the temperature field
-// is only widened when a monitored GPU reports a memory temperature.
+// Memory temperature probe, from the static mem_temp_sensor of each device: call
+// before initialize_curses so the memory clock field only reserves room for the
+// memory temperature when a monitored GPU reports one.
 bool nvtop_probe_mem_temp_list(struct list_head *devices);
 
 // Asks nvtop to exit once the current refresh is done, e.g. when the devices

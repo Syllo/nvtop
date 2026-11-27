@@ -141,7 +141,7 @@ bool nvtop_probe_mem_temp_list(struct list_head *devices) {
 
   struct gpu_info *gpu;
   list_for_each_entry(gpu, devices, list) {
-    if (nvtop_get_mem_temp_support(gpu)) {
+    if (gpu->static_info.mem_temp_sensor) {
       any_device_has_mem_temp = true;
       break;
     }

@@ -1182,6 +1182,10 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
                                                               &static_info->temperature_mem_max_threshold);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_temperature_mem_max_threshold_valid, static_info->valid);
+
+  // Only datacenter GPUs report the memory temperature
+  unsigned int mem_temp;
+  static_info->mem_temp_sensor = nvidia_read_mem_temp(device, &mem_temp);
 }
 
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -1361,7 +1365,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
 
   // Device memory temperature, only reported by datacenter GPUs
   unsigned int mem_temp;
-  if (nvidia_read_mem_temp(device, &mem_temp))
+  if (gpu_info->base.static_info.mem_temp_sensor && nvidia_read_mem_temp(device, &mem_temp))
     SET_GPUINFO_DYNAMIC(dynamic_info, mem_temp, mem_temp);
 
   // Device power usage
@@ -1990,14 +1994,4 @@ bool nvtop_get_ecc_support(struct gpu_info *_gpu_info) {
   nvmlReturn_t ret =
       nvmlDeviceGetTotalEccErrors(gpu_info->gpuhandle, NVML_MEMORY_ERROR_TYPE_CORRECTED, NVML_VOLATILE_ECC, &ecc_count);
   return ret == NVML_SUCCESS;
-}
-
-bool nvtop_get_mem_temp_support(struct gpu_info *_gpu_info) {
-  // Memory temperature is an NVIDIA-specific NVML field query
-  if (strcmp(_gpu_info->vendor->name, "NVIDIA"))
-    return false;
-
-  struct gpu_info_nvidia *gpu_info = container_of(_gpu_info, struct gpu_info_nvidia, base);
-  unsigned int mem_temp;
-  return nvidia_read_mem_temp(gpu_info->gpuhandle, &mem_temp);
 }
