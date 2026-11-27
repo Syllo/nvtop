@@ -368,6 +368,10 @@ source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/dr
 Hence, you will need a kernel with a version greater or equal to 6.0 to see the
 processes using Adreno GPUs.
 
+The GPU temperature is the hottest of the GPU thermal zones. It turns yellow and red as
+it nears the lowest passive trip point of those zones, where the kernel starts throttling
+the GPU.
+
 ### Apple
 
 NVTOP includes some initial support for Apple using Metal. This is only supported when building for Apple, and when building for Apple only this vendor is supported.

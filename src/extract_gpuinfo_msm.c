@@ -516,6 +516,38 @@ static void msm_find_sysfs_paths(struct gpu_info_msm *gpu_info) {
   }
 }
 
+// The lowest "passive" trip point of the GPU thermal zones is where the kernel starts
+// throttling the GPU and the lowest "critical" one where it shuts the system down. The
+// interface shows the hottest zone, so the lowest trip of any zone is the one it reaches first.
+static void msm_set_temperature_thresholds(const struct gpu_info_msm *gpu_info,
+                                           struct gpuinfo_static_info *static_info) {
+  long passive = LONG_MAX, critical = LONG_MAX;
+  char path[PATH_MAX], type[32], buf[32];
+
+  for (unsigned i = 0; i < gpu_info->thermal_zone_count; i++) {
+    for (unsigned trip = 0; trip < 32; trip++) {
+      long temp;
+      snprintf(path, sizeof(path), "/sys/class/thermal/thermal_zone%u/trip_point_%u_type",
+               gpu_info->thermal_zones[i], trip);
+      if (!msm_read_sysfs(path, type, sizeof(type)))
+        break;
+      snprintf(path, sizeof(path), "/sys/class/thermal/thermal_zone%u/trip_point_%u_temp",
+               gpu_info->thermal_zones[i], trip);
+      if (!msm_read_sysfs(path, buf, sizeof(buf)) || sscanf(buf, "%ld", &temp) != 1 || temp <= 0)
+        continue;
+      if (!strncmp(type, "passive", 7) && temp < passive)
+        passive = temp;
+      else if (!strncmp(type, "critical", 8) && temp < critical)
+        critical = temp;
+    }
+  }
+  // Trip points are in millidegrees Celsius
+  if (passive != LONG_MAX)
+    SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, passive / 1000);
+  if (critical != LONG_MAX)
+    SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, critical / 1000);
+}
+
 void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_msm *gpu_info = container_of(_gpu_info, struct gpu_info_msm, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
@@ -526,6 +558,7 @@ void gpuinfo_msm_populate_static_info(struct gpu_info *_gpu_info) {
   RESET_ALL(static_info->valid);
 
   msm_find_sysfs_paths(gpu_info);
+  msm_set_temperature_thresholds(gpu_info, static_info);
 
   uint64_t gpuid;
   if (gpuinfo_msm_query_param(gpu_info->fd, MSM_PARAM_CHIP_ID, &gpuid) == 0) {
