@@ -24,9 +24,12 @@ void processinfo_drop_callback(const struct gpu_info *info) {
   (void) info;
 }
 
-void processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info) {
-  (void) callback;
-  (void) info;
+bool processinfo_register_fdinfo_callback(processinfo_fdinfo_callback callback, struct gpu_info *info,
+                                          const char *device_node) {
+  (void)callback;
+  (void)info;
+  (void)device_node;
+  return false;
 }
 
 void processinfo_sweep_fdinfos(void) {

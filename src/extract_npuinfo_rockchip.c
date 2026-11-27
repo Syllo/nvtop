@@ -80,6 +80,7 @@ static void gpuinfo_rknpu_populate_static_info(struct gpu_info *_gpu_info) {
 
   static_info->integrated_graphics = true;
   static_info->encode_decode_shared = false;
+  static_info->memory_shared_with_host = true;
 
   RESET_ALL(static_info->valid);
   snprintf(static_info->device_name, sizeof(static_info->device_name), "%s", gpu_info->base.pdev);
@@ -112,29 +113,6 @@ static int read_npu_load(const char *file) {
   return count ? sum / count : -1;
 }
 
-static int set_gpuinfo_dynamic_memory(struct gpuinfo_dynamic_info *dynamic_info) {
-  FILE *fp = fopen("/proc/meminfo", "r");
-  if (!fp) return -1;
-  char line[256];
-  unsigned long mem_total = 0, mem_available = 0;
-  while (fgets(line, sizeof(line), fp)) {
-    if (sscanf(line, "MemTotal: %lu kB", &mem_total) == 1) {
-      mem_total *= 1024;
-      SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mem_total);
-    } else if (sscanf(line, "MemAvailable: %lu kB", &mem_available) == 1) {
-      mem_available *= 1024;
-      SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mem_available);
-    }
-  }
-  fclose(fp);
-  if (mem_total > 0 && mem_available > 0) {
-    SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mem_total - mem_available);
-    SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
-                        (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
-  }
-  return 0; 
-}
-
 static void gpuinfo_rknpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   struct gpu_info_rknpu *gpu_info = container_of(_gpu_info, struct gpu_info_rknpu, base);
   struct gpuinfo_dynamic_info *dynamic_info = &gpu_info->base.dynamic_info;
@@ -153,11 +131,13 @@ static void gpuinfo_rknpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   int gpu_temp = read_int_from_file("/sys/class/thermal/thermal_zone6/temp") / 1000;
   SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, gpu_temp);
 
-  set_gpuinfo_dynamic_memory(dynamic_info);
+  gpuinfo_refresh_system_memory(dynamic_info);
 }
 
 static void gpuinfo_rknpu_get_running_processes(struct gpu_info *_gpu_info) {
+  // This backend has no process query; an empty list does not establish zero usage.
   _gpu_info->processes_count = 0;
+  _gpu_info->processes_query_succeeded = false;
 }
 
 struct gpu_vendor gpu_vendor_rknpu = {.init = gpuinfo_rknpu_init,

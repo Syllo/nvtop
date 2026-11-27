@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.18)
 #                              PROJECT                              #
 #///////////////////////////////////////////////////////////////////#
 
-project(nvtop VERSION 3.3.2
+project(nvtop VERSION 3.4.0
   LANGUAGES C CXX)
 
 set(default_build_type "Release")
@@ -28,7 +28,7 @@ set(CURSES_NEED_NCURSES TRUE)
 # Try to find ncurses with unicode support first
 set(CURSES_NEED_WIDE TRUE)
 find_package(Curses QUIET)
-if (NOT CURSE_FOUND)
+if (NOT CURSES_FOUND)
   # Fallback to regular ncurses library, which may also support unicode!
   set(CURSES_NEED_WIDE FALSE)
   find_package(Curses REQUIRED)
@@ -39,6 +39,41 @@ set_property(TARGET ncurses PROPERTY
   INTERFACE_INCLUDE_DIRECTORIES ${CURSES_INCLUDE_DIRS})
 set_property(TARGET ncurses PROPERTY
   INTERFACE_LINK_LIBRARIES ${CURSES_LIBRARIES})
+# Only use the wide character API when the curses library found provides it.
+# Which search succeeded does not tell: the header may enable the API for a
+# narrow library (e.g. with a curses.h shared by both), a narrow library found
+# by an earlier configure stays cached for the wide search, and some systems
+# ship the wide functions in a library named ncurses. So build and link a
+# program calling them. Checked on every configure, as the library may change.
+# When it works, the code is built with NVTOP_HAVE_WIDE_CURSES, its only wide
+# character switch, and with what makes the header declare the wide API, which
+# it otherwise derives from the platform's feature-test macros:
+# NCURSES_WIDECHAR, or _XOPEN_SOURCE_EXTENDED for older headers. The program is
+# built the same way.
+include(CheckCSourceCompiles)
+set(CMAKE_REQUIRED_INCLUDES ${CURSES_INCLUDE_DIRS})
+set(CMAKE_REQUIRED_DEFINITIONS -DNCURSES_WIDECHAR=1 -D_XOPEN_SOURCE_EXTENDED=1 -DNCURSES_ENABLE_STDBOOL_H=1)
+set(CMAKE_REQUIRED_LIBRARIES ${CURSES_LIBRARIES})
+unset(NVTOP_CURSES_HAS_WIDE_API CACHE)
+check_c_source_compiles("
+#include <ncurses.h>
+#include <wchar.h>
+int main(void) {
+  cchar_t cell;
+  wchar_t text[2] = {L'a', 0};
+  setcchar(&cell, text, 0, 0, NULL);
+  wadd_wch(stdscr, &cell);
+  mvwin_wch(stdscr, 0, 0, &cell);
+  getcchar(&cell, text, NULL, NULL, NULL);
+  return waddnwstr(stdscr, text, 1);
+}" NVTOP_CURSES_HAS_WIDE_API)
+unset(CMAKE_REQUIRED_INCLUDES)
+unset(CMAKE_REQUIRED_DEFINITIONS)
+unset(CMAKE_REQUIRED_LIBRARIES)
+if (NVTOP_CURSES_HAS_WIDE_API)
+  set_property(TARGET ncurses PROPERTY
+    INTERFACE_COMPILE_DEFINITIONS NVTOP_HAVE_WIDE_CURSES=1 NCURSES_WIDECHAR=1 _XOPEN_SOURCE_EXTENDED=1)
+endif()
 add_compile_definitions(NCURSES_ENABLE_STDBOOL_H=1)
 
 #///////////////////////////////////////////////////////////////////#
@@ -100,7 +135,7 @@ else()
   set(IXML_SUPPORT_DEFAULT ON)
 endif()
 
-# TPU and Enflame GCU support is only available on Linux
+# TPU, Enflame GCU, Gaudi and T-Head PPU support is only available on Linux
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
   # Check for libtpuinfo.so to set the default for TPU support
   find_library(LIBTPUINFO
@@ -114,9 +149,13 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(TPU_SUPPORT_DEFAULT ON)
   endif()
   set(ENFLAME_SUPPORT_DEFAULT ON)
+  set(GAUDI_SUPPORT_DEFAULT ON)
+  set(PPU_SUPPORT_DEFAULT ON)
 else()
   set(TPU_SUPPORT_DEFAULT OFF)
   set(ENFLAME_SUPPORT_DEFAULT OFF)
+  set(GAUDI_SUPPORT_DEFAULT OFF)
+  set(PPU_SUPPORT_DEFAULT OFF)
 endif()
 
 # Rockchip support is only available on Linux on arm
@@ -126,6 +165,20 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND
   set(ROCKCHIP_SUPPORT_DEFAULT ON)
 else()
   set(ROCKCHIP_SUPPORT_DEFAULT OFF)
+endif()
+
+# Intel NPU support (intel_vpu accel driver) is only available on Linux
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(INTEL_NPU_SUPPORT_DEFAULT ON)
+else()
+  set(INTEL_NPU_SUPPORT_DEFAULT OFF)
+endif()
+
+# AMD NPU support (amdxdna accel driver) is only available on Linux
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  set(AMD_NPU_SUPPORT_DEFAULT ON)
+else()
+  set(AMD_NPU_SUPPORT_DEFAULT OFF)
 endif()
 
 # Tenstorrent support is only available on Linux
@@ -147,10 +200,15 @@ option(ASCEND_SUPPORT "Build support for Ascend NPUs through Ascend DCMI" ${ASCE
 option(V3D_SUPPORT "Build support for Raspberrypi through v3d" ${V3D_SUPPORT_DEFAULT})
 option(TPU_SUPPORT "Build support for Google TPUs through GRPC" ${TPU_SUPPORT_DEFAULT})
 option(ROCKCHIP_SUPPORT "Enable support for Rockchip NPU" ${ROCKCHIP_SUPPORT_DEFAULT})
+option(INTEL_NPU_SUPPORT "Build support for Intel NPUs through the intel_vpu driver" ${INTEL_NPU_SUPPORT_DEFAULT})
+option(AMD_NPU_SUPPORT "Build support for AMD NPUs through the amdxdna driver" ${AMD_NPU_SUPPORT_DEFAULT})
 option(METAX_SUPPORT "Build support for MetaX GPUs through libmxsml" ${METAX_SUPPORT_DEFAULT})
 option(ENFLAME_SUPPORT "Build support for Enflame GCUs through libefml" ${ENFLAME_SUPPORT_DEFAULT})
 option(TENSTORRENT_SUPPORT "Build support for Tenstorrent accelerators through tt-kmd" ${TENSTORRENT_SUPPORT_DEFAULT})
 option(IXML_SUPPORT "Build support for Iluvatar CoreX GPUs through libixml" ${IXML_SUPPORT_DEFAULT})
+option(GAUDI_SUPPORT "Build support for Intel Gaudi HPUs through libhlml" ${GAUDI_SUPPORT_DEFAULT})
+
+option(PPU_SUPPORT "Build support for T-Head PPUs through libhgml" ${PPU_SUPPORT_DEFAULT})
 
 add_subdirectory(src)
 

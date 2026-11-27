@@ -26,11 +26,15 @@
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface_common.h"
 
+#include <limits.h>
 #include <stdbool.h>
 
 typedef struct {
   plot_info_to_draw to_draw;  // The set of metrics to draw for this gpu
   bool doNotMonitor;          // True if this GPU should not be monitored
+  bool show_system_memory;    // Show the system RAM rather than the device memory
+                              // derived from its processes, if the device shares
+                              // its memory with the host
   struct gpu_info *linkedGpu; // The gpu to which this option apply
 } nvtop_interface_gpu_opts;
 
@@ -55,6 +59,10 @@ typedef struct nvtop_interface_option_struct {
   bool hide_processes_list;                         // Hide processes list
   bool dynamic_memory_units;                        // Scale process memory units automatically
   unsigned char gpu_plot_color_idx[MAX_LINES_PER_PLOT]; // index into plot_color_names[] per plot slot
+  enum nvtop_plot_style plot_style;                     // How the graph lines are rendered
+  enum nvtop_meter_style meter_style;                   // How the utilization meters are rendered
+  struct nvtop_meter_levels meter_levels;               // Where the graphical meters turn yellow, then red
+  bool meter_effective_load;                            // Overlay the effective load on the utilization meter
 } nvtop_interface_option;
 
 inline bool plot_isset_draw_info(enum plot_information check_info, plot_info_to_draw to_draw) {
@@ -96,6 +104,22 @@ void alloc_interface_options_internals(char *config_file_location, unsigned num_
 
 unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct list_head *monitoredGpus,
                                                 struct list_head *nonMonitoredGpus, nvtop_interface_option *options);
+
+// Marks a device that has no SR-IOV root number
+#define SRIOV_ROOT_NONE INT_MIN
+
+// Computes the SR-IOV root device number of every device of gpu_opts (all
+// num_devices of them, the first num_monitored being the monitored devices in
+// device number order) into roots, indexed like gpu_opts:
+//  - a monitored device that is no VF is its own root (its device number);
+//  - a VF has the device number of its PF if that PF is monitored;
+//  - a PF that is not monitored, and that a VF in the device list points to,
+//    gets a negative number, -1, -2, ... in PCI address order, as do its VFs,
+//    so it can still be told apart in the interface;
+//  - other unmonitored devices get SRIOV_ROOT_NONE.
+// Returns true if a monitored device is a VF.
+bool interface_compute_sriov_roots(unsigned num_devices, unsigned num_monitored,
+                                   const nvtop_interface_gpu_opts *gpu_opts, int *roots);
 
 bool load_interface_options_from_config_file(unsigned num_devices, nvtop_interface_option *options);
 

@@ -1,0 +1,8 @@
+pos:	0
+flags:	02100002
+mnt_id:	26
+ino:	901
+drm-driver:	amdgpu
+drm-client-id:	12
+drm-pdev:	0000:c4:00.0
+drm-total-memory:	32 MiB

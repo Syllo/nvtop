@@ -136,12 +136,10 @@ static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struc
         continue;
       client_id_set = true;
     } else if (!strcmp(key, v3d_drm_total_memory)) {
-      unsigned long mem_int;
-      char *endptr;
-      mem_int = strtoul(val, &endptr, 10);
-      if (endptr == val || (strcmp(endptr, " kB") && strcmp(endptr, " KiB")))
+      unsigned long long mem_bytes;
+      if (!extract_drm_fdinfo_size(val, &mem_bytes))
         continue;
-      SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * 1024);
+      SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_bytes);
     } else if (!strcmp(key, v3d_drm_engine_render)) {
       char *endptr;
       uint64_t time_spent = strtoull(val, &endptr, 10);
@@ -164,8 +162,7 @@ static bool parse_drm_fdinfo_v3d(struct gpu_info *info, FILE *fdinfo_file, struc
     HASH_DEL(gpu_info->last_update_process_cache, cache_entry);
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
         V3D_CACHE_FIELD_VALID(cache_entry, engine_render) &&
-        process_info->gfx_engine_used >= cache_entry->engine_render &&
-        process_info->gfx_engine_used - cache_entry->engine_render <= time_elapsed) {
+        process_info->gfx_engine_used >= cache_entry->engine_render) {
       SET_GPUINFO_PROCESS(
           process_info, gpu_usage,
           busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));
@@ -204,7 +201,7 @@ static void add_v3d_cards(struct nvtop_device *dev, const char *devname, struct 
   thisGPU->driver_device = nvtop_device_ref(parent);
   list_add_tail(&thisGPU->base.list, devices);
   // Register a fdinfo callback for this GPU
-  processinfo_register_fdinfo_callback(parse_drm_fdinfo_v3d, &thisGPU->base);
+  processinfo_register_fdinfo_callback(parse_drm_fdinfo_v3d, &thisGPU->base, devname);
   thisGPU->mb = mbox_open();
   if (sscanf(devname, "/dev/dri/card%d", &thisGPU->card_id) != 1)
     thisGPU->card_id = 0;

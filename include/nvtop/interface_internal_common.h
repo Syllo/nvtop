@@ -26,6 +26,7 @@
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface_options.h"
 #include "nvtop/interface_ring_buffer.h"
+#include "nvtop/plot.h"
 #include "nvtop/time.h"
 
 #include <ncurses.h>
@@ -57,6 +58,9 @@ enum interface_color {
   gpu_mem_plot_color,
   gpu_plot_color_3,
   gpu_plot_color_4,
+  bar_effective_green_color,
+  bar_effective_yellow_color,
+  bar_effective_red_color,
 };
 
 struct device_window {
@@ -84,6 +88,12 @@ struct device_window {
   WINDOW *extra_info[MAX_EXTRA_INFO_ITEMS];
   bool enc_was_visible;
   bool dec_was_visible;
+  // Kind of memory shown by the memory graph (system RAM fallback or GPU
+  // memory), and the number of consecutive samples of the other kind.
+  bool memory_plot_system_memory;
+  unsigned memory_plot_switch_samples;
+  // State of the user's system memory option when the graph was last updated.
+  bool memory_plot_system_option;
   nvtop_time last_decode_seen;
   nvtop_time last_encode_seen;
 };
@@ -112,6 +122,7 @@ struct process_window {
 struct plot_window {
   size_t num_data;
   double *data;
+  struct nvtop_braille_plot braille; // Braille renderer state, sized for plot_window
   WINDOW *win;
   WINDOW *plot_window;
   unsigned num_devices_to_plot;
@@ -152,7 +163,27 @@ struct nvtop_interface {
   struct plot_window *plots;
   interface_ring_buffer saved_data_ring;
   struct setup_window setup_win;
+  bool colors_initialized; // Colors were set up at startup (changing the option needs a restart)
+  // SR-IOV root device number of each device, indexed like
+  // options.gpu_specific_opts (see interface_compute_sriov_roots()).
+  // NULL when there is no SR-IOV VF.
+  int *sriov_root;
+  bool has_monitored_sriov_vf; // At least one monitored device is an SR-IOV VF
 };
+
+// SR-IOV root device number of the device gpu_specific_opts[opts_idx]
+static inline int interface_sriov_root(const struct nvtop_interface *interface, unsigned opts_idx) {
+  return interface->sriov_root ? interface->sriov_root[opts_idx] : SRIOV_ROOT_NONE;
+}
+
+// Whether the graphical meter style can actually be drawn. The meters only use
+// the 8 ANSI colors, so they need the colors set up at startup, at least 8
+// terminal colors and enough initialized color pairs; otherwise the legacy
+// meters are used.
+static inline bool interface_supports_graphical_meters(const struct nvtop_interface *interface) {
+  return interface->options.meter_style == nvtop_meter_style_graphical && interface->colors_initialized &&
+         COLORS >= 8 && COLOR_PAIRS > bar_effective_red_color;
+}
 
 enum device_field {
   device_name = 0,

@@ -104,10 +104,6 @@ bool mali_init_drm_funcs(struct drmFuncTable *drmFuncs,
 
   state->local_error_string = NULL;
 
-  state->meminfo_file = fopen("/proc/meminfo", "r");
-  if (!state->meminfo_file)
-    goto init_error_clean_exit;
-
   state->didnt_call_gpuinfo_init = "uninitialized";
 
   return true;
@@ -140,11 +136,6 @@ void mali_shutdown_common(struct mali_gpu_state *state,
     dlclose(state->libdrm_handle);
     state->libdrm_handle = NULL;
     state->local_error_string = state->didnt_call_gpuinfo_init;
-  }
-
-  if (state->meminfo_file) {
-    fclose(state->meminfo_file);
-    state->meminfo_file = NULL;
   }
 }
 
@@ -244,15 +235,18 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
 
   for (unsigned int i = 0; i < libdrm_count; i++) {
     int fd = -1;
+    const char *drm_node = NULL;
 
     // Try render node first
     if (1 << DRM_NODE_RENDER & devs[i]->available_nodes) {
       fd = open(devs[i]->nodes[DRM_NODE_RENDER], O_RDWR);
+      drm_node = devs[i]->nodes[DRM_NODE_RENDER];
     }
     if (fd < 0) {
       // Fallback to primary node (control nodes are unused according to the DRM documentation)
       if (1 << DRM_NODE_PRIMARY & devs[i]->available_nodes) {
         fd = open(devs[i]->nodes[DRM_NODE_PRIMARY], O_RDWR);
+        drm_node = devs[i]->nodes[DRM_NODE_PRIMARY];
       }
     }
 
@@ -280,7 +274,7 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
 
     list_add_tail(&state->gpu_infos[state->mali_gpu_count].base.list, devices);
     // Register a fdinfo callback for this GPU
-    processinfo_register_fdinfo_callback(callback, &state->gpu_infos[state->mali_gpu_count].base);
+    processinfo_register_fdinfo_callback(callback, &state->gpu_infos[state->mali_gpu_count].base, drm_node);
 
     if (handle_model) {
       if (!handle_model(&state->gpu_infos[state->mali_gpu_count])) {
@@ -297,80 +291,6 @@ bool mali_common_get_device_handles(struct mali_gpu_state *state,
   *count = state->mali_gpu_count;
 
   return true;
-}
-
-uint64_t parse_memory_multiplier(const char *str) {
-  if (strcmp(str, " B") == 0) {
-    return 1;
-  }
-  else if (strcmp(str, " KiB") == 0 || strcmp(str, " kB") == 0) {
-    return 1024;
-  }
-  else if (strcmp(str, " MiB") == 0) {
-    return 1024 * 1024;
-  }
-  else if (strcmp(str, " GiB") == 0) {
-    return 1024 * 1024 * 1024;
-  }
-
-  return 1;
-}
-
-void mali_common_refresh_dynamic_info(struct gpuinfo_dynamic_info *dynamic_info,
-				      struct mali_gpu_state *state,
-				      const char *meminfo_total,
-				      const char *meminfo_available)
-{
-  RESET_ALL(dynamic_info->valid);
-
-  rewind(state->meminfo_file);
-  fflush(state->meminfo_file);
-
-  static char *line = NULL;
-  static size_t line_buf_size = 0;
-  ssize_t count = 0;
-  uint64_t mem_total = 0;
-  uint64_t mem_available = 0;
-  size_t keys_acquired = 0;
-
-  while (keys_acquired != 2 && (count = getline(&line, &line_buf_size, state->meminfo_file)) != -1) {
-    char *key, *val;
-
-    // Get rid of the newline if present
-    if (line[count - 1] == '\n') {
-      line[--count] = '\0';
-    }
-
-    if (!extract_drm_fdinfo_key_value(line, &key, &val))
-      continue;
-
-    bool is_total = !strcmp(key, meminfo_total);
-    bool is_available = !strcmp(key, meminfo_available);
-
-    if (is_total || is_available) {
-      uint64_t mem_int;
-      char *endptr;
-
-      mem_int = strtoull(val, &endptr, 10);
-      if (endptr == val)
-        continue;
-
-      mem_int *= parse_memory_multiplier(endptr);
-      if (is_total) {
-        mem_total = mem_int;
-      }
-      else if (is_available) {
-        mem_available = mem_int;
-      }
-      ++keys_acquired;
-    }
-  }
-
-  SET_GPUINFO_DYNAMIC(dynamic_info, total_memory, mem_total);
-  SET_GPUINFO_DYNAMIC(dynamic_info, used_memory, mem_total - mem_available);
-  SET_GPUINFO_DYNAMIC(dynamic_info, free_memory, mem_available);
-  SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate,
-                      (dynamic_info->total_memory - dynamic_info->free_memory) * 100 / dynamic_info->total_memory);
 }
 
 static void swap_process_cache_for_next_update(struct gpu_info_mali *gpu_info) {
@@ -420,8 +340,7 @@ void mali_common_parse_fdinfo_handle_cache(struct gpu_info_mali *gpu_info,
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, gfx_engine_used) &&
         MALI_CACHE_FIELD_VALID(cache_entry, engine_render) &&
         // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
-        process_info->gfx_engine_used >= cache_entry->engine_render &&
-        process_info->gfx_engine_used - cache_entry->engine_render <= time_elapsed) {
+        process_info->gfx_engine_used >= cache_entry->engine_render) {
       SET_GPUINFO_PROCESS(
           process_info, gpu_usage,
           busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));
@@ -465,7 +384,7 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
   static char *line = NULL;
   static size_t line_buf_size = 0;
   uint64_t total_time = 0;
-  bool client_id_set = false;
+  bool client_id_set = false, total_memory_seen = false;
   ssize_t count = 0;
 
   fid->engine_count = 0;
@@ -494,6 +413,8 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
     } else {
       bool is_engine, is_cycles, is_maxfreq, is_curfreq, is_resident;
       match_keys(&is_engine, &is_cycles, &is_maxfreq, &is_curfreq, &is_resident, key);
+      total_memory_seen = total_memory_seen || !strcmp(key, "drm-total-memory");
+      bool is_shared = !strcmp(key, "drm-shared-memory");
 
       if (is_engine) {
         char *endptr;
@@ -521,16 +442,15 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
           continue;
 
         fid->total_cycles += cycles;
-      } else if (is_resident) {
-        uint64_t mem_int;
-        char *endptr;
-
-        mem_int = strtoull(val, &endptr, 10);
-        if (endptr == val)
+      } else if (is_resident || is_shared) {
+        unsigned long long mem_bytes;
+        if (!extract_drm_fdinfo_size(val, &mem_bytes))
           continue;
 
-        uint64_t multiplier = parse_memory_multiplier(endptr);
-        SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_int * multiplier);
+        if (is_resident)
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, mem_bytes);
+        else
+          SET_GPUINFO_PROCESS(process_info, gpu_memory_shared, mem_bytes);
       }
     }
   }
@@ -542,6 +462,12 @@ bool mali_common_parse_drm_fdinfo(struct gpu_info *info, FILE *fdinfo_file,
 
   if (!client_id_set)
     return false;
+
+  // The DRM memory stats only print the resident size once a buffer of the
+  // client reports its status, so a client without buffers (such as nvtop's own
+  // query fd) only prints its total: it has no resident memory.
+  if (total_memory_seen && !GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_memory_usage))
+    SET_GPUINFO_PROCESS(process_info, gpu_memory_usage, 0);
 
   //  driver does not expose compute engine metrics as of yet
   process_info->type |= gpu_process_graphical;

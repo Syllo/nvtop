@@ -28,8 +28,10 @@
 #include <vector>
 
 extern "C" {
+#include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface.h"
 #include "nvtop/interface_layout_selection.h"
+#include "nvtop/interface_options.h"
 #include "nvtop/pcie_utilization.h"
 }
 
@@ -259,6 +261,28 @@ TEST(PcieUtilization, LoadPercentNoMaxReturnsZero) {
   EXPECT_EQ(pcie_load_percent(1000000u, &no_info), 0u);
 }
 
+TEST(BusyUsage, ScalesAndRounds) {
+  const uint64_t second = UINT64_C(1000000000);
+  EXPECT_EQ(busy_usage_from_time_usage_round(0, 0, second), 0u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second / 2, 0, second), 50u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(3 * second + 994000000, 3 * second, second), 99u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(3 * second + 996000000, 3 * second, second), 100u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second, 0, second), 100u);
+}
+
+TEST(BusyUsage, ClampsBusyTimeLongerThanInterval) {
+  // i915 accounts the busy time in chunks: a fully busy engine can report e.g. 1.16s over a 1s interval.
+  const uint64_t second = UINT64_C(1000000000);
+  EXPECT_EQ(busy_usage_from_time_usage_round(second + 160000000, 0, second), 100u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(10) * second, 0, second), 100u);
+}
+
+TEST(BusyUsage, ZeroIntervalReturnsZero) {
+  // No elapsed time means no measurable rate; must not divide by zero.
+  EXPECT_EQ(busy_usage_from_time_usage_round(0, 0, 0), 0u);
+  EXPECT_EQ(busy_usage_from_time_usage_round(UINT64_C(1000000), 0, 0), 0u);
+}
+
 TEST(InterfaceOptions, NpuDefaultPlotsRespectMaxLines) {
   plot_info_to_draw npu = plot_npu_default_draw_info();
   // The NPU defaults add HVX/HMX on top of the GPU defaults.
@@ -279,6 +303,8 @@ TEST(InterfaceOptions, AddingManyPlotsRespectsMaxLines) {
 TEST(InterfaceOptions, ProcessingUnitNames) {
   EXPECT_STREQ(processing_unit_name(gpu_processing_unit_gpu), "GPU");
   EXPECT_STREQ(processing_unit_name(gpu_processing_unit_npu), "NPU");
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_ppu), "PPU");
+  EXPECT_STREQ(processing_unit_name(gpu_processing_unit_hpu), "HPU");
   // Out-of-range values fall back to the default.
   EXPECT_STREQ(processing_unit_name((enum gpu_processing_unit)gpu_processing_unit_count), "GPU");
 }
@@ -301,6 +327,256 @@ TEST(InterfaceOptions, DynamicMemoryUnitsConfig) {
   EXPECT_TRUE(options.dynamic_memory_units);
 
   EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, GraphStyleNames) {
+  char config_path[] = "interface-graph-style-names-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  const struct {
+    const char *name;
+    enum nvtop_plot_style style;
+  } names[] = {{"legacy", nvtop_plot_style_line}, {"fine", nvtop_plot_style_braille}};
+  for (const auto &entry : names) {
+    FILE *config = fopen(config_path, "w");
+    ASSERT_NE(config, nullptr);
+    fprintf(config, "[ChartOption]\nGraphStyle = %s\n", entry.name);
+    fclose(config);
+    options.plot_style = entry.style == nvtop_plot_style_line ? nvtop_plot_style_braille : nvtop_plot_style_line;
+    ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+    EXPECT_EQ(options.plot_style, entry.style) << entry.name;
+  }
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, GraphStyleConfig) {
+  char config_path[] = "interface-graph-style-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+  options.plot_style = nvtop_plot_style_line;
+
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.plot_style = nvtop_plot_style_braille;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.plot_style, nvtop_plot_style_line);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, MeterStyleConfig) {
+  char config_path[] = "interface-meter-style-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+  options.meter_style = nvtop_meter_style_legacy;
+
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.meter_style = nvtop_meter_style_graphical;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.meter_style, nvtop_meter_style_legacy);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, MeterLevelsAndEffectiveLoadConfig) {
+  char config_path[] = "interface-meter-levels-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.sort_processes_by = process_memory;
+  options.process_fields_displayed = process_default_displayed_field();
+  options.meter_levels = {.yellow = false, .red = true, .yellow_from = 35, .red_from = 100};
+  options.meter_effective_load = false;
+
+  ASSERT_TRUE(save_interface_options_to_config_file(0, &options));
+  options.meter_levels = {.yellow = true, .red = false, .yellow_from = 75, .red_from = 90};
+  options.meter_effective_load = true;
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_FALSE(options.meter_effective_load);
+  EXPECT_FALSE(options.meter_levels.yellow);
+  EXPECT_TRUE(options.meter_levels.red);
+  EXPECT_EQ(options.meter_levels.yellow_from, 35u);
+  EXPECT_EQ(options.meter_levels.red_from, 100u);
+
+  // Levels that are not percentages keep the current ones.
+  FILE *config = fopen(config_path, "w");
+  ASSERT_NE(config, nullptr);
+  fprintf(config, "[HeaderOption]\nMeterYellowFrom = 101\nMeterRedFrom = 50%%\nMeterYellow = maybe\n");
+  fclose(config);
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_FALSE(options.meter_levels.yellow);
+  EXPECT_EQ(options.meter_levels.yellow_from, 35u);
+  EXPECT_EQ(options.meter_levels.red_from, 100u);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, InvalidGraphStyleConfigKeepsCurrent) {
+  char config_path[] = "interface-invalid-graph-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  FILE *config = fopen(config_path, "w");
+  ASSERT_NE(config, nullptr);
+  fprintf(config, "[ChartOption]\nGraphStyle = garbage\n");
+  fclose(config);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.plot_style = nvtop_plot_style_braille;
+
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.plot_style, nvtop_plot_style_braille);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, InvalidMeterStyleConfigKeepsCurrent) {
+  char config_path[] = "interface-invalid-meter-XXXXXX";
+  int fd = mkstemp(config_path);
+  ASSERT_NE(fd, -1);
+  close(fd);
+
+  FILE *config = fopen(config_path, "w");
+  ASSERT_NE(config, nullptr);
+  fprintf(config, "[HeaderOption]\nMeterStyle = garbage\n");
+  fclose(config);
+
+  nvtop_interface_option options = {};
+  options.config_file_location = config_path;
+  options.meter_style = nvtop_meter_style_graphical;
+
+  ASSERT_TRUE(load_interface_options_from_config_file(0, &options));
+  EXPECT_EQ(options.meter_style, nvtop_meter_style_graphical);
+
+  EXPECT_EQ(std::remove(config_path), 0);
+}
+
+TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
+  // An unmonitored GPU is no longer refreshed, so its process entries would
+  // otherwise keep pointers to process-cache strings freed by later refreshes.
+  // They must be dropped when monitoring is disabled.
+  struct gpu_info monitored = {};
+  struct gpu_info unmonitored = {};
+  monitored.processes_count = 3;
+  unmonitored.processes_count = 2;
+
+  LIST_HEAD(monitored_gpus);
+  LIST_HEAD(non_monitored_gpus);
+  list_add_tail(&monitored.list, &monitored_gpus);
+  list_add_tail(&unmonitored.list, &non_monitored_gpus);
+
+  nvtop_interface_option options = {};
+  options.gpu_specific_opts = static_cast<nvtop_interface_gpu_opts *>(calloc(2, sizeof(*options.gpu_specific_opts)));
+  ASSERT_NE(options.gpu_specific_opts, nullptr);
+  options.gpu_specific_opts[0].doNotMonitor = false;
+  options.gpu_specific_opts[1].doNotMonitor = true;
+
+  EXPECT_EQ(interface_check_and_fix_monitored_gpus(2, &monitored_gpus, &non_monitored_gpus, &options), 1u);
+  EXPECT_EQ(monitored.processes_count, 3u);
+  EXPECT_EQ(unmonitored.processes_count, 0u);
+
+  // Re-monitoring must not resurrect the dropped entries before the next refresh.
+  options.gpu_specific_opts[1].doNotMonitor = false;
+  EXPECT_EQ(interface_check_and_fix_monitored_gpus(2, &monitored_gpus, &non_monitored_gpus, &options), 2u);
+  EXPECT_EQ(unmonitored.processes_count, 0u);
+
+  free(options.gpu_specific_opts);
+}
+
+namespace {
+
+// Builds the gpu_specific_opts of the given devices, the first num_monitored
+// being the monitored ones, and returns their SR-IOV root numbers.
+std::vector<int> sriov_roots(std::vector<struct gpu_info> &gpus, unsigned num_monitored, bool *has_monitored_vf) {
+  std::vector<nvtop_interface_gpu_opts> opts(gpus.size());
+  for (size_t i = 0; i < gpus.size(); ++i) {
+    opts[i].linkedGpu = &gpus[i];
+    opts[i].doNotMonitor = i >= num_monitored;
+  }
+  std::vector<int> roots(gpus.size());
+  *has_monitored_vf = interface_compute_sriov_roots(gpus.size(), num_monitored, opts.data(), roots.data());
+  return roots;
+}
+
+struct gpu_info sriov_device(const char *pdev, bool pf, unsigned vf_index = 0, const char *pf_pdev = "") {
+  struct gpu_info gpu {};
+  snprintf(gpu.pdev, sizeof(gpu.pdev), "%s", pdev);
+  gpu.sriov_pf = pf;
+  gpu.sriov_vf = vf_index > 0;
+  gpu.sriov_vf_index = vf_index;
+  snprintf(gpu.sriov_pf_pdev, sizeof(gpu.sriov_pf_pdev), "%s", pf_pdev);
+  return gpu;
+}
+
+} // namespace
+
+TEST(InterfaceSriov, MonitoredVfsPointToTheirPf) {
+  std::vector<struct gpu_info> gpus = {
+      sriov_device("0000:01:00.0", false),                    // regular GPU
+      sriov_device("0000:03:00.0", true),                     // PF
+      sriov_device("0000:03:00.1", false, 1, "0000:03:00.0"), // its VF1
+      sriov_device("0000:03:00.3", false, 3, "0000:03:00.0"), // its VF3
+  };
+  bool has_vf;
+  EXPECT_EQ(sriov_roots(gpus, 4, &has_vf), (std::vector<int>{0, 1, 1, 1}));
+  EXPECT_TRUE(has_vf);
+}
+
+TEST(InterfaceSriov, UnmonitoredPfsGetNegativeNumbersInPciOrder) {
+  std::vector<struct gpu_info> gpus = {
+      sriov_device("0000:01:00.0", false),                    // monitored regular GPU
+      sriov_device("0000:04:00.1", false, 1, "0000:04:00.0"), // monitored VF of the second PF
+      sriov_device("0000:03:00.2", false, 2, "0000:03:00.0"), // monitored VF of the first PF
+      sriov_device("0000:04:00.0", true),                     // second PF, not monitored
+      sriov_device("0000:03:00.0", true),                     // first PF, not monitored
+      sriov_device("0000:03:00.1", false, 1, "0000:03:00.0"), // VF of the first PF, not monitored
+      sriov_device("0000:05:00.0", false),                    // regular GPU, not monitored
+  };
+  bool has_vf;
+  EXPECT_EQ(sriov_roots(gpus, 3, &has_vf), (std::vector<int>{0, -2, -1, -2, -1, -1, SRIOV_ROOT_NONE}));
+  EXPECT_TRUE(has_vf);
+}
+
+TEST(InterfaceSriov, OnlyUnmonitoredVfs) {
+  std::vector<struct gpu_info> gpus = {
+      sriov_device("0000:03:00.0", true),                     // monitored PF
+      sriov_device("0000:03:00.1", false, 1, "0000:03:00.0"), // its VF, not monitored
+  };
+  bool has_vf;
+  EXPECT_EQ(sriov_roots(gpus, 1, &has_vf), (std::vector<int>{0, 0}));
+  EXPECT_FALSE(has_vf);
+}
+
+TEST(InterfaceSriov, VfWithoutItsPfInTheDeviceList) {
+  // e.g. the PF is bound to another driver: it is still numbered
+  std::vector<struct gpu_info> gpus = {
+      sriov_device("0000:03:00.1", false, 1, "0000:03:00.0"),
+      sriov_device("0000:03:00.2", false, 2, "0000:03:00.0"),
+  };
+  bool has_vf;
+  EXPECT_EQ(sriov_roots(gpus, 2, &has_vf), (std::vector<int>{-1, -1}));
+  EXPECT_TRUE(has_vf);
 }
 
 #ifdef THOROUGH_TESTING
