@@ -820,46 +820,49 @@ static bool c2c_field_types(void) {
   setup();
   nvmlDeviceGetFieldValues = typed_field_values;
   c2c_field_call_status = NVML_SUCCESS;
+  // Every integer type is read; unsigned values beyond LLONG_MAX are capped, and the
+  // link count caps at UINT_MAX and reads a count of zero or below as no links
+  const long long ulong_max_read = ULONG_MAX > LLONG_MAX ? LLONG_MAX : (long long)ULONG_MAX;
   const struct {
     nvmlValueType_t type;
     nvmlValue_t value;
     bool valid;
-    unsigned long long expected;
+    long long expected;
+    unsigned links;
   } cases[] = {
-      {NVML_VALUE_TYPE_UNSIGNED_INT, {.uiVal = 8}, true, 8},
-      {NVML_VALUE_TYPE_UNSIGNED_LONG, {.ulVal = ULONG_MAX}, true, ULONG_MAX},
-      {NVML_VALUE_TYPE_UNSIGNED_LONG_LONG, {.ullVal = ULLONG_MAX}, true, ULLONG_MAX},
-      {NVML_VALUE_TYPE_UNSIGNED_SHORT, {.usVal = 8}, true, 8},
-      {NVML_VALUE_TYPE_UNSIGNED_INT, {.uiVal = 0}, true, 0},
-      {NVML_VALUE_TYPE_DOUBLE, {.dVal = 8.0}, false, 0},
-      {NVML_VALUE_TYPE_SIGNED_INT, {.siVal = 8}, false, 0},
-      {NVML_VALUE_TYPE_SIGNED_LONG_LONG, {.sllVal = -1}, false, 0},
-      {NVML_VALUE_TYPE_COUNT, {.ullVal = 8}, false, 0},
+      {NVML_VALUE_TYPE_UNSIGNED_INT, {.uiVal = 8}, true, 8, 8},
+      {NVML_VALUE_TYPE_UNSIGNED_LONG, {.ulVal = ULONG_MAX}, true, ulong_max_read, UINT_MAX},
+      {NVML_VALUE_TYPE_UNSIGNED_LONG_LONG, {.ullVal = ULLONG_MAX}, true, LLONG_MAX, UINT_MAX},
+      {NVML_VALUE_TYPE_UNSIGNED_SHORT, {.usVal = 8}, true, 8, 8},
+      {NVML_VALUE_TYPE_UNSIGNED_INT, {.uiVal = 0}, true, 0, 0},
+      {NVML_VALUE_TYPE_SIGNED_INT, {.siVal = 8}, true, 8, 8},
+      {NVML_VALUE_TYPE_SIGNED_LONG_LONG, {.sllVal = -1}, true, -1, 0},
+      {NVML_VALUE_TYPE_DOUBLE, {.dVal = 8.0}, false, 0, 0},
+      {NVML_VALUE_TYPE_COUNT, {.ullVal = 8}, false, 0, 0},
   };
   for (unsigned i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
     c2c_field_sample = (nvmlFieldValue_t){
         .valueType = cases[i].type, .value = cases[i].value, .nvmlReturn = NVML_SUCCESS};
-    unsigned long long value = 42;
-    CHECK(gpuinfo_nvidia_get_field_value_u64(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value) == cases[i].valid);
+    long long value = 42;
+    CHECK(gpuinfo_nvidia_get_field_value_ll(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value) == cases[i].valid);
     CHECK(value == (cases[i].valid ? cases[i].expected : 42));
-    unsigned expected_count = cases[i].expected > UINT_MAX ? UINT_MAX : (unsigned)cases[i].expected;
-    CHECK(gpuinfo_nvidia_c2c_link_count(NULL) == expected_count);
+    CHECK(gpuinfo_nvidia_c2c_link_count(NULL) == cases[i].links);
   }
 
   // Both the overall query and the individual field must succeed.
   c2c_field_sample = (nvmlFieldValue_t){
       .valueType = NVML_VALUE_TYPE_UNSIGNED_INT, .value.uiVal = 8, .nvmlReturn = NVML_ERROR_NOT_SUPPORTED};
-  unsigned long long value = 42;
-  CHECK(!gpuinfo_nvidia_get_field_value_u64(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value));
+  long long value = 42;
+  CHECK(!gpuinfo_nvidia_get_field_value_ll(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value));
   CHECK(value == 42);
   CHECK(gpuinfo_nvidia_c2c_link_count(NULL) == 0);
   c2c_field_sample.nvmlReturn = NVML_SUCCESS;
   c2c_field_call_status = NVML_ERROR_NO_PERMISSION;
-  CHECK(!gpuinfo_nvidia_get_field_value_u64(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value));
+  CHECK(!gpuinfo_nvidia_get_field_value_ll(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value));
   CHECK(value == 42);
   CHECK(gpuinfo_nvidia_c2c_link_count(NULL) == 0);
   nvmlDeviceGetFieldValues = NULL;
-  CHECK(!gpuinfo_nvidia_get_field_value_u64(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value));
+  CHECK(!gpuinfo_nvidia_get_field_value_ll(NULL, NVML_FI_DEV_C2C_LINK_COUNT, 0, &value));
   CHECK(value == 42);
   CHECK(gpuinfo_nvidia_c2c_link_count(NULL) == 0);
   return true;
@@ -1173,6 +1176,72 @@ static bool fan_count_zero(void) {
   return true;
 }
 
+static nvmlFieldValue_t mem_temp_field_sample;
+
+// Answers NVML_FI_DEV_MEMORY_TEMP only, so the test also checks that this is the field read
+static nvmlReturn_t mem_temp_field_values(nvmlDevice_t device, unsigned count, nvmlFieldValue_t *values) {
+  (void)device;
+  for (unsigned i = 0; i < count; ++i) {
+    if (values[i].fieldId == NVML_FI_DEV_MEMORY_TEMP) {
+      values[i].valueType = mem_temp_field_sample.valueType;
+      values[i].value = mem_temp_field_sample.value;
+      values[i].nvmlReturn = mem_temp_field_sample.nvmlReturn;
+    } else {
+      values[i].nvmlReturn = NVML_ERROR_NOT_SUPPORTED;
+    }
+  }
+  return NVML_SUCCESS;
+}
+
+static bool mem_temp_field_types(void) {
+  setup();
+  nvmlDeviceGetFieldValues = mem_temp_field_values;
+  // Read through the shared field helper: integer types are widened, implausible values
+  // and non-integer types are rejected rather than misread
+  const struct {
+    nvmlValueType_t type;
+    nvmlValue_t value;
+    bool valid;
+  } cases[] = {
+      {NVML_VALUE_TYPE_UNSIGNED_INT, {.uiVal = 38}, true},
+      {NVML_VALUE_TYPE_UNSIGNED_LONG, {.ulVal = 38}, true},
+      {NVML_VALUE_TYPE_UNSIGNED_LONG_LONG, {.ullVal = 38}, true},
+      {NVML_VALUE_TYPE_UNSIGNED_SHORT, {.usVal = 38}, true},
+      {NVML_VALUE_TYPE_UNSIGNED_INT, {.uiVal = 0}, false},
+      {NVML_VALUE_TYPE_UNSIGNED_LONG_LONG, {.ullVal = 1ULL << 32 | 38}, false},
+      {NVML_VALUE_TYPE_SIGNED_INT, {.siVal = 38}, true},
+      {NVML_VALUE_TYPE_SIGNED_LONG_LONG, {.sllVal = 38}, true},
+      {NVML_VALUE_TYPE_SIGNED_INT, {.siVal = -38}, false},
+      {NVML_VALUE_TYPE_DOUBLE, {.dVal = 38.0}, false},
+  };
+  for (unsigned i = 0; i < sizeof(cases) / sizeof(*cases); ++i) {
+    mem_temp_field_sample =
+        (nvmlFieldValue_t){.valueType = cases[i].type, .value = cases[i].value, .nvmlReturn = NVML_SUCCESS};
+    unsigned temp = 42;
+    CHECK(nvidia_read_mem_temp(NULL, &temp) == cases[i].valid);
+    CHECK(temp == (cases[i].valid ? 38 : 42));
+  }
+
+  // A device reporting it is flagged once and refreshed like any other field
+  mem_temp_field_sample = (nvmlFieldValue_t){
+      .valueType = NVML_VALUE_TYPE_UNSIGNED_INT, .value = {.uiVal = 38}, .nvmlReturn = NVML_SUCCESS};
+  struct gpu_info_nvidia gpu = {0};
+  gpuinfo_nvidia_populate_static_info(&gpu.base);
+  CHECK(gpu.base.static_info.mem_temp_sensor);
+  gpuinfo_nvidia_refresh_dynamic_info(&gpu.base);
+  CHECK(GPUINFO_DYNAMIC_FIELD_VALID(&gpu.base.dynamic_info, mem_temp));
+  CHECK(gpu.base.dynamic_info.mem_temp == 38);
+
+  // Without the field query there is no memory temperature at all
+  setup();
+  struct gpu_info_nvidia no_field = {0};
+  gpuinfo_nvidia_populate_static_info(&no_field.base);
+  CHECK(!no_field.base.static_info.mem_temp_sensor);
+  gpuinfo_nvidia_refresh_dynamic_info(&no_field.base);
+  CHECK(!GPUINFO_DYNAMIC_FIELD_VALID(&no_field.base.dynamic_info, mem_temp));
+  return true;
+}
+
 static bool hotspot_temp(void) {
   setup();
   nvmlDeviceGetTemperatureV = hotspot_temperature;
@@ -1230,6 +1299,7 @@ int main(int argc, char **argv) {
       {"multi_fan_legacy_fallback", multi_fan_legacy_fallback},
       {"fan_count_zero", fan_count_zero},
       {"hotspot_temp", hotspot_temp},
+      {"mem_temp_field_types", mem_temp_field_types},
       {"hotspot_temp_unavailable", hotspot_temp_unavailable},
   };
   for (unsigned i = 0; argc == 2 && i < sizeof(tests) / sizeof(*tests); ++i)

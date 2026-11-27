@@ -611,11 +611,12 @@ static const char *local_error_string = didnt_call_gpuinfo_init;
 
 // Processes GPU Utilization
 
-// Reads a single unsigned NVML field value, widening the member identified by
-// valueType. Missing entry points, failed queries and other value types leave
-// the output untouched.
-static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int field_id, unsigned int scope_id,
-                                               unsigned long long *value) {
+// Reads a single integer NVML field value, widening the member identified by
+// valueType. NVML does not document the type of most fields, so every integer
+// type is accepted; unsigned values beyond LLONG_MAX are capped to it. Missing
+// entry points, failed queries and non-integer types leave the output untouched.
+static bool gpuinfo_nvidia_get_field_value_ll(nvmlDevice_t device, unsigned int field_id, unsigned int scope_id,
+                                              long long *value) {
   if (!nvmlDeviceGetFieldValues)
     return false;
   nvmlFieldValue_t field = {0};
@@ -624,14 +625,20 @@ static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int
   if (nvmlDeviceGetFieldValues(device, 1, &field) != NVML_SUCCESS || field.nvmlReturn != NVML_SUCCESS)
     return false;
   switch (field.valueType) {
+  case NVML_VALUE_TYPE_SIGNED_INT:
+    *value = field.value.siVal;
+    break;
+  case NVML_VALUE_TYPE_SIGNED_LONG_LONG:
+    *value = field.value.sllVal;
+    break;
   case NVML_VALUE_TYPE_UNSIGNED_INT:
     *value = field.value.uiVal;
     break;
   case NVML_VALUE_TYPE_UNSIGNED_LONG:
-    *value = field.value.ulVal;
+    *value = field.value.ulVal > LLONG_MAX ? LLONG_MAX : (long long)field.value.ulVal;
     break;
   case NVML_VALUE_TYPE_UNSIGNED_LONG_LONG:
-    *value = field.value.ullVal;
+    *value = field.value.ullVal > LLONG_MAX ? LLONG_MAX : (long long)field.value.ullVal;
     break;
   case NVML_VALUE_TYPE_UNSIGNED_SHORT:
     *value = field.value.usVal;
@@ -645,10 +652,10 @@ static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int
 // Number of NVLink-C2C links the GPU is attached over. The C2C mode query only
 // says whether the attachment is enabled; the link count is what the header can
 // display in place of a PCIe link. Devices without a C2C attach report either a
-// failed query or a count of zero, and both mean "no links".
+// failed query or a count of zero (or below), and all mean "no links".
 static unsigned gpuinfo_nvidia_c2c_link_count(nvmlDevice_t device) {
-  unsigned long long count = 0;
-  if (!gpuinfo_nvidia_get_field_value_u64(device, NVML_FI_DEV_C2C_LINK_COUNT, 0, &count))
+  long long count = 0;
+  if (!gpuinfo_nvidia_get_field_value_ll(device, NVML_FI_DEV_C2C_LINK_COUNT, 0, &count) || count <= 0)
     return 0;
   return count > UINT_MAX ? UINT_MAX : (unsigned)count;
 }
@@ -1069,18 +1076,10 @@ static bool nvidia_read_hotspot_temp(nvmlDevice_t device, unsigned int *hotspot_
 
 // Reads NVML_FI_DEV_MEMORY_TEMP. Consumer GPUs return NVML_ERROR_NOT_SUPPORTED for this field.
 static bool nvidia_read_mem_temp(nvmlDevice_t device, unsigned int *mem_temp) {
-  if (!nvmlDeviceGetFieldValues)
+  long long value;
+  if (!gpuinfo_nvidia_get_field_value_ll(device, NVML_FI_DEV_MEMORY_TEMP, 0, &value) || value <= 0 || value >= 200)
     return false;
-  nvmlFieldValue_t field;
-  memset(&field, 0, sizeof(field));
-  field.fieldId = NVML_FI_DEV_MEMORY_TEMP;
-  if (nvmlDeviceGetFieldValues(device, 1, &field) != NVML_SUCCESS || field.nvmlReturn != NVML_SUCCESS)
-    return false;
-  unsigned int value =
-      field.valueType == NVML_VALUE_TYPE_UNSIGNED_LONG_LONG ? (unsigned int)field.value.ullVal : field.value.uiVal;
-  if (value == 0 || value >= 200)
-    return false;
-  *mem_temp = value;
+  *mem_temp = (unsigned int)value;
   return true;
 }
 
