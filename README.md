@@ -214,6 +214,15 @@ On discrete GPUs, the VRAM usage requires CAP_PERFMON or
 CAP_SYS_ADMIN with i915 (and with xe on older kernels). An accurate GPU frequency
 also requires CAP_PERFMON. You can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
 
+With SR-IOV on the `xe` driver, NVTOP shows the physical function (PF) and each
+virtual function (VF) as separate devices, and tells which PF a VF belongs to.
+The utilization of the VFs, and of the whole card on the PF, requires
+CAP_PERFMON and a recent kernel. While such a device is monitored, the GPU
+cannot enter its deepest idle power state; unselect the device in the setup
+window (F2) to let it idle. Enable the VFs before starting NVTOP: changing them
+while it runs is not supported, and NVTOP exits with a message when the number
+of VFs of a monitored device changes.
+
 ### Intel NPU
 
 NVTOP supports the NPU driven by the in-kernel `intel_vpu` (ivpu) accel driver

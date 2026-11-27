@@ -26,6 +26,7 @@
 #include "nvtop/extract_gpuinfo_common.h"
 #include "nvtop/interface_common.h"
 
+#include <limits.h>
 #include <stdbool.h>
 
 typedef struct {
@@ -103,6 +104,22 @@ void alloc_interface_options_internals(char *config_file_location, unsigned num_
 
 unsigned interface_check_and_fix_monitored_gpus(unsigned num_devices, struct list_head *monitoredGpus,
                                                 struct list_head *nonMonitoredGpus, nvtop_interface_option *options);
+
+// Marks a device that has no SR-IOV root number
+#define SRIOV_ROOT_NONE INT_MIN
+
+// Computes the SR-IOV root device number of every device of gpu_opts (all
+// num_devices of them, the first num_monitored being the monitored devices in
+// device number order) into roots, indexed like gpu_opts:
+//  - a monitored device that is no VF is its own root (its device number);
+//  - a VF has the device number of its PF if that PF is monitored;
+//  - a PF that is not monitored, and that a VF in the device list points to,
+//    gets a negative number, -1, -2, ... in PCI address order, as do its VFs,
+//    so it can still be told apart in the interface;
+//  - other unmonitored devices get SRIOV_ROOT_NONE.
+// Returns true if a monitored device is a VF.
+bool interface_compute_sriov_roots(unsigned num_devices, unsigned num_monitored,
+                                   const nvtop_interface_gpu_opts *gpu_opts, int *roots);
 
 bool load_interface_options_from_config_file(unsigned num_devices, nvtop_interface_option *options);
 

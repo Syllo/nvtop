@@ -90,6 +90,18 @@ bool gpuinfo_shutdown_info_extraction(struct list_head *devices) {
   return true;
 }
 
+static char exit_request_message[256];
+static bool exit_requested = false;
+
+void gpuinfo_request_exit(const char *message) {
+  if (exit_requested)
+    return;
+  snprintf(exit_request_message, sizeof(exit_request_message), "%s", message);
+  exit_requested = true;
+}
+
+const char *gpuinfo_exit_request(void) { return exit_requested ? exit_request_message : NULL; }
+
 bool gpuinfo_populate_static_infos(struct list_head *devices) {
   struct gpu_info *device;
 
@@ -198,8 +210,10 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
     // If the global GPU usage is not available, try computing it from the processes info
     // Some integrated AMDGPU report 100% usage while process usage is actually low
 
-    bool needGpuRate = true;
     bool validReportedGpuRate = GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate);
+    // A rate the backend measured for the whole device is not merged with the processes
+    bool measuredGpuRate = device->gpu_util_rate_measured && validReportedGpuRate;
+    bool needGpuRate = !measuredGpuRate;
     unsigned reportedGpuRate = dynamic_info->gpu_util_rate;
     RESET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate);
 
@@ -264,7 +278,9 @@ bool gpuinfo_fix_dynamic_info_from_process_info(struct list_head *devices) {
         GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, used_memory) && dynamic_info->total_memory > 0) {
       SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, dynamic_info->used_memory * 100 / dynamic_info->total_memory);
     }
-    if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
+    if (measuredGpuRate) {
+      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
+    } else if (!GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
       SET_GPUINFO_DYNAMIC(dynamic_info, gpu_util_rate, reportedGpuRate);
     } else if (GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_util_rate) && validReportedGpuRate) {
       SET_GPUINFO_DYNAMIC(

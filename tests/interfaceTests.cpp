@@ -504,6 +504,81 @@ TEST(InterfaceOptions, UnmonitoredGpusDropStaleProcesses) {
   free(options.gpu_specific_opts);
 }
 
+namespace {
+
+// Builds the gpu_specific_opts of the given devices, the first num_monitored
+// being the monitored ones, and returns their SR-IOV root numbers.
+std::vector<int> sriov_roots(std::vector<struct gpu_info> &gpus, unsigned num_monitored, bool *has_monitored_vf) {
+  std::vector<nvtop_interface_gpu_opts> opts(gpus.size());
+  for (size_t i = 0; i < gpus.size(); ++i) {
+    opts[i].linkedGpu = &gpus[i];
+    opts[i].doNotMonitor = i >= num_monitored;
+  }
+  std::vector<int> roots(gpus.size());
+  *has_monitored_vf = interface_compute_sriov_roots(gpus.size(), num_monitored, opts.data(), roots.data());
+  return roots;
+}
+
+struct gpu_info sriov_device(const char *pdev, bool pf, unsigned vf_index = 0, const char *pf_pdev = "") {
+  struct gpu_info gpu {};
+  snprintf(gpu.pdev, sizeof(gpu.pdev), "%s", pdev);
+  gpu.sriov_pf = pf;
+  gpu.sriov_vf = vf_index > 0;
+  gpu.sriov_vf_index = vf_index;
+  snprintf(gpu.sriov_pf_pdev, sizeof(gpu.sriov_pf_pdev), "%s", pf_pdev);
+  return gpu;
+}
+
+} // namespace
+
+TEST(InterfaceSriov, MonitoredVfsPointToTheirPf) {
+  std::vector<struct gpu_info> gpus = {
+      sriov_device("0000:01:00.0", false),                    // regular GPU
+      sriov_device("0000:03:00.0", true),                     // PF
+      sriov_device("0000:03:00.1", false, 1, "0000:03:00.0"), // its VF1
+      sriov_device("0000:03:00.3", false, 3, "0000:03:00.0"), // its VF3
+  };
+  bool has_vf;
+  EXPECT_EQ(sriov_roots(gpus, 4, &has_vf), (std::vector<int>{0, 1, 1, 1}));
+  EXPECT_TRUE(has_vf);
+}
+
+TEST(InterfaceSriov, UnmonitoredPfsGetNegativeNumbersInPciOrder) {
+  std::vector<struct gpu_info> gpus = {
+      sriov_device("0000:01:00.0", false),                    // monitored regular GPU
+      sriov_device("0000:04:00.1", false, 1, "0000:04:00.0"), // monitored VF of the second PF
+      sriov_device("0000:03:00.2", false, 2, "0000:03:00.0"), // monitored VF of the first PF
+      sriov_device("0000:04:00.0", true),                     // second PF, not monitored
+      sriov_device("0000:03:00.0", true),                     // first PF, not monitored
+      sriov_device("0000:03:00.1", false, 1, "0000:03:00.0"), // VF of the first PF, not monitored
+      sriov_device("0000:05:00.0", false),                    // regular GPU, not monitored
+  };
+  bool has_vf;
+  EXPECT_EQ(sriov_roots(gpus, 3, &has_vf), (std::vector<int>{0, -2, -1, -2, -1, -1, SRIOV_ROOT_NONE}));
+  EXPECT_TRUE(has_vf);
+}
+
+TEST(InterfaceSriov, OnlyUnmonitoredVfs) {
+  std::vector<struct gpu_info> gpus = {
+      sriov_device("0000:03:00.0", true),                     // monitored PF
+      sriov_device("0000:03:00.1", false, 1, "0000:03:00.0"), // its VF, not monitored
+  };
+  bool has_vf;
+  EXPECT_EQ(sriov_roots(gpus, 1, &has_vf), (std::vector<int>{0, 0}));
+  EXPECT_FALSE(has_vf);
+}
+
+TEST(InterfaceSriov, VfWithoutItsPfInTheDeviceList) {
+  // e.g. the PF is bound to another driver: it is still numbered
+  std::vector<struct gpu_info> gpus = {
+      sriov_device("0000:03:00.1", false, 1, "0000:03:00.0"),
+      sriov_device("0000:03:00.2", false, 2, "0000:03:00.0"),
+  };
+  bool has_vf;
+  EXPECT_EQ(sriov_roots(gpus, 2, &has_vf), (std::vector<int>{-1, -1}));
+  EXPECT_TRUE(has_vf);
+}
+
 #ifdef THOROUGH_TESTING
 
 TEST(InterfaceLayout, CheckManyTermSize) {

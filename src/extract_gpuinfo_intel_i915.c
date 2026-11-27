@@ -179,6 +179,12 @@ static const char i915_drm_intel_copy[] = "drm-engine-copy";
 static const char i915_drm_intel_video[] = "drm-engine-video";
 static const char i915_drm_intel_video_enhance[] = "drm-engine-video-enhance";
 static const char i915_drm_intel_compute[] = "drm-engine-compute";
+// Number of engines of a class, when there is more than one. drm-engine adds
+// up the busy time of all the engines of the class, so the load of the class
+// is divided by its capacity, as gputop (igt-gpu-tools) does.
+static const char i915_drm_intel_render_capacity[] = "drm-engine-capacity-render";
+static const char i915_drm_intel_video_capacity[] = "drm-engine-capacity-video";
+static const char i915_drm_intel_compute_capacity[] = "drm-engine-capacity-compute";
 // Resident sizes: drm-total-* also counts allocations that are not backed by
 // memory yet, which integrated GPUs compare against MemAvailable. Devices
 // sharing their memory with the host only have the system memory region;
@@ -200,6 +206,8 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
   unsigned cid;
   nvtop_time current_time;
   nvtop_get_current_time(&current_time);
+  // A class without a capacity key has a single engine
+  uint64_t render_capacity = 1, video_capacity = 1, compute_capacity = 1;
 
   while ((count = getline(&line, &line_buf_size, fdinfo_file)) != -1) {
     char *key, *val;
@@ -221,6 +229,19 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
       if (*endptr)
         continue;
       client_id_set = true;
+    } else if (!strcmp(key, i915_drm_intel_render_capacity) || !strcmp(key, i915_drm_intel_video_capacity) ||
+               !strcmp(key, i915_drm_intel_compute_capacity)) {
+      char *endptr;
+      unsigned long long engines = strtoull(val, &endptr, 10);
+      // Zero capacity is not allowed
+      if (endptr == val || *endptr || engines == 0)
+        continue;
+      if (!strcmp(key, i915_drm_intel_render_capacity))
+        render_capacity = engines;
+      else if (!strcmp(key, i915_drm_intel_video_capacity))
+        video_capacity = engines;
+      else
+        compute_capacity = engines;
     } else {
       bool is_render = !strcmp(key, i915_drm_intel_render);
       bool is_copy = !strcmp(key, i915_drm_intel_copy);
@@ -286,31 +307,35 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
         INTEL_CACHE_FIELD_VALID(cache_entry, engine_render) &&
         // In some rare occasions, the gfx engine usage reported by the driver is lowering (might be a driver bug)
         process_info->gfx_engine_used >= cache_entry->engine_render) {
-      SET_GPUINFO_PROCESS(
-          process_info, gpu_usage,
-          busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render, time_elapsed));
+      SET_GPUINFO_PROCESS(process_info, gpu_usage,
+                          busy_usage_from_time_usage_round(process_info->gfx_engine_used, cache_entry->engine_render,
+                                                           time_elapsed * render_capacity));
     }
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used) &&
         INTEL_CACHE_FIELD_VALID(cache_entry, engine_video) &&
         process_info->dec_engine_used >= cache_entry->engine_video) {
-      SET_GPUINFO_PROCESS(
-          process_info, decode_usage,
-          busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->engine_video, time_elapsed));
+      SET_GPUINFO_PROCESS(process_info, decode_usage,
+                          busy_usage_from_time_usage_round(process_info->dec_engine_used, cache_entry->engine_video,
+                                                           time_elapsed * video_capacity));
     }
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used) &&
-        INTEL_CACHE_FIELD_VALID(cache_entry, engine_video_enhance) &&
-        process_info->enc_engine_used >= cache_entry->engine_video_enhance) {
+        INTEL_CACHE_FIELD_VALID(cache_entry, engine_video_encode) &&
+        process_info->enc_engine_used >= cache_entry->engine_video_encode) {
       SET_GPUINFO_PROCESS(process_info, encode_usage,
                           busy_usage_from_time_usage_round(process_info->enc_engine_used,
-                                                           cache_entry->engine_video_enhance, time_elapsed));
+                                                           cache_entry->engine_video_encode,
+                                                           time_elapsed * video_capacity));
     }
     if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used) &&
         GPUINFO_PROCESS_FIELD_VALID(process_info, gpu_usage) && INTEL_CACHE_FIELD_VALID(cache_entry, engine_compute) &&
         process_info->compute_engine_used >= cache_entry->engine_compute) {
-      SET_GPUINFO_PROCESS(process_info, gpu_usage,
-                          process_info->gpu_usage + busy_usage_from_time_usage_round(process_info->compute_engine_used,
-                                                                                     cache_entry->engine_compute,
-                                                                                     time_elapsed));
+      // Render and compute engines feed the same render/compute unit and can be
+      // busy at the same time, which their sum would count twice. The busier of
+      // the two is the least time either had work, so it never overstates.
+      unsigned compute_usage = busy_usage_from_time_usage_round(
+          process_info->compute_engine_used, cache_entry->engine_compute, time_elapsed * compute_capacity);
+      if (compute_usage > process_info->gpu_usage)
+        SET_GPUINFO_PROCESS(process_info, gpu_usage, compute_usage);
     }
   } else {
     cache_entry = calloc(1, sizeof(*cache_entry));
@@ -339,7 +364,7 @@ bool parse_drm_fdinfo_intel_i915(struct gpu_info *info, FILE *fdinfo_file, struc
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, dec_engine_used))
     SET_INTEL_CACHE(cache_entry, engine_video, process_info->dec_engine_used);
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, enc_engine_used))
-    SET_INTEL_CACHE(cache_entry, engine_video_enhance, process_info->enc_engine_used);
+    SET_INTEL_CACHE(cache_entry, engine_video_encode, process_info->enc_engine_used);
   if (GPUINFO_PROCESS_FIELD_VALID(process_info, compute_engine_used))
     SET_INTEL_CACHE(cache_entry, engine_compute, process_info->compute_engine_used);
 

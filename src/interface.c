@@ -132,6 +132,10 @@ static unsigned int sizeof_process_field[process_field_count] = {
     [process_cpu_usage] = 6, [process_cpu_mem_usage] = 9, [process_command] = 0,
 };
 
+// When a monitored device is an SR-IOV VF, the DEV column also shows the SR-IOV
+// root device of each process ("DEV  PF"). Set by initialize_curses().
+static bool process_pf_column_shown = false;
+
 // NVLink window geometry on device line 2. The window is appended after power
 // (and ECC, when present); its width is derived from the PCIe field width.
 // Shared by alloc_device_window() and device_length() so the allocated window
@@ -618,6 +622,35 @@ static void initialize_colors(const unsigned char plot_color_idx[MAX_LINES_PER_P
     init_pair(gpu_plot_pairs[s], plot_terminal_colors[plot_color_idx[s]], background_color);
 }
 
+// Fills interface->sriov_root when there is an SR-IOV VF among the devices
+static void compute_sriov_roots(struct nvtop_interface *interface) {
+  unsigned total = interface->total_dev_count;
+  const nvtop_interface_gpu_opts *opts = interface->options.gpu_specific_opts;
+  bool has_vf = false;
+  for (unsigned i = 0; i < total && !has_vf; ++i)
+    has_vf = opts[i].linkedGpu->sriov_vf;
+  if (!has_vf)
+    return;
+  interface->sriov_root = malloc(total * sizeof(*interface->sriov_root));
+  if (!interface->sriov_root) {
+    perror("Cannot allocate memory: ");
+    exit(EXIT_FAILURE);
+  }
+  interface->has_monitored_sriov_vf =
+      interface_compute_sriov_roots(total, interface->monitored_dev_count, opts, interface->sriov_root);
+}
+
+// Short SR-IOV note printed after the name in a device header, e.g. " VF3 of 0"
+static int sriov_header_suffix(const struct nvtop_interface *interface, unsigned dev_id, char *buf, size_t len) {
+  const struct gpu_info *gpu = interface->options.gpu_specific_opts[dev_id].linkedGpu;
+  buf[0] = '\0';
+  if (gpu->sriov_vf)
+    return snprintf(buf, len, " VF%u of %d", gpu->sriov_vf_index, interface_sriov_root(interface, dev_id));
+  if (gpu->sriov_pf)
+    return snprintf(buf, len, " PF");
+  return 0;
+}
+
 struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devices_count, unsigned largest_device_name,
                                           nvtop_interface_option options) {
   struct nvtop_interface *interface = calloc(1, sizeof(*interface));
@@ -625,7 +658,18 @@ struct nvtop_interface *initialize_curses(unsigned total_devices, unsigned devic
   interface->devices_win = calloc(devices_count, sizeof(*interface->devices_win));
   interface->total_dev_count = total_devices;
   interface->monitored_dev_count = devices_count;
-  sizeof_device_field[device_name] = largest_device_name + 11;
+  compute_sriov_roots(interface);
+  // The SR-IOV note follows the name; only widen the field when a device has one
+  unsigned largest_sriov_suffix = 0;
+  for (unsigned i = 0; i < devices_count; ++i) {
+    char suffix[32];
+    unsigned suffix_len = (unsigned)sriov_header_suffix(interface, i, suffix, sizeof(suffix));
+    largest_sriov_suffix = suffix_len > largest_sriov_suffix ? suffix_len : largest_sriov_suffix;
+  }
+  sizeof_device_field[device_name] = largest_device_name + 11 + largest_sriov_suffix;
+  // The PF column is printed alongside DEV: "DEV  PF"
+  process_pf_column_shown = interface->has_monitored_sriov_vf;
+  sizeof_process_field[process_gpu_id] = process_pf_column_shown ? 7 : 3;
   initscr();
   refresh();
   if (interface->options.use_color && has_colors() == TRUE) {
@@ -666,6 +710,7 @@ void clean_ncurses(struct nvtop_interface *interface) {
   free(interface->options.gpu_specific_opts);
   free(interface->options.config_file_location);
   free(interface->devices_win);
+  free(interface->sriov_root);
   interface_free_ring_buffer(&interface->saved_data_ring);
   free(interface);
 }
@@ -946,6 +991,22 @@ static struct gpu_info *get_device_by_id(struct list_head *devices, unsigned id)
   return NULL;
 }
 
+// Value of an encode or decode meter: the rate, followed by the busiest engine
+// when the backend measures it, with a shorter label, or not at all, when it
+// does not fit
+static void encode_decode_meter_value(char *buff, size_t size, WINDOW *win, const char *prelude, bool legacy,
+                                      unsigned rate, bool busiest_valid, unsigned busiest) {
+  int value_space = nvtop_meter_value_space(win, prelude, legacy);
+  snprintf(buff, size, "%u%%", rate);
+  if (!busiest_valid)
+    return;
+  snprintf(buff, size, "%u%%(busiest %u%%)", rate, busiest);
+  if ((int)strlen(buff) > value_space)
+    snprintf(buff, size, "%u%%(max %u%%)", rate, busiest);
+  if ((int)strlen(buff) > value_space)
+    snprintf(buff, size, "%u%%", rate);
+}
+
 static void draw_devices(struct list_head *devices, struct nvtop_interface *interface) {
   struct gpu_info *device;
   unsigned dev_id = 0;
@@ -959,13 +1020,17 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     wcolor_set(dev->name_win, cyan_color, NULL);
     mvwprintw(dev->name_win, 0, 0, "Device %-2u", dev_id);
     wstandend(dev->name_win);
-    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name)) {
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, device_name))
       wprintw(dev->name_win, "[%s]", device->static_info.device_name);
-      wnoutrefresh(dev->name_win);
-    } else {
+    else
       wprintw(dev->name_win, "[N/A]");
-      wnoutrefresh(dev->name_win);
+    char sriov_suffix[32];
+    if (sriov_header_suffix(interface, dev_id, sriov_suffix, sizeof(sriov_suffix)) > 0) {
+      wcolor_set(dev->name_win, magenta_color, NULL);
+      wprintw(dev->name_win, "%s", sriov_suffix);
+      wstandend(dev->name_win);
     }
+    wnoutrefresh(dev->name_win);
     bool display_encode = false;
     bool display_decode = false;
     encode_decode_show_select(dev, GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate),
@@ -998,17 +1063,20 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     if (display_encode) {
       unsigned rate =
           GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate) ? device->dynamic_info.encoder_rate : 0;
-      snprintf(buff, 1024, "%u%%", rate);
+      encode_decode_meter_value(buff, sizeof(buff), encode_win, "ENC", legacy_meters, rate,
+                                GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_busiest_engine_rate),
+                                device->dynamic_info.encoder_busiest_engine_rate);
       nvtop_meter_draw(encode_win, "ENC", rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
     }
     if (display_decode) {
       unsigned rate =
           GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate) ? device->dynamic_info.decoder_rate : 0;
-      snprintf(buff, 1024, "%u%%", rate);
-      if (device->static_info.encode_decode_shared)
-        nvtop_meter_draw(decode_win, "ENC/DEC", rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
-      else
-        nvtop_meter_draw(decode_win, "DEC", rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
+      // A shared meter shows the decoder values, like decoder_rate
+      const char *prelude = device->static_info.encode_decode_shared ? "ENC/DEC" : "DEC";
+      encode_decode_meter_value(buff, sizeof(buff), decode_win, prelude, legacy_meters, rate,
+                                GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_busiest_engine_rate),
+                                device->dynamic_info.decoder_busiest_engine_rate);
+      nvtop_meter_draw(decode_win, prelude, rate, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
     }
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_util_rate)) {
       if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, effective_load_rate)) {
@@ -1369,11 +1437,12 @@ typedef struct {
   unsigned processes_count;
   struct gpuid_and_process {
     unsigned gpu_id;
+    int gpu_root; // SR-IOV root device number, shown in the PF column
     struct gpu_process *process;
   } *processes;
 } all_processes;
 
-static all_processes all_processes_array(struct list_head *devices) {
+static all_processes all_processes_array(struct list_head *devices, const struct nvtop_interface *interface) {
   unsigned total_processes_count = 0;
   struct gpu_info *device;
   unsigned dev_id = 0;
@@ -1396,6 +1465,7 @@ static all_processes all_processes_array(struct list_head *devices) {
   list_for_each_entry(device, devices, list) {
     for (unsigned int j = 0; j < device->processes_count; ++j) {
       merged_devices_processes.processes[offset].gpu_id = dev_id;
+      merged_devices_processes.processes[offset].gpu_root = interface_sriov_root(interface, dev_id);
       merged_devices_processes.processes[offset++].process = &device->processes[j];
     }
 
@@ -1669,6 +1739,7 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
   WINDOW *win = process->option_window.state == nvtop_option_state_hidden ? process->process_win
                                                                           : process->process_with_option_win;
   struct gpuid_and_process *processes = all_procs.processes;
+  bool show_pf_column = process_pf_column_shown;
 
   unsigned int rows, cols;
   getmaxyx(win, rows, cols);
@@ -1698,7 +1769,12 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
       column_sort_end =
           i == process_command ? process_buffer_line_size - 4 : column_sort_start + sizeof_process_field[i];
     }
-    if (process_is_field_displayed(i, fields_to_display))
+    if (!process_is_field_displayed(i, fields_to_display))
+      continue;
+    if (i == process_gpu_id && show_pf_column)
+      printed +=
+          snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%3s %3s ", columnName[i], "PF");
+    else
       printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
                           sizeof_process_field[i], columnName[i]);
   }
@@ -1744,9 +1820,10 @@ static void print_processes_on_screen(all_processes all_procs, struct process_wi
     }
 
     if (process_is_field_displayed(process_gpu_id, fields_to_display)) {
-      size_t size = snprintf(guid_str, sizeof_process_field[process_gpu_id] + 1, "%u", processes[i].gpu_id);
-      if (size >= sizeof_process_field[process_gpu_id] + 1)
-        pid_str[sizeof_process_field[process_gpu_id]] = '\0';
+      if (show_pf_column)
+        snprintf(guid_str, sizeof(guid_str), "%3u %3d", processes[i].gpu_id, processes[i].gpu_root);
+      else
+        snprintf(guid_str, sizeof(guid_str), "%u", processes[i].gpu_id);
       printed += snprintf(&process_print_buffer[printed], process_buffer_line_size - printed, "%*s ",
                           sizeof_process_field[process_gpu_id], guid_str);
     }
@@ -1905,7 +1982,7 @@ static void draw_processes(struct list_head *devices, struct nvtop_interface *in
   if (interface->process.option_window.state != nvtop_option_state_hidden)
     update_process_option_win(interface);
 
-  all_processes all_procs = all_processes_array(devices);
+  all_processes all_procs = all_processes_array(devices, interface);
   filter_out_nvtop_pid(&all_procs, interface);
   sort_process(all_procs, interface->options.sort_processes_by, !interface->options.sort_descending_order);
 
@@ -2908,6 +2985,13 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
       printf("%s\"pci\": \"%s\",\n", indent_level_four, device->pdev);
     else
       printf("%s\"pci\": null,\n", indent_level_four);
+    // SR-IOV identity, only on SR-IOV devices so the output is unchanged otherwise
+    if (device->sriov_vf) {
+      printf("%s\"sriov_pf_pci\": \"%s\",\n", indent_level_four, device->sriov_pf_pdev);
+      printf("%s\"sriov_vf\": %u,\n", indent_level_four, device->sriov_vf_index);
+    } else if (device->sriov_pf) {
+      printf("%s\"sriov_pf\": true,\n", indent_level_four);
+    }
 
     printf("%s\"integrated_graphics\": %s,\n", indent_level_four,
            device->static_info.integrated_graphics ? "true" : "false");
@@ -3038,17 +3122,27 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
         printf("\"%u%%\",\n", device->dynamic_info.decoder_rate);
       else
         printf("null,\n");
+      // Only on devices that measure it, so the output is unchanged otherwise
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_busiest_engine_rate))
+        printf("%s\"encode_decode_busiest_engine\": \"%u%%\",\n", indent_level_four,
+               device->dynamic_info.decoder_busiest_engine_rate);
     } else {
       printf("%s\"encode\": ", indent_level_four);
       if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_rate))
         printf("\"%u%%\",\n", device->dynamic_info.encoder_rate);
       else
         printf("null,\n");
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, encoder_busiest_engine_rate))
+        printf("%s\"encode_busiest_engine\": \"%u%%\",\n", indent_level_four,
+               device->dynamic_info.encoder_busiest_engine_rate);
       printf("%s\"decode\": ", indent_level_four);
       if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate))
         printf("\"%u%%\",\n", device->dynamic_info.decoder_rate);
       else
         printf("null,\n");
+      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_busiest_engine_rate))
+        printf("%s\"decode_busiest_engine\": \"%u%%\",\n", indent_level_four,
+               device->dynamic_info.decoder_busiest_engine_rate);
     }
 
     // Memory Utilization

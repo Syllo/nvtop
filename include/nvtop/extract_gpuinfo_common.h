@@ -117,6 +117,8 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_hmx_util_rate_valid,
   gpuinfo_encoder_rate_valid,
   gpuinfo_decoder_rate_valid,
+  gpuinfo_encoder_busiest_engine_rate_valid,
+  gpuinfo_decoder_busiest_engine_rate_valid,
   gpuinfo_total_memory_valid,
   gpuinfo_free_memory_valid,
   gpuinfo_used_memory_valid,
@@ -162,6 +164,11 @@ struct gpuinfo_dynamic_info {
   unsigned int effective_load_rate;   // Effective load rate in %
   unsigned int encoder_rate;          // Encoder utilization rate in %
   unsigned int decoder_rate;          // Decoder utilization rate in %
+  // Busiest engine behind encoder_rate and decoder_rate when these average
+  // several engines, in %. Only set by backends that measure each engine; a
+  // shared encode/decode meter reads the decoder one, like decoder_rate.
+  unsigned int encoder_busiest_engine_rate;
+  unsigned int decoder_busiest_engine_rate;
   unsigned long long total_memory;    // Total memory (bytes)
   unsigned long long free_memory;     // Unallocated memory (bytes)
   unsigned long long used_memory;     // Allocated memory (bytes)
@@ -283,6 +290,10 @@ struct gpu_vendor {
   void (*refresh_utilisation_rate)(struct gpu_info *gpu_info);
 
   void (*refresh_running_processes)(struct gpu_info *gpu_info);
+  // Optional: called when the device starts or stops being monitored, so the
+  // backend can release what it only needs while refreshing the device (e.g.
+  // perf counters that keep the device awake).
+  void (*set_monitored)(struct gpu_info *gpu_info, bool monitored);
   char *name;
   enum gpu_processing_unit processing_unit; // defaults to gpu_processing_unit_gpu
 };
@@ -301,6 +312,19 @@ struct gpu_info {
   struct gpu_process *processes;
   unsigned processes_array_size;
   char pdev[PDEV_LEN];
+  // SR-IOV identity, filled in by the backend. A virtual function (VF) sets
+  // sriov_vf, its 1-based index under its physical function (PF) and the PCI
+  // address of that PF. A PF with enabled VFs sets sriov_pf. The device name is
+  // left as the driver reports it; the interface adds the SR-IOV details.
+  bool sriov_pf;
+  bool sriov_vf;
+  unsigned sriov_vf_index;
+  char sriov_pf_pdev[PDEV_LEN];
+  // Set by the backend when this refresh measured gpu_util_rate for the whole
+  // device (e.g. from hardware counters): the value is then kept as is rather
+  // than raised to the sum of the processes, which can count the time of
+  // overlapping engines twice.
+  bool gpu_util_rate_measured;
 };
 
 // Short 3-character label for a processing unit (e.g. "GPU", "NPU")
@@ -394,5 +418,12 @@ bool nvtop_get_ecc_support(struct gpu_info *gpu_info);
 // ECC probe — call before initialize_curses so the layout only reserves room for
 // the ECC field when a monitored GPU actually supports ECC.
 bool nvtop_probe_ecc_list(struct list_head *devices);
+
+// Asks nvtop to exit once the current refresh is done, e.g. when the devices
+// changed in a way nvtop does not follow. The message is printed once the
+// terminal is restored. The first request wins.
+void gpuinfo_request_exit(const char *message);
+// The message of the exit request, or NULL if no exit was requested.
+const char *gpuinfo_exit_request(void);
 
 #endif // EXTRACT_GPUINFO_COMMON_H__

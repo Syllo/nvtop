@@ -38,6 +38,9 @@
 #include <unistd.h>
 
 #include <locale.h>
+#ifdef __linux__
+#include <sys/resource.h>
+#endif
 
 static volatile sig_atomic_t signal_exit = 0;
 static volatile sig_atomic_t signal_resize_win = 0;
@@ -125,6 +128,20 @@ static const struct option long_opts[] = {
 };
 
 static const char opts[] = "hvd:c:CfE:pPrislXuMLB";
+
+// Some backends keep many file descriptors open, e.g. Intel xe opens a perf
+// counter per engine and per SR-IOV function, which can go past the usual soft
+// limit of 1024. Raise the soft limit to the hard limit, which needs no
+// privileges. On failure the limit is left as it was.
+static void raise_open_files_limit(void) {
+#ifdef __linux__
+  struct rlimit limit;
+  if (getrlimit(RLIMIT_NOFILE, &limit) == 0 && limit.rlim_cur < limit.rlim_max) {
+    limit.rlim_cur = limit.rlim_max;
+    (void)setrlimit(RLIMIT_NOFILE, &limit);
+  }
+#endif
+}
 
 int main(int argc, char **argv) {
   (void)setlocale(LC_CTYPE, "");
@@ -269,6 +286,7 @@ int main(int argc, char **argv) {
     exit(EXIT_FAILURE);
   }
 
+  raise_open_files_limit();
   unsigned allDevCount = 0;
   LIST_HEAD(monitoredGpus);
   LIST_HEAD(nonMonitoredGpus);
@@ -301,6 +319,8 @@ int main(int argc, char **argv) {
       sleep(sec > 0 ? sec : 1);
 #endif
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
+      if (gpuinfo_exit_request())
+        break;
       gpuinfo_refresh_processes(&monitoredGpus);
       gpuinfo_utilisation_rate(&monitoredGpus);
       gpuinfo_fix_dynamic_info_from_process_info(&monitoredGpus);
@@ -308,6 +328,10 @@ int main(int argc, char **argv) {
     } while (loop_snapshot && !signal_exit);
 
     gpuinfo_shutdown_info_extraction(&monitoredGpus);
+    if (gpuinfo_exit_request()) {
+      fprintf(stderr, "%s\n", gpuinfo_exit_request());
+      return EXIT_FAILURE;
+    }
     return EXIT_SUCCESS;
   }
 
@@ -411,6 +435,8 @@ int main(int argc, char **argv) {
     interface_check_monitored_gpu_change(&interface, allDevCount, &numMonitoredGpus, &monitoredGpus, &nonMonitoredGpus);
     if (time_slept >= interface_update_interval(interface)) {
       gpuinfo_refresh_dynamic_info(&monitoredGpus);
+      if (gpuinfo_exit_request())
+        break;
       if (!interface_freeze_processes(interface)) {
         gpuinfo_refresh_processes(&monitoredGpus);
         gpuinfo_utilisation_rate(&monitoredGpus);
@@ -500,5 +526,9 @@ int main(int argc, char **argv) {
   clean_ncurses(interface);
   gpuinfo_shutdown_info_extraction(&monitoredGpus);
 
+  if (gpuinfo_exit_request()) {
+    fprintf(stderr, "%s\n", gpuinfo_exit_request());
+    return EXIT_FAILURE;
+  }
   return EXIT_SUCCESS;
 }
