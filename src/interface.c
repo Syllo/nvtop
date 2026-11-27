@@ -44,14 +44,19 @@
 #include <tgmath.h>
 #include <unistd.h>
 
-// A device box is device_length() columns wide, which fits this many extra info fields
+// A device box is at least wide enough for this many extra info fields per row (see device_length())
 #define EXTRA_INFO_PER_ROW 4
 
-// device_ecc is sized for "ECC 999/99": corrected is capped at 3 digits, uncorrected at 2
+// device_ecc is sized for "ECC 999/99": corrected is capped at 3 digits, uncorrected at 2.
+// device_clock holds "GPU 1410MHz" followed by the GPU temperature, right-aligned in the
+// last TEMP_FIELD_WIDTH columns; device_mem_clock gets the same room for the memory
+// temperature when a monitored device reports one.
+#define TEMP_FIELD_WIDTH 6 // " 100°C"
+#define MEM_CLOCK_FIELD_WIDTH 12
 static unsigned int sizeof_device_field[device_field_count] = {
-    [device_name] = 11,          [device_fan_speed] = 11,  [device_temperature] = 10, [device_power] = 15,
-    [device_ecc] = 10,           [device_clock] = 11,      [device_mem_clock] = 12,   [device_pcie] = 46,
-    [device_nvlink_errors] = 33, [device_extra_info] = 15,
+    [device_name] = 11,          [device_fan_speed] = 11,       [device_power] = 15,
+    [device_ecc] = 10,           [device_clock] = 11 + TEMP_FIELD_WIDTH, [device_mem_clock] = MEM_CLOCK_FIELD_WIDTH,
+    [device_pcie] = 46,          [device_nvlink_errors] = 33,   [device_extra_info] = 15,
 };
 
 // True if any monitored device has NVLink hardware support (even if 0 links active).
@@ -125,8 +130,8 @@ bool nvtop_probe_ecc_list(struct list_head *devices) {
   return has_ecc;
 }
 
-// True if any monitored device reports a memory (HBM) temperature. The temperature
-// field is then widened from "TEMP  40°C" to "TEMP  40°C HBM 38°C".
+// True if any monitored device reports a device memory temperature. The memory clock
+// field is then widened to show it after the clock, as in "MEM 1215MHz  38°C".
 static bool any_device_has_mem_temp = false;
 
 bool nvtop_probe_mem_temp_list(struct list_head *devices) {
@@ -141,7 +146,7 @@ bool nvtop_probe_mem_temp_list(struct list_head *devices) {
       break;
     }
   }
-  sizeof_device_field[device_temperature] = any_device_has_mem_temp ? 19 : 10;
+  sizeof_device_field[device_mem_clock] = MEM_CLOCK_FIELD_WIDTH + (any_device_has_mem_temp ? TEMP_FIELD_WIDTH : 0);
   return any_device_has_mem_temp;
 }
 
@@ -161,9 +166,8 @@ static bool process_pf_column_shown = false;
 // Shared by alloc_device_window() and device_length() so the allocated window
 // and the reserved panel width can never drift apart.
 static unsigned int nvlink_line2_start(unsigned int spacer) {
-  unsigned int start = spacer * 6 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
-                       sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                       sizeof_device_field[device_power];
+  unsigned int start = spacer * 5 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                       sizeof_device_field[device_fan_speed] + sizeof_device_field[device_power];
   if (any_device_has_ecc)
     start += sizeof_device_field[device_ecc];
   return start;
@@ -193,7 +197,7 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
   if (dwin->pcie_info == NULL)
     goto alloc_error;
 
-  // Line 2 = GPU clk | MEM clk | Temp | Fan | Power | NVLink
+  // Line 2 = GPU clk + temp | MEM clk + temp | Fan | Power | ECC | NVLink
   dwin->gpu_clock_info = newwin(1, sizeof_device_field[device_clock], start_row + 1, start_col);
   if (dwin->gpu_clock_info == NULL)
     goto alloc_error;
@@ -201,29 +205,24 @@ static void alloc_device_window(unsigned int start_row, unsigned int start_col, 
                                 start_col + spacer + sizeof_device_field[device_clock]);
   if (dwin->mem_clock_info == NULL)
     goto alloc_error;
-  dwin->temperature =
-      newwin(1, sizeof_device_field[device_temperature], start_row + 1,
-             start_col + spacer * 2 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock]);
-  if (dwin->temperature == NULL)
-    goto alloc_error;
   dwin->fan_speed = newwin(1, sizeof_device_field[device_fan_speed], start_row + 1,
-                           start_col + spacer * 3 + sizeof_device_field[device_clock] +
-                               sizeof_device_field[device_mem_clock] + sizeof_device_field[device_temperature]);
+                           start_col + spacer * 2 + sizeof_device_field[device_clock] +
+                               sizeof_device_field[device_mem_clock]);
   if (dwin->fan_speed == NULL)
     goto alloc_error;
   dwin->power_info =
       newwin(1, sizeof_device_field[device_power], start_row + 1,
-             start_col + spacer * 4 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
-                 sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed]);
+             start_col + spacer * 3 + sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
+                 sizeof_device_field[device_fan_speed]);
   if (dwin->power_info == NULL)
     goto alloc_error;
   // ECC errors appended to power_info on the same row (start_row + 1), only when
   // at least one monitored GPU exposes ECC counters.
   if (any_device_has_ecc) {
     dwin->ecc_info = newwin(1, sizeof_device_field[device_ecc], start_row + 1,
-                            start_col + spacer * 5 + sizeof_device_field[device_clock] +
-                                sizeof_device_field[device_mem_clock] + sizeof_device_field[device_temperature] +
-                                sizeof_device_field[device_fan_speed] + sizeof_device_field[device_power]);
+                            start_col + spacer * 4 + sizeof_device_field[device_clock] +
+                                sizeof_device_field[device_mem_clock] + sizeof_device_field[device_fan_speed] +
+                                sizeof_device_field[device_power]);
     if (dwin->ecc_info == NULL)
       goto alloc_error;
   } else {
@@ -357,7 +356,6 @@ static void free_device_windows(struct device_window *dwin) {
   delwin(dwin->power_info);
   if (dwin->ecc_info != NULL)
     delwin(dwin->ecc_info);
-  delwin(dwin->temperature);
   delwin(dwin->fan_speed);
   delwin(dwin->pcie_info);
   if (dwin->nvlink_info != NULL)
@@ -538,12 +536,11 @@ static unsigned device_length(void) {
 
   unsigned line1 = sizeof_device_field[device_name] + sizeof_device_field[device_pcie] + 1;
 
-  // Line 2 base: clock, mem_clock, temp, fan, power + spacers (4 spacers + 1 = 5)
+  // Line 2 base: clock, mem_clock, fan, power + spacers (3 spacers + 1 = 4)
   // ECC is only counted when a monitored GPU actually supports it, so consumer
   // systems keep the original narrower panel width.
   unsigned line2 = sizeof_device_field[device_clock] + sizeof_device_field[device_mem_clock] +
-                   sizeof_device_field[device_temperature] + sizeof_device_field[device_fan_speed] +
-                   sizeof_device_field[device_power] + 5;
+                   sizeof_device_field[device_fan_speed] + sizeof_device_field[device_power] + 4;
   if (any_device_has_ecc)
     line2 += sizeof_device_field[device_ecc] + 1;
 
@@ -552,7 +549,10 @@ static unsigned device_length(void) {
   if (any_device_has_nvlink)
     line2 = max(line2, nvlink_line2_start(spacer) + nvlink_line2_width(spacer) + 1);
 
-  return max(line1, line2);
+  // The extra info grid (-i / -X) is drawn below line 2 and must fit the panel too
+  unsigned extra_info = EXTRA_INFO_PER_ROW * sizeof_device_field[device_extra_info] + (EXTRA_INFO_PER_ROW - 1) * spacer;
+
+  return max(max(line1, line2), extra_info);
 }
 
 static pid_t nvtop_pid;
@@ -761,32 +761,20 @@ static void format_bytes(char *buffer, size_t size, uint64_t bytes) {
  */
 static unsigned int celsius_to_fahrenheit(unsigned int celsius) { return (celsius * 9 + 2) / 5 + 32; }
 
-static void draw_temp_color(WINDOW *win, unsigned int temp, unsigned int temp_slowdown, bool celsius) {
-  unsigned int temp_convert;
-  if (celsius)
-    temp_convert = temp;
+// Prints the temperature right-aligned in the last TEMP_FIELD_WIDTH columns of win:
+// green, yellow within 5°C of the threshold and red past it. A threshold of 0
+// (unknown) always draws green.
+static void draw_temp(WINDOW *win, unsigned int temp, unsigned int threshold, bool celsius) {
+  if (threshold && temp >= threshold)
+    wcolor_set(win, red_color, NULL);
+  else if (threshold && temp + 5 >= threshold)
+    wcolor_set(win, yellow_color, NULL);
   else
-    temp_convert = celsius_to_fahrenheit(temp);
-  wcolor_set(win, cyan_color, NULL);
-  mvwprintw(win, 0, 0, "TEMP");
-
-  if (temp >= temp_slowdown - 5) {
-    if (temp >= temp_slowdown)
-      wcolor_set(win, red_color, NULL);
-    else
-      wcolor_set(win, yellow_color, NULL);
-  } else {
     wcolor_set(win, green_color, NULL);
-  }
-  wprintw(win, " %3u", temp_convert);
+  mvwprintw(win, 0, getmaxx(win) - TEMP_FIELD_WIDTH, " %3u", celsius ? temp : celsius_to_fahrenheit(temp));
   wstandend(win);
-
   waddch(win, ACS_DEGREE);
-  if (celsius)
-    waddch(win, 'C');
-  else
-    waddch(win, 'F');
-  wnoutrefresh(win);
+  waddch(win, celsius ? 'C' : 'F');
 }
 
 static void print_data_at_scale(WINDOW *win, unsigned long long value) {
@@ -1161,35 +1149,6 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       snprintf(buff, 1024, "N/A");
       nvtop_meter_draw(mem_util_win, memory_label, 0, false, 0, buff, legacy_meters, meter_glyphs, meter_levels);
     }
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
-      if (!GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_slowdown_threshold))
-        device->static_info.temperature_slowdown_threshold = 0;
-      draw_temp_color(dev->temperature, device->dynamic_info.gpu_temp,
-                      device->static_info.temperature_slowdown_threshold,
-                      !interface->options.temperature_in_fahrenheit);
-      if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_temp)) {
-        unsigned int mt = device->dynamic_info.mem_temp;
-        // HBM2 throttles around 85°C on V100: yellow from 80, red from 85
-        wcolor_set(dev->temperature, cyan_color, NULL);
-        wprintw(dev->temperature, " HBM");
-        wcolor_set(dev->temperature, mt >= 85 ? red_color : (mt >= 80 ? yellow_color : green_color), NULL);
-        wprintw(dev->temperature, "%3u",
-                interface->options.temperature_in_fahrenheit ? (unsigned)(32 + nearbyint(mt * 1.8)) : mt);
-        wstandend(dev->temperature);
-        waddch(dev->temperature, ACS_DEGREE);
-        waddch(dev->temperature, interface->options.temperature_in_fahrenheit ? 'F' : 'C');
-        wnoutrefresh(dev->temperature);
-      }
-    } else {
-      mvwprintw(dev->temperature, 0, 0, "TEMP N/A");
-      waddch(dev->temperature, ACS_DEGREE);
-      if (interface->options.temperature_in_fahrenheit)
-        waddch(dev->temperature, 'F');
-      else
-        waddch(dev->temperature, 'C');
-      mvwchgat(dev->temperature, 0, 0, 4, 0, cyan_color, NULL);
-      wnoutrefresh(dev->temperature);
-    }
 
     // FAN
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed)) {
@@ -1244,6 +1203,18 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
       mvwprintw(dev->gpu_clock_info, 0, 0, "%.3s N/A MHz", DEVICE_UNIT_NAME(device));
 
     mvwchgat(dev->gpu_clock_info, 0, 0, 3, 0, cyan_color, NULL);
+    const bool celsius = !interface->options.temperature_in_fahrenheit;
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
+      draw_temp(dev->gpu_clock_info, device->dynamic_info.gpu_temp,
+                GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_slowdown_threshold)
+                    ? device->static_info.temperature_slowdown_threshold
+                    : 0,
+                celsius);
+    } else {
+      mvwprintw(dev->gpu_clock_info, 0, getmaxx(dev->gpu_clock_info) - TEMP_FIELD_WIDTH, " N/A");
+      waddch(dev->gpu_clock_info, ACS_DEGREE);
+      waddch(dev->gpu_clock_info, celsius ? 'C' : 'F');
+    }
     wnoutrefresh(dev->gpu_clock_info);
 
     // MEM CLOCK
@@ -1257,6 +1228,14 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     else
       mvwprintw(dev->mem_clock_info, 0, 0, "%s N/A MHz", mem_label);
     mvwchgat(dev->mem_clock_info, 0, 0, 3, 0, cyan_color, NULL);
+    // Only devices that report it show a memory temperature; the others keep the
+    // reserved columns blank so the fields line up across device panels
+    if (any_device_has_mem_temp && GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_temp))
+      draw_temp(dev->mem_clock_info, device->dynamic_info.mem_temp,
+                GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_mem_max_threshold)
+                    ? device->static_info.temperature_mem_max_threshold
+                    : 0,
+                celsius);
     wnoutrefresh(dev->mem_clock_info);
 
     // POWER
@@ -3111,6 +3090,21 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
              use_fahrenheit_option ? "F" : "C");
     else
       printf("%s\"temp_shutdown_threshold\": null,\n", indent_level_four);
+
+    // Device memory temperature and its max operating threshold
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_temp))
+      printf("%s\"mem_temp\": \"%u%s\",\n", indent_level_four,
+             snapshot_temperature(device->dynamic_info.mem_temp, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
+    else
+      printf("%s\"mem_temp\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_mem_max_threshold))
+      printf("%s\"temp_mem_max_threshold\": \"%u%s\",\n", indent_level_four,
+             snapshot_temperature(device->static_info.temperature_mem_max_threshold, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
+    else
+      printf("%s\"temp_mem_max_threshold\": null,\n", indent_level_four);
 
     // Fan speed
     if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, fan_speed))

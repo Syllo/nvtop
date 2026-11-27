@@ -1177,6 +1177,11 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
                                                               &static_info->temperature_slowdown_threshold);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_temperature_slowdown_threshold_valid, static_info->valid);
+
+  last_nvml_return_status = nvmlDeviceGetTemperatureThreshold(device, NVML_TEMPERATURE_THRESHOLD_MEM_MAX,
+                                                              &static_info->temperature_mem_max_threshold);
+  if (last_nvml_return_status == NVML_SUCCESS)
+    SET_VALID(gpuinfo_temperature_mem_max_threshold_valid, static_info->valid);
 }
 
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -1354,7 +1359,7 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
 
-  // Memory (HBM) temperature — only reported by datacenter GPUs (V100/A100/H100)
+  // Device memory temperature, only reported by datacenter GPUs
   unsigned int mem_temp;
   if (nvidia_read_mem_temp(device, &mem_temp))
     SET_GPUINFO_DYNAMIC(dynamic_info, mem_temp, mem_temp);

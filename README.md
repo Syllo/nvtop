@@ -302,6 +302,11 @@ Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
+GPUs that report their memory temperature (datacenter GPUs) show it after the memory
+clock, as in `MEM 1215MHz  38°C`, the same way the GPU temperature follows the GPU
+clock. It turns yellow within 5°C of the memory's max operating temperature and red
+past it, as the GPU temperature does with its slowdown temperature.
+
 Unified-memory systems such as DGX Spark (GB10) and RTX Spark N1X are supported
 through the same NVML backend. When NVML reports no dedicated framebuffer, the
 GPU has no memory pool of its own. When at least one process reports a valid

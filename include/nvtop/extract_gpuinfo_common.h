@@ -58,6 +58,7 @@ enum gpuinfo_static_info_valid {
   gpuinfo_max_pcie_link_width_valid,
   gpuinfo_temperature_shutdown_threshold_valid,
   gpuinfo_temperature_slowdown_threshold_valid,
+  gpuinfo_temperature_mem_max_threshold_valid,
   gpuinfo_n_shared_cores_valid,
   gpuinfo_l2cache_size_valid,
   gpuinfo_n_exec_engines_valid,
@@ -78,6 +79,7 @@ struct gpuinfo_static_info {
   unsigned max_pcie_link_width;
   unsigned temperature_shutdown_threshold; // Shutdown threshold in degrees Celsius
   unsigned temperature_slowdown_threshold; // Slowdown threshold in degrees Celsius
+  unsigned temperature_mem_max_threshold;  // Device memory max operating temperature in degrees Celsius
   unsigned n_shared_cores;
   unsigned l2cache_size;
   unsigned n_exec_engines;
@@ -184,7 +186,7 @@ struct gpuinfo_dynamic_info {
   unsigned int fan_speed;             // Fan speed percentage
   unsigned int fan_rpm;               // Fan speed RPM
   unsigned int gpu_temp;              // GPU temperature °Celsius
-  unsigned int mem_temp;              // Memory (HBM) temperature °Celsius
+  unsigned int mem_temp;              // Device memory temperature °Celsius
   unsigned int power_draw;            // Power usage in milliwatts
   unsigned int power_draw_max;        // Max power usage in milliwatts
   bool multi_instance_mode;           // True if the GPU is in multi-instance mode
@@ -421,7 +423,7 @@ bool nvtop_get_ecc_support(struct gpu_info *gpu_info);
 // the ECC field when a monitored GPU actually supports ECC.
 bool nvtop_probe_ecc_list(struct list_head *devices);
 
-// Memory (HBM) temperature support: true if the GPU reports NVML_FI_DEV_MEMORY_TEMP
+// Device memory temperature support: true if the GPU reports NVML_FI_DEV_MEMORY_TEMP
 // (datacenter GPUs). Consumer GPUs do not report it.
 bool nvtop_get_mem_temp_support(struct gpu_info *gpu_info);
 
