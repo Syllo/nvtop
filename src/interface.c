@@ -1230,7 +1230,8 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
     mvwchgat(dev->mem_clock_info, 0, 0, 3, 0, cyan_color, NULL);
     // Only devices that report it show a memory temperature; the others keep the
     // reserved columns blank so the fields line up across device panels
-    if (any_device_has_mem_temp && GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_temp))
+    if (getmaxx(dev->mem_clock_info) >= MEM_CLOCK_FIELD_WIDTH + TEMP_FIELD_WIDTH &&
+        GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, mem_temp))
       draw_temp(dev->mem_clock_info, device->dynamic_info.mem_temp,
                 GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_mem_max_threshold)
                     ? device->static_info.temperature_mem_max_threshold
@@ -2721,17 +2722,24 @@ void interface_check_monitored_gpu_change(struct nvtop_interface **interface, un
     // NVLink-active layout. Without this, initialize_curses() below would
     // allocate fan_speed windows at stale width 8.
     sizeof_device_field[device_fan_speed] = 11;
-    // Reset NVLink probes on all monitored GPUs so they get probed fresh.
+    *num_monitored_gpus =
+        interface_check_and_fix_monitored_gpus(allDevCount, monitoredGpus, nonMonitoredGpus, &options_copy);
+    // Probe the newly monitored devices before the windows are allocated: the main loop
+    // probes before this call, on the previous monitored set, so a device brought back
+    // would only be accounted for after the layout was built without it.
+    // Reset the probes first so they get probed fresh, so that the any_device_has_*
+    // flags are correct when initialize_curses() calls initialize_all_windows() for
+    // layout decisions: the ECC and memory temperature probes only ever set their flag,
+    // which would keep room reserved for a device that is no longer monitored.
+    any_device_has_ecc = false;
+    any_device_has_mem_temp = false;
     {
       struct gpu_info *g;
       list_for_each_entry(g, monitoredGpus, list) nvtop_reset_nvlink_cache(g);
     }
-    // Re-probe NVLink now that caches are cleared, so that
-    // any_device_has_nvlink_active is correct when initialize_curses()
-    // calls initialize_all_windows() for layout decisions.
     nvtop_probe_nvlink_list(monitoredGpus);
-    *num_monitored_gpus =
-        interface_check_and_fix_monitored_gpus(allDevCount, monitoredGpus, nonMonitoredGpus, &options_copy);
+    nvtop_probe_ecc_list(monitoredGpus);
+    nvtop_probe_mem_temp_list(monitoredGpus);
     clean_ncurses(*interface);
     *interface =
         initialize_curses(allDevCount, *num_monitored_gpus, interface_largest_gpu_name(monitoredGpus), options_copy);

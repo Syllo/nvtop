@@ -428,9 +428,9 @@ int main(int argc, char **argv) {
       signal_cont_received = 0;
       update_window_size_to_terminal_size(interface);
     }
-    // Probe NVLink state and ECC support BEFORE monitored-set-change check, so
-    // that any_device_has_nvlink_active / any_device_has_ecc are set before
-    // initialize_all_windows() reads them for layout decisions.
+    // Keep the NVLink, ECC and memory temperature probes up to date for the
+    // current monitored set. When the monitored set changes, the check below
+    // re-probes the new set itself before rebuilding the windows.
     nvtop_probe_nvlink_list(&monitoredGpus);
     nvtop_probe_ecc_list(&monitoredGpus);
     nvtop_probe_mem_temp_list(&monitoredGpus);
