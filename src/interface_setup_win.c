@@ -57,6 +57,7 @@ static const char *setup_general_option_description[setup_general_options_count]
 
 enum setup_header_options {
   setup_header_toggle_fahrenheit,
+  setup_header_toggle_hotspot,
   setup_header_enc_dec_timer,
   setup_header_gpu_info_bar,
   setup_header_all_info_bar,
@@ -72,6 +73,7 @@ static const char *setup_header_system_memory_all_description =
 
 static const char *setup_header_option_descriptions[setup_header_options_count] = {
     "Temperature in fahrenheit",
+    "GPU temperature: show the hotspot when available (otherwise edge)",
     "Keep displaying Encoder/Decoder rate (after reaching an idle state)",
     "Display dynamic GPU info (clock domains, NVLink errors)",
     "Display static GPU info and secondary clock domains",
@@ -363,6 +365,15 @@ static void draw_setup_window_header(struct nvtop_interface *interface) {
   if (interface->setup_win.indentation_level == 1 &&
       interface->setup_win.options_selected[0] == setup_header_toggle_fahrenheit) {
     mvwchgat(options_win, setup_header_toggle_fahrenheit + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
+  }
+
+  // Hotspot or edge GPU temperature
+  option_state = interface->options.show_hotspot_temperature;
+  mvwprintw(options_win, setup_header_toggle_hotspot + 1, 0, "[%c] %s", option_state_char(option_state),
+            setup_header_option_descriptions[setup_header_toggle_hotspot]);
+  if (interface->setup_win.indentation_level == 1 &&
+      interface->setup_win.options_selected[0] == setup_header_toggle_hotspot) {
+    mvwchgat(options_win, setup_header_toggle_hotspot + 1, 0, 3, A_STANDOUT, cyan_color, NULL);
   }
 
   // Encode/Decode hiding timer
@@ -1010,6 +1021,9 @@ void handle_setup_win_keypress(int keyId, struct nvtop_interface *interface) {
         if (interface->setup_win.indentation_level == 1) {
           if (interface->setup_win.options_selected[0] == setup_header_toggle_fahrenheit) {
             interface->options.temperature_in_fahrenheit = !interface->options.temperature_in_fahrenheit;
+          }
+          if (interface->setup_win.options_selected[0] == setup_header_toggle_hotspot) {
+            interface->options.show_hotspot_temperature = !interface->options.show_hotspot_temperature;
           }
           if (interface->setup_win.options_selected[0] == setup_header_enc_dec_timer) {
             if (interface->options.encode_decode_hiding_timer > 0.) {

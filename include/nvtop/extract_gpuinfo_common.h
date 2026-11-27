@@ -59,6 +59,7 @@ enum gpuinfo_static_info_valid {
   gpuinfo_temperature_shutdown_threshold_valid,
   gpuinfo_temperature_slowdown_threshold_valid,
   gpuinfo_temperature_mem_max_threshold_valid,
+  gpuinfo_temperature_hotspot_slowdown_threshold_valid,
   gpuinfo_n_shared_cores_valid,
   gpuinfo_l2cache_size_valid,
   gpuinfo_n_exec_engines_valid,
@@ -80,6 +81,7 @@ struct gpuinfo_static_info {
   unsigned temperature_shutdown_threshold; // Shutdown threshold in degrees Celsius
   unsigned temperature_slowdown_threshold; // Slowdown threshold in degrees Celsius
   unsigned temperature_mem_max_threshold;  // Device memory max operating temperature in degrees Celsius
+  unsigned temperature_hotspot_slowdown_threshold; // Hotspot slowdown threshold in degrees Celsius
   unsigned n_shared_cores;
   unsigned l2cache_size;
   unsigned n_exec_engines;
@@ -133,6 +135,7 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_fan_speed_valid,
   gpuinfo_fan_rpm_valid,
   gpuinfo_gpu_temp_valid,
+  gpuinfo_gpu_hotspot_temp_valid,
   gpuinfo_mem_temp_valid,
   gpuinfo_power_draw_valid,
   gpuinfo_power_draw_max_valid,
@@ -185,7 +188,8 @@ struct gpuinfo_dynamic_info {
   unsigned int pcie_tx;               // PCIe throughput in KB/s
   unsigned int fan_speed;             // Fan speed percentage
   unsigned int fan_rpm;               // Fan speed RPM
-  unsigned int gpu_temp;              // GPU temperature °Celsius
+  unsigned int gpu_temp;              // GPU temperature °Celsius (die/edge sensor)
+  unsigned int gpu_hotspot_temp;      // Temperature of the hottest point of the GPU die °Celsius
   unsigned int mem_temp;              // Device memory temperature °Celsius
   unsigned int power_draw;            // Power usage in milliwatts
   unsigned int power_draw_max;        // Max power usage in milliwatts

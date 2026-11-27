@@ -764,6 +764,41 @@ static unsigned int celsius_to_fahrenheit(unsigned int celsius) { return (celsiu
 // Prints the temperature right-aligned in the last TEMP_FIELD_WIDTH columns of win:
 // green, yellow within 5°C of the threshold and red past it. A threshold of 0
 // (unknown) always draws green.
+static void draw_temp(WINDOW *win, unsigned int temp, unsigned int threshold, bool celsius);
+
+// Picks the GPU temperature to show: the hotspot or the die/edge temperature as selected,
+// or whichever of the two the device reports when it lacks the other. Returns false when
+// it reports neither. *threshold is the slowdown temperature to compare *temp against,
+// 0 when unknown. A hotspot without a threshold of its own is offset by the edge-to-hotspot
+// gap, so its color still tracks the edge temperature against the edge slowdown threshold.
+static bool gpu_temperature_to_show(const struct gpu_info *device, bool prefer_hotspot, unsigned *temp,
+                                    unsigned *threshold) {
+  const struct gpuinfo_static_info *static_info = &device->static_info;
+  const struct gpuinfo_dynamic_info *dynamic_info = &device->dynamic_info;
+  bool has_edge = GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_temp);
+  bool has_hotspot = GPUINFO_DYNAMIC_FIELD_VALID(dynamic_info, gpu_hotspot_temp);
+  unsigned edge_threshold = GPUINFO_STATIC_FIELD_VALID(static_info, temperature_slowdown_threshold)
+                                ? static_info->temperature_slowdown_threshold
+                                : 0;
+
+  if (has_hotspot && (prefer_hotspot || !has_edge)) {
+    *temp = dynamic_info->gpu_hotspot_temp;
+    if (GPUINFO_STATIC_FIELD_VALID(static_info, temperature_hotspot_slowdown_threshold))
+      *threshold = static_info->temperature_hotspot_slowdown_threshold;
+    else if (has_edge && edge_threshold && *temp >= dynamic_info->gpu_temp)
+      *threshold = edge_threshold + (*temp - dynamic_info->gpu_temp);
+    else
+      *threshold = 0;
+    return true;
+  }
+  if (has_edge) {
+    *temp = dynamic_info->gpu_temp;
+    *threshold = edge_threshold;
+    return true;
+  }
+  return false;
+}
+
 static void draw_temp(WINDOW *win, unsigned int temp, unsigned int threshold, bool celsius) {
   if (threshold && temp >= threshold)
     wcolor_set(win, red_color, NULL);
@@ -1204,12 +1239,10 @@ static void draw_devices(struct list_head *devices, struct nvtop_interface *inte
 
     mvwchgat(dev->gpu_clock_info, 0, 0, 3, 0, cyan_color, NULL);
     const bool celsius = !interface->options.temperature_in_fahrenheit;
-    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
-      draw_temp(dev->gpu_clock_info, device->dynamic_info.gpu_temp,
-                GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_slowdown_threshold)
-                    ? device->static_info.temperature_slowdown_threshold
-                    : 0,
-                celsius);
+    unsigned gpu_temp, gpu_temp_threshold;
+    if (gpu_temperature_to_show(device, interface->options.show_hotspot_temperature, &gpu_temp,
+                                &gpu_temp_threshold)) {
+      draw_temp(dev->gpu_clock_info, gpu_temp, gpu_temp_threshold, celsius);
     } else {
       mvwprintw(dev->gpu_clock_info, 0, getmaxx(dev->gpu_clock_info) - TEMP_FIELD_WIDTH, " N/A");
       waddch(dev->gpu_clock_info, ACS_DEGREE);
@@ -2299,13 +2332,11 @@ void save_current_data_to_ring(struct list_head *devices, struct nvtop_interface
           if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, decoder_rate))
             data_val = device->dynamic_info.decoder_rate;
           break;
-        case plot_gpu_temperature:
-          if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_temp)) {
-            data_val = device->dynamic_info.gpu_temp;
-            if (data_val > 100)
-              data_val = 100u;
-          }
-          break;
+        case plot_gpu_temperature: {
+          unsigned temp, threshold;
+          if (gpu_temperature_to_show(device, interface->options.show_hotspot_temperature, &temp, &threshold))
+            data_val = temp > 100 ? 100u : temp;
+        } break;
         case plot_gpu_power_draw_rate:
           if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw)) {
             if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, power_draw_max) &&
@@ -3091,6 +3122,21 @@ void print_snapshot(struct list_head *devices, bool use_fahrenheit_option, bool 
              use_fahrenheit_option ? "F" : "C");
     else
       printf("%s\"temp_slowdown_threshold\": null,\n", indent_level_four);
+
+    // Hotspot (hottest point of the die) temperature and its slowdown threshold
+    if (GPUINFO_DYNAMIC_FIELD_VALID(&device->dynamic_info, gpu_hotspot_temp))
+      printf("%s\"hotspot_temp\": \"%u%s\",\n", indent_level_four,
+             snapshot_temperature(device->dynamic_info.gpu_hotspot_temp, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
+    else
+      printf("%s\"hotspot_temp\": null,\n", indent_level_four);
+
+    if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_hotspot_slowdown_threshold))
+      printf("%s\"temp_hotspot_slowdown_threshold\": \"%u%s\",\n", indent_level_four,
+             snapshot_temperature(device->static_info.temperature_hotspot_slowdown_threshold, use_fahrenheit_option),
+             use_fahrenheit_option ? "F" : "C");
+    else
+      printf("%s\"temp_hotspot_slowdown_threshold\": null,\n", indent_level_four);
 
     if (GPUINFO_STATIC_FIELD_VALID(&device->static_info, temperature_shutdown_threshold))
       printf("%s\"temp_shutdown_threshold\": \"%u%s\",\n", indent_level_four,

@@ -78,6 +78,11 @@ NVTOP Options and Interactive Commands
 NVTOP has a builtin setup utility that provides a way to specialize the interface to your needs.
 Simply press ``F2`` and select the options that are the best for you.
 
+In the ``Devices`` section you can choose which GPU temperature is shown next to the GPU clock
+and plotted: the hotspot, the hottest point of the die (the default), or the edge sensor. A GPU
+that reports only one of them shows that one. Snapshots (`nvtop -s`) report both, as `temp` and
+`hotspot_temp`.
+
 In the ``Chart`` section you can choose which metrics are plotted, including GPU and memory
 utilization, temperature, power, clocks, and the **PCIe RX / TX load** (the receive and transmit
 throughput as a percentage of the maximum link bandwidth).
