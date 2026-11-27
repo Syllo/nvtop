@@ -281,6 +281,53 @@ bool gpuinfo_intel_get_device_handles(struct list_head *devices_list, unsigned *
   return true;
 }
 
+// hwmon temperatures are in millidegrees Celsius
+static bool read_hwmon_temp(nvtop_device *hwmon, unsigned sensor, const char *attribute, unsigned *celsius) {
+  char name[32];
+  const char *value;
+  snprintf(name, sizeof(name), "temp%u_%s", sensor, attribute);
+  if (nvtop_device_get_sysattr_value(hwmon, name, &value) < 0)
+    return false;
+  *celsius = strtoul(value, NULL, 10) / 1000;
+  return true;
+}
+
+// The xe driver numbers its sensors (temp2 = pkg, temp3 = vram, temp6+ = vram_ch_<n>) and
+// hides the ones a GPU lacks, so match the labels rather than the numbers. i915 only has
+// an unlabeled temp1 package sensor.
+static void find_hwmon_temp_sensors(struct gpu_info_intel *gpu_info) {
+  gpu_info->gpu_temp_sensor = gpu_info->driver == DRIVER_XE ? 2 : 1;
+  gpu_info->mem_temp_sensor_count = 0;
+  if (gpu_info->driver != DRIVER_XE || !gpu_info->hwmon_device)
+    return;
+  for (unsigned sensor = 1; sensor <= 32; ++sensor) {
+    char name[32];
+    const char *label;
+    snprintf(name, sizeof(name), "temp%u_label", sensor);
+    if (nvtop_device_get_sysattr_value(gpu_info->hwmon_device, name, &label) < 0)
+      continue;
+    if (!strcmp(label, "pkg"))
+      gpu_info->gpu_temp_sensor = sensor;
+    else if ((!strcmp(label, "vram") || !strncmp(label, "vram_ch_", 8)) &&
+             gpu_info->mem_temp_sensor_count < INTEL_MAX_MEM_TEMP_SENSORS)
+      gpu_info->mem_temp_sensors[gpu_info->mem_temp_sensor_count++] = sensor;
+  }
+}
+
+// The hottest of the device memory sensors
+static bool read_hwmon_mem_temp(const struct gpu_info_intel *gpu_info, nvtop_device *hwmon, unsigned *celsius) {
+  bool valid = false;
+  for (unsigned i = 0; i < gpu_info->mem_temp_sensor_count; ++i) {
+    unsigned temp;
+    if (read_hwmon_temp(hwmon, gpu_info->mem_temp_sensors[i], "input", &temp) && temp > 0 &&
+        (!valid || temp > *celsius)) {
+      *celsius = temp;
+      valid = true;
+    }
+  }
+  return valid;
+}
+
 void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
   struct gpu_info_intel *gpu_info = container_of(_gpu_info, struct gpu_info_intel, base);
   struct gpuinfo_static_info *static_info = &gpu_info->base.static_info;
@@ -341,6 +388,31 @@ void gpuinfo_intel_populate_static_info(struct gpu_info *_gpu_info) {
     SET_GPUINFO_STATIC(static_info, max_pcie_link_width, max_link_characteristics.width);
     unsigned pcieGen = nvtop_pcie_gen_from_link_speed(max_link_characteristics.speed);
     SET_GPUINFO_STATIC(static_info, max_pcie_gen, pcieGen);
+  }
+
+  // Temperature sensors and their limits, which xe exposes since Linux 7.0 on Battlemage
+  // (and Crescent Island, which has no package temperature to compare them against).
+  // The slowdown threshold is the package max, the lower of its upper limits in the hwmon
+  // ABI, or else crit; the shutdown one is emergency. xe only has a max limit on the
+  // package sensor, so the memory compares against its crit limit.
+  find_hwmon_temp_sensors(gpu_info);
+  static_info->mem_temp_sensor = false;
+  if (gpu_info->hwmon_device) {
+    unsigned temp;
+    if ((read_hwmon_temp(gpu_info->hwmon_device, gpu_info->gpu_temp_sensor, "max", &temp) && temp > 0) ||
+        (read_hwmon_temp(gpu_info->hwmon_device, gpu_info->gpu_temp_sensor, "crit", &temp) && temp > 0))
+      SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, temp);
+    if (read_hwmon_temp(gpu_info->hwmon_device, gpu_info->gpu_temp_sensor, "emergency", &temp) && temp > 0)
+      SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, temp);
+
+    static_info->mem_temp_sensor = read_hwmon_mem_temp(gpu_info, gpu_info->hwmon_device, &temp);
+    // Every memory sensor shares the same limit
+    for (unsigned i = 0; static_info->mem_temp_sensor && i < gpu_info->mem_temp_sensor_count; ++i) {
+      if (read_hwmon_temp(gpu_info->hwmon_device, gpu_info->mem_temp_sensors[i], "crit", &temp) && temp > 0) {
+        SET_GPUINFO_STATIC(static_info, temperature_mem_max_threshold, temp);
+        break;
+      }
+    }
   }
 }
 
@@ -440,12 +512,11 @@ void gpuinfo_intel_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       SET_GPUINFO_DYNAMIC(dynamic_info, fan_rpm, val);
     }
 
-    const char *hwmon_temp;
-    // temp1 is for i915, temp2 is for `pkg` on xe
-    if (nvtop_device_get_sysattr_value(hwmon_dev_noncached, is_xe ? "temp2_input" : "temp1_input", &hwmon_temp) >= 0) {
-      unsigned val = strtoul(hwmon_temp, NULL, 10);
-      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, val / 1000);
-    }
+    unsigned temp;
+    if (read_hwmon_temp(hwmon_dev_noncached, gpu_info->gpu_temp_sensor, "input", &temp))
+      SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, temp);
+    if (static_info->mem_temp_sensor && read_hwmon_mem_temp(gpu_info, hwmon_dev_noncached, &temp))
+      SET_GPUINFO_DYNAMIC(dynamic_info, mem_temp, temp);
 
     const char *hwmon_power_max = NULL;
     const char *hwmon_energy = NULL;

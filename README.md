@@ -219,6 +219,11 @@ On discrete GPUs, the VRAM usage requires CAP_PERFMON or
 CAP_SYS_ADMIN with i915 (and with xe on older kernels). An accurate GPU frequency
 also requires CAP_PERFMON. You can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
 
+With the `xe` driver, discrete GPUs (Arc A and B series) also show their memory
+temperature since Linux 6.15, as the hottest of the memory sensors the driver
+reports. On Arc B series, since Linux 7.0, the GPU and memory temperatures also
+turn yellow and red as they near their limits.
+
 With SR-IOV on the `xe` driver, NVTOP shows the physical function (PF) and each
 virtual function (VF) as separate devices, and tells which PF a VF belongs to.
 The utilization of the VFs, and of the whole card on the PF, requires
