@@ -50,6 +50,9 @@ struct intel_process_info_cache {
   UT_hash_handle hh;
 };
 
+// "vram" plus the up to 16 per-channel "vram_ch_<n>" sensors of xe
+#define INTEL_MAX_MEM_TEMP_SENSORS 17
+
 #define XE_FN_MAX_ENGINES 32
 // User-visible xe engine classes: render, copy, video decode, video enhance and
 // compute (DRM_XE_ENGINE_CLASS_RENDER to DRM_XE_ENGINE_CLASS_COMPUTE)
@@ -72,6 +75,13 @@ struct gpu_info_intel {
   struct intel_process_info_cache *last_update_process_cache, *current_update_process_cache; // Cached processes info
 
   struct nvtop_device *bridge_device;
+
+  // hwmon tempN_* sensors, resolved once: the GPU (package) sensor, and on xe the
+  // device memory sensors ("vram" and the per-channel "vram_ch_<n>"), of which the
+  // hottest is reported
+  unsigned gpu_temp_sensor;
+  unsigned mem_temp_sensor_count;
+  unsigned mem_temp_sensors[INTEL_MAX_MEM_TEMP_SENSORS];
 
   struct {
     unsigned energy_uj;

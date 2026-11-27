@@ -78,6 +78,11 @@ NVTOP Options and Interactive Commands
 NVTOP has a builtin setup utility that provides a way to specialize the interface to your needs.
 Simply press ``F2`` and select the options that are the best for you.
 
+In the ``Devices`` section you can choose which GPU temperature is shown next to the GPU clock
+and plotted: the hotspot, the hottest point of the die (the default), or the edge sensor. A GPU
+that reports only one of them shows that one. Snapshots (`nvtop -s`) report both, as `temp` and
+`hotspot_temp`.
+
 In the ``Chart`` section you can choose which metrics are plotted, including GPU and memory
 utilization, temperature, power, clocks, and the **PCIe RX / TX load** (the receive and transmit
 throughput as a percentage of the maximum link bandwidth).
@@ -214,6 +219,11 @@ On discrete GPUs, the VRAM usage requires CAP_PERFMON or
 CAP_SYS_ADMIN with i915 (and with xe on older kernels). An accurate GPU frequency
 also requires CAP_PERFMON. You can run `sudo setcap cap_perfmon=ep $(which nvtop)` to grant the necessary permissions or run nvtop as root.
 
+With the `xe` driver, discrete GPUs (Arc A and B series) also show their memory
+temperature since Linux 6.15, as the hottest of the memory sensors the driver
+reports. On Arc B series, since Linux 7.0, the GPU and memory temperatures also
+turn yellow and red as they near their limits.
+
 With SR-IOV on the `xe` driver, NVTOP shows the physical function (PF) and each
 virtual function (VF) as separate devices, and tells which PF a VF belongs to.
 The utilization of the VFs, and of the whole card on the PF, requires
@@ -302,6 +312,16 @@ Kepler microarchitecture. Anything starting at GeForce 600, GeForce 800M and
 successor should work fine. For more information about supported GPUs please
 take a look at the [NVML documentation](http://docs.nvidia.com/deploy/nvml-api/nvml-api-reference.html#nvml-api-reference).
 
+GPUs that report their memory temperature (datacenter GPUs) show it after the memory
+clock, as in `MEM 1215MHz  38°C`, the same way the GPU temperature follows the GPU
+clock. It turns yellow within 5°C of the memory's max operating temperature and red
+past it, as the GPU temperature does with its slowdown temperature.
+
+The GPU hotspot temperature needs a driver shipping NVML 13.4 or later; with older drivers
+the GPU temperature is the one NVML has always reported. NVML gives no hotspot slowdown
+temperature, so the hotspot turns yellow and red when the GPU temperature nears its own
+slowdown temperature.
+
 Unified-memory systems such as DGX Spark (GB10) and RTX Spark N1X are supported
 through the same NVML backend. When NVML reports no dedicated framebuffer, the
 GPU has no memory pool of its own. When at least one process reports a valid
@@ -348,6 +368,10 @@ source](https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/tree/dr
 Hence, you will need a kernel with a version greater or equal to 6.0 to see the
 processes using Adreno GPUs.
 
+The GPU temperature is the hottest of the GPU thermal zones. It turns yellow and red as
+it nears the lowest passive trip point of those zones, where the kernel starts throttling
+the GPU.
+
 ### Apple
 
 NVTOP includes some initial support for Apple using Metal. This is only supported when building for Apple, and when building for Apple only this vendor is supported.
@@ -380,6 +404,9 @@ card/device API. Read-only telemetry is reported when supported by the
 installed driver; unavailable values remain unset. Enable it with
 `-DASCEND_SUPPORT=ON`, and set `-DASCEND_ROOT=/path/to/Ascend` when CANN is
 installed outside the standard locations.
+
+Devices with HBM also show its temperature after the memory clock, as reported by
+the HBM query; DCMI gives no limit for it, so it stays green.
 
 ### Iluvatar CoreX
 
@@ -460,7 +487,7 @@ rx/tx throughput, and the processes using each device with their device memory a
   `On Chip ...`, avoiding a memory leak in HLML's temperature call. Only that file is read; relabeling or ignoring the
   sensors in other `sensors.d` files is not followed. If the file is absent, yields no matching sensors, or selects a
   different number of AIP sensors than HLML's per-ASIC map, nvtop falls back to the HLML call.
-* HLML also enumerates Goya devices; nvtop reports them as Goya with DDR4 memory. Goya has not been validated on
+* HLML also enumerates Goya devices; nvtop reports them as Goya with DDR memory. Goya has not been validated on
   hardware.
 * The power limit is that of the main (54 V) power supply; `hl-smi` adds the auxiliary 12 V supply to its cap.
 

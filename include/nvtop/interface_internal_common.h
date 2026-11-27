@@ -75,7 +75,6 @@ struct device_window {
   WINDOW *decode_util;
   WINDOW *encdec_util;
   WINDOW *fan_speed;
-  WINDOW *temperature;
   WINDOW *power_info;
   WINDOW *ecc_info;
   WINDOW *gpu_clock_info;
@@ -188,7 +187,6 @@ static inline bool interface_supports_graphical_meters(const struct nvtop_interf
 enum device_field {
   device_name = 0,
   device_fan_speed,
-  device_temperature,
   device_power,
   device_ecc,
   device_pcie,

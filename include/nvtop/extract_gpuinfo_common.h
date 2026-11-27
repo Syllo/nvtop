@@ -58,6 +58,8 @@ enum gpuinfo_static_info_valid {
   gpuinfo_max_pcie_link_width_valid,
   gpuinfo_temperature_shutdown_threshold_valid,
   gpuinfo_temperature_slowdown_threshold_valid,
+  gpuinfo_temperature_mem_max_threshold_valid,
+  gpuinfo_temperature_hotspot_slowdown_threshold_valid,
   gpuinfo_n_shared_cores_valid,
   gpuinfo_l2cache_size_valid,
   gpuinfo_n_exec_engines_valid,
@@ -78,11 +80,14 @@ struct gpuinfo_static_info {
   unsigned max_pcie_link_width;
   unsigned temperature_shutdown_threshold; // Shutdown threshold in degrees Celsius
   unsigned temperature_slowdown_threshold; // Slowdown threshold in degrees Celsius
+  unsigned temperature_mem_max_threshold;  // Device memory max operating temperature in degrees Celsius
+  unsigned temperature_hotspot_slowdown_threshold; // Hotspot slowdown threshold in degrees Celsius
   unsigned n_shared_cores;
   unsigned l2cache_size;
   unsigned n_exec_engines;
   unsigned engine_count;
   bool c2c_attachment;     // Attached over NVLink-C2C instead of PCIe
+  bool mem_temp_sensor;    // Reports a device memory temperature (mem_temp)
   unsigned c2c_link_count; // Number of NVLink-C2C links, 0 when unknown or none
   bool integrated_graphics;
   bool encode_decode_shared;
@@ -131,6 +136,8 @@ enum gpuinfo_dynamic_info_valid {
   gpuinfo_fan_speed_valid,
   gpuinfo_fan_rpm_valid,
   gpuinfo_gpu_temp_valid,
+  gpuinfo_gpu_hotspot_temp_valid,
+  gpuinfo_mem_temp_valid,
   gpuinfo_power_draw_valid,
   gpuinfo_power_draw_max_valid,
   gpuinfo_effective_load_rate_valid,
@@ -182,7 +189,9 @@ struct gpuinfo_dynamic_info {
   unsigned int pcie_tx;               // PCIe throughput in KB/s
   unsigned int fan_speed;             // Fan speed percentage
   unsigned int fan_rpm;               // Fan speed RPM
-  unsigned int gpu_temp;              // GPU temperature °Celsius
+  unsigned int gpu_temp;              // GPU temperature °Celsius (die/edge sensor)
+  unsigned int gpu_hotspot_temp;      // Temperature of the hottest point of the GPU die °Celsius
+  unsigned int mem_temp;              // Device memory temperature °Celsius
   unsigned int power_draw;            // Power usage in milliwatts
   unsigned int power_draw_max;        // Max power usage in milliwatts
   bool multi_instance_mode;           // True if the GPU is in multi-instance mode
@@ -418,6 +427,11 @@ bool nvtop_get_ecc_support(struct gpu_info *gpu_info);
 // ECC probe — call before initialize_curses so the layout only reserves room for
 // the ECC field when a monitored GPU actually supports ECC.
 bool nvtop_probe_ecc_list(struct list_head *devices);
+
+// Memory temperature probe, from the static mem_temp_sensor of each device: call
+// before initialize_curses so the memory clock field only reserves room for the
+// memory temperature when a monitored GPU reports one.
+bool nvtop_probe_mem_temp_list(struct list_head *devices);
 
 // Asks nvtop to exit once the current refresh is done, e.g. when the devices
 // changed in a way nvtop does not follow. The message is printed once the

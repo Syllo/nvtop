@@ -126,7 +126,12 @@ struct gpu_info_amdgpu {
 
   // We poll the fan frequently enough and want to avoid the open/close overhead of the sysfs file
   FILE *fanSpeedFILE;   // FILE* for this device current fan speed
-  FILE *tempSensorFILE; // FILE* for the hwmon GPU temperature fallback
+  FILE *tempSensorFILE;    // FILE* for the hwmon edge temperature, fallback of the GPU_TEMP ioctl
+  FILE *hotspotTempFILE;   // FILE* for the hwmon hotspot ("junction") temperature
+  FILE *memTempFILE;       // FILE* for the hwmon device memory temperature
+  unsigned edgeTempSensor; // N of the hwmon tempN_* edge sensor, 0 if there is none
+  unsigned hotspotTempSensor; // N of the hwmon tempN_* "junction" sensor, 0 if there is none
+  unsigned memTempSensor;  // N of the hwmon tempN_* "mem" sensor, 0 if there is none
   FILE *PCIeBW;         // FILE* for this device PCIe bandwidth over one second
   FILE *powerCap;       // FILE* for this device power cap
   FILE *powerCapDefault;
@@ -173,7 +178,10 @@ static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const
 // SMU13.0.6 only implements AMDGPU_PP_SENSOR_HOTSPOT_TEMP and AMDGPU_PP_SENSOR_MEM_TEMP
 // temperature queries. Its useful GPU temperature is exposed as hwmon "junction" instead.
 // Resolve the hwmon input attribute to fall back to when the GPU_TEMP ioctl is unavailable.
-static bool findHwmonGpuTempAttribute(nvtop_device *hwmon_device, char *input_attribute, size_t size);
+// Only SOC15 dGPUs (Vega and later) and MI300A expose the hotspot ("junction") and memory
+// ("mem") sensors; MI300A has no edge sensor
+static unsigned findHwmonTempSensor(nvtop_device *hwmon_device, const char *label);
+static FILE *openHwmonTempInput(int hwmonFD, unsigned sensor);
 
 __attribute__((constructor)) static void init_extract_gpuinfo_amdgpu(void) { register_gpu_vendor(&gpu_vendor_amdgpu); }
 
@@ -258,6 +266,10 @@ static void gpuinfo_amdgpu_shutdown(void) {
       fclose(gpu_info->fanSpeedFILE);
     if (gpu_info->tempSensorFILE)
       fclose(gpu_info->tempSensorFILE);
+    if (gpu_info->hotspotTempFILE)
+      fclose(gpu_info->hotspotTempFILE);
+    if (gpu_info->memTempFILE)
+      fclose(gpu_info->memTempFILE);
     if (gpu_info->PCIeBW)
       fclose(gpu_info->PCIeBW);
     if (gpu_info->powerCap)
@@ -400,17 +412,19 @@ static void initDeviceSysfsPaths(struct gpu_info_amdgpu *gpu_info) {
         close(powerCapDefaultFD);
     }
 
-    // Open the hwmon temperature file used when the GPU_TEMP ioctl is unavailable
-    gpu_info->tempSensorFILE = NULL;
-    char tempAttribute[16];
-    if (findHwmonGpuTempAttribute(gpu_info->hwmonDevice, tempAttribute, sizeof(tempAttribute))) {
-      int tempFD = openat(hwmonFD, tempAttribute, O_RDONLY);
-      if (tempFD >= 0) {
-        gpu_info->tempSensorFILE = fdopen(tempFD, "r");
-        if (!gpu_info->tempSensorFILE)
-          close(tempFD);
-      }
-    }
+    // Open the hwmon edge temperature used when the GPU_TEMP ioctl (which reads the same
+    // sensor) is unavailable, and the hotspot and memory temperatures, which have no ioctl.
+    // Older hwmon implementations have no labels: their temp1 is the edge sensor.
+    gpu_info->edgeTempSensor = findHwmonTempSensor(gpu_info->hwmonDevice, "edge");
+    gpu_info->hotspotTempSensor = findHwmonTempSensor(gpu_info->hwmonDevice, "junction");
+    if (!gpu_info->edgeTempSensor && !gpu_info->hotspotTempSensor)
+      gpu_info->edgeTempSensor = 1;
+    gpu_info->tempSensorFILE =
+        gpu_info->edgeTempSensor ? openHwmonTempInput(hwmonFD, gpu_info->edgeTempSensor) : NULL;
+    gpu_info->hotspotTempFILE =
+        gpu_info->hotspotTempSensor ? openHwmonTempInput(hwmonFD, gpu_info->hotspotTempSensor) : NULL;
+    gpu_info->memTempSensor = findHwmonTempSensor(gpu_info->hwmonDevice, "mem");
+    gpu_info->memTempFILE = gpu_info->memTempSensor ? openHwmonTempInput(hwmonFD, gpu_info->memTempSensor) : NULL;
     close(hwmonFD);
   }
 
@@ -555,31 +569,30 @@ static int readAttributeFromDevice(nvtop_device *dev, const char *sysAttr, const
   return nread;
 }
 
-// Pick the hwmon temperature input to use as a fallback: prefer the conventional "edge"
-// sensor, then the "junction" sensor used by MI300A, and finally the unlabeled temp1_input
-// for older hwmon implementations. The caller opens the returned attribute and tolerates
-// its absence, so this only fails when there is no hwmon device at all.
-static bool findHwmonGpuTempAttribute(nvtop_device *hwmon_device, char *input_attribute, size_t size) {
-  if (!hwmon_device)
-    return false;
-
-  static const char *const preferred_labels[] = {"edge", "junction"};
-  for (unsigned label_index = 0; label_index < sizeof(preferred_labels) / sizeof(preferred_labels[0]); ++label_index) {
-    for (unsigned sensor = 1; sensor <= 8; ++sensor) {
-      char label_attribute[16];
-      const char *label;
-      snprintf(label_attribute, sizeof(label_attribute), "temp%u_label", sensor);
-      if (nvtop_device_get_sysattr_value(hwmon_device, label_attribute, &label) < 0 ||
-          strcmp(label, preferred_labels[label_index]) != 0)
-        continue;
-
-      snprintf(input_attribute, size, "temp%u_input", sensor);
-      return true;
-    }
+// Returns the N of the hwmon tempN_* sensor labelled `label`, or 0 if there is none.
+// The kernel currently numbers its sensors temp1 = edge, temp2 = junction, temp3 = mem
+// and hides the ones a GPU does not have, so match the label rather than the number.
+static unsigned findHwmonTempSensor(nvtop_device *hwmon_device, const char *label) {
+  for (unsigned sensor = 1; sensor <= 8; ++sensor) {
+    char label_attribute[16];
+    const char *value;
+    snprintf(label_attribute, sizeof(label_attribute), "temp%u_label", sensor);
+    if (nvtop_device_get_sysattr_value(hwmon_device, label_attribute, &value) >= 0 && strcmp(value, label) == 0)
+      return sensor;
   }
+  return 0;
+}
 
-  snprintf(input_attribute, size, "temp1_input");
-  return true;
+static FILE *openHwmonTempInput(int hwmonFD, unsigned sensor) {
+  char attribute[16];
+  snprintf(attribute, sizeof(attribute), "temp%u_input", sensor);
+  int fd = openat(hwmonFD, attribute, O_RDONLY);
+  if (fd < 0)
+    return NULL;
+  FILE *file = fdopen(fd, "r");
+  if (!file)
+    close(fd);
+  return file;
 }
 
 // Locate the KFD topology node directory (e.g. /sys/class/kfd/kfd/topology/nodes/1) that
@@ -873,20 +886,38 @@ static void gpuinfo_amdgpu_populate_static_info(struct gpu_info *_gpu_info) {
   // If multiple fans are present, use the first one. Some hardware do not wire
   // the sensor for the second fan, or use the same value as the first fan.
 
-  // Critical temperature
-  // temp1_* files should always be the GPU die in millidegrees Celsius
+  // Critical temperatures of the edge and hotspot sensors, and the emergency (shutdown)
+  // temperature of the edge sensor, or of the hotspot one without edge sensor, in
+  // millidegrees Celsius
+  static_info->mem_temp_sensor = false;
   if (gpu_info->hwmonDevice) {
+    char attribute[24];
     unsigned criticalTemp;
-    int nReadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_crit", "%u", &criticalTemp);
-    if (nReadPatterns == 1) {
-      SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, criticalTemp / 1000);
+    if (gpu_info->edgeTempSensor) {
+      snprintf(attribute, sizeof(attribute), "temp%u_crit", gpu_info->edgeTempSensor);
+      if (readAttributeFromDevice(gpu_info->hwmonDevice, attribute, "%u", &criticalTemp) == 1)
+        SET_GPUINFO_STATIC(static_info, temperature_slowdown_threshold, criticalTemp / 1000);
+    }
+    if (gpu_info->hotspotTempSensor) {
+      snprintf(attribute, sizeof(attribute), "temp%u_crit", gpu_info->hotspotTempSensor);
+      if (readAttributeFromDevice(gpu_info->hwmonDevice, attribute, "%u", &criticalTemp) == 1)
+        SET_GPUINFO_STATIC(static_info, temperature_hotspot_slowdown_threshold, criticalTemp / 1000);
     }
 
-    // Emergency/shutdown temperature
     unsigned emergencyTemp;
-    nReadPatterns = readAttributeFromDevice(gpu_info->hwmonDevice, "temp1_emergency", "%u", &emergencyTemp);
-    if (nReadPatterns == 1) {
+    snprintf(attribute, sizeof(attribute), "temp%u_emergency",
+             gpu_info->edgeTempSensor ? gpu_info->edgeTempSensor : gpu_info->hotspotTempSensor);
+    if (readAttributeFromDevice(gpu_info->hwmonDevice, attribute, "%u", &emergencyTemp) == 1)
       SET_GPUINFO_STATIC(static_info, temperature_shutdown_threshold, emergencyTemp / 1000);
+
+    // The memory sensor is listed on every SOC15 dGPU but reading it fails when the
+    // firmware does not report it, so only a successful read counts as support
+    unsigned memTemp;
+    static_info->mem_temp_sensor = rewindAndReadPattern(gpu_info->memTempFILE, "%u", &memTemp) == 1;
+    if (static_info->mem_temp_sensor) {
+      snprintf(attribute, sizeof(attribute), "temp%u_crit", gpu_info->memTempSensor);
+      if (readAttributeFromDevice(gpu_info->hwmonDevice, attribute, "%u", &criticalTemp) == 1)
+        SET_GPUINFO_STATIC(static_info, temperature_mem_max_threshold, criticalTemp / 1000);
     }
   }
 
@@ -999,6 +1030,14 @@ static void gpuinfo_amdgpu_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   } else if (rewindAndReadPattern(gpu_info->tempSensorFILE, "%u", &out32) == 1) {
     SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, out32 / 1000);
   }
+
+  // Hotspot temperature, only available through hwmon
+  if (rewindAndReadPattern(gpu_info->hotspotTempFILE, "%u", &out32) == 1)
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_hotspot_temp, out32 / 1000);
+
+  // Device memory temperature, only available through hwmon
+  if (gpu_info->base.static_info.mem_temp_sensor && rewindAndReadPattern(gpu_info->memTempFILE, "%u", &out32) == 1)
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_temp, out32 / 1000);
 
   // Fan speed
   unsigned currentFanSpeed;

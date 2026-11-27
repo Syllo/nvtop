@@ -451,10 +451,20 @@ struct ascend_memory_sample {
   unsigned long long unit_multiplier; /* source unit -> bytes */
   unsigned frequency;
   unsigned utilization;
+  unsigned temperature; /* HBM temperature in degrees Celsius */
   bool has_used;
   bool has_available;
   bool utilization_valid;
+  bool temperature_valid;
 };
+
+/* Both HBM queries report the HBM temperature; DDR parts have none. */
+static void ascend_set_hbm_temperature(struct ascend_memory_sample *sample, int temperature) {
+  if (temperature > 0 && temperature < 200) {
+    sample->temperature = (unsigned)temperature;
+    sample->temperature_valid = true;
+  }
+}
 
 static bool ascend_query_memory(const struct gpu_info_ascend *gpu, struct ascend_memory_sample *sample) {
   memset(sample, 0, sizeof(*sample));
@@ -471,6 +481,7 @@ static bool ascend_query_memory(const struct gpu_info_ascend *gpu, struct ascend
       sample->used = hbm_info.memory_usage > hbm_info.memory_size ? hbm_info.memory_size : hbm_info.memory_usage;
       sample->has_used = true;
       sample->frequency = hbm_info.freq;
+      ascend_set_hbm_temperature(sample, hbm_info.temp);
       sample->utilization = ascend_memory_percent(sample->used, sample->total);
       sample->utilization_valid = true;
       return true;
@@ -488,6 +499,7 @@ static bool ascend_query_memory(const struct gpu_info_ascend *gpu, struct ascend
       sample->used = hbm_info.memory_usage > hbm_info.memory_size ? hbm_info.memory_size : hbm_info.memory_usage;
       sample->has_used = true;
       sample->frequency = hbm_info.freq;
+      ascend_set_hbm_temperature(sample, hbm_info.temp);
       sample->utilization = ascend_memory_percent(sample->used, sample->total);
       sample->utilization_valid = true;
       return true;
@@ -572,6 +584,7 @@ static void ascend_set_memory_type(struct gpuinfo_static_info *static_info, cons
   if (!ascend_query_memory(gpu, &sample))
     return;
 
+  static_info->mem_temp_sensor = sample.temperature_valid;
   if (sample.source == ASCEND_MEMORY_HBM)
     snprintf(static_info->memory_type, sizeof(static_info->memory_type), "HBM");
   else if (sample.source == ASCEND_MEMORY_DDR_MB)
@@ -1052,6 +1065,8 @@ static void gpuinfo_ascend_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       SET_GPUINFO_DYNAMIC(dynamic_info, mem_util_rate, memory_sample.utilization);
     if (memory_sample.frequency > 0)
       SET_GPUINFO_DYNAMIC(dynamic_info, mem_clock_speed, memory_sample.frequency);
+    if (gpu_info->base.static_info.mem_temp_sensor && memory_sample.temperature_valid)
+      SET_GPUINFO_DYNAMIC(dynamic_info, mem_temp, memory_sample.temperature);
     unsigned memory_max_frequency = 0;
     enum dcmi_freq_type memory_frequency_type =
         memory_sample.source == ASCEND_MEMORY_HBM ? DCMI_FREQ_HBM : DCMI_FREQ_DDR;

@@ -42,6 +42,7 @@ typedef struct nvtop_interface_option_struct {
   bool
       plot_left_to_right; // true to reverse the plot refresh direction defines inactivity (0 use rate) before hiding it
   bool temperature_in_fahrenheit;                   // Switch from celsius to fahrenheit temperature scale
+  bool show_hotspot_temperature;                    // Show the GPU hotspot rather than the die/edge temperature
   bool use_color;                                   // Name self explanatory
   double encode_decode_hiding_timer;                // Negative to always display, positive
   nvtop_interface_gpu_opts *gpu_specific_opts;      // GPU specific options

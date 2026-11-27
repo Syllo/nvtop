@@ -407,10 +407,11 @@ static void gpuinfo_metax_populate_static_info(struct gpu_info *_gpu_info) {
   if (last_mxsml_return_status == MXSML_SUCCESS && shutdown_threshold >= 0) {
     // The library reports degrees Celsius enlarged by 100 times: convert once, here
     unsigned shutdown_celsius = (unsigned)shutdown_threshold / 100;
-    static_info->temperature_slowdown_threshold = 95; // Degrees Celsius, not reported by the library
+    // The only temperature sensor is the hotspot, so its slowdown threshold is the hotspot one
+    static_info->temperature_hotspot_slowdown_threshold = 95; // Degrees Celsius, not reported by the library
     static_info->temperature_shutdown_threshold = shutdown_celsius;
     SET_VALID(gpuinfo_temperature_shutdown_threshold_valid, static_info->valid);
-    SET_VALID(gpuinfo_temperature_slowdown_threshold_valid, static_info->valid);
+    SET_VALID(gpuinfo_temperature_hotspot_slowdown_threshold_valid, static_info->valid);
   }
 }
 
@@ -543,11 +544,11 @@ static void gpuinfo_metax_refresh_dynamic_info(struct gpu_info *_gpu_info) {
       SET_VALID(gpuinfo_fan_speed_valid, dynamic_info->valid);
   }
 
-  // GPU temperature
+  // GPU hotspot temperature, the only temperature the library reports
   int gpuTemp;
   last_mxsml_return_status = mxSmlGetTemperatureInfo(deviceId, MXSML_Temperature_Hotspot, &gpuTemp);
-  if (last_mxsml_return_status == MXSML_SUCCESS)
-    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_temp, gpuTemp / 100); // Degrees Celsius enlarged by 100 times
+  if (last_mxsml_return_status == MXSML_SUCCESS && gpuTemp >= 0)
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_hotspot_temp, gpuTemp / 100); // Degrees Celsius enlarged by 100 times
 
   // Device power usage
   unsigned int infoSize = 3;

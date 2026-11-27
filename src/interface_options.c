@@ -123,6 +123,7 @@ void alloc_interface_options_internals(char *config_location, unsigned num_devic
   options->use_color = true;
   options->encode_decode_hiding_timer = 30.;
   options->temperature_in_fahrenheit = false;
+  options->show_hotspot_temperature = true;
   options->config_file_location = NULL;
   options->sort_processes_by = process_memory;
   options->sort_descending_order = true;
@@ -183,6 +184,7 @@ static const char general_show_messages[] = "ShowInfoMessages";
 
 static const char header_section[] = "HeaderOption";
 static const char header_value_use_fahrenheit[] = "UseFahrenheit";
+static const char header_value_show_hotspot[] = "ShowHotspotTemperature";
 static const char header_value_encode_decode_timer[] = "EncodeHideTimer";
 static const char header_value_gpu_info_bar[] = "GPUInfoBar";
 static const char header_value_all_info_bar[] = "AllInfoBar";
@@ -262,6 +264,12 @@ static int nvtop_option_ini_handler(void *user, const char *section, const char 
       if (strcmp(value, "false") == 0) {
         ini_data->options->temperature_in_fahrenheit = false;
       }
+    }
+    if (strcmp(name, header_value_show_hotspot) == 0) {
+      if (strcmp(value, "true") == 0)
+        ini_data->options->show_hotspot_temperature = true;
+      if (strcmp(value, "false") == 0)
+        ini_data->options->show_hotspot_temperature = false;
     }
     if (strcmp(name, header_value_encode_decode_timer) == 0) {
       double value_double;
@@ -550,6 +558,7 @@ bool save_interface_options_to_config_file(unsigned total_dev_count, const nvtop
   // Header Options
   fprintf(config_file, "\n[%s]\n", header_section);
   fprintf(config_file, "%s = %s\n", header_value_use_fahrenheit, boolean_string(options->temperature_in_fahrenheit));
+  fprintf(config_file, "%s = %s\n", header_value_show_hotspot, boolean_string(options->show_hotspot_temperature));
   fprintf(config_file, "%s = %e\n", header_value_encode_decode_timer, options->encode_decode_hiding_timer);
   fprintf(config_file, "%s = %s\n", header_value_gpu_info_bar, boolean_string(options->has_gpu_info_bar));
   fprintf(config_file, "%s = %s\n", header_value_all_info_bar, boolean_string(options->has_all_info_bar));

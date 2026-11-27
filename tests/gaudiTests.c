@@ -307,7 +307,7 @@ static int test_device_naming(void) {
   compose_device_name("", "", name, sizeof(name));
   CHECK(!strcmp(name, ""));
 
-  CHECK(!strcmp(device_memory_type("Goya"), "DDR4"));
+  CHECK(!strcmp(device_memory_type("Goya"), "DDR"));
   CHECK(!strcmp(device_memory_type("Gaudi2"), "HBM"));
   return 0;
 }

@@ -103,6 +103,9 @@ typedef struct nvmlFieldValue_st {
 #ifndef NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_CRC_DATA_ERROR_COUNT_TOTAL 45
 #endif
+#ifndef NVML_FI_DEV_MEMORY_TEMP
+#define NVML_FI_DEV_MEMORY_TEMP 82
+#endif
 #ifndef NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL
 #define NVML_FI_DEV_NVLINK_ECC_DATA_ERROR_COUNT_TOTAL 160
 #endif
@@ -232,7 +235,17 @@ static nvmlReturn_t (*nvmlDeviceGetFanSpeed_v2)(nvmlDevice_t device, unsigned in
 
 typedef enum {
   NVML_TEMPERATURE_GPU = 0,
+  NVML_TEMPERATURE_GPU_MAX = 1, // Hottest part of the GPU die (hotspot), since NVML 13.4
 } nvmlTemperatureSensors_t;
+
+typedef struct {
+  unsigned int version;
+  nvmlTemperatureSensors_t sensorType;
+  int temperature;
+} nvmlTemperature_v1_t;
+
+// Optional, absent from older drivers
+static nvmlReturn_t (*nvmlDeviceGetTemperatureV)(nvmlDevice_t device, nvmlTemperature_v1_t *temperature);
 
 typedef enum {
   NVML_MEMORY_ERROR_TYPE_CORRECTED = 0,
@@ -598,11 +611,12 @@ static const char *local_error_string = didnt_call_gpuinfo_init;
 
 // Processes GPU Utilization
 
-// Reads a single unsigned NVML field value, widening the member identified by
-// valueType. Missing entry points, failed queries and other value types leave
-// the output untouched.
-static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int field_id, unsigned int scope_id,
-                                               unsigned long long *value) {
+// Reads a single integer NVML field value, widening the member identified by
+// valueType. NVML does not document the type of most fields, so every integer
+// type is accepted; unsigned values beyond LLONG_MAX are capped to it. Missing
+// entry points, failed queries and non-integer types leave the output untouched.
+static bool gpuinfo_nvidia_get_field_value_ll(nvmlDevice_t device, unsigned int field_id, unsigned int scope_id,
+                                              long long *value) {
   if (!nvmlDeviceGetFieldValues)
     return false;
   nvmlFieldValue_t field = {0};
@@ -611,14 +625,20 @@ static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int
   if (nvmlDeviceGetFieldValues(device, 1, &field) != NVML_SUCCESS || field.nvmlReturn != NVML_SUCCESS)
     return false;
   switch (field.valueType) {
+  case NVML_VALUE_TYPE_SIGNED_INT:
+    *value = field.value.siVal;
+    break;
+  case NVML_VALUE_TYPE_SIGNED_LONG_LONG:
+    *value = field.value.sllVal;
+    break;
   case NVML_VALUE_TYPE_UNSIGNED_INT:
     *value = field.value.uiVal;
     break;
   case NVML_VALUE_TYPE_UNSIGNED_LONG:
-    *value = field.value.ulVal;
+    *value = field.value.ulVal > LLONG_MAX ? LLONG_MAX : (long long)field.value.ulVal;
     break;
   case NVML_VALUE_TYPE_UNSIGNED_LONG_LONG:
-    *value = field.value.ullVal;
+    *value = field.value.ullVal > LLONG_MAX ? LLONG_MAX : (long long)field.value.ullVal;
     break;
   case NVML_VALUE_TYPE_UNSIGNED_SHORT:
     *value = field.value.usVal;
@@ -632,10 +652,10 @@ static bool gpuinfo_nvidia_get_field_value_u64(nvmlDevice_t device, unsigned int
 // Number of NVLink-C2C links the GPU is attached over. The C2C mode query only
 // says whether the attachment is enabled; the link count is what the header can
 // display in place of a PCIe link. Devices without a C2C attach report either a
-// failed query or a count of zero, and both mean "no links".
+// failed query or a count of zero (or below), and all mean "no links".
 static unsigned gpuinfo_nvidia_c2c_link_count(nvmlDevice_t device) {
-  unsigned long long count = 0;
-  if (!gpuinfo_nvidia_get_field_value_u64(device, NVML_FI_DEV_C2C_LINK_COUNT, 0, &count))
+  long long count = 0;
+  if (!gpuinfo_nvidia_get_field_value_ll(device, NVML_FI_DEV_C2C_LINK_COUNT, 0, &count) || count <= 0)
     return 0;
   return count > UINT_MAX ? UINT_MAX : (unsigned)count;
 }
@@ -674,6 +694,7 @@ struct gpu_info_nvidia {
   NvPhysicalGpuHandle nvapihandle; // NULL unless NvAPI resolved this same GPU
   unsigned int nvapi_clocks_version; // NvAPI clock layout that matched NVML, 0 until one does
   bool isInMigMode;
+  bool has_hotspot_temp; // NVML reports the NVML_TEMPERATURE_GPU_MAX sensor
   unsigned long long last_utilization_timestamp;
 
   // NVLink throughput via NVML API (data counters, aggregate across all links)
@@ -926,6 +947,8 @@ static bool gpuinfo_nvidia_init_with_lib(const char *libname) {
   // These ones might not be available
   nvmlDeviceGetProcessUtilization = dlsym(libnvidia_ml_handle, "nvmlDeviceGetProcessUtilization");
   nvmlDeviceGetMigMode = dlsym(libnvidia_ml_handle, "nvmlDeviceGetMigMode");
+  // Hotspot temperature, since NVML 13.4
+  nvmlDeviceGetTemperatureV = dlsym(libnvidia_ml_handle, "nvmlDeviceGetTemperatureV");
 
   // NVLink functions (optional - not available on all drivers/hardware)
   nvmlDeviceGetNvLinkState = dlsym(libnvidia_ml_handle, "nvmlDeviceGetNvLinkState");
@@ -1032,6 +1055,31 @@ static bool gpuinfo_nvidia_get_device_handles(struct list_head *devices, unsigne
     }
   }
 
+  return true;
+}
+
+// Reads the hotspot (hottest part of the die) temperature. Older drivers and GPUs without
+// the sensor do not report it.
+static bool nvidia_read_hotspot_temp(nvmlDevice_t device, unsigned int *hotspot_temp) {
+  if (!nvmlDeviceGetTemperatureV)
+    return false;
+  nvmlTemperature_v1_t temperature = {
+      .version = (unsigned int)(sizeof(temperature) | (1u << 24)),
+      .sensorType = NVML_TEMPERATURE_GPU_MAX,
+  };
+  if (nvmlDeviceGetTemperatureV(device, &temperature) != NVML_SUCCESS || temperature.temperature <= 0 ||
+      temperature.temperature >= 200)
+    return false;
+  *hotspot_temp = (unsigned int)temperature.temperature;
+  return true;
+}
+
+// Reads NVML_FI_DEV_MEMORY_TEMP. Consumer GPUs return NVML_ERROR_NOT_SUPPORTED for this field.
+static bool nvidia_read_mem_temp(nvmlDevice_t device, unsigned int *mem_temp) {
+  long long value;
+  if (!gpuinfo_nvidia_get_field_value_ll(device, NVML_FI_DEV_MEMORY_TEMP, 0, &value) || value <= 0 || value >= 200)
+    return false;
+  *mem_temp = (unsigned int)value;
   return true;
 }
 
@@ -1157,6 +1205,20 @@ static void gpuinfo_nvidia_populate_static_info(struct gpu_info *_gpu_info) {
                                                               &static_info->temperature_slowdown_threshold);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_temperature_slowdown_threshold_valid, static_info->valid);
+
+  last_nvml_return_status = nvmlDeviceGetTemperatureThreshold(device, NVML_TEMPERATURE_THRESHOLD_MEM_MAX,
+                                                              &static_info->temperature_mem_max_threshold);
+  if (last_nvml_return_status == NVML_SUCCESS)
+    SET_VALID(gpuinfo_temperature_mem_max_threshold_valid, static_info->valid);
+
+  // Only datacenter GPUs report the memory temperature
+  unsigned int mem_temp;
+  static_info->mem_temp_sensor = nvidia_read_mem_temp(device, &mem_temp);
+
+  // NVML has no hotspot slowdown threshold: the interface colors the hotspot from the GPU
+  // temperature against its slowdown threshold instead
+  unsigned int hotspot_temp;
+  gpu_info->has_hotspot_temp = nvidia_read_hotspot_temp(device, &hotspot_temp);
 }
 
 static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
@@ -1333,6 +1395,16 @@ static void gpuinfo_nvidia_refresh_dynamic_info(struct gpu_info *_gpu_info) {
   last_nvml_return_status = nvmlDeviceGetTemperature(device, NVML_TEMPERATURE_GPU, &dynamic_info->gpu_temp);
   if (last_nvml_return_status == NVML_SUCCESS)
     SET_VALID(gpuinfo_gpu_temp_valid, dynamic_info->valid);
+
+  // Hotspot temperature
+  unsigned int hotspot_temp;
+  if (gpu_info->has_hotspot_temp && nvidia_read_hotspot_temp(device, &hotspot_temp))
+    SET_GPUINFO_DYNAMIC(dynamic_info, gpu_hotspot_temp, hotspot_temp);
+
+  // Device memory temperature, only reported by datacenter GPUs
+  unsigned int mem_temp;
+  if (gpu_info->base.static_info.mem_temp_sensor && nvidia_read_mem_temp(device, &mem_temp))
+    SET_GPUINFO_DYNAMIC(dynamic_info, mem_temp, mem_temp);
 
   // Device power usage
   last_nvml_return_status = nvmlDeviceGetPowerUsage(device, &dynamic_info->power_draw);
