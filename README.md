@@ -487,7 +487,7 @@ rx/tx throughput, and the processes using each device with their device memory a
   `On Chip ...`, avoiding a memory leak in HLML's temperature call. Only that file is read; relabeling or ignoring the
   sensors in other `sensors.d` files is not followed. If the file is absent, yields no matching sensors, or selects a
   different number of AIP sensors than HLML's per-ASIC map, nvtop falls back to the HLML call.
-* HLML also enumerates Goya devices; nvtop reports them as Goya with DDR4 memory. Goya has not been validated on
+* HLML also enumerates Goya devices; nvtop reports them as Goya with DDR memory. Goya has not been validated on
   hardware.
 * The power limit is that of the main (54 V) power supply; `hl-smi` adds the auxiliary 12 V supply to its cap.
 

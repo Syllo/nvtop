@@ -736,7 +736,8 @@ static void compose_device_name(const char *family, const char *board_name, char
 
 static const char *device_memory_type(const char *family) {
   // Goya, which HLML can also enumerate, is the one Habana ASIC using DDR.
-  return strncmp(family, "Goya", 4) == 0 ? "DDR4" : "HBM";
+  // Keep the label three characters wide so five-digit memory clocks fit.
+  return strncmp(family, "Goya", 4) == 0 ? "DDR" : "HBM";
 }
 
 // Calls HLML for the device name and temperature thresholds. It must run
